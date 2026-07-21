@@ -1,0 +1,39 @@
+---
+title: Many-item Pointers
+description: "[*]T — a pointer to an unknown number of items."
+section: Language
+order: 22
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="02-language.many-item-pointers" />
+
+C has one pointer type, `T*`, which is used for three different things: one
+item, many items, and "maybe nothing". Zig splits them apart:
+
+| Zig | Meaning |
+| --- | --- |
+| `*T` | exactly one `T` |
+| `[*]T` | many `T`, count unknown |
+| `[]T` | many `T`, count known — a [slice](/language-basics/slices/) |
+| `?*T` | one `T`, or nothing |
+
+## What `[*]T` gives up
+
+A many-item pointer supports indexing and pointer arithmetic, but has no `.len`
+and therefore **no bounds checking**. It exists mainly for C interop and for
+implementing the safe abstractions on top.
+
+The moment you know the length, convert to a slice:
+
+```zig
+const slice: []u8 = many[0..count];
+```
+
+That single step buys back bounds checks, `for` iteration, and `.len`. Prefer
+slices everywhere except the boundary where a length genuinely is not available.
+
+Correspondingly, `*T` deliberately does *not* support indexing — `ptr[1]` on a
+single-item pointer is a compile error, catching a class of C bug at the type
+level.

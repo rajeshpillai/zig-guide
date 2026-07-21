@@ -1,0 +1,39 @@
+---
+title: Arrays
+description: Fixed-length sequences whose length is part of the type.
+section: Language
+order: 11
+---
+
+import Playground from "../../../components/Playground.astro";
+
+An array is written `[N]T`. The length `N` is part of the *type*, so `[3]u8`
+and `[4]u8` are as different as `u8` and `u16`.
+
+<Playground name="02-language.arrays" />
+
+## Arrays are values
+
+Assigning an array copies it. This is the opposite of C, where an array decays
+to a pointer at the slightest provocation. If you want a reference, take one
+explicitly with `&`, which gives you a [slice](/language-basics/slices/).
+
+`.len` is a compile-time constant, not a field read at runtime.
+
+## `**` is gone
+
+Older tutorials — including the current zig.guide — show array repetition:
+
+```zig
+const dashes = "-" ** 5;   // does not compile on master
+```
+
+The `**` operator has been **removed**; `**` no longer even tokenises, so the
+compiler reports a confusing message about whitespace around `*`. Use `@splat`
+instead:
+
+```zig
+const dashes: [5]u8 = @splat('-');
+```
+
+Concatenation with `++` is unaffected and still works at comptime.

@@ -1,0 +1,33 @@
+---
+title: Pointers
+description: Single-item pointers that are never null.
+section: Language
+order: 20
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A `*T` refers to exactly one `T`. Take an address with `&`, and dereference
+with `.*` — a postfix operator, so it chains left to right like field access.
+
+<Playground name="02-language.pointers" />
+
+## Never null
+
+There is no null `*T`. If a pointer may be absent, its type says so: `?*T`.
+This is not merely a convention — the compiler will not let you dereference the
+optional without unwrapping it first.
+
+The representation costs nothing. Zig uses the null address as the `null` tag,
+so `?*T` is the same size as `*T`. You get the safety without the wrapper.
+
+## Constness travels with the pointer
+
+`&some_const` gives you a `*const T`, and you cannot assign through it. Note
+that this is about what the *pointer* permits, which is separate from whether
+the pointer variable itself can be reassigned:
+
+```zig
+var p: *const u8 = &a;   // p can point elsewhere; p.* cannot be written
+const q: *u8 = &b;       // q always points at b; q.* can be written
+```

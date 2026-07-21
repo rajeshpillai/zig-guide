@@ -1,0 +1,43 @@
+---
+title: For Loops
+description: Iterate over sequences and ranges, never a bare counter.
+section: Language
+order: 14
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="02-language.for-loops" />
+
+Zig's `for` iterates over something — a slice, an array, a range. There is no
+three-clause `for (i = 0; i < n; i++)`; that is what `while` is for. The result
+is that the common case carries no opportunity for an off-by-one.
+
+## Indices are opt-in
+
+```zig
+for (items, 0..) |item, index| { ... }
+```
+
+The `0..` is a second sequence to iterate in lockstep, not special syntax. You
+only pay for the index when you ask for it.
+
+## Iterating several sequences together
+
+The same mechanism zips any number of sequences:
+
+```zig
+for (names, scores) |name, score| { ... }
+```
+
+Lengths must match — a mismatch is checked, so this cannot silently read past
+the end of the shorter one.
+
+## Mutating in place
+
+Capturing by value gives you a copy. To modify the underlying elements, iterate
+over a pointer to the array and capture by pointer:
+
+```zig
+for (&numbers) |*n| n.* *= 2;
+```

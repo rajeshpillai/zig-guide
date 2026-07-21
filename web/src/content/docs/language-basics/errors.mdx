@@ -1,0 +1,42 @@
+---
+title: Errors
+description: Errors are values in a union, not exceptions.
+section: Language
+order: 17
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Zig has no exceptions. A function that can fail returns an **error union**,
+written `E!T` — either an error from set `E`, or a `T`.
+
+<Playground name="02-language.errors" />
+
+## Error sets are types
+
+```zig
+const FileOpenError = error{ AccessDenied, OutOfMemory, FileNotFound };
+```
+
+A narrow set coerces into a wider one, so a function returning
+`error{OutOfMemory}` can be called from one returning `FileOpenError` without
+ceremony. `anyerror` is the set of all errors — convenient, but it discards
+exactly the information that makes this system useful.
+
+## Four ways to handle one
+
+| Form | Meaning |
+| --- | --- |
+| `try x` | unwrap, or return the error to my caller |
+| `x catch fallback` | unwrap, or use this value instead |
+| `x catch \|err\| { ... }` | unwrap, or handle the error here |
+| `if (x) \|v\| ... else \|err\| ...` | branch on both outcomes |
+
+`try` is by far the most common, and it is *only* shorthand:
+`x catch |err| return err`.
+
+## Why this beats exceptions
+
+The failure paths are in the type signature and in the control flow you can
+see. There is no invisible unwinding, no hidden second exit from every line —
+which is the same reason `defer` is needed and sufficient for cleanup.

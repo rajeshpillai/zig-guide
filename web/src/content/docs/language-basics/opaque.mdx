@@ -1,0 +1,40 @@
+---
+title: Opaque
+description: Types with unknown size, used through pointers only.
+section: Language
+order: 36
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="02-language.opaque" />
+
+An `opaque {}` type has unknown size and layout. You can never have one by
+value — only a pointer to one.
+
+## Why you would want that
+
+This is the Zig spelling of C's incomplete type:
+
+```c
+typedef struct Window Window;   /* definition not provided */
+Window *create_window(void);
+```
+
+The library hands you a `*Window` and you may only pass it back. You cannot
+inspect it, copy it, or put it on the stack, because its size is genuinely not
+part of the public interface.
+
+## Better than `void*`
+
+C's usual alternative is `void*`, which erases the type entirely — nothing stops
+you passing a `*File` where a `*Window` was expected. Distinct opaque types stay
+distinct:
+
+```zig
+*Window != *Handle    // different types, checked by the compiler
+```
+
+You keep the "you may not look inside" property without giving up type safety
+at the boundary. Opaque types can also have methods, so the handle still reads
+like an object: `window.close()`.
