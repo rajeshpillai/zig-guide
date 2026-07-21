@@ -1,0 +1,44 @@
+---
+title: Structs
+description: Layout, defaults, and methods.
+section: Language
+order: 25
+---
+
+import Playground from "../../components/Playground.astro";
+
+<Playground name="02-language.structs" />
+
+## Defaults
+
+Fields may declare a default, so a literal only mentions what differs:
+
+```zig
+const v = Vec3{ .x = 5 };   // y and z default to 0
+```
+
+A field with no default must be supplied; there is no zero-initialisation by
+fiat.
+
+## Methods and the receiver
+
+A method taking `self: Vec3` gets a copy; one taking `self: *Vec3` can mutate
+the original. Calling a `*Vec3` method requires a mutable value — `v` must be a
+`var`, and Zig takes the address for you.
+
+Choose the receiver deliberately: `Vec3` for small value types you want copied,
+`*const Vec3` for large ones you only read, `*Vec3` to mutate.
+
+## Layout is not guaranteed
+
+A plain `struct` may have its fields reordered and padded however the compiler
+sees fit. When the layout matters, say so:
+
+| Declaration | Layout |
+| --- | --- |
+| `struct` | unspecified; optimiser's choice |
+| `extern struct` | C ABI compatible |
+| `packed struct` | bit-level, well-defined, backed by an integer |
+
+Reaching for `extern` or `packed` "just in case" costs you the packing the
+optimiser would otherwise do, so use them only at real boundaries.

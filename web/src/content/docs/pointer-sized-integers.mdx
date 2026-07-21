@@ -1,0 +1,33 @@
+---
+title: Pointer Sized Integers
+description: usize, isize, and why they are not just u64.
+section: Language
+order: 21
+---
+
+import Playground from "../../components/Playground.astro";
+
+<Playground name="02-language.pointer-sized-integers" />
+
+`usize` and `isize` are exactly as wide as a pointer on the target. They are
+the types of `.len` and of anything used to index a slice.
+
+## They are target-dependent, and that is the point
+
+The snippets on this site compile to `wasm32-wasi`, so `@sizeOf(usize)` is
+**4**. Build the identical source for `x86_64` and it is 8. That is why the
+last test above asserts 4 — it is a fact about the target, not about Zig.
+
+Writing `u64` where you mean `usize` produces code that works on your machine
+and breaks on a 32-bit one. Writing `usize` where you mean "a 64-bit counter"
+produces code that silently narrows on wasm. The distinction is worth keeping
+straight.
+
+## Converting
+
+Integer casts are never implicit when they could lose information, so going
+between `usize` and a fixed width is explicit:
+
+```zig
+const n: u32 = @intCast(slice.len);   // checked in safety builds
+```

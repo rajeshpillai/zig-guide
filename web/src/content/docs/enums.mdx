@@ -1,0 +1,45 @@
+---
+title: Enums
+description: Named values, fixed tags, and methods.
+section: Language
+order: 24
+---
+
+import Playground from "../../components/Playground.astro";
+
+<Playground name="02-language.enums" />
+
+## Inferred literals
+
+When the expected type is known, the leading dot is enough:
+
+```zig
+const d: Direction = .north;
+takeDirection(.south);
+```
+
+This keeps `switch` prongs and struct literals readable without repeating the
+type name everywhere.
+
+## Pinning the representation
+
+```zig
+const Value = enum(u8) { zero = 0, one = 1, hundred = 100 };
+```
+
+Specifying the tag type fixes both the size and the numeric values, which
+matters for wire formats and C interop. Convert with `@intFromEnum` and
+`@enumFromInt` — the latter is checked in safety builds, because not every
+integer is a valid tag.
+
+## Methods
+
+Enums can declare functions. `Suit.hearts.isRed()` is exactly
+`Suit.isRed(Suit.hearts)` — method syntax is sugar for passing the receiver as
+the first argument. There is no dynamic dispatch and no vtable.
+
+## Reflection
+
+`@typeInfo(T).@"enum".fields` exposes the tags at comptime, and `@tagName`
+gives the name as a string. This is how generic code prints or parses enums
+without a hand-written table.

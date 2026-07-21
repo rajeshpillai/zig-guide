@@ -1,0 +1,49 @@
+---
+title: Unions
+description: One of several types, sharing one allocation.
+section: Language
+order: 26
+---
+
+import Playground from "../../components/Playground.astro";
+
+<Playground name="02-language.unions" />
+
+A union holds one of its fields at a time. The question is always: *which one*?
+
+## Bare unions do not know
+
+```zig
+const Payload = union { int: i64, float: f64 };
+```
+
+Reading a field that is not the active one is illegal behaviour. Bare unions
+exist for C interop and for cases where the tag is already tracked elsewhere.
+
+## Tagged unions do
+
+```zig
+const Tagged = union(Tag) { int: i64, float: f64, none: void };
+```
+
+Now the value carries its tag, `switch` can discriminate safely, and the switch
+must be exhaustive. This is Zig's sum type, and it is what you almost always
+want — it is the same construct that makes error unions and optionals work.
+
+Capturing by pointer in a prong lets you mutate in place:
+
+```zig
+switch (value) {
+    .int => |*n| n.* += 1,
+    ...
+}
+```
+
+## `union(enum)`
+
+Writing `union(enum)` infers the tag enum from the field names, so you do not
+have to declare and maintain a parallel `enum`. Use the explicit form only when
+you need the enum as a named type of its own, or need to pin its values.
+
+Get the tag with `@as(Tag, value)`, or compare directly against `.float` in a
+`switch`.
