@@ -85,7 +85,10 @@ if (( SKIP_E2E )); then
   step "Skipping browser verification (--skip-e2e)"
 else
   step "Verifying in a real browser"
-  (cd web && npm run e2e) || die "browser verification failed — not deploying"
+  # BASE_PATH must reach the e2e too: a project site embeds that prefix in
+  # every absolute URL, so a server mounted at root 404s on every page.
+  (cd web && BASE_PATH="$BASE_PATH" npm run e2e) \
+    || die "browser verification failed — not deploying"
 fi
 
 # Pages does not run Jekyll for us, and Jekyll would eat the _astro directory.

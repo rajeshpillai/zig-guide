@@ -22,6 +22,12 @@ jobs:
   verify:
     name: Snippets compile & run on Zig master
     runs-on: ubuntu-latest
+    # Job-level so the browser check sees the same prefix the site was built
+    # with — a project site embeds it in every absolute URL, and a mismatch
+    # makes every page 404.
+    env:
+      SITE_URL: ${{ vars.SITE_URL || 'https://rajeshpillai.github.io' }}
+      BASE_PATH: ${{ vars.BASE_PATH || '/zig-guide/' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,9 +60,6 @@ jobs:
 
       - name: Build site
         working-directory: web
-        env:
-          SITE_URL: ${{ vars.SITE_URL || 'https://rajeshpillai.github.io' }}
-          BASE_PATH: ${{ vars.BASE_PATH || '/zig-guide/' }}
         run: npx astro build
 
       # Proves the other half of the guarantee: that the published pages

@@ -76,7 +76,11 @@ let playgrounds = 0;
 let compileOnly = 0;
 
 for (const href of chapters) {
-  await page.goto(BASE + href, { waitUntil: "networkidle" });
+  const response = await page.goto(BASE + href, { waitUntil: "networkidle" });
+  if (!response || !response.ok()) {
+    failures.push(`${href} -> HTTP ${response?.status() ?? "no response"}`);
+    continue;
+  }
   compileOnly += await page.locator(".pg-static").count();
 
   for (const link of await page.$$eval("main a[href^='/']", (as) =>
@@ -131,6 +135,16 @@ console.log(
     `compile-only: ${compileOnly}  links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  console errors: ${consoleErrors.size}`,
 );
+
+// A run that exercised nothing must not report success — that would turn a
+// broken base path or a missing bundle into a green build.
+if (playgrounds === 0) {
+  failures.push(
+    `no playgrounds were exercised across ${chapters.length} pages — ` +
+      `the site is probably not being served at the expected path ` +
+      `(BASE_PATH=${JSON.stringify(PREFIX)})`,
+  );
+}
 
 if (failures.length || consoleErrors.size) {
   console.error("\nFailures:");
