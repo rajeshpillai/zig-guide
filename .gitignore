@@ -1,0 +1,14 @@
+# Zig
+.zig-cache/
+zig-out/
+
+# Node / Astro
+node_modules/
+web/dist/
+web/.astro/
+
+# Generated artifacts — reproduce with `zig build`
+web/public/wasm/
+
+# Optional in-browser compiler — reproduce with tools/build-browser-compiler.sh
+web/public/compiler/

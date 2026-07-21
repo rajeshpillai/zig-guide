@@ -1,0 +1,79 @@
+name: Verify & Deploy
+
+# The whole point of this project: prove every snippet still compiles and runs
+# against current Zig master. The nightly schedule is what turns "we tested it
+# once" into "this is true today".
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * *" # daily, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Snippets compile & run on Zig master
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Record the Zig version under test
+        run: |
+          echo "ZIG_VERSION=$(zig version)" >> "$GITHUB_ENV"
+          echo "Testing against Zig $(zig version)" >> "$GITHUB_STEP_SUMMARY"
+
+      # Compiles every snippet to wasm32-wasi and executes it, comparing
+      # against any .expected file. A stale API or wrong output fails here.
+      - name: Verify snippets
+        run: zig build verify
+
+      - name: Emit wasm + manifest
+        run: zig build
+
+      - name: Install site dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build site
+        working-directory: web
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://example.github.io' }}
+          BASE_PATH: ${{ vars.BASE_PATH || '/' }}
+        run: npx astro build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,66 @@
+---
+import { getCollection } from "astro:content";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+  zigVersion?: string;
+}
+
+const { title, description } = Astro.props;
+
+const docs = await getCollection("docs");
+const sections = new Map<string, typeof docs>();
+for (const doc of docs.sort((a, b) => a.data.order - b.data.order)) {
+  const list = sections.get(doc.data.section) ?? [];
+  list.push(doc);
+  sections.set(doc.data.section, list);
+}
+
+const base = import.meta.env.BASE_URL;
+const current = Astro.url.pathname;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · zig.guide</title>
+    {description && <meta name="description" content={description} />}
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href={base}>⚡ zig.guide</a>
+      <span class="version" id="zig-version">tracking Zig master</span>
+    </header>
+
+    <div class="shell">
+      <nav class="sidebar">
+        {
+          [...sections].map(([section, entries]) => (
+            <section>
+              <h2>{section}</h2>
+              <ul>
+                {entries.map((entry) => (
+                  <li>
+                    <a
+                      href={`${base}${entry.id}/`}
+                      aria-current={current.endsWith(`/${entry.id}/`) ? "page" : undefined}
+                    >
+                      {entry.data.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        }
+      </nav>
+
+      <main>
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

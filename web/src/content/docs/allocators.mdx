@@ -1,0 +1,46 @@
+---
+title: Allocators
+description: Explicit memory management, passed as a value.
+section: Standard Library
+order: 20
+---
+
+import Playground from "../../components/Playground.astro";
+
+Zig has no global allocator and no garbage collector. Anything that needs heap
+memory takes an `std.mem.Allocator` parameter, which means you can always see —
+from the signature alone — whether a function allocates.
+
+<Playground name="03-standard-library.allocators" />
+
+## Choosing an allocator
+
+The `Allocator` interface is one type, but the strategy behind it is yours to
+pick:
+
+| Allocator | Frees when | Good for |
+| --- | --- | --- |
+| `ArenaAllocator` | `deinit()`, all at once | Request handlers, compilers, anything phase-shaped |
+| `FixedBufferAllocator` | never (bump pointer) | Embedded, hot loops, no-heap contexts |
+| `DebugAllocator` | per-`free`, with leak detection | Development builds |
+| `std.testing.allocator` | per-`free`, fails the test on leak | Tests |
+
+The arena is the one to reach for more often than you would think. If your
+program has a natural "do a unit of work, then throw everything away" shape,
+an arena turns hundreds of `free` calls into a single `deinit` — and removes a
+whole category of leak.
+
+## `defer` is what makes this bearable
+
+```zig
+const numbers = try allocator.alloc(u32, 10);
+defer allocator.free(numbers);
+```
+
+`defer` runs at scope exit, on every path — including early `return` and error
+returns. Writing the `free` on the line directly *after* the `alloc` keeps the
+pair visible in one glance, which is why Zig code reads the way it does.
+
+Note the test above uses `std.testing.allocator`: if a test leaks, the test
+fails. Leak checking is not an optional tool you remember to run, it is the
+default in tests.

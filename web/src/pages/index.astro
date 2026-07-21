@@ -1,0 +1,22 @@
+---
+import Base from "../layouts/Base.astro";
+import { getCollection } from "astro:content";
+
+const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
+const first = docs[0];
+const base = import.meta.env.BASE_URL;
+---
+
+<Base title="Learn Zig" description="A Zig guide that is verified against Zig master on every build.">
+  <h1>Learn Zig ⚡</h1>
+  <p>
+    A tutorial for the Zig programming language where <strong>every snippet is
+    compiled and executed against current Zig master on every build</strong>. If
+    an example on this site were out of date, the build would be red.
+  </p>
+  <p>
+    Snippets run in your browser as WebAssembly — the very same artifact CI
+    verified. No server, nothing to install.
+  </p>
+  {first && <p><a href={`${base}${first.id}/`}>Start with {first.data.title} →</a></p>}
+</Base>
