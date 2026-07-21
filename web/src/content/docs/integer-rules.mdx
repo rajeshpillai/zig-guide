@@ -1,0 +1,50 @@
+---
+title: Integer Rules
+description: Arbitrary widths, explicit narrowing, chosen overflow behaviour.
+section: Language
+order: 27
+---
+
+import Playground from "../../components/Playground.astro";
+
+<Playground name="02-language.integer-rules" />
+
+## Any width you like
+
+`u3`, `i7`, `u64`, `u1000` — all real types. `u8` is not special, it is just
+the one that happens to be a byte. Packed structs use this to describe bitfields
+exactly.
+
+## Widening is free, narrowing is not
+
+`u8` → `u16` is always safe, so Zig does it implicitly. The reverse can lose
+data, so it must be written:
+
+```zig
+const c: u8 = @intCast(b);
+```
+
+In a safety-enabled build `@intCast` panics if the value does not fit. In
+`ReleaseFast` it is illegal behaviour. Either way, the cast is visible in the
+source — you cannot lose the top bits by accident.
+
+## Overflow is a decision
+
+Plain `+` on integers **traps** on overflow rather than wrapping. If you want
+different behaviour, ask for it:
+
+| Operator | On overflow |
+| --- | --- |
+| `+` `-` `*` | illegal behaviour (panics in safety builds) |
+| `+%` `-%` `*%` | wrap around |
+| `+\|` `-\|` `*\|` | saturate at the type's limit |
+
+Or detect it: `@addWithOverflow(a, b)` returns a tuple of the wrapped result
+and an overflow bit.
+
+This is C's biggest silent-corruption source turned into an explicit choice.
+
+## `comptime_int`
+
+Literals have no width until they are assigned one. `1 << 100` is fine at
+compile time; it only needs to fit once it becomes a runtime value.

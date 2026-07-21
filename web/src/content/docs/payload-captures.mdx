@@ -1,0 +1,41 @@
+---
+title: Payload Captures
+description: The |value| syntax that unwraps everything.
+section: Language
+order: 32
+---
+
+import Playground from "../../components/Playground.astro";
+
+<Playground name="02-language.payload-captures" />
+
+The `|value|` syntax is one idea reused everywhere something is wrapped:
+
+| Construct | Captures |
+| --- | --- |
+| `if (optional) \|v\|` | the non-null payload |
+| `if (error_union) \|v\| else \|e\|` | the value, or the error |
+| `while (iter()) \|v\|` | each value until null |
+| `switch (tagged_union) { .a => \|v\| ... }` | the active variant's payload |
+| `for (slice) \|item\|` | each element |
+| `catch \|err\|` | the error |
+
+Learning it once means every wrapper type in the language is already familiar.
+
+## Capture by pointer to mutate
+
+`|*value|` captures a pointer instead of a copy, letting you modify the thing
+in place:
+
+```zig
+if (maybe) |*value| value.* += 1;
+
+switch (shape) {
+    .circle => |*r| r.* *= 2,
+    ...
+}
+```
+
+Without the `*` you get a copy, and mutating it silently does nothing to the
+original — one of the few places Zig will let you write something that looks
+effective but is not.

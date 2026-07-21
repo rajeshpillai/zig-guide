@@ -1,0 +1,27 @@
+---
+title: Labelled Loops
+description: Break or continue an outer loop by name.
+section: Language
+order: 30
+---
+
+import Playground from "../../components/Playground.astro";
+
+<Playground name="02-language.labelled-loops" />
+
+`break` and `continue` affect the innermost loop by default. Label a loop to
+target it explicitly:
+
+```zig
+outer: for (0..5) |i| {
+    for (0..5) |j| {
+        if (found) break :outer;      // leaves both loops
+        if (skip) continue :outer;    // next i, abandon remaining j
+    }
+}
+```
+
+The alternative in languages without this is a `found` flag checked after the
+inner loop, which is more code and easy to get subtly wrong. Being explicit
+about *which* loop also means adding a nesting level later cannot silently
+change what `break` does.

@@ -125,6 +125,9 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
     while (try walker.next(io)) |entry| {
         if (entry.kind != .file) continue;
         if (!std.mem.endsWith(u8, entry.basename, ".zig")) continue;
+        // `_name.zig` is a helper module imported by a snippet, not a
+        // snippet in its own right.
+        if (std.mem.startsWith(u8, entry.basename, "_")) continue;
 
         const rel = b.pathJoin(&.{ root, entry.path });
         const source = try build_root.readFileAlloc(io, rel, b.allocator, .limited(1 << 20));
