@@ -20,6 +20,10 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Keep the status bar at the viewport bottom on short pages. */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 code,
@@ -61,16 +65,26 @@ pre {
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 2rem;
   max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
   padding: 2rem 1.5rem;
+  flex: 1;
 }
 
 .sidebar h2 {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--muted);
   margin: 1.5rem 0 0.5rem;
+}
+
+.sidebar h2 a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.sidebar h2 a:hover {
+  color: var(--text);
 }
 
 .sidebar ul {
@@ -116,6 +130,134 @@ main :not(pre) > code {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.1em 0.35em;
+}
+
+/* ---------- breadcrumbs ---------- */
+
+.breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.breadcrumbs li + li::before {
+  content: "/";
+  margin-right: 0.4rem;
+  color: var(--border);
+}
+
+.breadcrumbs a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.breadcrumbs [aria-current="page"] {
+  color: var(--text);
+}
+
+/* ---------- section index ---------- */
+
+.section-lede {
+  color: var(--muted);
+}
+
+.section-index {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.section-index li {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  background: var(--surface);
+}
+
+.section-index a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.section-index a:hover {
+  text-decoration: underline;
+}
+
+.section-index span {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* ---------- status bar ---------- */
+
+.statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  padding: 0.6rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.status-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.statusbar strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.status-sub {
+  color: var(--muted);
+}
+
+.status-credit {
+  margin-left: auto;
+}
+
+.status-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.status-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.status-links a:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .status-credit {
+    margin-left: 0;
+  }
 }
 
 /* ---------- playground ---------- */

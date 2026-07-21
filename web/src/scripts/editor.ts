@@ -5,6 +5,7 @@ import { oneDark } from "@codemirror/theme-one-dark";
 
 export interface MountedEditor {
   getSource(): string;
+  setSource(text: string): void;
 }
 
 /**
@@ -26,5 +27,9 @@ export function mountEditor(host: HTMLElement, source: string): MountedEditor {
 
   return {
     getSource: () => view.state.doc.toString(),
+    setSource: (text: string) =>
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: text },
+      }),
   };
 }

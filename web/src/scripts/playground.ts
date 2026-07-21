@@ -21,7 +21,10 @@ class ZigPlayground extends HTMLElement {
   #status!: HTMLSpanElement;
   #runButton!: HTMLButtonElement;
   #editButton!: HTMLButtonElement;
-  #editor: { getSource(): string } | null = null;
+  #revertButton!: HTMLButtonElement;
+  #editor: { getSource(): string; setSource(text: string): void } | null = null;
+  /** The CI-verified source, captured before the editor can change it. */
+  #original = "";
 
   /** Path to the prebuilt wasm, relative to the site root. */
   get #wasmUrl(): string {
@@ -46,10 +49,20 @@ class ZigPlayground extends HTMLElement {
     this.#editButton.textContent = "Edit";
     this.#editButton.addEventListener("click", () => void this.#enableEditing());
 
+    // Hidden until editing starts — there is nothing to revert before that.
+    this.#revertButton = document.createElement("button");
+    this.#revertButton.className = "pg-revert";
+    this.#revertButton.textContent = "Revert";
+    this.#revertButton.hidden = true;
+    this.#revertButton.addEventListener("click", () => this.#revert());
+
     this.#status = document.createElement("span");
     this.#status.className = "pg-status";
 
-    toolbar.append(this.#runButton, this.#editButton, this.#status);
+    // Capture the pristine source now, before any edit can mutate the DOM.
+    this.#original = this.querySelector("pre")?.textContent ?? "";
+
+    toolbar.append(this.#runButton, this.#editButton, this.#revertButton, this.#status);
 
     this.#output = document.createElement("pre");
     this.#output.className = "pg-output";
@@ -62,9 +75,11 @@ class ZigPlayground extends HTMLElement {
   async #run() {
     this.#setBusy(true, "running…");
     try {
-      // An edited snippet must be recompiled; a pristine one already has a
-      // CI-verified artifact sitting on the CDN.
-      const url = this.#editor
+      // Compare against the original rather than merely checking whether the
+      // editor is open, so reverting an edit goes back to the prebuilt,
+      // CI-verified artifact instead of recompiling identical source.
+      const edited = this.#source.trim() !== this.#original.trim();
+      const url = edited
         ? await (await loadCompiler()).compile(this.#source, this.#kind())
         : this.#wasmUrl;
 
@@ -92,10 +107,22 @@ class ZigPlayground extends HTMLElement {
       this.#editor = mountEditor(pre, this.#source);
       this.#editButton.disabled = true;
       this.#editButton.textContent = "Editing";
+      this.#revertButton.hidden = false;
       this.#status.textContent = "editable — Run will recompile";
     } finally {
       this.#setBusy(false);
     }
+  }
+
+  /**
+   * Restore the CI-verified source. The snippet becomes pristine again, so
+   * Run goes back to the prebuilt wasm instead of recompiling in-browser.
+   */
+  #revert() {
+    if (!this.#editor) return;
+    this.#editor.setSource(this.#original);
+    this.#output.hidden = true;
+    this.#status.textContent = "reverted to the verified original";
   }
 
   #setBusy(busy: boolean, message = "") {

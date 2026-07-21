@@ -87,6 +87,18 @@ pub fn build(b: *std.Build) void {
         }
     }
 
+    // Record the exact compiler that verified these snippets, so the site can
+    // state it rather than claiming a version nobody checked.
+    const build_info = b.addWriteFiles().add("build-info.json", b.fmt(
+        \\{{"zigVersion":"{f}","snippetCount":{d}}}
+        \\
+    , .{ @import("builtin").zig_version, snippets.items.len }));
+    b.getInstallStep().dependOn(&b.addInstallFileWithDir(
+        build_info,
+        .{ .custom = wasm_out_dir },
+        "build-info.json",
+    ).step);
+
     const manifest = writeManifest(b, snippets.items);
     const install_manifest = b.addInstallFileWithDir(
         manifest,

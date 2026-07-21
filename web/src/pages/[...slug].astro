@@ -5,16 +5,69 @@ import Playground from "../components/Playground.astro";
 
 export async function getStaticPaths() {
   const docs = await getCollection("docs");
-  return docs.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+
+  // One page per chapter.
+  const paths = docs.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry, section: null },
+  }));
+
+  // Plus an index per section, so the breadcrumb's middle link resolves.
+  const sections = new Map();
+  for (const doc of docs) {
+    const slug = doc.id.split("/")[0];
+    const bucket = sections.get(slug) ?? { title: doc.data.section, slug, entries: [] };
+    bucket.entries.push(doc);
+    sections.set(slug, bucket);
+  }
+  for (const [slug, bucket] of sections) {
+    bucket.entries.sort((a, b) => a.data.order - b.data.order);
+    paths.push({ params: { slug }, props: { entry: null, section: bucket } });
+  }
+
+  return paths;
 }
 
-const { entry } = Astro.props;
-const { Content } = await render(entry);
+const { entry, section } = Astro.props;
+const base = import.meta.env.BASE_URL;
+
+// Only chapters have MDX bodies to render.
+const Content = entry ? (await render(entry)).Content : null;
+
+const crumbs = section
+  ? [{ label: section.title }]
+  : [
+      { label: entry.data.section, href: `${base}${entry.id.split("/")[0]}/` },
+      { label: entry.data.title },
+    ];
 ---
 
-<Base title={entry.data.title} description={entry.data.description}>
-  <article>
-    <h1>{entry.data.title}</h1>
-    <Content components={{ Playground }} />
-  </article>
+<Base
+  title={section ? section.title : entry.data.title}
+  description={section
+    ? `${section.entries.length} chapters on ${section.title}.`
+    : entry.data.description}
+  crumbs={crumbs}
+>
+  {
+    section ? (
+      <article>
+        <h1>{section.title}</h1>
+        <p class="section-lede">{section.entries.length} chapters.</p>
+        <ul class="section-index">
+          {section.entries.map((chapter) => (
+            <li>
+              <a href={`${base}${chapter.id}/`}>{chapter.data.title}</a>
+              {chapter.data.description && <span>{chapter.data.description}</span>}
+            </li>
+          ))}
+        </ul>
+      </article>
+    ) : (
+      <article>
+        <h1>{entry.data.title}</h1>
+        <Content components={{ Playground }} />
+      </article>
+    )
+  }
 </Base>
