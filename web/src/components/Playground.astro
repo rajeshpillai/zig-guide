@@ -8,7 +8,6 @@
  */
 import { Code } from "astro:components";
 import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 interface Props {
@@ -24,11 +23,6 @@ const { name, note } = Astro.props;
 // which points into the bundle output once this component is compiled.
 const webRoot = process.cwd();
 const manifestPath = resolve(webRoot, "public/wasm/snippets.json");
-
-// Editing requires recompiling, which requires the in-browser Zig compiler.
-// Those artifacts are optional and git-ignored, so only offer Edit when this
-// build actually has them — otherwise the button could only ever error.
-const editable = existsSync(resolve(webRoot, "public/compiler/zig.wasm"));
 
 interface Entry {
   name: string;
@@ -68,7 +62,6 @@ const shown = source.replace(/^(\/\/!.*\n)+\n?/, "").trimEnd();
       data-wasm={entry.wasm}
       data-kind={entry.kind}
       data-name={entry.name}
-      data-editable={editable ? "true" : undefined}
     >
       <Code code={shown} lang="zig" theme="github-dark" />
     </zig-playground>

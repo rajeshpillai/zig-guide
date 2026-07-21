@@ -49,11 +49,6 @@ class ZigPlayground extends HTMLElement {
     this.#editButton.textContent = "Edit";
     this.#editButton.addEventListener("click", () => void this.#enableEditing());
 
-    // Editing needs the in-browser compiler to recompile the result. When this
-    // build has no compiler artifacts, offering Edit would only ever produce
-    // an error, so leave it out entirely.
-    this.#editButton.hidden = this.dataset.editable !== "true";
-
     // Hidden until editing starts — there is nothing to revert before that.
     this.#revertButton = document.createElement("button");
     this.#revertButton.className = "pg-revert";
@@ -92,11 +87,48 @@ class ZigPlayground extends HTMLElement {
       this.#show(output || "(no output)", exitCode === 0);
       this.#status.textContent = `exit ${exitCode} · ${durationMs.toFixed(0)}ms`;
     } catch (err) {
-      this.#show(err instanceof Error ? err.message : String(err), false);
+      const message = err instanceof Error ? err.message : String(err);
+      this.#show(message, false);
       this.#status.textContent = "failed";
+      // Recompiling needs the in-browser compiler, which this deployment may
+      // not carry. Offer a route that works rather than a dead end.
+      if (message.includes("in-browser Zig compiler is not available")) {
+        this.#offerExternalRun();
+      }
     } finally {
       this.#setBusy(false);
     }
+  }
+
+  /**
+   * Fallback when edited code cannot be recompiled here: copy the source and
+   * hand the reader to a playground that can run it.
+   */
+  #offerExternalRun() {
+    if (this.#output.querySelector(".pg-escape")) return;
+
+    const escape = document.createElement("div");
+    escape.className = "pg-escape";
+
+    const copy = document.createElement("button");
+    copy.textContent = "Copy source";
+    copy.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(this.#source);
+      copy.textContent = "Copied";
+      setTimeout(() => (copy.textContent = "Copy source"), 1500);
+    });
+
+    const link = document.createElement("a");
+    link.href = "https://playground.zigtools.org/";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open Zig playground ↗";
+
+    const hint = document.createElement("span");
+    hint.textContent = "Or press Revert to restore the verified original.";
+
+    escape.append(copy, link, hint);
+    this.#output.append(escape);
   }
 
   #kind(): "exe" | "test" {

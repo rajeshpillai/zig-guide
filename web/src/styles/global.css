@@ -355,6 +355,41 @@ zig-playground pre:not(.pg-output) {
   max-height: 30rem;
 }
 
+/* Fallback shown when edited code cannot be recompiled in this deployment. */
+.pg-escape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: normal;
+}
+
+.pg-escape button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.2rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #21262d;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.pg-escape a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pg-escape a:hover {
+  text-decoration: underline;
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 860px) {
