@@ -79,4 +79,12 @@ Content lives in `web/src/content/docs/<section>/*.mdx`; the directory maps to t
 
 - Pages is served from the **`gh-pages` branch**. Do not switch to `actions/deploy-pages` without also changing the repo Pages source, or the live site silently stops updating.
 - Both `gh-deploy.sh` and CI publish as a fresh **orphan commit** of `web/dist`, so anything else on that branch is deleted.
+**"Ship it"** means: work happens on `dev`, so fast-forward `main` onto `dev`, push `main` (that push is what deploys), then check `dev` back out and stay there.
+
+```bash
+git checkout main && git merge --ff-only dev && git push origin main && git checkout dev
+```
+
+If the fast-forward is refused, stop and report — do not merge or force-push without asking.
+
 - `SITE_URL` and `BASE_PATH` are job-level env vars (default project site at `/zig-guide/`), read from one place by both the build and the browser check on purpose — a split would build with the prefix while checking without it and 404 every page.

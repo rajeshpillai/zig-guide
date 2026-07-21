@@ -56,7 +56,20 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
     {description && <meta name="description" content={description} />}
   </head>
   <body>
+    {/* Checkbox, not a button: the drawer works with JS off. Must precede
+        `.shell` so CSS can reach the sidebar as a sibling. */}
+    <input class="nav-toggle" type="checkbox" id="nav-toggle" aria-label="Show chapters" />
+
     <header class="topbar">
+      <label class="nav-button" for="nav-toggle">
+        <svg class="nav-open" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="currentColor">
+          <path d="M1 3h14v2H1V3Zm0 4h14v2H1V7Zm0 4h14v2H1v-2Z"></path>
+        </svg>
+        <svg class="nav-close" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="currentColor">
+          <path d="M2.34 3.76 3.76 2.34 8 6.59l4.24-4.25 1.42 1.42L9.41 8l4.25 4.24-1.42 1.42L8 9.41l-4.24 4.25-1.42-1.42L6.59 8 2.34 3.76Z"></path>
+        </svg>
+        Chapters
+      </label>
       <a class="brand" href={base}>⚡ {SITE_NAME}</a>
       <span class="version" title="Every snippet is compiled and run against this compiler">
         Zig {zigVersion}
@@ -67,12 +80,23 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
     </header>
 
     <div class="shell">
-      <nav class="sidebar">
+      <nav class="sidebar" aria-label="Chapters">
         {
           [...sections].map(([section, { slug, entries }]) => (
-            <section>
-              <h2><a href={`${base}${slug}/`}>{section}</a></h2>
+            /* Open only the section the reader is in, so the phone drawer
+               starts as a short list rather than every chapter at once. */
+            <details class="nav-group" open={current.includes(`/${slug}/`)}>
+              <summary>{section}</summary>
               <ul>
+                <li>
+                  <a
+                    class="nav-overview"
+                    href={`${base}${slug}/`}
+                    aria-current={current.endsWith(`/${slug}/`) ? "page" : undefined}
+                  >
+                    Overview
+                  </a>
+                </li>
                 {entries.map((entry) => (
                   <li>
                     <a
@@ -84,9 +108,13 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
                   </li>
                 ))}
               </ul>
-            </section>
+            </details>
           ))
         }
+
+        <p class="nav-aside">
+          <a href={`${base}getting-started/coming-from-older-zig/`}>On an older Zig?</a>
+        </p>
       </nav>
 
       <main>

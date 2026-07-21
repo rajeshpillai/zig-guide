@@ -1,3 +1,8 @@
+/*
+ * Mobile-first: every rule below is the small-screen layout. The two
+ * `min-width` blocks near the bottom are the only places that widen it.
+ */
+
 :root {
   --bg: #0d1117;
   --surface: #161b22;
@@ -8,6 +13,8 @@
   --ok: #3fb950;
   --err: #f85149;
   --radius: 8px;
+  --gutter: 1rem;
+  --topbar-h: 3.25rem;
   color-scheme: dark;
 }
 
@@ -15,21 +22,30 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Landscape iOS otherwise inflates body text but not the code blocks. */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
-  /* Keep the status bar at the viewport bottom on short pages. */
-  min-height: 100vh;
+  /* Keep the status bar at the viewport bottom on short pages. `dvh` so
+     mobile browser chrome sliding away doesn't leave a gap. */
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* No child may force a sideways scroll of the whole page; wide things
+     (code, tables) scroll inside their own box instead. */
+  overflow-x: hidden;
 }
 
 code,
 pre {
   font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 /* ---------- chrome ---------- */
@@ -37,8 +53,9 @@ pre {
 .topbar {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem;
+  gap: 0.6rem;
+  padding: 0.6rem var(--gutter);
+  min-height: var(--topbar-h);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   position: sticky;
@@ -50,53 +67,175 @@ pre {
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
+  margin-right: auto;
+  /* One line, always — the long version badge used to squeeze this into a
+     three-line stack on a phone. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Hidden on phones: the dev version string is far too long for the topbar,
+   and the status bar states the same compiler at the foot of every page. */
 .version {
+  display: none;
   font-size: 0.75rem;
   color: var(--muted);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.15rem 0.6rem;
+  white-space: nowrap;
 }
 
 /* Sits next to the version badge: the reader questioning their version is
-   exactly the one who needs the migration page. */
+   exactly the one who needs the migration page. Too long for a phone
+   topbar, so it moves into the nav panel there (.nav-aside). */
 .topbar-link {
   font-size: 0.75rem;
   color: var(--accent);
   text-decoration: none;
+  display: none;
 }
 
 .topbar-link:hover {
   text-decoration: underline;
 }
 
+/* ---------- nav toggle (checkbox, so it works with JS off) ---------- */
+
+.nav-toggle {
+  /* Off-screen rather than `display: none` so it stays keyboard-focusable. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.nav-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  /* 44px: the smallest reliably tappable target. */
+  min-height: 2.75rem;
+  padding: 0 0.7rem;
+  margin-left: -0.7rem;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.nav-button svg {
+  display: block;
+}
+
+.nav-toggle:focus-visible + .nav-button {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.nav-toggle:checked + .nav-button {
+  color: var(--accent);
+}
+
+.nav-button .nav-close,
+.nav-toggle:checked + .nav-button .nav-open {
+  display: none;
+}
+
+.nav-toggle:checked + .nav-button .nav-close {
+  display: block;
+}
+
 .shell {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: 1.25rem var(--gutter) 2rem;
   flex: 1;
 }
 
-.sidebar h2 {
+/* Collapsed by default on phones; the drawer is opened by .nav-toggle. */
+.sidebar {
+  display: none;
+  position: sticky;
+  top: var(--topbar-h);
+  max-height: calc(100dvh - var(--topbar-h));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.25rem 0 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-toggle:checked ~ .shell .sidebar {
+  display: block;
+}
+
+/* Each section is a <details>, so collapsing needs no JS. */
+.nav-group + .nav-group {
+  border-top: 1px solid var(--border);
+}
+
+.nav-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--muted);
   font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin: 1.5rem 0 0.5rem;
+  list-style: none;
+  user-select: none;
 }
 
-.sidebar h2 a {
-  color: var(--muted);
-  text-decoration: none;
+.nav-group > summary::-webkit-details-marker {
+  display: none;
 }
 
-.sidebar h2 a:hover {
+/* Own marker, so it points the same way in every browser. */
+.nav-group > summary::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.nav-group[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.nav-group > summary:hover {
+  background: var(--surface);
   color: var(--text);
+}
+
+.nav-group > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.nav-group > ul {
+  padding-bottom: 0.5rem;
+}
+
+.nav-overview {
+  font-style: italic;
 }
 
 .sidebar ul {
@@ -107,7 +246,7 @@ pre {
 
 .sidebar a {
   display: block;
-  padding: 0.3rem 0.6rem;
+  padding: 0.5rem 0.6rem;
   border-radius: 6px;
   color: var(--muted);
   text-decoration: none;
@@ -125,8 +264,23 @@ pre {
   font-weight: 600;
 }
 
+/* The "On an older Zig?" link, shown inside the drawer on small screens. */
+.nav-aside {
+  margin-top: 1.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.nav-aside a {
+  color: var(--accent);
+  padding-left: 0;
+}
+
 main {
   min-width: 0;
+  /* Long identifiers and URLs in prose must not widen the page. */
+  overflow-wrap: break-word;
 }
 
 main :is(h1, h2, h3) {
@@ -135,6 +289,11 @@ main :is(h1, h2, h3) {
 
 main h1 {
   margin-top: 0;
+  font-size: clamp(1.6rem, 5.5vw, 2rem);
+}
+
+main h2 {
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
 }
 
 main :not(pre) > code {
@@ -142,6 +301,35 @@ main :not(pre) > code {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.1em 0.35em;
+}
+
+main pre {
+  overflow-x: auto;
+}
+
+main img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prose tables scroll themselves rather than stretching the page. */
+main table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+main :is(th, td) {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+main th {
+  background: var(--surface);
 }
 
 /* ---------- breadcrumbs ---------- */
@@ -219,10 +407,9 @@ main :not(pre) > code {
 
 .statusbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem 1.5rem;
-  padding: 0.6rem 1.5rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.8rem var(--gutter);
   border-top: 1px solid var(--border);
   background: var(--surface);
   font-size: 0.78rem;
@@ -232,6 +419,7 @@ main :not(pre) > code {
 .status-item {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
@@ -244,32 +432,24 @@ main :not(pre) > code {
   color: var(--muted);
 }
 
-.status-credit {
-  margin-left: auto;
-}
-
 .status-links {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
 }
 
 .status-links a {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  min-height: 2rem;
   color: var(--muted);
   text-decoration: none;
 }
 
 .status-links a:hover {
   color: var(--accent);
-}
-
-@media (max-width: 720px) {
-  .status-credit {
-    margin-left: 0;
-  }
 }
 
 /* ---------- playground ---------- */
@@ -279,13 +459,18 @@ zig-playground {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  margin: 1.5rem 0;
+  /* Full-bleed to the gutter on phones: code is the widest thing here and
+     the frame's own padding costs characters that matter at 360px. */
+  margin: 1.5rem calc(var(--gutter) * -1);
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
   background: var(--surface);
 }
 
 zig-playground pre:not(.pg-output) {
   margin: 0;
-  padding: 1rem;
+  padding: 0.85rem var(--gutter);
   overflow-x: auto;
 }
 
@@ -293,15 +478,16 @@ zig-playground pre:not(.pg-output) {
 .pg-static {
   display: block;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
   overflow: hidden;
-  margin: 1.5rem 0;
+  margin: 1.5rem calc(var(--gutter) * -1);
+  border-left: 0;
+  border-right: 0;
   background: var(--surface);
 }
 
 .pg-static pre {
   margin: 0;
-  padding: 1rem;
+  padding: 0.85rem var(--gutter);
   overflow-x: auto;
 }
 
@@ -313,8 +499,9 @@ zig-playground pre:not(.pg-output) {
 .pg-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem var(--gutter);
   border-bottom: 1px solid var(--border);
   background: #1c2129;
 }
@@ -323,7 +510,8 @@ zig-playground pre:not(.pg-output) {
   font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
-  padding: 0.25rem 0.85rem;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.9rem;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: #21262d;
@@ -350,7 +538,7 @@ zig-playground pre:not(.pg-output) {
 
 .pg-output {
   margin: 0;
-  padding: 0.85rem 1rem;
+  padding: 0.85rem var(--gutter);
   border-top: 1px solid var(--border);
   background: #0b0e13;
   white-space: pre-wrap;
@@ -364,7 +552,7 @@ zig-playground pre:not(.pg-output) {
 }
 
 .pg-editor .cm-editor {
-  max-height: 30rem;
+  max-height: 60dvh;
 }
 
 /* Fallback shown when edited code cannot be recompiled in this deployment. */
@@ -384,7 +572,8 @@ zig-playground pre:not(.pg-output) {
 .pg-escape button {
   font: inherit;
   font-weight: 600;
-  padding: 0.2rem 0.7rem;
+  min-height: 2.25rem;
+  padding: 0.2rem 0.8rem;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: #21262d;
@@ -402,20 +591,84 @@ zig-playground pre:not(.pg-output) {
   text-decoration: underline;
 }
 
-/* ---------- responsive ---------- */
+.lede {
+  font-size: 1.05rem;
+}
 
-@media (max-width: 860px) {
-  .shell {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+/* ---------- wider screens ---------- */
+
+/* Enough room for the topbar to carry the migration link itself. */
+@media (min-width: 560px) {
+  :root {
+    --gutter: 1.5rem;
   }
 
-  .sidebar {
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 1rem;
+  .version {
+    display: inline;
+  }
+
+  .topbar-link {
+    display: inline;
+  }
+
+  .nav-aside {
+    display: none;
+  }
+
+  zig-playground,
+  .pg-static {
+    margin-inline: 0;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .statusbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.5rem;
+  }
+
+  .status-credit {
+    margin-left: auto;
   }
 }
 
-.lede {
-  font-size: 1.05rem;
+/* Two columns: the sidebar becomes permanent and the toggle goes away. */
+@media (min-width: 860px) {
+  .nav-button {
+    display: none;
+  }
+
+  .brand {
+    margin-right: 0;
+  }
+
+  .topbar {
+    gap: 1rem;
+  }
+
+  .shell {
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 2rem;
+    padding: 2rem var(--gutter);
+  }
+
+  .sidebar,
+  .nav-toggle:checked ~ .shell .sidebar {
+    display: block;
+    border-bottom: 0;
+    padding-top: 0;
+    top: calc(var(--topbar-h) + 1rem);
+  }
+
+  .sidebar a {
+    padding-block: 0.3rem;
+  }
+
+  .nav-group > summary {
+    min-height: 0;
+    margin-top: 0.75rem;
+  }
 }
