@@ -1,0 +1,49 @@
+---
+title: Emitting an Executable
+description: Building without a build.zig.
+section: Build System
+order: 71
+---
+
+For a single file you do not need a build script at all:
+
+```bash
+zig build-exe main.zig          # an executable
+zig build-lib  main.zig         # a static library
+zig build-obj  main.zig         # an object file
+zig run        main.zig         # build and run in one step
+zig test       main.zig         # build and run its tests
+```
+
+## Useful flags
+
+| Flag | Effect |
+| --- | --- |
+| `-O<Mode>` | optimisation mode |
+| `-target <triple>` | cross-compile |
+| `--name <n>` | output name |
+| `-femit-bin=<path>` | where to write the binary |
+| `-fstrip` | drop debug info |
+| `-fsingle-threaded` | assume no threads |
+
+## Targeting WebAssembly
+
+This is how every snippet on this site is built:
+
+```bash
+zig build-exe main.zig -target wasm32-wasi -OReleaseSmall
+```
+
+For a freestanding wasm module with no WASI — the browser-canvas case — you
+want `-target wasm32-freestanding` plus `-fno-entry` and explicit exports:
+
+```bash
+zig build-exe main.zig -target wasm32-freestanding \
+  -OReleaseSmall -fno-entry --export=add
+```
+
+## When to graduate to `build.zig`
+
+Once you have more than one artifact, dependencies, generated files, or a test
+step worth naming, move to a build script. `zig build --help` then lists the
+steps and options that script defines.

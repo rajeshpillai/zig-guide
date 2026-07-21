@@ -1,0 +1,72 @@
+---
+title: Zig Build
+description: The build system is a Zig program.
+section: Build System
+order: 73
+---
+
+`build.zig` is not a configuration file. It is a Zig program that constructs a
+graph of steps, which `zig build` then executes.
+
+```zig
+const std = @import("std");
+
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOption(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    const exe = b.addExecutable(.{
+        .name = "myapp",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    b.installArtifact(exe);
+
+    const run = b.addRunArtifact(exe);
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run.step);
+}
+```
+
+## Note the module indirection
+
+`addExecutable` takes a `root_module`, not a source file directly. Older
+examples pass `.root_source_file`, `.target`, and `.optimize` straight to
+`addExecutable`; that form is gone. Build the module first.
+
+## Steps and options
+
+```bash
+zig build              # the default step
+zig build run          # a step you declared
+zig build --help       # lists your steps and options
+zig build -Dtarget=wasm32-wasi -Doptimize=ReleaseSmall
+```
+
+`b.option(...)` declares your own flags, which then appear in `--help`.
+
+## Configure time vs run time
+
+This is the distinction that causes the most confusion. `build()` runs **once**
+to construct the graph; the steps run afterwards. Anything `build()` observes
+directly — reading a directory, checking whether a file exists — is invisible
+to the caching layer.
+
+If you do that, say so:
+
+```zig
+b.graph.poisonCache();
+```
+
+Without it, the configuration is cached and your `build()` will not re-run when
+the thing it observed changes. This guide's own `build.zig` discovers snippets
+by walking a directory, and needs exactly this call — adding a snippet was
+silently ignored until it was added.
+
+## Dependencies
+
+`build.zig.zon` declares them; `b.dependency("name", .{})` retrieves one in
+`build.zig`. Fetching is content-addressed and hash-verified.

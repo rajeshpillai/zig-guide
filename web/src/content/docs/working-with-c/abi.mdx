@@ -1,0 +1,68 @@
+---
+title: ABI
+description: extern and packed, for layouts you can rely on.
+section: Working with C
+order: 80
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="05-working-with-c.abi" />
+
+A plain Zig `struct` makes **no layout promise**. Fields may be reordered and
+padded however the compiler prefers. That is a feature — it lets the optimiser
+pack things — but it means you cannot hand one to C.
+
+## The three layouts
+
+| Declaration | Layout | Use for |
+| --- | --- | --- |
+| `struct` | unspecified | ordinary Zig code |
+| `extern struct` | C ABI: declaration order, C padding | C interop |
+| `packed struct` | exact bits, no padding, integer-backed | wire formats, registers |
+
+```zig
+const CPoint = extern struct { x: i32, y: i32 };   // offsets 0 and 4
+const Flags = packed struct { a: bool, b: bool, rest: u6 };  // exactly 8 bits
+```
+
+A `packed struct` converts to and from its backing integer with `@bitCast`,
+which makes it the natural way to describe hardware registers and protocol
+headers.
+
+## Verifying, not assuming
+
+`@sizeOf`, `@offsetOf`, and `@bitSizeOf` are comptime values, so a layout
+assumption can be asserted at compile time:
+
+```zig
+comptime {
+    std.debug.assert(@offsetOf(CPoint, "y") == 4);
+}
+```
+
+Worth doing at any real C boundary — it turns a silent mismatch into a build
+failure.
+
+## Calling conventions
+
+`callconv(.c)` gives a function the C calling convention, and `export` gives it
+an unmangled symbol name:
+
+```zig
+export fn add(a: c_int, b: c_int) callconv(.c) c_int {
+    return a + b;
+}
+```
+
+That is all it takes for C to call Zig. Going the other way, declare the C
+function with `extern`:
+
+```zig
+extern "c" fn abs(n: c_int) c_int;
+```
+
+## Do not `extern` everything
+
+`extern struct` costs you the packing the optimiser would otherwise do. Use it
+at the boundary, and use ordinary structs inside.

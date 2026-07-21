@@ -1,0 +1,48 @@
+---
+title: C Primitive Types
+description: Types whose width follows the target's C ABI.
+section: Working with C
+order: 81
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="05-working-with-c.c-primitives" />
+
+Zig provides `c_char`, `c_short`, `c_int`, `c_long`, `c_longlong`, their
+`unsigned` counterparts, and `c_longdouble`. Their sizes are whatever the
+target's C ABI says.
+
+## Why not just use `i32`?
+
+Because `long` is not one size. It is 8 bytes on 64-bit Linux and macOS,
+4 bytes on Windows and on wasm32. Code that hardcodes `i64` for a C `long` is
+correct on one platform and silently wrong on another — the kind of bug that
+appears only after a port.
+
+`c_int` and `i32` are **distinct types** even when they are the same size, so
+the compiler will not let you conflate them by accident.
+
+## Keep them at the boundary
+
+Convert at the edge and use fixed-width types inside:
+
+```zig
+export fn process(count: c_int) callconv(.c) void {
+    const n: u32 = @intCast(count);   // now in Zig's world
+    ...
+}
+```
+
+Threading `c_int` through your whole program spreads a target-dependent
+assumption everywhere.
+
+## `anyopaque`
+
+`anyopaque` is Zig's `void` in the C sense — the pointee type of `void*`. So
+C's `void *ptr` becomes `*anyopaque`, and C's `void f(void)` returns Zig's
+`void`. The two meanings of C's `void` are separated.
+
+For handles you control, prefer a distinct
+[`opaque {}`](/language-basics/opaque/) type over `*anyopaque`: it keeps
+different handle kinds from being interchangeable.

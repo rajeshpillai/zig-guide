@@ -1,0 +1,55 @@
+---
+title: Build Modes
+description: Four modes, and what each one trades.
+section: Build System
+order: 70
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="04-build-system.build-modes" />
+
+| Mode | Safety checks | Optimised | Size |
+| --- | --- | --- | --- |
+| `Debug` | yes | no | large |
+| `ReleaseSafe` | yes | yes | medium |
+| `ReleaseFast` | **no** | yes | medium |
+| `ReleaseSmall` | **no** | yes | small |
+
+Select with `-O`:
+
+```bash
+zig build-exe main.zig -OReleaseSafe
+zig build -Doptimize=ReleaseSafe
+```
+
+## `ReleaseSafe` deserves more use than it gets
+
+The reflex from C and C++ is that release means unchecked. Zig makes that a
+separate axis: `ReleaseSafe` is optimised *and* keeps bounds checks, overflow
+checks, and null-unwrap checks. For most software the cost is small and the
+alternative is silent memory corruption.
+
+Reach for `ReleaseFast` when you have measured that the checks matter, not by
+default.
+
+## Where the checks are removed, the rules do not change
+
+In `ReleaseFast` and `ReleaseSmall`, an out-of-bounds index is **illegal
+behaviour** — the same category as C's undefined behaviour. The check was a
+diagnostic for breaking the rule, not the definition of it. Code that only
+works because Debug caught the panic is already wrong.
+
+## Per-scope override
+
+```zig
+@setRuntimeSafety(true);
+```
+
+Keeps checks in one function of an otherwise unchecked build — useful for the
+one routine parsing untrusted input.
+
+## Knowing the mode at compile time
+
+`@import("builtin").mode` is a comptime value, so mode-specific code costs
+nothing at runtime — the dead branch is not compiled in.

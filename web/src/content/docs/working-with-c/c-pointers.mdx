@@ -1,0 +1,46 @@
+---
+title: C Pointers
+description: "[*c]T — the escape hatch, and why to leave it at the door."
+section: Working with C
+order: 82
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="05-working-with-c.c-pointers" />
+
+`[*c]T` is Zig's model of C's `T*`. It exists almost entirely so that
+`@cImport` can translate headers automatically.
+
+## It gives up everything
+
+| Property | `*T` | `[]T` | `[*c]T` |
+| --- | --- | --- | --- |
+| can be null | no | no | **yes** |
+| carries a length | n/a | yes | no |
+| bounds checked | n/a | yes | no |
+| indexable | no | yes | yes |
+| coerces freely | no | no | **yes** |
+
+That last row is the dangerous one. A `[*c]T` converts to and from the safe
+pointer types without complaint, which is convenient at a C boundary and
+corrosive anywhere else — it silently launders away the guarantees the rest of
+the language is built on.
+
+## Convert at the boundary
+
+The moment you know the length, produce a slice and never look back:
+
+```zig
+const slice: []i32 = c_ptr[0..count];
+```
+
+Now you have bounds checks, `for` iteration, and `.len`. If the pointer might
+be null, check once and turn it into an optional rather than propagating the
+uncertainty.
+
+## Rule of thumb
+
+If you did not get it from `@cImport` or an `extern` declaration, you should
+not be writing `[*c]`. Use `*T` for one item, `[*]T` for many, `[]T` when you
+know the count, and `?` when it may be absent.

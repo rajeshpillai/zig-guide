@@ -1,0 +1,60 @@
+---
+title: Running Tests
+description: Tests are part of the language.
+section: Getting Started
+order: 2
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A `test` block is a language construct, not a framework. No imports, no
+registration, no annotations.
+
+<Playground name="01-getting-started.running-tests" />
+
+## Running them
+
+```bash
+zig test file.zig        # just this file
+zig build test           # the test step of a build.zig
+zig test file.zig --test-filter "name"
+```
+
+Tests in a file only run if that file is the test root or is reachable from it
+via `@import`. A test in a module nobody imports never runs — worth knowing
+when a test you expected to fail stays quiet.
+
+## The assertion helpers
+
+| Helper | Use |
+| --- | --- |
+| `expect(bool)` | general condition |
+| `expectEqual(a, b)` | prints both values on failure |
+| `expectEqualStrings` | string comparison with a readable diff |
+| `expectEqualSlices(T, a, b)` | slice comparison |
+| `expectError(err, expr)` | asserts a specific error |
+
+Prefer `expectEqual` over `expect(a == b)`: when it fails, it tells you what
+the values actually were.
+
+## Leak detection is on by default
+
+`std.testing.allocator` fails the test if anything it allocated was not freed.
+This is not an optional tool you remember to run — every test that allocates is
+a leak test:
+
+```zig
+const buf = try std.testing.allocator.alloc(u8, 10);
+defer std.testing.allocator.free(buf);   // omit this and the test fails
+```
+
+## Skipping
+
+`return error.SkipZigTest` marks a test skipped rather than failed — the way to
+handle a test that only applies to some targets.
+
+## These pages are the tests
+
+Every snippet in this guide is compiled and run by CI, and the `test` ones
+report through this same runner. The output you see when you press Run is the
+real `zig test` output, executed in your browser as WebAssembly.

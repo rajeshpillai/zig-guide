@@ -1,0 +1,62 @@
+---
+title: Importing C
+description: "@cImport, and calling C without bindings."
+section: Working with C
+order: 83
+---
+
+Zig can parse C headers directly. There is no binding generator and no
+intermediate `.zig` file to maintain.
+
+```zig
+const c = @cImport({
+    @cDefine("_GNU_SOURCE", {});
+    @cInclude("stdio.h");
+    @cInclude("string.h");
+});
+
+pub fn main(init: std.process.Init) !void {
+    _ = init;
+    _ = c.printf("hello from C\n");
+    const len = c.strlen("abc");
+    ...
+}
+```
+
+Everything the header declares appears as a member of `c`.
+
+## Telling the build where to look
+
+```zig
+exe.linkLibC();
+exe.addIncludePath(b.path("vendor/include"));
+exe.linkSystemLibrary("sqlite3");
+```
+
+Or compile the C yourself — Zig includes a C compiler, so vendoring a
+dependency's sources is a reasonable option:
+
+```zig
+exe.addCSourceFile(.{ .file = b.path("vendor/thing.c"), .flags = &.{"-std=c99"} });
+```
+
+## What translates and what does not
+
+Types, functions, and simple `#define` constants translate cleanly.
+**Function-like macros do not** — they are C syntax, not C semantics, and Zig
+cannot always give them meaning. When one matters, reimplement it in Zig;
+`zig translate-c` shows you what the automatic translation produced, which is a
+useful starting point.
+
+## Strings
+
+C strings are `[*c]const u8` and null-terminated. Zig string literals are
+already null-terminated, so passing one to C needs no conversion. Coming back,
+`std.mem.span(ptr)` recovers a slice by scanning for the terminator.
+
+## Why this page has no Run button
+
+Unlike every other chapter here, this one shows no runnable snippet: `@cImport`
+needs real C headers and a libc for the target, and the wasm sandbox these
+pages execute in has neither. The code above is illustrative rather than
+CI-verified — the only page in this guide of which that is true.

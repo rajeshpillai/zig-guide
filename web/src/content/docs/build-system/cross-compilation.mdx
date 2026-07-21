@@ -1,0 +1,63 @@
+---
+title: Cross-compilation
+description: Every target, out of the box.
+section: Build System
+order: 72
+---
+
+Cross-compilation is not a special mode in Zig. It is a flag:
+
+```bash
+zig build-exe main.zig -target x86_64-linux-gnu
+zig build-exe main.zig -target aarch64-macos
+zig build-exe main.zig -target x86_64-windows-gnu
+zig build-exe main.zig -target wasm32-wasi
+```
+
+No cross toolchain to install, no sysroot to assemble. Zig ships libc sources
+for the targets it supports and builds what it needs on demand.
+
+```bash
+zig targets       # everything available
+```
+
+## The triple
+
+`<arch>-<os>-<abi>`, with `native` allowed in any position:
+
+```
+x86_64-linux-gnu
+x86_64-linux-musl      # static linking without glibc's baggage
+aarch64-macos-none
+wasm32-wasi
+native-native-musl
+```
+
+The ABI field matters more than people expect. `musl` produces a genuinely
+static binary; `gnu` links against glibc and inherits its version
+compatibility rules.
+
+## Targeting a specific CPU
+
+```bash
+zig build-exe main.zig -target x86_64-linux -mcpu=znver3
+zig build-exe main.zig -mcpu=baseline        # maximum portability
+```
+
+`baseline` is the conservative choice — no assumptions beyond the architecture
+minimum. Naming a specific CPU lets the optimiser use its instructions, at the
+cost of not running on older ones.
+
+## In `build.zig`
+
+```zig
+const target = b.standardTargetOption(.{});
+```
+
+That exposes `-Dtarget=` to whoever runs your build, so users can cross-compile
+your project without you doing anything else.
+
+## Compiling C too
+
+`zig cc` is a drop-in C compiler with the same cross-compilation story, which
+is why some projects adopt Zig purely as a build tool for their existing C.

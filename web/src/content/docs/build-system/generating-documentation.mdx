@@ -1,0 +1,55 @@
+---
+title: Generating Documentation
+description: Doc comments and the generated site.
+section: Build System
+order: 74
+---
+
+Zig generates HTML documentation from doc comments.
+
+```bash
+zig build-lib src/root.zig -femit-docs
+zig build docs        # if your build.zig declares it
+```
+
+## The comment forms
+
+| Syntax | Attaches to |
+| --- | --- |
+| `///` | the declaration that follows |
+| `//!` | the enclosing file/module — must be at the top |
+| `//` | ordinary comment, not documentation |
+
+```zig
+//! A module for working with points.
+
+/// A point in two dimensions.
+pub const Point = struct {
+    /// Horizontal position, in pixels.
+    x: i32,
+};
+```
+
+Doc comments are Markdown, and only `pub` declarations appear in the output.
+
+A `///` comment in a position where it cannot attach to anything is a compile
+error, not a warning — so they cannot silently drift away from what they
+describe.
+
+## In `build.zig`
+
+```zig
+const docs = b.addInstallDirectory(.{
+    .source_dir = lib.getEmittedDocs(),
+    .install_dir = .prefix,
+    .install_subdir = "docs",
+});
+b.step("docs", "Generate documentation").dependOn(&docs.step);
+```
+
+## Doctests
+
+Because tests are ordinary language constructs, a `test` block next to a
+function serves as both a test and an example — and unlike a comment, it cannot
+go stale without the build noticing. That is the same principle this entire
+guide is built on.
