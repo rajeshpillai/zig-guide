@@ -50,9 +50,11 @@ pub fn build(b: *std.Build) void {
         if (snippet.native) {
             // Host binary: run it directly. Nothing to ship to the browser,
             // so the site renders this snippet without a Run button.
-            // No `expectExitCode` here — `addRunArtifact` already configures
-            // stdio for the artifact kind, and adding a check conflicts.
             const run = b.addRunArtifact(compile);
+            // Capture stdout rather than letting it through, so a passing
+            // `verify` stays silent like the wasm runner does. A failure
+            // still surfaces, because the step's exit code is checked.
+            if (snippet.kind == .exe) _ = run.captureStdOut(.{});
             verify_step.dependOn(&run.step);
             continue;
         }

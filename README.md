@@ -283,16 +283,26 @@ This emits `web/public/compiler/{zig.wasm,lib.tar}` (git-ignored, several MB).
 Because no LLVM can exist inside a wasm compiler binary, this path depends on
 Zig's **self-hosted wasm backend**.
 
-> **Status: scaffolded, not yet verified.** The browser-side driver
+> **Status: blocked upstream, not merely unfinished.** The browser-side driver
 > ([`zig-compiler.ts`](web/src/scripts/zig-compiler.ts)) — virtual FS, argv,
-> diagnostics capture, reading the emitted module back out — is written and
-> type-checks, but has not been run against a real `zig.wasm`, because building
-> one is a long, memory-hungry compile. Until those artifacts exist, clicking
-> **Edit** then **Run** fails with an explicit, actionable message and the rest
-> of the site is unaffected. This is the one part of the repo that should be
-> treated as unproven.
+> diagnostics capture, reading the emitted module back — is written and
+> type-checks. What is missing is `zig.wasm` itself, and it currently **cannot
+> be built**: compiling the Zig compiler for `wasm32-wasi` fails with three
+> errors in its own WASI code paths (`src/link.zig` `Permissions.fromMode`, and
+> two type errors in `src/main.zig`). Verified against the exact source of
+> `0.17.0-dev.1441`, built with that same compiler.
+>
+> Pinning to an older Zig where this does work is not a fix: the in-browser
+> compiler must match the version the guide is verified against, or it would
+> reject the guide's own code — `main(init: std.process.Init)` does not compile
+> on 0.16.0.
+>
+> Until upstream builds for `wasm32-wasi` again, **Edit and Revert still work**.
+> Running edited code offers a route that does: copy the source, open the
+> official playground, or Revert to the verified original.
 
 ---
+
 
 ## Zig version
 
