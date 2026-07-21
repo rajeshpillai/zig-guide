@@ -1,0 +1,56 @@
+---
+title: Sorting
+description: In-place sorts with an explicit comparator.
+section: Standard Library
+order: 59
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.sorting" />
+
+```zig
+std.mem.sort(T, slice, context, lessThanFn);
+```
+
+For simple orderings the comparator is provided: `std.sort.asc(T)` and
+`std.sort.desc(T)`.
+
+## The context argument
+
+That third parameter is passed to every comparison. It is `{}` — the void
+value — when the ordering depends only on the elements. It becomes useful when
+the comparison needs something external, such as sorting indices by the values
+they point at:
+
+```zig
+std.mem.sort(usize, &indices, values, byReferencedValue);
+```
+
+That is what saves you from reaching for a global.
+
+## Stable or not
+
+| Function | Stable | Notes |
+| --- | --- | --- |
+| `std.mem.sort` | yes | equal elements keep their relative order |
+| `std.mem.sortUnstable` | no | less work; prefer when elements are interchangeable |
+
+Stability matters when you sort by one key and want a previous sort by another
+key preserved within ties.
+
+## Comparators as anonymous structs
+
+Zig has no closures, so a one-off comparator is usually written as a struct
+literal with a function in it:
+
+```zig
+std.mem.sort([]const u8, &words, {}, struct {
+    fn lessThan(_: void, a: []const u8, b: []const u8) bool {
+        return std.mem.order(u8, a, b) == .lt;
+    }
+}.lessThan);
+```
+
+`std.mem.order` returns `.lt` / `.eq` / `.gt`, which is also what
+`std.sort.binarySearch` wants.

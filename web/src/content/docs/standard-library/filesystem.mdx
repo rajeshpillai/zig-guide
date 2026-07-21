@@ -1,0 +1,57 @@
+---
+title: Filesystem
+description: Every disk operation now takes an Io.
+section: Standard Library
+order: 62
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Zig 0.16 moved the filesystem API onto `std.Io`. This is the change most likely
+to make older filesystem examples fail to compile.
+
+<Playground
+  name="03-standard-library.filesystem"
+  note="Compiled by CI against current master, but not run: the browser WASI sandbox has no preopened directories."
+/>
+
+## What moved
+
+| Was | Now |
+| --- | --- |
+| `std.fs.cwd()` | `std.Io.Dir.cwd()` |
+| `std.fs.File` | `std.Io.File` |
+| `dir.openFile(path, .{})` | `dir.openFile(io, path, .{})` |
+| `file.close()` | `file.close(io)` |
+
+The pattern is uniform: anything that can block takes the `io` instance as its
+first argument. You get that instance from `main`:
+
+```zig
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+```
+
+## Why
+
+It is the same argument as `Allocator`. A function's signature now tells you
+whether it performs I/O, and the *caller* decides how that I/O is executed —
+threaded, evented, or something else — instead of the standard library
+choosing on your behalf.
+
+## Reading a whole file
+
+```zig
+const contents = try dir.readFileAlloc(io, path, gpa, .limited(1 << 20));
+defer gpa.free(contents);
+```
+
+The limit is mandatory, not optional. There is no API that reads an
+unbounded amount of untrusted input into memory by accident.
+
+## Why this page does not run
+
+Every other snippet on this site executes in your browser. This one cannot:
+WASI programs can only touch directories the host explicitly preopens, and the
+playground grants none. CI still compiles it, so if the filesystem API changes
+again this page turns the build red — it just cannot be executed here.

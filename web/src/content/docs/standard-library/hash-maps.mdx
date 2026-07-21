@@ -1,0 +1,48 @@
+---
+title: Hash Maps
+description: Key-value storage, and the getOrPut pattern.
+section: Standard Library
+order: 52
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.hash-maps" />
+
+## Which map to pick
+
+| Type | For |
+| --- | --- |
+| `AutoHashMapUnmanaged(K, V)` | keys with derivable hashing — integers, enums, simple structs |
+| `StringHashMapUnmanaged(V)` | `[]const u8` keys |
+| `ArrayHashMapUnmanaged(K, V)` | when you need stable insertion order |
+
+Like `ArrayList`, these are unmanaged: `.empty` to create, allocator passed to
+each method that allocates.
+
+`AutoHashMap` will refuse keys it cannot hash safely — slices, for instance,
+because hashing the pointer is almost never what you meant. That is why string
+keys get their own type.
+
+## `getOrPut` instead of get-then-put
+
+The counting idiom looks like this:
+
+```zig
+const entry = try counts.getOrPut(gpa, word);
+if (!entry.found_existing) entry.value_ptr.* = 0;
+entry.value_ptr.* += 1;
+```
+
+One hash and one lookup, rather than two. `entry.value_ptr` points into the
+map, so writing through it updates the stored value in place.
+
+Note that pointer is only valid until the next insertion — the same
+invalidation rule as `ArrayList.items`.
+
+## Keys are not copied
+
+The map stores your key as given. For string keys that means the map holds a
+slice pointing at memory it does not own; if that memory is freed or reused,
+the map is corrupt. Either keep the keys alive yourself, or duplicate them on
+insert and free them on removal.

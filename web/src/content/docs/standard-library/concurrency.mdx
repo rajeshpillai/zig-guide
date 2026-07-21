@@ -1,0 +1,58 @@
+---
+title: Concurrency
+description: async, Future, and Group — through the Io interface.
+section: Standard Library
+order: 64
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Zig's concurrency story now runs through `std.Io`. Press Run — this executes in
+your browser, on a target with **no threads at all**.
+
+<Playground name="03-standard-library.concurrency" />
+
+## `io.async` returns a Future
+
+```zig
+var first = io.async(slowDouble, .{ &a, 10 });
+var second = io.async(slowDouble, .{ &b, 20 });
+first.await(io);
+second.await(io);
+```
+
+The `Io` implementation decides what "async" means. A threaded implementation
+runs these in parallel; the single-threaded WASI one runs them inline. **Your
+code does not change** — which is exactly why this page is runnable and the
+[Threads](/standard-library/threads/) page is not.
+
+## `Group` for many tasks
+
+```zig
+var group: std.Io.Group = .init;
+for (0..8) |_| group.async(io, work, .{ ... });
+try group.await(io);
+```
+
+A `Group` owns its tasks. Awaiting it waits for all of them, and cancelling it
+cancels all of them — so a task cannot outlive the scope that started it. That
+property is what "structured" means here, and it is the thing raw
+`Thread.spawn` cannot give you.
+
+## Shared state still needs a lock
+
+Concurrency is not parallelism, but as soon as an implementation *is* parallel,
+unsynchronised shared mutation is a data race. `std.Io.Mutex` is the tool, and
+like everything else it takes the io instance:
+
+```zig
+try mutex.lock(io);
+defer mutex.unlock(io);
+```
+
+## The bigger picture
+
+This is the same idea as `Allocator`, applied to time instead of memory. A
+function that takes an `Io` announces that it may block, and the caller chooses
+the execution strategy. Libraries written this way work unchanged on a thread
+pool, an event loop, or a single-threaded wasm runtime.

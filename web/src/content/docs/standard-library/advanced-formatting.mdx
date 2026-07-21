@@ -1,0 +1,55 @@
+---
+title: Advanced Formatting
+description: Custom format methods, and the specifiers that changed.
+section: Standard Library
+order: 54
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.advanced-formatting" />
+
+## Custom `format` methods changed shape
+
+Zig 0.15 rewrote this. The method now takes just a writer:
+
+```zig
+pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+    try writer.print("({d}, {d})", .{ self.x, self.y });
+}
+```
+
+The old signature — which also received the format string and an options
+struct — no longer applies. If you find a tutorial showing
+`format(self, comptime fmt: []const u8, options: FormatOptions, writer: anytype)`,
+it predates the change.
+
+## `{f}` calls it
+
+A custom `format` method is **not** used by `{}` or `{any}`. You must ask for
+it with `{f}`:
+
+```zig
+try writer.print("{f}", .{point});   // (1, 2)
+```
+
+## `{t}` for tag names
+
+`{t}` prints an enum's tag name or an error's name — replacing the older
+practice of calling `@tagName` at every call site:
+
+```zig
+try writer.print("{t}", .{Colour.green});   // green
+```
+
+## Composing writers
+
+`std.Io.Writer.Allocating` gives you a growable in-memory writer, which is the
+usual way to build a string from formatted pieces:
+
+```zig
+var out: std.Io.Writer.Allocating = .init(gpa);
+defer out.deinit();
+try out.writer.print("{f}", .{point});
+out.written();   // []const u8
+```

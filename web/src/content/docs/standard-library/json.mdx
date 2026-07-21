@@ -1,0 +1,52 @@
+---
+title: JSON
+description: Parsing into real types, and back out again.
+section: Standard Library
+order: 56
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.json" />
+
+## Parsing into a struct
+
+`parseFromSlice(T, gpa, text, .{})` maps JSON onto your type using its field
+names. The result owns every allocation it made:
+
+```zig
+const parsed = try std.json.parseFromSlice(Config, gpa, text, .{});
+defer parsed.deinit();
+parsed.value.port;
+```
+
+Note `parsed.value` — the payload lives behind the owner so a single `deinit`
+frees the whole tree. Strings in `parsed.value` point into that arena, so they
+die with it; duplicate anything you need to outlive the parse.
+
+## Missing and unknown fields
+
+A field with a default is optional in the input. An **unknown** field is an
+error by default:
+
+```zig
+error.UnknownField
+```
+
+That default is the right one — it catches typos in config files. Opt out
+deliberately when consuming a payload you do not fully model:
+
+```zig
+.{ .ignore_unknown_fields = true }
+```
+
+## When the shape is not known
+
+Parse into `std.json.Value` for a dynamic tree, then walk `.object`, `.array`,
+`.integer`, `.string`, and friends. Prefer a concrete struct where you can —
+you get validation and field names checked at compile time.
+
+## Writing
+
+`std.json.Stringify.value(x, .{}, &writer)` serialises to any writer. Pair it
+with `std.Io.Writer.Allocating` to produce a string.

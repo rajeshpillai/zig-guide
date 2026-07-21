@@ -1,0 +1,50 @@
+---
+title: ArrayList
+description: The growable array — now unmanaged.
+section: Standard Library
+order: 51
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.arraylist" />
+
+## It is unmanaged now
+
+This is the change most likely to break code you find online. `std.ArrayList`
+used to store its allocator:
+
+```zig
+var list = std.ArrayList(u8).init(allocator);   // old
+defer list.deinit();
+try list.append('a');
+```
+
+On master, `ArrayList` **is** the unmanaged variant. It holds no allocator, so
+you supply one to every method that might allocate:
+
+```zig
+var list: std.ArrayList(u8) = .empty;           // current
+defer list.deinit(gpa);
+try list.append(gpa, 'a');
+```
+
+More typing, but the allocator is visible at every call site that can fail, and
+the struct is two words smaller.
+
+## `.items` is a borrowed slice
+
+`list.items` points into the list's buffer. Appending may reallocate, which
+invalidates any slice you were holding. Take `.items` when you need it; do not
+stash it across mutations.
+
+## Preallocate when you can
+
+`ensureTotalCapacity` followed by `appendAssumeCapacity` turns a growth
+sequence into one allocation, and the `AssumeCapacity` calls cannot fail — so
+they need no `try`.
+
+## Handing off ownership
+
+`toOwnedSlice(gpa)` gives you the buffer and leaves the list empty. The caller
+now frees the slice, and the list needs no `deinit`.

@@ -1,0 +1,43 @@
+---
+title: Crypto
+description: Hashes, MACs, and constant-time comparison.
+section: Standard Library
+order: 58
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.crypto" />
+
+Zig ships a substantial crypto library in `std.crypto` — hashes, AEADs, key
+exchange, signatures — with no external dependency.
+
+## One-shot and incremental
+
+```zig
+Sha256.hash(data, &digest, .{});          // one-shot
+
+var hasher = Sha256.init(.{});            // incremental
+hasher.update(part1);
+hasher.update(part2);
+hasher.final(&digest);
+```
+
+Both produce the same digest; use the incremental form when the input arrives
+in pieces or is too large to hold at once.
+
+## Constant-time comparison
+
+```zig
+std.crypto.timing_safe.eql([32]u8, a, b)
+```
+
+`std.mem.eql` returns as soon as it finds a difference, so how long it took
+reveals how many bytes matched. For MACs, tokens, and password hashes that is a
+real attack. Use the timing-safe form for anything secret.
+
+## Passwords are a different problem
+
+Do not hash passwords with SHA-256. `std.crypto.pwhash` provides argon2,
+bcrypt, and scrypt, which are deliberately slow and salted. That slowness is
+the feature — it is what makes an offline guessing attack expensive.

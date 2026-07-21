@@ -1,0 +1,56 @@
+---
+title: Threads
+description: Real OS threads, and why this page cannot run in your browser.
+section: Standard Library
+order: 63
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground
+  name="03-standard-library.threads"
+  note="Built and run natively by CI. wasm32-wasi is single-threaded, so std.Thread.spawn does not compile for it at all."
+/>
+
+## Spawn and join
+
+```zig
+const thread = try std.Thread.spawn(.{}, function, .{ args... });
+thread.join();
+```
+
+The arguments are a tuple, matching the function's parameters. `join` blocks
+until the thread finishes; `detach` gives up the handle instead.
+
+## Synchronisation moved to `std.Io`
+
+This is the part that breaks older code. `std.Thread.Mutex` no longer exists —
+it is `std.Io.Mutex`, and `lock` takes the io instance:
+
+```zig
+var mutex: std.Io.Mutex = .init;
+try mutex.lock(io);
+defer mutex.unlock(io);
+```
+
+`lock` can fail only because it can be *cancelled*, which is what makes it
+composable with the rest of the `Io` machinery.
+
+## Atomics for the simple cases
+
+A counter does not need a mutex:
+
+```zig
+var counter = std.atomic.Value(u32).init(0);
+_ = counter.fetchAdd(1, .monotonic);
+```
+
+Note the `_ =` — `fetchAdd` returns the previous value, and Zig will not let
+you drop it silently.
+
+## Prefer structured concurrency
+
+For most work, [`Io.async` and `Io.Group`](/standard-library/concurrency/) are
+a better fit than spawning raw threads: they are cancellable, they cannot leak
+a running task past their scope, and they work on targets that have no threads
+at all — including the one this site runs on.

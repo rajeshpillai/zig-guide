@@ -1,0 +1,46 @@
+---
+title: Random Numbers
+description: Seeded generators, passed explicitly.
+section: Standard Library
+order: 57
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.random-numbers" />
+
+There is no global `rand()`. You create a generator, seed it, and pass its
+`Random` interface where it is needed — the same explicitness Zig applies to
+allocators and I/O.
+
+```zig
+var prng = std.Random.DefaultPrng.init(seed);
+const random = prng.random();
+```
+
+## Seeding
+
+A fixed seed gives a reproducible sequence, which is what you want in tests.
+For real unpredictability seed from the OS:
+
+```zig
+var prng = std.Random.DefaultPrng.init(seed_from_os);
+```
+
+`std.crypto.random` is the cryptographically secure source, and is the one to
+use for tokens, keys, or anything an attacker should not predict.
+`DefaultPrng` is fast, not secure — do not use it for secrets.
+
+## Ranges
+
+| Call | Range |
+| --- | --- |
+| `intRangeAtMost(T, lo, hi)` | `lo..=hi` inclusive |
+| `intRangeLessThan(T, lo, hi)` | `lo..hi` |
+| `uintLessThan(T, hi)` | `0..hi` |
+| `float(T)` | `[0, 1)` |
+
+These handle modulo bias properly — `random.int(u8) % 6` does not, and skews
+toward low values.
+
+`shuffle` permutes a slice in place.

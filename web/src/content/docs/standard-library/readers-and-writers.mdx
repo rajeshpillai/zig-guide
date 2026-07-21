@@ -1,0 +1,54 @@
+---
+title: Readers and Writers
+description: The post-writergate I/O interfaces.
+section: Standard Library
+order: 55
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.readers-and-writers" />
+
+Zig 0.15 replaced the old generic `Reader`/`Writer` with non-generic
+`std.Io.Reader` and `std.Io.Writer`. Two things changed that matter every day:
+
+1. **The buffer belongs to the interface**, not the implementation. You supply
+   it, so there is no hidden allocation and you control the size.
+2. **Writers are buffered**, so you must `flush`. Forgetting is the single most
+   common mistake with the new API.
+
+## Constructing them
+
+```zig
+var reader: std.Io.Reader = .fixed("some bytes");
+var writer: std.Io.Writer = .fixed(&buf);
+
+var growable: std.Io.Writer.Allocating = .init(gpa);
+```
+
+For files, `file.writerStreaming(io, &buf)` gives you a `File.Writer` whose
+`.interface` field is the `std.Io.Writer` to use.
+
+## Reading lines: mind the variant
+
+This one catches people, including an earlier draft of this page:
+
+| Method | Consumes delimiter | At end of stream |
+| --- | --- | --- |
+| `takeDelimiter` | yes | returns `null` |
+| `takeDelimiterExclusive` | **no** | error |
+| `takeDelimiterInclusive` | yes, and includes it | error |
+
+So `takeDelimiterExclusive` called twice on `"a\nb\n"` returns `"a"` and then
+an **empty slice** — because the `\n` is still there. For a line loop you want:
+
+```zig
+while (try reader.takeDelimiter('\n')) |line| { ... }
+```
+
+Use `toss(n)` to skip bytes manually if you do use the exclusive form.
+
+## Running out of room
+
+A `.fixed` writer fails with `error.WriteFailed` when the buffer is full — it
+does not truncate silently.

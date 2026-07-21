@@ -1,0 +1,37 @@
+---
+title: Stacks
+description: ArrayList from one end, or no allocator at all.
+section: Standard Library
+order: 61
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.stacks" />
+
+Zig has no dedicated `Stack` type because it does not need one. An `ArrayList`
+used from the end is a stack:
+
+| Operation | Call |
+| --- | --- |
+| push | `append(gpa, x)` |
+| pop | `pop()` — returns `?T` |
+| peek | `getLast()` |
+| size | `items.len` |
+
+`pop()` returns an optional, so the empty case is handled by the type rather
+than by a precondition you might forget.
+
+## When the depth is bounded
+
+If you know the maximum, skip the allocator entirely — a fixed array plus a
+length index is a complete stack with no failure mode. This matters for
+embedded targets and hot paths, and it is the sort of thing Zig makes
+comfortable rather than exotic.
+
+## Why not a linked list
+
+A linked-list stack allocates per element and scatters them across memory.
+`ArrayList` amortises to one allocation and keeps everything contiguous, which
+is faster for essentially every real workload. Reach for a linked list only
+when you need stable addresses or O(1) splicing.

@@ -1,0 +1,53 @@
+---
+title: Formatting
+description: Format strings checked at compile time.
+section: Standard Library
+order: 53
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.formatting" />
+
+## Where the output goes
+
+| Function | Writes to |
+| --- | --- |
+| `bufPrint` | a buffer you supply — no allocation |
+| `allocPrint` | fresh memory — caller frees |
+| `writer.print` | any writer |
+
+`bufPrint` returns a slice of the part it filled, and fails with
+`error.NoSpaceLeft` rather than truncating.
+
+## Specifiers
+
+| Spec | Meaning |
+| --- | --- |
+| `{d}` | decimal |
+| `{x}` / `{X}` | lower / upper hex |
+| `{b}` / `{o}` | binary / octal |
+| `{s}` | string |
+| `{c}` | a byte as a character |
+| `{any}` | structural dump |
+
+## Width, alignment, precision
+
+The form is `{[fill][align][width]}`, with `<` `^` `>` for alignment:
+
+```zig
+"{d:5}"     // "   42"  (right by default for numbers)
+"{d:<5}"    // "42   "
+"{d:^5}"    // " 42  "
+"{d:0>5}"   // "00042"
+"{d:.2}"    // "3.14"
+```
+
+Escape a literal brace by doubling it: `{{` and `}}`.
+
+## Checked at compile time
+
+The format string is a comptime parameter, so the argument count and each
+specifier are validated against the argument types during compilation. A `{d}`
+pointed at a string does not compile — there is no runtime format-string
+failure mode to worry about.

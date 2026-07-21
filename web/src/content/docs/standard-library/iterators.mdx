@@ -1,0 +1,46 @@
+---
+title: Iterators
+description: A convention, not an interface.
+section: Standard Library
+order: 60
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.iterators" />
+
+Zig has no `Iterator` trait, no `IntoIterator`, no iterator protocol to
+implement. A type is iterable if it has a `next()` method returning an
+optional — because that is exactly what this loop needs:
+
+```zig
+while (it.next()) |value| { ... }
+```
+
+Writing your own is a struct with state and a `next`. That is the whole
+mechanism.
+
+## Splitting text
+
+| Function | Behaviour |
+| --- | --- |
+| `splitScalar(u8, s, ',')` | split on one byte, **keeps** empty fields |
+| `splitAny(u8, s, ",;")` | split on any of several bytes |
+| `splitSequence(u8, s, "::")` | split on a multi-byte separator |
+| `tokenizeScalar(u8, s, ',')` | same, but **skips** empty fields |
+| `tokenizeAny(u8, s, " \t")` | skip empties, any of several separators |
+
+The split/tokenize distinction is the one to remember: parsing CSV wants
+`split` (an empty field is meaningful); splitting on whitespace wants
+`tokenize` (runs of spaces should not produce empty tokens).
+
+## Windows and chunks
+
+`std.mem.window(T, s, size, advance)` yields overlapping views;
+`std.mem.chunk` yields non-overlapping ones. Both are useful for n-gram and
+block processing without copying.
+
+## No lazy adapter chains
+
+There is no `.map().filter().take()`. Write the loop — it is usually shorter
+than the chain, and there is nothing hidden about its cost.

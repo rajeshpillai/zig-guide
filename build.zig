@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) void {
     for (snippets.items) |snippet| {
         const module = b.createModule(.{
             .root_source_file = b.path(snippet.path),
-            .target = target,
+            .target = if (snippet.native) b.graph.host else target,
             .optimize = optimize,
         });
 
@@ -46,6 +46,16 @@ pub fn build(b: *std.Build) void {
             b.addExecutable(.{ .name = snippet.name, .root_module = module })
         else
             b.addTest(.{ .name = snippet.name, .root_module = module });
+
+        if (snippet.native) {
+            // Host binary: run it directly. Nothing to ship to the browser,
+            // so the site renders this snippet without a Run button.
+            // No `expectExitCode` here — `addRunArtifact` already configures
+            // stdio for the artifact kind, and adding a check conflicts.
+            const run = b.addRunArtifact(compile);
+            verify_step.dependOn(&run.step);
+            continue;
+        }
 
         // Ship the wasm to the site's public dir, keyed by chapter/name.
         const install = b.addInstallFileWithDir(
@@ -99,8 +109,13 @@ const Snippet = struct {
     expected: ?[]const u8,
     /// False for snippets marked `//! norun`: still compiled (so the API gate
     /// still applies) but never executed, because they need capabilities the
-    /// browser sandbox lacks — threads, a real filesystem, sockets.
+    /// browser sandbox lacks — a real filesystem, sockets.
     runnable: bool,
+    /// True for snippets marked `//! native`: built and run for the host
+    /// instead of wasm32-wasi, because they do not compile for wasm at all
+    /// (threads are the main case — wasm32-wasi is single-threaded). Still
+    /// fully gated by CI, just not shipped to the browser.
+    native: bool,
 
     const Kind = enum { exe, @"test" };
 };
@@ -145,7 +160,9 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
             .chapter = b.dupe(chapter),
             .kind = if (std.mem.indexOf(u8, source, "pub fn main") != null) .exe else .@"test",
             .expected = expected,
-            .runnable = std.mem.indexOf(u8, source, "//! norun") == null,
+            .runnable = std.mem.indexOf(u8, source, "//! norun") == null and
+                std.mem.indexOf(u8, source, "//! native") == null,
+            .native = std.mem.indexOf(u8, source, "//! native") != null,
         });
     }
 
