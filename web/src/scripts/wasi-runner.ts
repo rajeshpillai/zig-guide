@@ -24,10 +24,30 @@ export interface RunResult {
 /** Cache compiled modules so re-running a snippet skips recompilation. */
 const moduleCache = new Map<string, Promise<WebAssembly.Module>>();
 
+/**
+ * `compileStreaming` requires the response to carry `application/wasm`. Static
+ * hosts do not all send it, and a wrong type fails the whole page rather than
+ * degrading — so fall back to buffering the bytes ourselves.
+ */
+async function compileFrom(url: string): Promise<WebAssembly.Module> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`could not fetch ${url} (HTTP ${response.status})`);
+  }
+  try {
+    return await WebAssembly.compileStreaming(response.clone());
+  } catch {
+    return WebAssembly.compile(await response.arrayBuffer());
+  }
+}
+
 function compile(url: string): Promise<WebAssembly.Module> {
   let cached = moduleCache.get(url);
   if (!cached) {
-    cached = WebAssembly.compileStreaming(fetch(url));
+    cached = compileFrom(url);
+    // A failed compile must not be cached, or a transient network error
+    // would poison the snippet for the rest of the session.
+    cached.catch(() => moduleCache.delete(url));
     moduleCache.set(url, cached);
   }
   return cached;

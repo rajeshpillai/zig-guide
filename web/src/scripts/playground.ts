@@ -49,6 +49,11 @@ class ZigPlayground extends HTMLElement {
     this.#editButton.textContent = "Edit";
     this.#editButton.addEventListener("click", () => void this.#enableEditing());
 
+    // Editing needs the in-browser compiler to recompile the result. When this
+    // build has no compiler artifacts, offering Edit would only ever produce
+    // an error, so leave it out entirely.
+    this.#editButton.hidden = this.dataset.editable !== "true";
+
     // Hidden until editing starts — there is nothing to revert before that.
     this.#revertButton = document.createElement("button");
     this.#revertButton.className = "pg-revert";
