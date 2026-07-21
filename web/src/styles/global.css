@@ -415,3 +415,7 @@ zig-playground pre:not(.pg-output) {
     padding-bottom: 1rem;
   }
 }
+
+.lede {
+  font-size: 1.05rem;
+}

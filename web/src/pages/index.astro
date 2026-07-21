@@ -7,9 +7,12 @@ const first = docs[0];
 const base = import.meta.env.BASE_URL;
 ---
 
-<Base title="Learn Zig" description="A Zig guide that is verified against Zig master on every build.">
-  <h1>Learn Zig ⚡</h1>
-  <p>
+<Base
+  title="Zig Guide Live"
+  description="A Zig guide where every snippet is compiled and run against current Zig master, and runs in your browser."
+>
+  <h1>Zig Guide Live ⚡</h1>
+  <p class="lede">
     A tutorial for the Zig programming language where <strong>every snippet is
     compiled and executed against current Zig master on every build</strong>. If
     an example on this site were out of date, the build would be red.
@@ -17,6 +20,12 @@ const base = import.meta.env.BASE_URL;
   <p>
     Snippets run in your browser as WebAssembly — the very same artifact CI
     verified. No server, nothing to install.
+  </p>
+  <p>
+    Zig moves fast, and documentation that is merely proofread rots quietly.
+    This one is re-verified against a fresh compiler nightly, and republishes
+    itself only when every snippet still passes. Already on a tagged release?
+    See <a href={`${base}getting-started/coming-from-older-zig/`}>what changed</a>.
   </p>
   {first && <p><a href={`${base}${first.id}/`}>Start with {first.data.title} →</a></p>}
 </Base>

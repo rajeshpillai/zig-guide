@@ -1,8 +1,14 @@
-# zig.guide (rebuilt) ⚡
+# Zig Guide Live ⚡
+
+**<https://rajeshpillai.github.io/zig-guide/>**
 
 A Zig tutorial where **every snippet is compiled and executed against current
 Zig master on every build**, and where **readers run that same code in their
 browser** — no server, no install, no sandbox.
+
+Not affiliated with [zig.guide](https://zig.guide/), which is a separate
+project; this one exists because that one is pinned to 0.15.2 and Zig has moved
+a long way since.
 
 The problem this solves: Zig moves fast. [zig.guide](https://zig.guide/) targets
 0.15.2, and Zig has since shipped two sweeping breaking changes — the 0.15 I/O

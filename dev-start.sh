@@ -184,4 +184,9 @@ printf '\n'
 
 # Astro owns the foreground; the EXIT trap stops the watcher when it quits.
 # (With no TTY — e.g. output redirected — Astro daemonizes itself instead.)
-exec npx astro dev --port "$PORT" "${HOST_FLAG[@]}"
+#
+# `--force` clears the content-layer cache. Adding a chapter is routine here,
+# and a new collection entry is not always picked up by a running server — it
+# 404s, which reads like a broken page rather than a stale cache. Rebuilding
+# the collection on start costs about a second and removes the trap entirely.
+exec npx astro dev --force --port "$PORT" "${HOST_FLAG[@]}"
