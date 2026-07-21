@@ -1,0 +1,48 @@
+---
+title: Runtime Safety
+description: Checked illegal behaviour, and where the checks go.
+section: Language
+order: 19
+---
+
+import Playground from "../../components/Playground.astro";
+
+Zig inserts runtime checks for a class of mistakes that C leaves undefined:
+out-of-bounds indexing, integer overflow, invalid casts, unwrapping a null
+optional, and more. When a check fails the program panics with a clear message
+instead of quietly reading whatever came next in memory.
+
+<Playground
+  name="02-language.runtime-safety"
+  note="Deliberately panics — compiled by CI to prove it is still valid, but not executed."
+/>
+
+## Safety depends on the build mode
+
+| Mode | Safety checks | Optimised |
+| --- | --- | --- |
+| `Debug` | yes | no |
+| `ReleaseSafe` | yes | yes |
+| `ReleaseFast` | **no** | yes |
+| `ReleaseSmall` | **no** | yes |
+
+This is the decision C never gives you explicitly. `ReleaseSafe` keeps the
+checks and is a genuinely reasonable default for production; `ReleaseFast`
+trades them for speed.
+
+Where a check is removed, the situation it was catching becomes **illegal
+behaviour** — the same category as C's undefined behaviour, with the same
+consequences. The checks are not the definition of correctness, they are a
+diagnostic for violating it.
+
+You can override the setting for a scope with `@setRuntimeSafety(true)`, which
+is useful for keeping bounds checks in one hot-but-hairy function of an
+otherwise `ReleaseFast` build.
+
+<aside>
+
+The snippets on this site build as `ReleaseSmall`, so safety checks are off.
+That is why this example is marked as not runnable rather than simply showing
+you the panic.
+
+</aside>
