@@ -55,9 +55,20 @@ jobs:
       - name: Build site
         working-directory: web
         env:
-          SITE_URL: ${{ vars.SITE_URL || 'https://example.github.io' }}
-          BASE_PATH: ${{ vars.BASE_PATH || '/' }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://rajeshpillai.github.io' }}
+          BASE_PATH: ${{ vars.BASE_PATH || '/zig-guide/' }}
         run: npx astro build
+
+      # Proves the other half of the guarantee: that the published pages
+      # actually execute the snippets in a real browser, that compile-only
+      # blocks render without a Run button, and that no internal link 404s.
+      - name: Install browser
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify in a real browser
+        working-directory: web
+        run: npm run e2e
 
       - uses: actions/upload-pages-artifact@v3
         with:
