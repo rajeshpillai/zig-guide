@@ -45,22 +45,57 @@ Two runners implement the same WASI interface:
 | CI / local | Node's `node:wasi` | [`tools/run-wasi.mjs`](tools/run-wasi.mjs) |
 | Browser | `@bjorn3/browser_wasi_shim` | [`web/src/scripts/wasi-runner.ts`](web/src/scripts/wasi-runner.ts) |
 
+A third gate closes the loop: [`web/tools/e2e-browser.mjs`](web/tools/e2e-browser.mjs)
+drives the **built site** in headless Chromium, clicking Run on every playground,
+asserting `exit 0`, and fetching every internal link.
+
 ### What the gate catches
 
-All three of these turn the build red — verified, not assumed:
+All of these turn the build red — verified, not assumed:
 
 | Failure | Example |
 | --- | --- |
 | **Stale API** | `std.fs.File.stdout()` after the `Io` migration → compile error |
 | **Wrong behaviour** | a `test` that no longer passes → non-zero exit |
 | **Drifted output** | stdout no longer matching the `.expected` file |
+| **Broken page** | a playground that fails in a real browser |
+| **Broken link** | an internal link that 404s |
 
-The third one is subtler than it looks. An earlier version of this repo compared
-stdout via `expectStdOutEqual`, and editing a `.expected` file did **not**
-invalidate the build cache — a wrong expectation could sit there passing
-forever. Expected files are now passed as tracked *file arguments*, so the
-build system knows they are inputs. Silent staleness is the one bug class this
-project cannot tolerate.
+The third one is subtler than it looks. An earlier version compared stdout via
+`expectStdOutEqual`, and editing a `.expected` file did **not** invalidate the
+build cache — a wrong expectation could sit there passing forever. Expected
+files are now passed as tracked *file arguments*. Silent staleness is the one
+bug class this project cannot tolerate.
+
+### Snippets that cannot run in a browser
+
+Two escape hatches, both of which keep the compile-time gate:
+
+| Marker | Meaning | Used by |
+| --- | --- | --- |
+| `//! norun` | compiled, never executed | Runtime Safety (panics), Filesystem (no preopens) |
+| `//! native` | built and run for the **host**, not wasm | Threads (`wasm32-wasi` is single-threaded, so `std.Thread.spawn` does not even compile) |
+
+Both still fail the build on an API change. They simply render without a Run
+button, with a note saying why.
+
+---
+
+## What's in it
+
+58 chapters, mirroring zig.guide's structure, every one with CI-verified code:
+
+| Section | Chapters |
+| --- | --- |
+| Getting Started | 3 |
+| Language | 31 |
+| Standard Library | 15 |
+| Build System | 5 |
+| Working with C | 4 |
+
+Exactly one page — [Importing C](web/src/content/docs/working-with-c/cimport.mdx) —
+shows code that is *not* CI-verified, because `@cImport` needs real headers and
+a libc that the wasm sandbox does not have. The page says so.
 
 ---
 
@@ -109,6 +144,7 @@ the ordering `dev-start.sh` exists to stop you getting wrong.
 ```
 .
 ├── dev-start.sh               # start everything: build snippets, watch, serve
+├── gh-deploy.sh               # verify, then publish web/dist to gh-pages
 ├── build.zig                  # the CI gate: walks snippets/, compiles, runs, verifies
 ├── build.zig.zon
 ├── snippets/                  # every line of Zig shown on the site
@@ -116,14 +152,18 @@ the ordering `dev-start.sh` exists to stop you getting wrong.
 │   │   ├── hello-world.zig
 │   │   └── hello-world.expected     # optional exact-stdout assertion
 │   ├── 02-language/
-│   └── 03-standard-library/
+│   │   └── _shapes.zig              # `_` prefix = helper module, not a snippet
+│   ├── 03-standard-library/
+│   ├── 04-build-system/
+│   └── 05-working-with-c/
 ├── tools/
 │   ├── run-wasi.mjs                 # Node-side WASI runner (CI)
 │   └── build-browser-compiler.sh    # optional: builds zig.wasm for in-browser editing
 ├── web/                             # Astro site
+│   ├── tools/e2e-browser.mjs        # headless-Chromium gate (npm run e2e)
 │   ├── src/
 │   │   ├── components/Playground.astro
-│   │   ├── content/docs/*.mdx       # the prose
+│   │   ├── content/docs/<section>/*.mdx   # the prose; directory = URL namespace
 │   │   ├── scripts/
 │   │   │   ├── wasi-runner.ts       # runs prebuilt wasm in-browser
 │   │   │   ├── playground.ts        # <zig-playground> custom element
@@ -133,6 +173,11 @@ the ordering `dev-start.sh` exists to stop you getting wrong.
 │   └── public/wasm/                 # generated — do not edit, do not commit
 └── .github/workflows/ci.yml         # verify + nightly + deploy
 ```
+
+Content directories map to URL namespaces:
+`content/docs/standard-library/allocators.mdx` → `/standard-library/allocators/`.
+Each section also gets a generated index page, which is what the middle
+breadcrumb link points at.
 
 ---
 
@@ -157,13 +202,21 @@ becomes `02-language.optionals`:
 ```mdx
 ---
 title: Optionals
+description: Zig's answer to null, checked by the compiler.
 section: Language
-order: 10
+order: 33
 ---
 
-import Playground from "../../components/Playground.astro";
+import Playground from "../../../components/Playground.astro";
 
 <Playground name="02-language.optionals" />
+```
+
+`section` groups it in the sidebar and `order` sorts it. A snippet that cannot
+run in the browser takes a `note` explaining why:
+
+```mdx
+<Playground name="03-standard-library.threads" note="Built and run natively by CI." />
 ```
 
 The `//!` header comments in each snippet are metadata for the build and are
@@ -253,13 +306,26 @@ snippets periodically — that is the maintenance cost of the guarantee.
 Developed against `0.16.0-1449-g7faf6be353`. Note that your installed `zig` and
 your `ziglang/zig` checkout can disagree; `zig version` is what actually builds.
 
-### API churn already reflected
+### Divergences from the current zig.guide
 
-- **`main` takes an argument.** `pub fn main(init: std.process.Init) !void`.
-  `init.io` is the `Io` instance — the same idea as `Allocator`, applied to I/O.
-- **`std.fs.File` → `std.Io.File`**, and file operations take an `Io`.
-- **Writers are buffered and you must `flush`** (0.15, *"writergate"*). The
-  buffer belongs to the interface, so there is no hidden allocation.
+Every one of these was found by the gate failing, not by reading release notes.
+All are things a reader following zig.guide today would get wrong:
+
+| Change | Now |
+| --- | --- |
+| `main` takes an argument | `pub fn main(init: std.process.Init) !void`; `init.io` is the `Io` instance |
+| Writers are buffered | you must `flush`; the buffer belongs to the interface (0.15, *"writergate"*) |
+| `std.fs.File` | `std.Io.File`, and every disk operation takes an `Io` (0.16) |
+| **`**` array-repeat removed** | use `@splat`; `**` no longer tokenises, so `"-" ** 5` errors about whitespace around `*` |
+| `ArrayList` / hash maps | unmanaged: `.empty`, allocator passed per call |
+| `std.Thread.Mutex` | `std.Io.Mutex`, and `lock` takes an `io` |
+| Custom `format` methods | take only a writer, and are invoked by `{f}`; `{t}` prints tag names |
+| `comptime_float` | is `f128` — *not* arbitrary precision, unlike `comptime_int` |
+| `addExecutable` | takes a `root_module`, not a source file directly |
+
+The `**` one is the sharpest illustration of why this project exists: the
+operator is simply gone, the resulting error message is misleading, and nothing
+about reading the old tutorial would tell you.
 
 ---
 
@@ -271,35 +337,61 @@ your `ziglang/zig` checkout can disagree; `zig version` is what actually builds.
 1. `zig build verify` — every snippet compiles, runs, and matches expected output
 2. `zig build` — emit wasm + manifest
 3. `npx astro build` — build the site
-4. deploy to GitHub Pages (`main` only)
-
-For a GitHub Pages *project* site, set the `SITE_URL` and `BASE_PATH` repository
-variables; `astro.config.mjs` reads both from the environment.
+4. `npm run e2e` — every playground runs in headless Chromium, every link resolves
+5. deploy to GitHub Pages (`main` only)
 
 The nightly run is the point. A push-only CI proves the docs were correct when
 last touched; the schedule proves they are correct *today*.
+
+`SITE_URL` and `BASE_PATH` are job-level environment variables, defaulting to a
+project site at `/zig-guide/`. Override them with repository variables if you
+deploy elsewhere.
+
+> **Set them in one place.** A project site embeds `BASE_PATH` in every absolute
+> URL, so if the site is built with the prefix but the browser check is not told
+> about it, every page 404s. Both read the same job-level variable for exactly
+> this reason — the split version of this bug is what the first `gh-deploy.sh`
+> dry run caught.
+
+---
+
+## Deploying
+
+```bash
+./gh-deploy.sh              # verify, build, publish to gh-pages
+./gh-deploy.sh --dry-run    # everything except the push
+./gh-deploy.sh --skip-e2e   # skip the browser pass
+```
+
+The script refuses to deploy from a dirty working tree, so a published site is
+always traceable to a commit, and it runs the full gate — snippets, build,
+browser — before pushing anything. `web/dist` goes to `gh-pages` as a single
+orphan commit; the branch is a published artifact, not history.
+
+If you use the Actions-based deployment in the workflow instead, pushing to
+`main` is enough and this script is redundant.
 
 ---
 
 ## Status
 
-**Working and verified end-to-end** (real headless Chromium, snippets executing
-in 7–22 ms, no console errors):
+Verified end-to-end in headless Chromium: **63 pages, 50 playgrounds all
+exiting 0, 3 compile-only blocks, 69 internal links resolving, no console
+errors.** Snippets execute in 2–20 ms.
 
-- [x] Snippet pipeline: compile → run → diff stdout, all three failure modes gated
+- [x] Snippet pipeline: compile → run → diff stdout, every failure mode gated
 - [x] Browser execution of prebuilt wasm, including `zig test` reports and exit codes
-- [x] Astro site, sidebar, code splitting, progressive enhancement
-- [x] CI workflow with nightly master verification
+- [x] All 58 chapters across 5 sections
+- [x] Breadcrumbs, section indexes, status bar, editor with Revert
+- [x] CI with nightly master verification and a real-browser gate
+- [x] Deploy script with a pre-flight gate
 
-**Not yet done:**
+**Not done:**
 
-- [ ] In-browser compiler artifacts (see caveat above)
-- [ ] Content is 3 chapters — a proof of the machinery, not yet a full guide
-- [ ] No search, no version switcher, no dark/light toggle (dark only)
-
-Porting the remaining zig.guide chapters is now mostly mechanical: write the
-snippet, let `zig build verify` tell you what master actually accepts, then write
-the prose around it.
+- [ ] **In-browser compiler artifacts** — the one genuinely unproven piece
+      (see the caveat above). Editing a snippet and pressing Run currently
+      fails with an actionable message; everything else is unaffected.
+- [ ] No search, no version switcher, no light theme
 
 ---
 
