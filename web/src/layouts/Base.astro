@@ -16,6 +16,8 @@ interface Props {
   crumbs?: Crumb[];
 }
 
+const SITE_NAME = "Zig Guide Live";
+
 const { title, description, crumbs = [] } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
@@ -50,12 +52,12 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title} · Zig Guide Live</title>
+    <title>{title === SITE_NAME ? title : `${title} · ${SITE_NAME}`}</title>
     {description && <meta name="description" content={description} />}
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href={base}>⚡ Zig Guide Live</a>
+      <a class="brand" href={base}>⚡ {SITE_NAME}</a>
       <span class="version" title="Every snippet is compiled and run against this compiler">
         Zig {zigVersion}
       </span>
