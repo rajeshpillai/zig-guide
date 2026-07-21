@@ -144,6 +144,7 @@ the ordering `dev-start.sh` exists to stop you getting wrong.
 ```
 .
 ├── dev-start.sh               # start everything: build snippets, watch, serve
+├── update-zig.sh              # refresh the toolchain, report what broke
 ├── gh-deploy.sh               # verify, then publish web/dist to gh-pages
 ├── build.zig                  # the CI gate: walks snippets/, compiles, runs, verifies
 ├── build.zig.zon
@@ -355,7 +356,11 @@ about reading the old tutorial would tell you.
 2. `zig build` — emit wasm + manifest
 3. `npx astro build` — build the site
 4. `npm run e2e` — every playground runs in headless Chromium, every link resolves
-5. deploy to GitHub Pages (`main` only)
+5. push `web/dist` to the `gh-pages` branch (`main` only, and only if 1–4 passed)
+
+> **Do not switch to `actions/deploy-pages`** without also changing the repo's
+> Pages source to "GitHub Actions". This repo serves Pages from the `gh-pages`
+> branch; mixing the two mechanisms silently stops updating the live site.
 
 The nightly run is the point. A push-only CI proves the docs were correct when
 last touched; the schedule proves they are correct *today*.
@@ -369,6 +374,46 @@ deploy elsewhere.
 > about it, every page 404s. Both read the same job-level variable for exactly
 > this reason — the split version of this bug is what the first `gh-deploy.sh`
 > dry run caught.
+
+---
+
+## Keeping up with Zig
+
+**Normally you do nothing.** CI re-verifies against a fresh master nightly at
+06:00 UTC and, when everything passes, republishes the site. The footer version
+is emitted by `zig build`, so the published site states the compiler that
+actually verified it — there is no version string to bump.
+
+The site is only republished when the full gate passes, so a compiler change
+that breaks a snippet leaves the **last good site up** rather than shipping a
+broken one. Automation keeps it fresh; it cannot write the fix.
+
+### When a break happens
+
+CI goes red and names the file and line. To fix it locally:
+
+```bash
+./update-zig.sh          # refresh the toolchain, then verify
+```
+
+| Flag | Effect |
+| --- | --- |
+| `--check` | report the available version, change nothing |
+| `--force` | reinstall even if already current |
+| `--version 0.18.0` | install a specific version instead of master |
+
+The script exists for one non-obvious reason: **asdf will not re-download a
+version it already has**, so refreshing `master` means uninstalling it first.
+An in-place `asdf install zig master` is a silent no-op, and you would sit on a
+stale nightly wondering why nothing changed.
+
+When it reports a break, fix the snippet **and** update the chapter prose to
+teach the new shape while saying what the old one was. That note is the most
+valuable part for a reader arriving from a stale tutorial — it is why the
+arrays chapter explains that `**` is gone rather than silently using `@splat`.
+
+For scale: moving from `0.17.0-dev.644` to `dev.1441` — roughly 800 commits of
+master — broke **one** snippet out of 53.
 
 ---
 

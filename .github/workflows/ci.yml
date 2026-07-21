@@ -2,7 +2,8 @@ name: Verify & Deploy
 
 # The whole point of this project: prove every snippet still compiles and runs
 # against current Zig master. The nightly schedule is what turns "we tested it
-# once" into "this is true today".
+# once" into "this is true today" — and, when it passes, republishes the site
+# so the published version tracks the compiler without anyone doing anything.
 on:
   push:
     branches: [main]
@@ -11,8 +12,13 @@ on:
     - cron: "0 6 * * *" # daily, 06:00 UTC
   workflow_dispatch:
 
+# Publishing happens by pushing the built site to the `gh-pages` branch, which
+# is what this repo's Pages settings serve. Do NOT switch to
+# actions/deploy-pages without also changing Pages to "GitHub Actions" — the
+# two mechanisms are mutually exclusive, and mixing them silently stops
+# updating the live site.
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -31,6 +37,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `master` resolves to the current nightly on every run, which is what
+      # makes the schedule meaningful.
       - uses: mlugg/setup-zig@v2
         with:
           version: master
@@ -43,7 +51,6 @@ jobs:
 
       - name: Record the Zig version under test
         run: |
-          echo "ZIG_VERSION=$(zig version)" >> "$GITHUB_ENV"
           echo "Testing against Zig $(zig version)" >> "$GITHUB_STEP_SUMMARY"
 
       # Compiles every snippet to wasm32-wasi and executes it, comparing
@@ -73,21 +80,25 @@ jobs:
         working-directory: web
         run: npm run e2e
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: web/dist
-
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: verify
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      # Only republish when everything above passed, so a compiler change that
+      # breaks a snippet leaves the last good site up rather than shipping a
+      # broken one.
+      - name: Publish to gh-pages
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          # Pages does not run Jekyll for us, and Jekyll would eat _astro/.
+          touch web/dist/.nojekyll
+          cd web/dist
+          git init -q
+          git checkout -q -b gh-pages
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA::7} (Zig $(zig version))"
+          git push -q --force \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            gh-pages
+          echo "Published $(zig version) to gh-pages" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
