@@ -83,19 +83,41 @@ button, with a note saying why.
 
 ## What's in it
 
-58 chapters, mirroring zig.guide's structure, every one with CI-verified code:
+59 chapters, mirroring zig.guide's structure, every one with CI-verified code:
 
 | Section | Chapters |
 | --- | --- |
-| Getting Started | 3 |
+| Getting Started | 4 |
 | Language | 31 |
 | Standard Library | 15 |
 | Build System | 5 |
 | Working with C | 4 |
 
-Exactly one page — [Importing C](web/src/content/docs/working-with-c/cimport.mdx) —
-shows code that is *not* CI-verified, because `@cImport` needs real headers and
-a libc that the wasm sandbox does not have. The page says so.
+Two pages show code that is *not* CI-verified, and both say so on the page:
+[Importing C](web/src/content/docs/working-with-c/cimport.mdx), because
+`@cImport` needs real headers and a libc the wasm sandbox lacks; and
+[Coming from an Older Zig](web/src/content/docs/getting-started/coming-from-older-zig.mdx),
+whose "before" examples *deliberately* do not compile — that is the point of
+them. Its "after" side is verified in the chapter each entry links to.
+
+### On version switching
+
+There is deliberately no last-3-releases dropdown. The dropdown is trivial; the
+cost is that every old version's snippets would also need CI verification, or
+those pages become exactly the rotting docs this project exists to replace —
+and the deltas are currently large enough that backporting is closer to writing
+a second guide than porting one.
+
+The migration page carries that value at a fraction of the cost, because what a
+reader on a release actually needs is the *delta*, not a parallel universe.
+
+If versioning is wanted later, the cheap shape is **snapshot forward, never
+backport**: at each release, build once, freeze it under `/0.18.0/`, and move
+on. A frozen version never rots, because its compiler never changes again.
+
+> If you do that, note that both `gh-deploy.sh` and CI publish by force-pushing
+> a fresh orphan commit of `web/dist` — which would **delete** any previously
+> frozen version directories. The publish step has to preserve them.
 
 ---
 

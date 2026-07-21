@@ -60,6 +60,18 @@ pre {
   padding: 0.15rem 0.6rem;
 }
 
+/* Sits next to the version badge: the reader questioning their version is
+   exactly the one who needs the migration page. */
+.topbar-link {
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.topbar-link:hover {
+  text-decoration: underline;
+}
+
 .shell {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
