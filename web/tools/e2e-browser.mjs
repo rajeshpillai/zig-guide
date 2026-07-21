@@ -35,7 +35,16 @@ const PREFIX = (process.env.BASE_PATH ?? "/").replace(/\/+$/, "");
 async function serve(root) {
   const server = createServer(async (req, res) => {
     let path = decodeURIComponent(new URL(req.url, "http://x").pathname);
-    if (PREFIX && path.startsWith(PREFIX)) path = path.slice(PREFIX.length) || "/";
+    if (PREFIX) {
+      // Must be strict: GitHub Pages serves a project site ONLY under its
+      // prefix. Accepting unprefixed paths here would let a link that 404s in
+      // production pass locally — which is exactly what happened once.
+      if (path !== PREFIX && !path.startsWith(`${PREFIX}/`)) {
+        res.writeHead(404).end("not found");
+        return;
+      }
+      path = path.slice(PREFIX.length) || "/";
+    }
     // Directory URLs map to their index.html, matching the deployed layout.
     const file = join(root, path.endsWith("/") ? `${path}index.html` : path);
     try {
