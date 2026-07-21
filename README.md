@@ -303,8 +303,14 @@ That is a treadmill by design: master breaks things, and the whole premise is
 that breakage surfaces here before it surfaces for a reader. Expect to fix
 snippets periodically — that is the maintenance cost of the guarantee.
 
-Developed against `0.16.0-1449-g7faf6be353`. Note that your installed `zig` and
-your `ziglang/zig` checkout can disagree; `zig version` is what actually builds.
+Developed against `0.17.0-dev.1441+d5181a9c9`. The version shown in the site
+footer is emitted by `zig build`, so it is always the compiler that actually
+verified the snippets — never a number typed into a file.
+
+Upgrading the compiler is the treadmill working as intended. Moving from
+`dev.644` to `dev.1441` — roughly 800 commits of master — broke **one** snippet
+out of 53, and the gate named the file and line. That is the maintenance cost
+of the guarantee, and it is small.
 
 ### Divergences from the current zig.guide
 
@@ -322,6 +328,7 @@ All are things a reader following zig.guide today would get wrong:
 | Custom `format` methods | take only a writer, and are invoked by `{f}`; `{t}` prints tag names |
 | `comptime_float` | is `f128` — *not* arbitrary precision, unlike `comptime_int` |
 | `addExecutable` | takes a `root_module`, not a source file directly |
+| `@typeInfo(T).@"enum".fields` | split into parallel `field_names` / `field_values` |
 
 The `**` one is the sharpest illustration of why this project exists: the
 operator is simply gone, the resulting error message is misleading, and nothing

@@ -40,7 +40,16 @@ test "enum methods" {
     try expect(!Suit.spades.isRed());
 }
 
-test "enums expose their fields at comptime" {
-    try expect(@typeInfo(Direction).@"enum".fields.len == 4);
+test "enums expose their tags at comptime" {
+    const info = @typeInfo(Direction).@"enum";
+
+    // Names and values are parallel arrays, not one array of field structs.
+    try expect(info.field_names.len == 4);
+    try expect(info.field_values.len == info.field_names.len);
+    try expect(std.mem.eql(u8, info.field_names[2], "east"));
+
+    try expect(info.tag_type == u2);
+    try expect(info.mode == .exhaustive);
+
     try expect(std.mem.eql(u8, @tagName(Direction.east), "east"));
 }

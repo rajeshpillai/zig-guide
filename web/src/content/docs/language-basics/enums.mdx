@@ -40,6 +40,20 @@ the first argument. There is no dynamic dispatch and no vtable.
 
 ## Reflection
 
-`@typeInfo(T).@"enum".fields` exposes the tags at comptime, and `@tagName`
-gives the name as a string. This is how generic code prints or parses enums
-without a hand-written table.
+`@typeInfo(T).@"enum"` exposes the tags at comptime:
+
+```zig
+const info = @typeInfo(Direction).@"enum";
+info.field_names[2];   // "east"
+info.field_values[2];  // 2
+info.tag_type;         // u2
+info.mode;             // .exhaustive
+```
+
+Note these are **parallel arrays**, not one array of field structs. Older
+tutorials show `info.fields[i].name`; that shape is gone — the split landed
+between `0.17.0-dev.644` and `dev.1441`, and was the only break across all 53
+snippets in this guide when the compiler was updated.
+
+`@tagName` gives the name as a string. Together this is how generic code prints
+or parses enums without a hand-written table.
