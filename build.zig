@@ -55,21 +55,26 @@ pub fn build(b: *std.Build) void {
         );
         b.getInstallStep().dependOn(&install.step);
 
-        // Execute it through the WASI shim, exactly as the browser will.
-        // `--no-warnings` keeps Node's WASI ExperimentalWarning off stderr,
-        // which the Run step would otherwise treat as a failure.
-        const run = b.addSystemCommand(&.{ "node", "--no-warnings", "tools/run-wasi.mjs" });
-        run.addFileArg(compile.getEmittedBin());
-        run.expectExitCode(0);
+        if (snippet.runnable) {
+            // Execute it through the WASI shim, exactly as the browser will.
+            // `--no-warnings` keeps Node's WASI ExperimentalWarning off stderr,
+            // which the Run step would otherwise treat as a failure.
+            const run = b.addSystemCommand(&.{ "node", "--no-warnings", "tools/run-wasi.mjs" });
+            run.addFileArg(compile.getEmittedBin());
+            run.expectExitCode(0);
 
-        // Passed as a *file argument* rather than compared via
-        // `expectStdOutEqual`, so the build system tracks it as an input and
-        // editing it actually invalidates the cache.
-        if (snippet.expected) |expected_path| {
-            run.addFileArg(b.path(expected_path));
+            // Passed as a *file argument* rather than compared via
+            // `expectStdOutEqual`, so the build system tracks it as an input
+            // and editing it actually invalidates the cache.
+            if (snippet.expected) |expected_path| {
+                run.addFileArg(b.path(expected_path));
+            }
+
+            verify_step.dependOn(&run.step);
+        } else {
+            // `//! norun`: compile-only, but still a real gate against API drift.
+            verify_step.dependOn(&compile.step);
         }
-
-        verify_step.dependOn(&run.step);
     }
 
     const manifest = writeManifest(b, snippets.items);
@@ -92,6 +97,10 @@ const Snippet = struct {
     kind: Kind,
     /// Optional sibling `.expected` file holding exact stdout.
     expected: ?[]const u8,
+    /// False for snippets marked `//! norun`: still compiled (so the API gate
+    /// still applies) but never executed, because they need capabilities the
+    /// browser sandbox lacks — threads, a real filesystem, sockets.
+    runnable: bool,
 
     const Kind = enum { exe, @"test" };
 };
@@ -100,6 +109,12 @@ const Snippet = struct {
 fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void {
     const io = b.graph.io;
     const build_root = b.root.root_dir.handle;
+
+    // Discovering snippets by directory listing is exactly the kind of side
+    // effect the configuration cache cannot track: without this, adding or
+    // deleting a snippet is silently ignored (and a deleted one keeps failing
+    // the build from a stale graph) until build.zig itself changes.
+    b.graph.poisonCache();
 
     var dir = try build_root.openDir(io, root, .{ .iterate = true });
     defer dir.close(io);
@@ -127,6 +142,7 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
             .chapter = b.dupe(chapter),
             .kind = if (std.mem.indexOf(u8, source, "pub fn main") != null) .exe else .@"test",
             .expected = expected,
+            .runnable = std.mem.indexOf(u8, source, "//! norun") == null,
         });
     }
 
@@ -146,8 +162,8 @@ fn writeManifest(b: *std.Build, snippets: []const Snippet) std.Build.LazyPath {
     w.writeAll("[\n") catch @panic("OOM");
     for (snippets, 0..) |s, i| {
         w.print(
-            \\  {{"name":"{s}","chapter":"{s}","kind":"{t}","source":"{s}","wasm":"{s}.wasm"}}
-        , .{ s.name, s.chapter, s.kind, s.path, s.name }) catch @panic("OOM");
+            \\  {{"name":"{s}","chapter":"{s}","kind":"{t}","source":"{s}","wasm":"{s}.wasm","runnable":{}}}
+        , .{ s.name, s.chapter, s.kind, s.path, s.name, s.runnable }) catch @panic("OOM");
         w.writeAll(if (i + 1 == snippets.len) "\n" else ",\n") catch @panic("OOM");
     }
     w.writeAll("]\n") catch @panic("OOM");

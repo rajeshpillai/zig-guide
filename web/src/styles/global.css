@@ -135,6 +135,27 @@ zig-playground pre:not(.pg-output) {
   overflow-x: auto;
 }
 
+/* Compile-only snippet: same frame, no Run button. */
+.pg-static {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: 1.5rem 0;
+  background: var(--surface);
+}
+
+.pg-static pre {
+  margin: 0;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.pg-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 .pg-toolbar {
   display: flex;
   align-items: center;

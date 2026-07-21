@@ -109,8 +109,11 @@ if (( VERIFY )); then
 fi
 
 step "Building snippet wasm + manifest"
+# Wipe first: the install step never prunes, so wasm from renamed or deleted
+# snippets would linger and get deployed. Cheap — compilation is still cached.
+rm -rf web/public/wasm
 zig build || die "zig build failed. Run 'zig build verify' to see per-snippet errors."
-info "web/public/wasm/ is up to date"
+info "$(find web/public/wasm -name '*.wasm' | wc -l) snippets built"
 
 # -------------------------------------------------------------- watcher ----
 

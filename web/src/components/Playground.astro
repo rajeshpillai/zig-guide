@@ -13,9 +13,11 @@ import { resolve } from "node:path";
 interface Props {
   /** Snippet slug, e.g. `02-language.optionals`. */
   name: string;
+  /** Why a `//! norun` snippet can't execute here. Ignored for runnable ones. */
+  note?: string;
 }
 
-const { name } = Astro.props;
+const { name, note } = Astro.props;
 
 // Anchored to the Astro project root (`web/`) rather than `import.meta.url`,
 // which points into the bundle output once this component is compiled.
@@ -27,6 +29,8 @@ interface Entry {
   kind: "exe" | "test";
   source: string;
   wasm: string;
+  /** False when the snippet needs capabilities the browser sandbox lacks. */
+  runnable: boolean;
 }
 
 let manifest: Entry[];
@@ -52,9 +56,22 @@ const source = await readFile(resolve(webRoot, "..", entry.source), "utf8");
 const shown = source.replace(/^(\/\/!.*\n)+\n?/, "").trimEnd();
 ---
 
-<zig-playground data-wasm={entry.wasm} data-kind={entry.kind} data-name={entry.name}>
-  <Code code={shown} lang="zig" theme="github-dark" />
-</zig-playground>
+{
+  entry.runnable ? (
+    <zig-playground data-wasm={entry.wasm} data-kind={entry.kind} data-name={entry.name}>
+      <Code code={shown} lang="zig" theme="github-dark" />
+    </zig-playground>
+  ) : (
+    <div class="pg-static">
+      <div class="pg-toolbar">
+        <span class="pg-note">
+          {note ?? "Compiled by CI, but not runnable in the browser sandbox."}
+        </span>
+      </div>
+      <Code code={shown} lang="zig" theme="github-dark" />
+    </div>
+  )
+}
 
 <script>
   import "../scripts/playground.ts";
