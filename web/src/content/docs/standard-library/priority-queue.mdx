@@ -1,0 +1,38 @@
+---
+title: PriorityQueue
+description: A binary heap where the comparator is part of the type.
+section: Standard Library
+order: 24
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.priority-queue" />
+
+## The comparator lives in the type
+
+`std.PriorityQueue(T, Context, compareFn)` bakes the ordering into the type
+itself, the same shape `std.sort` uses. The function returns a
+`std.math.Order`: return `.lt` when the first argument should pop before the
+second. So the comparator reads like "which comes first," and swapping its two
+arguments turns a min-heap into a max-heap.
+
+The `Context` parameter is `void` when the comparison needs nothing external.
+Give it a real type to compare against runtime data, for example distances
+against a target you only know at run time; pass the value through
+`initContext`.
+
+## What it is good at
+
+`push` and `pop` are O(log n); `peek` is O(1). You reach for it when you
+repeatedly need the current best element out of a changing set: a scheduler
+pulling the most urgent job, Dijkstra pulling the nearest node, a merge of
+sorted streams.
+
+## What it is not
+
+The backing storage is a heap, not a sorted array. `iterator` walks that
+storage in heap order, which is not sorted order. Only `pop` gives you
+elements in priority sequence. If you need everything sorted once, an
+`ArrayList` plus `std.sort` is the better fit; the queue earns its keep when
+insertions and removals are interleaved.

@@ -1,0 +1,42 @@
+---
+title: Parsing and Encoding
+description: Text to numbers, and bytes to hex or base64.
+section: Standard Library
+order: 34
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.parsing-and-encoding" />
+
+## Parsing is fallible, and says so
+
+`std.fmt.parseInt` returns an error union, so a bad character or an
+out-of-range value is a value you handle, never a silent zero. The target
+type is the bound: `parseInt(u8, "300", 10)` is `error.Overflow` because 300
+does not fit. Passing base `0` reads the prefix the way a Zig literal would:
+`0x`, `0o`, `0b`, or decimal, underscores allowed.
+
+`parseFloat` accepts the usual decimal and scientific forms plus `inf` and
+`nan`.
+
+## Hex
+
+`bytesToHex` returns a fixed-size array, not a slice, because the output
+length is known from the input at compile time. That means no allocator and
+no failure path. `hexToBytes` goes the other way into a caller-provided
+buffer.
+
+## base64: pick the alphabet for the destination
+
+`std.base64.standard` uses `+` and `/`, which are fine in a MIME body and
+wrong in a URL or a file name. `std.base64.url_safe` swaps them for `-` and
+`_`. Both expose an `Encoder` and a `Decoder`; decoding is fallible because
+the input might not be valid base64. Size the destination with
+`Decoder.calcSizeForSlice` before decoding.
+
+| Codec | Emits | Use for |
+| --- | --- | --- |
+| `standard` | `A-Za-z0-9+/` | MIME, email, data URIs |
+| `url_safe` | `A-Za-z0-9-_` | URLs, file names, tokens |
+| `*_no_pad` | above, no `=` | fixed-width IDs |

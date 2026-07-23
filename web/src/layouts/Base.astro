@@ -93,6 +93,28 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
         Chapters
       </label>
       <a class="brand" href={base}>⚡ {SITE_NAME}</a>
+
+      {/* Progressive enhancement: with JS off this is an inert text field that
+          does nothing, so it stays hidden until the script wires it up. */}
+      <div class="search" hidden>
+        <svg class="search-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="currentColor">
+          <path d="M11.74 10.34a6 6 0 1 0-1.4 1.4l3.2 3.2 1.4-1.4-3.2-3.2ZM7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"></path>
+        </svg>
+        <input
+          class="search-input"
+          type="search"
+          placeholder="Search chapters…"
+          role="combobox"
+          aria-expanded="false"
+          aria-controls="search-results"
+          aria-autocomplete="list"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <kbd class="search-hint">/</kbd>
+        <div class="search-results" id="search-results" role="listbox" aria-label="Search results" hidden></div>
+      </div>
+
       <span class="version" title="Every snippet is compiled and run against this compiler">
         Zig {zigVersion}
       </span>
@@ -243,6 +265,7 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
 
     <script>
       import "../scripts/copy-code.ts";
+      import "../scripts/search.ts";
     </script>
   </body>
 </html>

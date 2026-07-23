@@ -73,6 +73,9 @@ pre {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Let flexbox shrink the brand (ellipsis) rather than overflow the topbar
+     once the search box shares the row on a narrow phone. */
+  min-width: 0;
 }
 
 /* Hidden on phones: the dev version string is far too long for the topbar,
@@ -99,6 +102,145 @@ pre {
 
 .topbar-link:hover {
   text-decoration: underline;
+}
+
+/* ---------- search ---------- */
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto; /* sit at the right end of the topbar */
+  padding: 0 0.55rem;
+  height: 2.1rem;
+  width: min(9.5rem, 38vw);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition:
+    width 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.search:focus-within {
+  border-color: var(--accent);
+  width: min(15rem, 60vw);
+}
+
+.search-icon {
+  color: var(--muted);
+  flex: none;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+/* Drop the native clear/decoration widgets; the box owns its own chrome. */
+.search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.search-hint {
+  flex: none;
+  font-family: inherit;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+}
+
+/* The physical key hint is meaningless once the field has focus. */
+.search:focus-within .search-hint {
+  display: none;
+}
+
+.search-results {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: min(30rem, 92vw);
+  max-height: min(70vh, 32rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  padding: 0.35rem;
+  z-index: 20;
+}
+
+.search-hit {
+  display: block;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.search-hit + .search-hit {
+  margin-top: 1px;
+}
+
+.search-hit:hover,
+.search-hit.is-active {
+  background: var(--bg);
+}
+
+.search-hit-crumb {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.search-hit-title {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin-top: 0.1rem;
+}
+
+.search-hit-snippet {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted);
+  margin-top: 0.15rem;
+  /* Two lines is enough context; keep every result the same height. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.search-hit mark {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: inherit;
+  border-radius: 2px;
+}
+
+.search-empty {
+  margin: 0;
+  padding: 0.75rem 0.6rem;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 /* ---------- nav toggle (checkbox, so it works with JS off) ---------- */
@@ -289,11 +431,19 @@ pre {
 
 .sidebar a {
   display: block;
-  padding: 0.5rem 0.6rem;
+  padding: 0.4rem 0.6rem;
   border-radius: 6px;
   color: var(--muted);
   text-decoration: none;
   font-size: 0.9rem;
+  /* Inherited body line-height (1.65) made wrapped two-line titles tall
+     and the whole list rhythm uneven; tighten it just for the nav. */
+  line-height: 1.35;
+}
+
+/* Even spacing between adjacent items regardless of one- vs two-line titles. */
+.sidebar li + li {
+  margin-top: 1px;
 }
 
 .sidebar a:hover {

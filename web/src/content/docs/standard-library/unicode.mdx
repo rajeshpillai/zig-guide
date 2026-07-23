@@ -1,0 +1,36 @@
+---
+title: Unicode
+description: A string is bytes until you opt in to UTF-8.
+section: Standard Library
+order: 31
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.unicode" />
+
+## `len` is bytes
+
+`"héllo".len` is 6, not 5, because `é` encodes to two bytes. Nothing in the
+language layer knows about UTF-8; source files are required to be valid
+UTF-8, but a `[]const u8` at runtime is just bytes. When you need character
+counts, `std.unicode.utf8CountCodepoints` walks the encoding.
+
+## Validate once, then iterate
+
+`Utf8View.init` checks the whole slice up front and returns an error for
+malformed input. After that, its iterator cannot fail, so the loop body stays
+clean. `nextCodepoint` yields `u21` values; `nextCodepointSlice` yields the
+raw bytes of each character, which is the right tool when you are slicing the
+original string at character boundaries.
+
+For input you do not control (network data, file contents), run
+`utf8ValidateSlice` before treating bytes as text.
+
+## Slicing can cut a character in half
+
+`s[0..2]` on `"héllo"` produces one valid byte followed by half of `é`. Byte
+indices from `indexOf` are always safe cut points when the needle itself is
+valid UTF-8, but arbitrary arithmetic on indices is not. If you truncate
+strings for display, iterate codepoint slices and stop at the last full
+character.

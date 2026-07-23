@@ -1,0 +1,54 @@
+---
+title: Testing
+description: The assertions past expect, and the allocator that catches leaks.
+section: Standard Library
+order: 70
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.testing" />
+
+## expect tells you nothing; the others tell you what
+
+`try std.testing.expect(a == b)` fails with "expected true, found false" and
+leaves you to add print statements. The typed assertions carry the values
+into the failure message:
+
+| Assertion | Reports on failure |
+| --- | --- |
+| `expectEqual(expected, actual)` | both values |
+| `expectEqualStrings` | both strings and the first differing byte |
+| `expectEqualSlices(T, ...)` | both slices and the diverging index |
+| `expectError(err, expr)` | which error, or that none was returned |
+
+The expected value comes first by convention. `expectEqual` infers its type
+from that first argument, which is why `@as(?u8, null)` sometimes needs the
+cast: it tells the comparison what type `null` is.
+
+## Assert the error paths too
+
+Untested failure paths are where bugs hide. `expectError` makes "this input is
+rejected" a first-class assertion, as checkable as the success case. A parser
+test should pin both the digit it accepts and the character it refuses.
+
+## Floats need a tolerance
+
+Never compare computed floats with `==`. `expectApproxEqAbs` takes an absolute
+tolerance for values near a known magnitude; `expectApproxEqRel` takes a
+relative one, and `std.math.floatEps(f64)` is the natural bound for "as close
+as the type allows."
+
+## expectEqualDeep for structures
+
+`expectEqual` on two structs holding slices compares the slice pointers, which
+is almost never what you meant. `expectEqualDeep` follows pointers and slices
+and compares the pointed-at content.
+
+## The allocator is a test
+
+`std.testing.allocator` fails the test if anything it handed out is still live
+when the test returns, so a missing `free` is a caught bug rather than a slow
+leak in production. In test builds it also detects double-free and
+use-after-free. Wire every allocation to a `defer free` and let the allocator
+police it.

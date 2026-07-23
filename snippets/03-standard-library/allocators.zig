@@ -32,3 +32,50 @@ test "fixed buffer needs no heap at all" {
     try expect(slice.len == 100);
     try expect(allocator.alloc(u8, 1000) == error.OutOfMemory);
 }
+
+test "create and destroy a single value" {
+    const allocator = std.testing.allocator;
+
+    // alloc/free is for slices; create/destroy is for one value.
+    const node = try allocator.create(Node);
+    defer allocator.destroy(node);
+
+    node.* = .{ .value = 42, .next = null };
+    try expect(node.value == 42);
+}
+
+const Node = struct {
+    value: u32,
+    next: ?*Node,
+};
+
+test "dupe copies a slice into owned memory" {
+    const allocator = std.testing.allocator;
+
+    // The classic use: keep a copy of a string whose original may go away.
+    const owned = try allocator.dupe(u8, "borrowed");
+    defer allocator.free(owned);
+    try expect(std.mem.eql(u8, owned, "borrowed"));
+}
+
+test "resize in place, or realloc to move" {
+    const allocator = std.testing.allocator;
+
+    var slice = try allocator.alloc(u8, 4);
+    // realloc keeps the contents and may return a new pointer.
+    slice = try allocator.realloc(slice, 8);
+    defer allocator.free(slice);
+    try expect(slice.len == 8);
+}
+
+test "DebugAllocator catches leaks in a real program" {
+    // In a program you own the allocator; this is what std.testing.allocator
+    // wraps for you. Formerly GeneralPurposeAllocator; renamed to say what it
+    // is for. `deinit` returns .leak if anything was not freed.
+    var debug: std.heap.DebugAllocator(.{}) = .init;
+    defer std.debug.assert(debug.deinit() == .ok);
+    const allocator = debug.allocator();
+
+    const data = try allocator.alloc(u8, 16);
+    allocator.free(data); // omit this and deinit reports .leak
+}

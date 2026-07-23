@@ -1,0 +1,37 @@
+---
+title: MultiArrayList
+description: Struct of arrays, laid out for the cache.
+section: Standard Library
+order: 25
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.multi-array-list" />
+
+## Same API, transposed storage
+
+`MultiArrayList(T)` holds the same elements an `ArrayList(T)` would, but stores
+each field of `T` in its own contiguous array. Ten monsters with `hp`, `x`,
+and `y` become three arrays of ten, not ten structs side by side. You still
+`append` whole structs and `get` whole structs back; the transpose is
+invisible until you ask for one field.
+
+## Why bother
+
+`items(.hp)` hands you a real `[]u32`: every hp value packed together. A loop
+that sums hp touches only that array, so the CPU loads no `x` or `y` bytes it
+will not use. When one field is hot and the struct is wide, this is the
+difference between streaming exactly the bytes you need and dragging the whole
+struct through cache. It is also what makes bulk field updates vectorize.
+
+## The costs
+
+`get` and `set` gather or scatter across the separate arrays, so touching a
+whole element is slightly more work than with a plain `ArrayList`. Reach for
+`MultiArrayList` when you iterate columns far more than you handle whole rows.
+
+When several fields are needed in one pass, call `slice()` once and pull each
+`items(.field)` from it. Each bare `items()` call recomputes the field
+pointers; `slice()` does that work a single time. As with every list here,
+those slices are invalidated by the next append.

@@ -1,0 +1,45 @@
+---
+title: Strings
+description: Search, trim, split, join. All of it lives in std.mem.
+section: Standard Library
+order: 30
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.strings" />
+
+## There is no string type
+
+A string is `[]const u8`: a slice of bytes. That means `==` compares the
+pointer and length, not the content, and the compiler will tell you so.
+Content comparison is `std.mem.eql(u8, a, b)`. Everything else you would
+expect from a string class is a free function in `std.mem` that works on any
+slice type, which is why each call names the element type first.
+
+## split or tokenize
+
+The two look interchangeable until the input has consecutive delimiters:
+
+| Input `"a,,b"` with `,` | Yields |
+| --- | --- |
+| `splitScalar` | `"a"`, `""`, `"b"` |
+| `tokenizeScalar` | `"a"`, `"b"` |
+
+`split` preserves empty fields, which is what CSV-shaped data needs.
+`tokenize` collapses runs of delimiters, which is what whitespace needs. Both
+have `Any` and `Sequence` variants: `splitAny` treats the delimiter string as
+a set of single bytes, `splitSequence` matches it whole.
+
+## What allocates and what does not
+
+`trim`, `split`, and `tokenize` return views into the original bytes: no
+copy, but the result is only valid as long as the original. `join`,
+`replaceOwned`, and `std.ascii.allocLowerString` build new strings, so they
+take an allocator and you own the result.
+
+## ASCII on purpose
+
+`std.ascii` stops at byte 127. Case mapping beyond that needs Unicode tables
+the standard library does not ship; see the Unicode chapter for what it does
+give you.

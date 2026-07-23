@@ -1,0 +1,43 @@
+---
+title: Time
+description: Clocks behind the Io interface; constants and calendars in std.time.
+section: Standard Library
+order: 54
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.time" />
+
+## Reading a clock takes an Io
+
+Reading the clock is an I/O operation now, so it goes through the same `Io`
+interface as files and sockets: `std.Io.Clock.Timestamp.now(io, clock)`. In a
+test the instance is `std.testing.io`; in a program it is `init.io`. This is
+the writergate-era pattern applied to time. The older `std.time.timestamp`
+and `std.time.milliTimestamp` free functions are gone.
+
+## Pick the right clock
+
+- `.real` is wall-clock Unix time: nanoseconds since 1970. Use it for
+  timestamps you store or show. It can jump backward when NTP or an
+  administrator corrects it.
+- `.awake` is monotonic: it never goes backward. Use it to measure how long
+  something took. Subtracting two `.real` readings around a slow operation can
+  give a negative or absurd result if the clock was adjusted in between.
+
+`durationTo` between two timestamps gives an `Io.Duration`.
+
+## Durations are values
+
+`Io.Duration` carries a nanosecond count with conversion helpers
+(`fromMilliseconds`, `toSeconds`, and so on) that truncate toward zero.
+Formatted with `{f}` it prints human units: `1.5s`, `2m5s`.
+
+## std.time keeps the arithmetic
+
+The constants (`ns_per_s`, `s_per_day`, and the rest) and the calendar code
+still live in `std.time`, no `Io` required, because they are pure math.
+`std.time.epoch` breaks a Unix timestamp into year, month, day, and
+time-of-day without allocating or consulting a locale. Note the day index is
+zero-based: day 1 is the second of the month.

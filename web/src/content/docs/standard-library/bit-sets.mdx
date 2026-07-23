@@ -1,0 +1,40 @@
+---
+title: Bit Sets and Enum Collections
+description: A set of small integers in a word, and containers keyed by enums.
+section: Standard Library
+order: 26
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.bit-sets" />
+
+## A set that fits in registers
+
+`std.StaticBitSet(N)` stores membership for integers `0..N` as bits, inline,
+no allocator. Under the hood it is a single integer when `N` is small enough
+and an array of words otherwise, but the API is the same either way: `set`,
+`unset`, `isSet`, `count`. When the size is only known at run time, reach for
+`std.DynamicBitSet`, which does take an allocator.
+
+Union and intersection are single instructions on the backing words, so
+`unionWith` and `intersectWith` are cheap. `findFirstSet` and the ascending
+`iterator` let you walk membership without scanning every index.
+
+## Containers keyed by an enum
+
+Three types turn an enum into a container, and the difference is what happens
+to keys you did not set:
+
+| Type | Holds | Missing key |
+| --- | --- | --- |
+| `EnumSet(E)` | membership only | not present |
+| `EnumArray(E, V)` | a `V` for every tag | cannot happen: all set at init |
+| `EnumMap(E, V)` | a `V` for some tags | `get` returns null |
+
+`EnumArray` is total by construction, so its `get` returns `V`, not `?V`, and
+the compiler forces you to supply every field at initialization. Use it for
+lookup tables that must cover the whole enum, like a duration per traffic
+light state. `EnumMap` is the partial version for when absence is meaningful.
+All three are backed by the same bit-set machinery, so they are compact and
+allocation-free.
