@@ -1,0 +1,70 @@
+---
+title: "Recipe: Keeping the Last N Items"
+description: A generic fixed-capacity ring buffer built with a type function.
+section: Cookbook
+order: 97
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You want the most recent N things: the last few log lines for an error
+report, the trailing sensor readings for a moving average, recent commands
+for an undo stack. Storage must be bounded, old entries should fall off by
+themselves, and ideally nothing allocates.
+
+This is a ring buffer, and it is also the standard tour of Zig generics: a
+function that takes types and comptime values, and returns a type.
+
+## The plan
+
+1. Write `fn LastN(comptime T: type, comptime capacity: usize) type` and
+   return a struct from it. Capacity becomes part of the type, so storage
+   is a plain `[capacity]T` array on the stack.
+2. Keep two fields of state: `head`, the next slot to write, and `len`,
+   which grows to capacity and stays there.
+3. `push` writes at `head`, advances it modulo capacity, and overwrites the
+   oldest entry once full. That overwrite is the feature.
+4. `get(i)` addresses items oldest-first by deriving the start position
+   from `head` and `len`.
+
+<Playground name="06-cookbook.ring-buffer" />
+
+## The type function, unpacked
+
+`LastN([]const u8, 4)` and `LastN(f32, 3)` are two distinct, concrete types
+generated at compile time. There is no boxing, no interface, and no runtime
+cost for the genericity; each instantiation compiles as if written by hand.
+`const Self = @This()` names the anonymous struct so methods can refer to
+their own type.
+
+Because capacity is comptime, the compiler knows every `% capacity` at
+build time. For power-of-two capacities it becomes a bit mask.
+
+## Deriving instead of storing
+
+A common ring buffer bug is tracking both a read index and a write index
+and letting them disagree. Here the oldest position is computed from `head`
+and `len` on demand:
+
+```zig
+const start = (self.head + capacity - self.len) % capacity;
+```
+
+Two fields of state, one invariant, and nothing to keep in sync. The
+`+ capacity` avoids underflow before the modulo; every quantity stays a
+`usize`.
+
+## Variations
+
+- **Reject instead of overwrite:** return `error.Full` from `push` when
+  `len == capacity`. Right for bounded queues, wrong for recent-history
+  logs.
+- **Standard library:** `std.Deque` is the allocating, growable relative:
+  push and pop at both ends, no fixed capacity. This recipe's shape is what
+  you write when you want bounded storage and the overwrite policy. (Older
+  tutorials mention `std.RingBuffer` or `std.fifo.LinearFifo`; both are
+  gone from current master.)
+- **Iteration:** add an `iterator()` returning oldest-to-newest items; the
+  index arithmetic is exactly `get`.

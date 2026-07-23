@@ -1,0 +1,11 @@
+seed 42:
+  ......##
+  ..##....
+  #.....##
+  .#..#.##
+  ####.#.#
+  ##.....#
+  .##...#.
+  .....##.
+same seed reproduces: true
+different seed differs: true

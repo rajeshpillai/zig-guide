@@ -1,0 +1,6 @@
+saw 7 events, kept 4:
+  [0] read 1024
+  [1] read 256
+  [2] timeout
+  [3] retry
+latest reading: 22.9

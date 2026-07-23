@@ -1,0 +1,5 @@
+ana (6 free): 9 10 11 14 15 16
+raj (5 free): 10 11 13 15 19
+both free (3 free): 10 11 15
+either free (8 free): 9 10 11 13 14 15 16 19
+raj free at 14: false
