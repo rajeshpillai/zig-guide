@@ -22,6 +22,7 @@ class ZigPlayground extends HTMLElement {
   #runButton!: HTMLButtonElement;
   #editButton!: HTMLButtonElement;
   #revertButton!: HTMLButtonElement;
+  #copyButton!: HTMLButtonElement;
   #editor: { getSource(): string; setSource(text: string): void } | null = null;
   /** The CI-verified source, captured before the editor can change it. */
   #original = "";
@@ -56,13 +57,26 @@ class ZigPlayground extends HTMLElement {
     this.#revertButton.hidden = true;
     this.#revertButton.addEventListener("click", () => this.#revert());
 
+    // Copies whatever the reader currently sees: the verified original, or
+    // their edit if the editor is open.
+    this.#copyButton = document.createElement("button");
+    this.#copyButton.className = "pg-copy";
+    this.#copyButton.textContent = "Copy";
+    this.#copyButton.addEventListener("click", () => void this.#copy());
+
     this.#status = document.createElement("span");
     this.#status.className = "pg-status";
 
     // Capture the pristine source now, before any edit can mutate the DOM.
     this.#original = this.querySelector("pre")?.textContent ?? "";
 
-    toolbar.append(this.#runButton, this.#editButton, this.#revertButton, this.#status);
+    toolbar.append(
+      this.#runButton,
+      this.#editButton,
+      this.#revertButton,
+      this.#copyButton,
+      this.#status,
+    );
 
     this.#output = document.createElement("pre");
     this.#output.className = "pg-output";
@@ -129,6 +143,16 @@ class ZigPlayground extends HTMLElement {
 
     escape.append(copy, link, hint);
     this.#output.append(escape);
+  }
+
+  async #copy() {
+    try {
+      await navigator.clipboard.writeText(this.#source);
+      this.#copyButton.textContent = "Copied";
+    } catch {
+      this.#copyButton.textContent = "Copy failed";
+    }
+    setTimeout(() => (this.#copyButton.textContent = "Copy"), 1500);
   }
 
   #kind(): "exe" | "test" {

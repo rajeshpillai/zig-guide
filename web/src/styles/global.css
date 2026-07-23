@@ -307,6 +307,46 @@ main pre {
   overflow-x: auto;
 }
 
+/* Copy button floated over plain fenced blocks. The wrapper exists so the
+   button anchors to the frame, not the horizontally scrolling content. */
+.code-copy-wrap {
+  position: relative;
+}
+
+.code-copy {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #21262d;
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.code-copy-wrap:hover .code-copy,
+.code-copy:focus-visible {
+  opacity: 1;
+}
+
+/* Touch screens have no hover; keep the button quietly visible. */
+@media (hover: none) {
+  .code-copy {
+    opacity: 0.7;
+  }
+}
+
+/* In the static playground frame the note stays left, Copy sits right. */
+.pg-static .pg-copy {
+  margin-left: auto;
+}
+
 main img {
   max-width: 100%;
   height: auto;
