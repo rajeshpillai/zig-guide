@@ -100,4 +100,4 @@ git push origin dev && git checkout main && git merge --ff-only dev && git push 
 
 If the fast-forward is refused, stop and report — do not merge or force-push without asking.
 
-- `SITE_URL` and `BASE_PATH` are job-level env vars (default project site at `/zig-guide/`), read from one place by both the build and the browser check on purpose — a split would build with the prefix while checking without it and 404 every page.
+- `SITE_URL` and `BASE_PATH` are job-level env vars, read from one place by both the build and the browser check on purpose — a split would build with the prefix while checking without it and 404 every page. They default to the custom domain `https://www.ziglang.in` served at the root (`/`); repo variables `vars.SITE_URL`/`vars.BASE_PATH` override, e.g. `BASE_PATH=/zig-guide/` to fall back to the `github.io` project site. The custom domain is pinned by `web/public/CNAME`, which Astro copies into `dist/` so it survives the orphan-commit deploy that would otherwise wipe it.

@@ -29,11 +29,12 @@ jobs:
     name: Snippets compile & run on Zig master
     runs-on: ubuntu-latest
     # Job-level so the browser check sees the same prefix the site was built
-    # with — a project site embeds it in every absolute URL, and a mismatch
-    # makes every page 404.
+    # with — a mismatch makes every page 404. Defaults target the custom
+    # domain (web/public/CNAME) served at the root. Repo variables override,
+    # e.g. BASE_PATH=/zig-guide/ to fall back to the github.io project site.
     env:
-      SITE_URL: ${{ vars.SITE_URL || 'https://rajeshpillai.github.io' }}
-      BASE_PATH: ${{ vars.BASE_PATH || '/zig-guide/' }}
+      SITE_URL: ${{ vars.SITE_URL || 'https://www.ziglang.in' }}
+      BASE_PATH: ${{ vars.BASE_PATH || '/' }}
     steps:
       - uses: actions/checkout@v4
 

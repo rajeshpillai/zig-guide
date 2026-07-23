@@ -26,11 +26,12 @@ BRANCH="gh-pages"
 SKIP_E2E=0
 DRY_RUN=0
 
-# A project site is served from /<repo>/, so assets must be built with that
-# prefix or every absolute URL 404s.
-REPO_NAME="$(basename -s .git "$(git config --get remote.origin.url 2>/dev/null || echo zig-guide)")"
-: "${SITE_URL:=https://$(git config --get remote.origin.url | sed -E 's#.*[:/]([^/]+)/[^/]+$#\1#').github.io}"
-: "${BASE_PATH:=/${REPO_NAME}/}"
+# Served from a custom domain (www/public/CNAME) at the root, so no path
+# prefix. Override SITE_URL/BASE_PATH in the environment for a project site
+# served from /<repo>/, where assets must carry that prefix or every absolute
+# URL 404s.
+: "${SITE_URL:=https://www.ziglang.in}"
+: "${BASE_PATH:=/}"
 
 if [[ -t 1 ]]; then
   BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; RESET=$'\033[0m'
