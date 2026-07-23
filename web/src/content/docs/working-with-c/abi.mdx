@@ -10,8 +10,8 @@ import Playground from "../../../components/Playground.astro";
 <Playground name="05-working-with-c.abi" />
 
 A plain Zig `struct` makes **no layout promise**. Fields may be reordered and
-padded however the compiler prefers. That is a feature — it lets the optimiser
-pack things — but it means you cannot hand one to C.
+padded however the compiler prefers. That is a feature (it lets the optimiser
+pack things), but it means you cannot hand one to C.
 
 ## The three layouts
 
@@ -41,7 +41,7 @@ comptime {
 }
 ```
 
-Worth doing at any real C boundary — it turns a silent mismatch into a build
+Worth doing at any real C boundary: it turns a silent mismatch into a build
 failure.
 
 ## Calling conventions

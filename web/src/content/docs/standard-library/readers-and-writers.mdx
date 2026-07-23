@@ -40,7 +40,7 @@ This one catches people, including an earlier draft of this page:
 | `takeDelimiterInclusive` | yes, and includes it | error |
 
 So `takeDelimiterExclusive` called twice on `"a\nb\n"` returns `"a"` and then
-an **empty slice** — because the `\n` is still there. For a line loop you want:
+an **empty slice**, because the `\n` is still there. For a line loop you want:
 
 ```zig
 while (try reader.takeDelimiter('\n')) |line| { ... }
@@ -50,5 +50,5 @@ Use `toss(n)` to skip bytes manually if you do use the exclusive form.
 
 ## Running out of room
 
-A `.fixed` writer fails with `error.WriteFailed` when the buffer is full — it
+A `.fixed` writer fails with `error.WriteFailed` when the buffer is full. It
 does not truncate silently.

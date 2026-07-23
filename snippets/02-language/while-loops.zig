@@ -14,7 +14,7 @@ test "basic while" {
 
 test "while with a continue expression" {
     // The continue expression runs after every iteration, including ones
-    // ended by `continue` — which is why it is not just the last statement.
+    // ended by `continue`, which is why it is not just the last statement.
     var sum: u8 = 0;
     var i: u8 = 1;
     while (i <= 10) : (i += 1) {

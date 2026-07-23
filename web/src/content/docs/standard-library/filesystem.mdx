@@ -35,8 +35,8 @@ pub fn main(init: std.process.Init) !void {
 ## Why
 
 It is the same argument as `Allocator`. A function's signature now tells you
-whether it performs I/O, and the *caller* decides how that I/O is executed —
-threaded, evented, or something else — instead of the standard library
+whether it performs I/O, and the *caller* decides how that I/O is executed
+(threaded, evented, or something else) instead of the standard library
 choosing on your behalf.
 
 ## Reading a whole file
@@ -54,4 +54,4 @@ unbounded amount of untrusted input into memory by accident.
 Every other snippet on this site executes in your browser. This one cannot:
 WASI programs can only touch directories the host explicitly preopens, and the
 playground grants none. CI still compiles it, so if the filesystem API changes
-again this page turns the build red — it just cannot be executed here.
+again this page turns the build red. It just cannot be executed here.

@@ -39,4 +39,4 @@ return switch (direction) {
 Now adding a `.up` variant later turns this into a compile error pointing
 straight at the code that needs updating. Adding `else => false` would instead
 silently classify the new direction as horizontal. The `else` branch is a
-convenience that costs you the compiler's help — spend it deliberately.
+convenience that costs you the compiler's help. Spend it deliberately.

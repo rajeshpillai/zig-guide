@@ -39,7 +39,7 @@ test "{any} falls back to a structural dump" {
 
 test "format strings are checked at compile time" {
     // Passing the wrong number of arguments, or a specifier the type does
-    // not support, is a compile error — not a runtime surprise.
+    // not support, is a compile error, not a runtime surprise.
     var buf: [32]u8 = undefined;
     const ok = try std.fmt.bufPrint(&buf, "{d} {s}", .{ 1, "two" });
     try expect(std.mem.eql(u8, ok, "1 two"));

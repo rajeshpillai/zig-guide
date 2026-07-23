@@ -1,5 +1,5 @@
 //! title: Switch
-//! Exhaustive by construction — a missed case is a compile error.
+//! Exhaustive by construction: a missed case is a compile error.
 
 const std = @import("std");
 const expect = std.testing.expect;

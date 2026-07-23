@@ -13,14 +13,14 @@ import Playground from "../../../components/Playground.astro";
 
 | Type | For |
 | --- | --- |
-| `AutoHashMapUnmanaged(K, V)` | keys with derivable hashing — integers, enums, simple structs |
+| `AutoHashMapUnmanaged(K, V)` | keys with derivable hashing (integers, enums, simple structs) |
 | `StringHashMapUnmanaged(V)` | `[]const u8` keys |
 | `ArrayHashMapUnmanaged(K, V)` | when you need stable insertion order |
 
 Like `ArrayList`, these are unmanaged: `.empty` to create, allocator passed to
 each method that allocates.
 
-`AutoHashMap` will refuse keys it cannot hash safely — slices, for instance,
+`AutoHashMap` will refuse keys it cannot hash safely: slices, for instance,
 because hashing the pointer is almost never what you meant. That is why string
 keys get their own type.
 
@@ -37,7 +37,7 @@ entry.value_ptr.* += 1;
 One hash and one lookup, rather than two. `entry.value_ptr` points into the
 map, so writing through it updates the stored value in place.
 
-Note that pointer is only valid until the next insertion — the same
+Note that pointer is only valid until the next insertion: the same
 invalidation rule as `ArrayList.items`.
 
 ## Keys are not copied

@@ -20,7 +20,7 @@ defer parsed.deinit();
 parsed.value.port;
 ```
 
-Note `parsed.value` — the payload lives behind the owner so a single `deinit`
+Note `parsed.value`: the payload lives behind the owner so a single `deinit`
 frees the whole tree. Strings in `parsed.value` point into that arena, so they
 die with it; duplicate anything you need to outlive the parse.
 
@@ -33,7 +33,7 @@ error by default:
 error.UnknownField
 ```
 
-That default is the right one — it catches typos in config files. Opt out
+That default is the right one: it catches typos in config files. Opt out
 deliberately when consuming a payload you do not fully model:
 
 ```zig
@@ -43,7 +43,7 @@ deliberately when consuming a payload you do not fully model:
 ## When the shape is not known
 
 Parse into `std.json.Value` for a dynamic tree, then walk `.object`, `.array`,
-`.integer`, `.string`, and friends. Prefer a concrete struct where you can —
+`.integer`, `.string`, and friends. Prefer a concrete struct where you can:
 you get validation and field names checked at compile time.
 
 ## Writing

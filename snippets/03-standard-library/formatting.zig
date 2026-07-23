@@ -24,7 +24,7 @@ test "common specifiers" {
 test "width, alignment and fill" {
     var buf: [64]u8 = undefined;
 
-    // {[fill][align][width]} — align is <, ^ or >.
+    // {[fill][align][width]}: align is <, ^ or >.
     try expect(std.mem.eql(u8, try std.fmt.bufPrint(&buf, "{d:5}", .{42}), "   42"));
     try expect(std.mem.eql(u8, try std.fmt.bufPrint(&buf, "{d:<5}", .{42}), "42   "));
     try expect(std.mem.eql(u8, try std.fmt.bufPrint(&buf, "{d:^5}", .{42}), " 42  "));

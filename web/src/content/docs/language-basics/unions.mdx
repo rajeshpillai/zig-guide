@@ -28,7 +28,7 @@ const Tagged = union(Tag) { int: i64, float: f64, none: void };
 
 Now the value carries its tag, `switch` can discriminate safely, and the switch
 must be exhaustive. This is Zig's sum type, and it is what you almost always
-want — it is the same construct that makes error unions and optionals work.
+want. It is the same construct that makes error unions and optionals work.
 
 Capturing by pointer in a prong lets you mutate in place:
 

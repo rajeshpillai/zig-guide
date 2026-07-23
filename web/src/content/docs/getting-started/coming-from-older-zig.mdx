@@ -5,7 +5,7 @@ section: Getting Started
 order: 3
 ---
 
-This guide targets **Zig master** — the version in the footer is the compiler
+This guide targets **Zig master**: the version in the footer is the compiler
 that actually compiled and ran every snippet here. If you are on a tagged
 release, some of this code will not build for you.
 
@@ -17,7 +17,7 @@ That is usually what you actually need.
 
 **Why the old code below is not runnable.** Every other snippet on this site has
 a Run button because CI compiled and executed it. The "before" examples here
-deliberately *cannot* compile on current Zig — that is the whole point — so they
+deliberately *cannot* compile on current Zig (that is the whole point), so they
 are shown as plain code. The "after" side is verified, in the chapter each one
 links to.
 
@@ -30,7 +30,7 @@ links to.
 | `main` signature | `pub fn main() !void` | `pub fn main(init: std.process.Init) !void` |
 | Writers | unbuffered, no flush | buffered, **must** `flush` |
 | File API | `std.fs.File` | `std.Io.File`, and takes an `Io` |
-| Array repeat | `"-" ** 5` | `@splat` — `**` is **gone** |
+| Array repeat | `"-" ** 5` | `@splat` (`**` is **gone**) |
 | `ArrayList` | `init(allocator)` | `.empty`, allocator per call |
 | Mutex | `std.Thread.Mutex` | `std.Io.Mutex`, `lock(io)` |
 | Custom `format` | four parameters, used by `{}` | one writer parameter, used by `{f}` |
@@ -57,7 +57,7 @@ pub fn main(init: std.process.Init) !void {
 }
 ```
 
-`init.io` is an **`Io` instance** — the same idea as `Allocator`, applied to
+`init.io` is an **`Io` instance**: the same idea as `Allocator`, applied to
 anything that can block. There is no global stdout; you must be handed the
 capability to write.
 
@@ -66,13 +66,13 @@ capability to write.
 ## Writers are buffered ("writergate", 0.15)
 
 ```zig
-// before — appeared immediately
+// before: appeared immediately
 const stdout = std.io.getStdOut().writer();
 try stdout.print("{d}\n", .{42});
 ```
 
 ```zig
-// now — nothing is written until you flush
+// now: nothing is written until you flush
 var buf: [1024]u8 = undefined;
 var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
 const out = &file_writer.interface;
@@ -80,7 +80,7 @@ try out.print("{d}\n", .{42});
 try out.flush();          // ← forget this and you get no output at all
 ```
 
-The buffer belongs to the *interface*, which is why you supply it — no hidden
+The buffer belongs to the *interface*, which is why you supply it: no hidden
 allocation. The missing `flush` is the single most common symptom of following
 an older tutorial.
 
@@ -119,7 +119,7 @@ const dashes: [5]u8 = @splat('-');
 
 Worth calling out because the failure is actively misleading: `**` no longer
 tokenises at all, so the compiler reports **"binary operator `*` has whitespace
-on one side, but not the other"** — which tells you nothing about what actually
+on one side, but not the other"**, which tells you nothing about what actually
 happened. `++` concatenation is unaffected.
 
 → [Arrays](/language-basics/arrays/)
@@ -127,14 +127,14 @@ happened. `++` concatenation is unaffected.
 ## `ArrayList` and hash maps are unmanaged
 
 ```zig
-// before — the list stored your allocator
+// before: the list stored your allocator
 var list = std.ArrayList(u8).init(allocator);
 defer list.deinit();
 try list.append('a');
 ```
 
 ```zig
-// now — you pass it to anything that can allocate
+// now: you pass it to anything that can allocate
 var list: std.ArrayList(u8) = .empty;
 defer list.deinit(gpa);
 try list.append(gpa, 'a');
@@ -163,7 +163,7 @@ defer mutex.unlock(io);
 
 `lock` can fail only because it can be *cancelled*. `std.Thread.spawn` still
 exists, but structured concurrency via `io.async` and `Io.Group` is the better
-default — and works on targets with no threads at all.
+default, and works on targets with no threads at all.
 
 → [Threads](/standard-library/threads/) · [Concurrency](/standard-library/concurrency/)
 
@@ -186,7 +186,7 @@ pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
 }
 ```
 
-And it is **no longer invoked by `{}`** — you must ask for it with `{f}`.
+And it is **no longer invoked by `{}`**; you must ask for it with `{f}`.
 `{t}` prints an enum tag name or error name.
 
 → [Advanced Formatting](/standard-library/advanced-formatting/)
@@ -200,7 +200,7 @@ fields[2].name;
 ```
 
 ```zig
-// now — parallel arrays
+// now: parallel arrays
 const info = @typeInfo(Direction).@"enum";
 info.field_names[2];
 info.field_values[2];
@@ -225,7 +225,7 @@ const exe = b.addExecutable(.{
 ```
 
 ```zig
-// now — build the module first
+// now: build the module first
 const exe = b.addExecutable(.{
     .name = "app",
     .root_module = b.createModule(.{
@@ -247,6 +247,6 @@ choice for most work; master is what this guide tracks because a guide that
 lags is a guide that quietly lies.
 
 Use this page as a translation layer: read the chapter for the concept, then
-map the syntax back. The *ideas* — explicit allocators, errors as values,
-exhaustive switches, `defer`, comptime — have not changed at all, and those are
+map the syntax back. The *ideas* (explicit allocators, errors as values,
+exhaustive switches, `defer`, comptime) have not changed at all, and those are
 the parts worth your attention.

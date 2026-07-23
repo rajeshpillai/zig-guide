@@ -11,7 +11,7 @@ import Playground from "../../../components/Playground.astro";
 
 ## Any width you like
 
-`u3`, `i7`, `u64`, `u1000` — all real types. `u8` is not special, it is just
+`u3`, `i7`, `u64`, `u1000` are all real types. `u8` is not special, it is just
 the one that happens to be a byte. Packed structs use this to describe bitfields
 exactly.
 
@@ -26,7 +26,7 @@ const c: u8 = @intCast(b);
 
 In a safety-enabled build `@intCast` panics if the value does not fit. In
 `ReleaseFast` it is illegal behaviour. Either way, the cast is visible in the
-source — you cannot lose the top bits by accident.
+source, so you cannot lose the top bits by accident.
 
 ## Overflow is a decision
 

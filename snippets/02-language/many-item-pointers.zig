@@ -1,5 +1,5 @@
 //! title: Many-item Pointers
-//! `[*]T` points at an unknown number of `T` — no length attached.
+//! `[*]T` points at an unknown number of `T`, with no length attached.
 
 const std = @import("std");
 const expect = std.testing.expect;

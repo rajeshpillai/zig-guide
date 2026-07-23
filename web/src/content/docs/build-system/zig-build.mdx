@@ -52,7 +52,7 @@ zig build -Dtarget=wasm32-wasi -Doptimize=ReleaseSmall
 
 This is the distinction that causes the most confusion. `build()` runs **once**
 to construct the graph; the steps run afterwards. Anything `build()` observes
-directly — reading a directory, checking whether a file exists — is invisible
+directly (reading a directory, checking whether a file exists) is invisible
 to the caching layer.
 
 If you do that, say so:
@@ -63,7 +63,7 @@ b.graph.poisonCache();
 
 Without it, the configuration is cached and your `build()` will not re-run when
 the thing it observed changes. This guide's own `build.zig` discovers snippets
-by walking a directory, and needs exactly this call — adding a snippet was
+by walking a directory, and needs exactly this call: adding a snippet was
 silently ignored until it was added.
 
 ## Dependencies

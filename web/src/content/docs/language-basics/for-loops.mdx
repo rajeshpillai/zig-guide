@@ -9,7 +9,7 @@ import Playground from "../../../components/Playground.astro";
 
 <Playground name="02-language.for-loops" />
 
-Zig's `for` iterates over something — a slice, an array, a range. There is no
+Zig's `for` iterates over something: a slice, an array, a range. There is no
 three-clause `for (i = 0; i < n; i++)`; that is what `while` is for. The result
 is that the common case carries no opportunity for an off-by-one.
 
@@ -30,7 +30,7 @@ The same mechanism zips any number of sequences:
 for (names, scores) |name, score| { ... }
 ```
 
-Lengths must match — a mismatch is checked, so this cannot silently read past
+Lengths must match. A mismatch is checked, so this cannot silently read past
 the end of the shorter one.
 
 ## Mutating in place

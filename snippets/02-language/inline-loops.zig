@@ -6,7 +6,7 @@ const expect = std.testing.expect;
 
 test "inline for over a tuple" {
     // A tuple's elements have different types, so the loop body must be
-    // compiled separately for each — that is what `inline` provides.
+    // compiled separately for each. That is what `inline` provides.
     const tuple = .{ @as(u8, 1), @as(f32, 2.5), true };
     var count: usize = 0;
     inline for (tuple) |value| {
@@ -28,7 +28,7 @@ test "the loop variable becomes comptime-known" {
     var sum: usize = 0;
     inline for (0..4) |i| {
         // `i` is comptime here, so it can be used where a comptime value
-        // is required — such as an array type's length.
+        // is required, such as an array type's length.
         const arr: [i]u8 = undefined;
         sum += arr.len;
     }

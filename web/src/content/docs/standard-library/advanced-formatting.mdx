@@ -19,8 +19,8 @@ pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
 }
 ```
 
-The old signature — which also received the format string and an options
-struct — no longer applies. If you find a tutorial showing
+The old signature (which also received the format string and an options
+struct) no longer applies. If you find a tutorial showing
 `format(self, comptime fmt: []const u8, options: FormatOptions, writer: anytype)`,
 it predates the change.
 
@@ -35,7 +35,7 @@ try writer.print("{f}", .{point});   // (1, 2)
 
 ## `{t}` for tag names
 
-`{t}` prints an enum's tag name or an error's name — replacing the older
+`{t}` prints an enum's tag name or an error's name, replacing the older
 practice of calling `@tagName` at every call site:
 
 ```zig

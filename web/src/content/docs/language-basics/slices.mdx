@@ -14,7 +14,7 @@ default when passing sequences around.
 
 ## Slicing does not copy
 
-`array[1..4]` produces a view into the same memory — writing through the slice
+`array[1..4]` produces a view into the same memory: writing through the slice
 writes through to the array. The upper bound is exclusive, matching `for`
 ranges. `array[2..]` slices to the end.
 
@@ -30,7 +30,7 @@ but not the reverse.
 ## Strings are slices
 
 Zig has no dedicated string type. A literal like `"hello"` is a
-`*const [5:0]u8` — a pointer to a null-terminated array — which coerces to
+`*const [5:0]u8` (a pointer to a null-terminated array), which coerces to
 `[]const u8`. Consequences worth internalising:
 
 - `.len` is the byte count, not a character count. UTF-8 is bytes here.

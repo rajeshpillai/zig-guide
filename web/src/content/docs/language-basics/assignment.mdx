@@ -13,7 +13,7 @@ Zig has two ways to introduce a value, and the default is the immutable one.
 
 ## `const` unless proven otherwise
 
-`const` is not a hint — it is enforced. Reassigning a `const` is a compile
+`const` is not a hint: it is enforced. Reassigning a `const` is a compile
 error, and so is declaring a `var` you never mutate. That second rule surprises
 people coming from C, but it means a `var` in Zig is a real signal: *this
 changes*.
@@ -29,6 +29,6 @@ var x: i32 = undefined;
 ```
 
 This says "I will write to this before I read it". It does **not** mean zero.
-Reading `x` before assigning is illegal behaviour — in a safety-enabled build
+Reading `x` before assigning is illegal behaviour. In a safety-enabled build
 Zig fills the memory with `0xaa` bytes so the mistake is loud rather than
 silently plausible.

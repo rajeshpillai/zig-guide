@@ -8,8 +8,8 @@ order: 20
 import Playground from "../../../components/Playground.astro";
 
 Zig has no global allocator and no garbage collector. Anything that needs heap
-memory takes an `std.mem.Allocator` parameter, which means you can always see —
-from the signature alone — whether a function allocates.
+memory takes an `std.mem.Allocator` parameter, which means you can always see,
+from the signature alone, whether a function allocates.
 
 <Playground name="03-standard-library.allocators" />
 
@@ -27,7 +27,7 @@ pick:
 
 The arena is the one to reach for more often than you would think. If your
 program has a natural "do a unit of work, then throw everything away" shape,
-an arena turns hundreds of `free` calls into a single `deinit` — and removes a
+an arena turns hundreds of `free` calls into a single `deinit`, and removes a
 whole category of leak.
 
 ## `defer` is what makes this bearable
@@ -37,7 +37,7 @@ const numbers = try allocator.alloc(u32, 10);
 defer allocator.free(numbers);
 ```
 
-`defer` runs at scope exit, on every path — including early `return` and error
+`defer` runs at scope exit, on every path, including early `return` and error
 returns. Writing the `free` on the line directly *after* the `alloc` keeps the
 pair visible in one glance, which is why Zig code reads the way it does.
 

@@ -21,8 +21,8 @@ zig test file.zig --test-filter "name"
 ```
 
 Tests in a file only run if that file is the test root or is reachable from it
-via `@import`. A test in a module nobody imports never runs — worth knowing
-when a test you expected to fail stays quiet.
+via `@import`. A test in a module nobody imports never runs, which is worth
+knowing when a test you expected to fail stays quiet.
 
 ## The assertion helpers
 
@@ -40,7 +40,7 @@ the values actually were.
 ## Leak detection is on by default
 
 `std.testing.allocator` fails the test if anything it allocated was not freed.
-This is not an optional tool you remember to run — every test that allocates is
+This is not an optional tool you remember to run. Every test that allocates is
 a leak test:
 
 ```zig
@@ -50,8 +50,8 @@ defer std.testing.allocator.free(buf);   // omit this and the test fails
 
 ## Skipping
 
-`return error.SkipZigTest` marks a test skipped rather than failed — the way to
-handle a test that only applies to some targets.
+`return error.SkipZigTest` marks a test skipped rather than failed. It is the
+way to handle a test that only applies to some targets.
 
 ## These pages are the tests
 

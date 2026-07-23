@@ -1,5 +1,5 @@
 //! title: For Loops
-//! `for` iterates over slices, arrays, and ranges — never a bare counter.
+//! `for` iterates over slices, arrays, and ranges, never a bare counter.
 
 const std = @import("std");
 const expect = std.testing.expect;

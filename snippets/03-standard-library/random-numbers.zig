@@ -10,7 +10,7 @@ test "a seeded generator is reproducible" {
 
     const first = random.int(u32);
 
-    // Same seed, same sequence — which is what makes tests deterministic.
+    // Same seed, same sequence: that is what makes tests deterministic.
     var again = std.Random.DefaultPrng.init(42);
     try expect(again.random().int(u32) == first);
 }

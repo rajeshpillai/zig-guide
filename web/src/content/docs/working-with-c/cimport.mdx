@@ -33,7 +33,7 @@ exe.addIncludePath(b.path("vendor/include"));
 exe.linkSystemLibrary("sqlite3");
 ```
 
-Or compile the C yourself — Zig includes a C compiler, so vendoring a
+Or compile the C yourself. Zig includes a C compiler, so vendoring a
 dependency's sources is a reasonable option:
 
 ```zig
@@ -43,7 +43,7 @@ exe.addCSourceFile(.{ .file = b.path("vendor/thing.c"), .flags = &.{"-std=c99"} 
 ## What translates and what does not
 
 Types, functions, and simple `#define` constants translate cleanly.
-**Function-like macros do not** — they are C syntax, not C semantics, and Zig
+**Function-like macros do not**: they are C syntax, not C semantics, and Zig
 cannot always give them meaning. When one matters, reimplement it in Zig;
 `zig translate-c` shows you what the automatic translation produced, which is a
 useful starting point.
@@ -59,4 +59,4 @@ already null-terminated, so passing one to C needs no conversion. Coming back,
 Unlike every other chapter here, this one shows no runnable snippet: `@cImport`
 needs real C headers and a libc for the target, and the wasm sandbox these
 pages execute in has neither. The code above is illustrative rather than
-CI-verified — the only page in this guide of which that is true.
+CI-verified, the only page in this guide of which that is true.

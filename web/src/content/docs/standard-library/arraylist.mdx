@@ -1,6 +1,6 @@
 ---
 title: ArrayList
-description: The growable array — now unmanaged.
+description: The growable array, now unmanaged.
 section: Standard Library
 order: 51
 ---
@@ -41,7 +41,7 @@ stash it across mutations.
 ## Preallocate when you can
 
 `ensureTotalCapacity` followed by `appendAssumeCapacity` turns a growth
-sequence into one allocation, and the `AssumeCapacity` calls cannot fail — so
+sequence into one allocation, and the `AssumeCapacity` calls cannot fail, so
 they need no `try`.
 
 ## Handing off ownership

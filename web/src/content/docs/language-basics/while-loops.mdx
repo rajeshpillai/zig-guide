@@ -15,7 +15,7 @@ import Playground from "../../../components/Playground.astro";
 while (i <= 10) : (i += 1) { ... }
 ```
 
-The `: (i += 1)` part runs after **every** iteration — including ones cut short
+The `: (i += 1)` part runs after **every** iteration, including ones cut short
 by `continue`. That is precisely why it exists rather than just putting the
 increment at the end of the body: with `continue` in the mix, the two are not
 equivalent, and the bug that results is easy to miss.

@@ -23,7 +23,7 @@ fiat.
 ## Methods and the receiver
 
 A method taking `self: Vec3` gets a copy; one taking `self: *Vec3` can mutate
-the original. Calling a `*Vec3` method requires a mutable value — `v` must be a
+the original. Calling a `*Vec3` method requires a mutable value: `v` must be a
 `var`, and Zig takes the address for you.
 
 Choose the receiver deliberately: `Vec3` for small value types you want copied,

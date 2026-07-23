@@ -39,5 +39,5 @@ function for a result you then forgot to use.
 
 `fibonacci` above recurses happily, but Zig cannot always prove a bound on
 stack usage. For deep or input-driven recursion, an explicit stack or an
-iterative formulation is the safer choice — there is no automatic tail-call
+iterative formulation is the safer choice: there is no automatic tail-call
 guarantee to lean on.

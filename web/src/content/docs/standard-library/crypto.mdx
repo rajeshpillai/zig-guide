@@ -9,8 +9,8 @@ import Playground from "../../../components/Playground.astro";
 
 <Playground name="03-standard-library.crypto" />
 
-Zig ships a substantial crypto library in `std.crypto` — hashes, AEADs, key
-exchange, signatures — with no external dependency.
+Zig ships a substantial crypto library in `std.crypto` (hashes, AEADs, key
+exchange, signatures) with no external dependency.
 
 ## One-shot and incremental
 
@@ -40,4 +40,4 @@ real attack. Use the timing-safe form for anything secret.
 
 Do not hash passwords with SHA-256. `std.crypto.pwhash` provides argon2,
 bcrypt, and scrypt, which are deliberately slow and salted. That slowness is
-the feature — it is what makes an offline guessing attack expensive.
+the feature: it is what makes an offline guessing attack expensive.

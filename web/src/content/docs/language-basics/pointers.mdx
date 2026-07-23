@@ -8,14 +8,14 @@ order: 20
 import Playground from "../../../components/Playground.astro";
 
 A `*T` refers to exactly one `T`. Take an address with `&`, and dereference
-with `.*` — a postfix operator, so it chains left to right like field access.
+with `.*`, a postfix operator, so it chains left to right like field access.
 
 <Playground name="02-language.pointers" />
 
 ## Never null
 
 There is no null `*T`. If a pointer may be absent, its type says so: `?*T`.
-This is not merely a convention — the compiler will not let you dereference the
+This is not merely a convention: the compiler will not let you dereference the
 optional without unwrapping it first.
 
 The representation costs nothing. Zig uses the null address as the `null` tag,

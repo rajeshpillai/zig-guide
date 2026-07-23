@@ -1,5 +1,5 @@
 //! title: Arrays
-//! `[N]T` — length is part of the type.
+//! `[N]T`: length is part of the type.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -29,7 +29,7 @@ test "concatenate at comptime" {
 
 test "repeat with @splat" {
     // Older tutorials show `"-" ** 5`. The `**` repeat operator no longer
-    // exists on master — `**` does not even tokenise — so use `@splat`,
+    // exists on master (`**` does not even tokenise), so use `@splat`,
     // which fills an array of known length with one value.
     const dashes: [5]u8 = @splat('-');
     try expect(std.mem.eql(u8, &dashes, "-----"));

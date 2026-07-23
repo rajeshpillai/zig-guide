@@ -35,7 +35,7 @@ paying for it in ordinary Zig code, where you still get the length.
 
 ## Recovering a length
 
-`[*:0]T` has no length — but the sentinel makes it discoverable:
+`[*:0]T` has no length, but the sentinel makes it discoverable:
 
 ```zig
 const slice = std.mem.span(c_string);   // scans to the sentinel

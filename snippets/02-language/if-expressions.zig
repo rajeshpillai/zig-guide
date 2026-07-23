@@ -1,5 +1,5 @@
 //! title: If Expressions
-//! `if` takes a `bool` — there is no truthiness in Zig.
+//! `if` takes a `bool`. There is no truthiness in Zig.
 
 const std = @import("std");
 const expect = std.testing.expect;

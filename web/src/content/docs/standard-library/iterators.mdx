@@ -11,7 +11,7 @@ import Playground from "../../../components/Playground.astro";
 
 Zig has no `Iterator` trait, no `IntoIterator`, no iterator protocol to
 implement. A type is iterable if it has a `next()` method returning an
-optional — because that is exactly what this loop needs:
+optional, because that is exactly what this loop needs:
 
 ```zig
 while (it.next()) |value| { ... }
@@ -42,5 +42,5 @@ block processing without copying.
 
 ## No lazy adapter chains
 
-There is no `.map().filter().take()`. Write the loop — it is usually shorter
+There is no `.map().filter().take()`. Write the loop: it is usually shorter
 than the chain, and there is nothing hidden about its cost.

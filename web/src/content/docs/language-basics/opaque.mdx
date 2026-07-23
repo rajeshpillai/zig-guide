@@ -10,7 +10,7 @@ import Playground from "../../../components/Playground.astro";
 <Playground name="02-language.opaque" />
 
 An `opaque {}` type has unknown size and layout. You can never have one by
-value — only a pointer to one.
+value, only a pointer to one.
 
 ## Why you would want that
 
@@ -27,7 +27,7 @@ part of the public interface.
 
 ## Better than `void*`
 
-C's usual alternative is `void*`, which erases the type entirely — nothing stops
+C's usual alternative is `void*`, which erases the type entirely. Nothing stops
 you passing a `*File` where a `*Window` was expected. Distinct opaque types stay
 distinct:
 

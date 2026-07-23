@@ -1,13 +1,13 @@
 ---
 title: Concurrency
-description: async, Future, and Group — through the Io interface.
+description: async, Future, and Group, all through the Io interface.
 section: Standard Library
 order: 64
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig's concurrency story now runs through `std.Io`. Press Run — this executes in
+Zig's concurrency story now runs through `std.Io`. Press Run: this executes in
 your browser, on a target with **no threads at all**.
 
 <Playground name="03-standard-library.concurrency" />
@@ -23,7 +23,7 @@ second.await(io);
 
 The `Io` implementation decides what "async" means. A threaded implementation
 runs these in parallel; the single-threaded WASI one runs them inline. **Your
-code does not change** — which is exactly why this page is runnable and the
+code does not change**, which is exactly why this page is runnable and the
 [Threads](/standard-library/threads/) page is not.
 
 ## `Group` for many tasks
@@ -35,7 +35,7 @@ try group.await(io);
 ```
 
 A `Group` owns its tasks. Awaiting it waits for all of them, and cancelling it
-cancels all of them — so a task cannot outlive the scope that started it. That
+cancels all of them, so a task cannot outlive the scope that started it. That
 property is what "structured" means here, and it is the thing raw
 `Thread.spawn` cannot give you.
 

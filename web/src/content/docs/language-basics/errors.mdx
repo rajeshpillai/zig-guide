@@ -8,7 +8,7 @@ order: 17
 import Playground from "../../../components/Playground.astro";
 
 Zig has no exceptions. A function that can fail returns an **error union**,
-written `E!T` — either an error from set `E`, or a `T`.
+written `E!T`: either an error from set `E`, or a `T`.
 
 <Playground name="02-language.errors" />
 
@@ -20,7 +20,7 @@ const FileOpenError = error{ AccessDenied, OutOfMemory, FileNotFound };
 
 A narrow set coerces into a wider one, so a function returning
 `error{OutOfMemory}` can be called from one returning `FileOpenError` without
-ceremony. `anyerror` is the set of all errors — convenient, but it discards
+ceremony. `anyerror` is the set of all errors: convenient, but it discards
 exactly the information that makes this system useful.
 
 ## Four ways to handle one
@@ -38,5 +38,5 @@ exactly the information that makes this system useful.
 ## Why this beats exceptions
 
 The failure paths are in the type signature and in the control flow you can
-see. There is no invisible unwinding, no hidden second exit from every line —
-which is the same reason `defer` is needed and sufficient for cleanup.
+see. There is no invisible unwinding, no hidden second exit from every line.
+That is the same reason `defer` is needed and sufficient for cleanup.

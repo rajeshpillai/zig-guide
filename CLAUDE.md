@@ -73,6 +73,18 @@ Content lives in `web/src/content/docs/<section>/*.mdx`; the directory maps to t
 - Only two pages are intentionally unverified, and both say so on the page: `working-with-c/cimport.mdx` (needs real headers/libc) and `getting-started/coming-from-older-zig.mdx` (its "before" examples deliberately do not compile).
 - The in-browser Zig compiler (`web/src/scripts/zig-compiler.ts`, `tools/build-browser-compiler.sh`) is **blocked upstream** — `zig.wasm` cannot currently be built for `wasm32-wasi`. The browser driver is written and type-checks; do not pin to an older Zig to work around it, since the in-browser compiler must match the version the guide is verified against.
 
+## Writing style
+
+Applies to everything a reader sees: `.mdx` prose, snippet comments, page copy, home-page text. The voice is a careful human engineer: concrete, specific, plain. Detectable AI-generated phrasing is a defect in this repo.
+
+- **No em dashes (—) or en dashes (–) in prose.** Rewrite the sentence instead: split it, or use a colon, comma, or parentheses. Hyphens in compound words are fine.
+- **Banned phrasing:** "delve", "dive into", "seamless(ly)", "leverage" (as a verb), "robust", "powerful", "unlock", "elevate", "supercharge", "landscape", "game-changer", "journey", "excited to", and any "it's not just X, it's Y" construction.
+- **No throat-clearing.** Never open with "In this section we will..." or "Let's explore...". State the fact.
+- **No hype punctuation:** no exclamation marks in prose, no emoji, no rhetorical questions as section openers.
+- **Prefer short declarative sentences** over rule-of-three flourishes and adjective stacks. When a claim can be checked by the compiler or the reader, phrase it so they can check it.
+
+The impeccable skill (`.claude/skills/impeccable/`) is installed for design work on the site; product truth lives in [PRODUCT.md](PRODUCT.md).
+
 ## CI and deployment
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on push, PR, and a 06:00 UTC nightly: `zig build verify` → `zig build` → `astro build` → `npm run e2e` → push `web/dist` to `gh-pages` (main only, only if all passed). The nightly is the point — it proves the docs are correct *today*, not when last touched.

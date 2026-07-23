@@ -30,7 +30,8 @@ walks a struct's fields.
 ## The loop variable becomes comptime-known
 
 Inside `inline for (0..4) |i|`, `i` is a comptime value, so it can be used
-where the compiler demands one — array lengths, type construction, field names:
+where the compiler demands one (array lengths, type construction, field
+names):
 
 ```zig
 const arr: [i]u8 = undefined;   // only valid because i is comptime

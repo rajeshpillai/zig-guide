@@ -16,7 +16,7 @@ the types of `.len` and of anything used to index a slice.
 
 The snippets on this site compile to `wasm32-wasi`, so `@sizeOf(usize)` is
 **4**. Build the identical source for `x86_64` and it is 8. That is why the
-last test above asserts 4 — it is a fact about the target, not about Zig.
+last test above asserts 4: it is a fact about the target, not about Zig.
 
 Writing `u64` where you mean `usize` produces code that works on your machine
 and breaks on a 32-bit one. Writing `usize` where you mean "a 64-bit counter"

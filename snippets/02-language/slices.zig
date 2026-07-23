@@ -1,5 +1,5 @@
 //! title: Slices
-//! `[]T` is a pointer plus a length — the workhorse of Zig code.
+//! `[]T` is a pointer plus a length, the workhorse of Zig code.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -25,8 +25,8 @@ test "slices share memory" {
 }
 
 test "strings are slices" {
-    // A string literal is a `*const [N:0]u8` — a pointer to a
-    // null-terminated array — which coerces to `[]const u8`.
+    // A string literal is a `*const [N:0]u8` (a pointer to a
+    // null-terminated array), which coerces to `[]const u8`.
     const message: []const u8 = "hello";
     try expect(message.len == 5);
     try expect(std.mem.eql(u8, message[0..2], "he"));

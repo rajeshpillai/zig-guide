@@ -44,7 +44,7 @@ zig build-exe main.zig -target x86_64-linux -mcpu=znver3
 zig build-exe main.zig -mcpu=baseline        # maximum portability
 ```
 
-`baseline` is the conservative choice — no assumptions beyond the architecture
+`baseline` is the conservative choice: no assumptions beyond the architecture
 minimum. Naming a specific CPU lets the optimiser use its instructions, at the
 cost of not running on older ones.
 

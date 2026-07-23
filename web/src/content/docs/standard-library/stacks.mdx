@@ -15,7 +15,7 @@ used from the end is a stack:
 | Operation | Call |
 | --- | --- |
 | push | `append(gpa, x)` |
-| pop | `pop()` — returns `?T` |
+| pop | `pop()` (returns `?T`) |
 | peek | `getLast()` |
 | size | `items.len` |
 
@@ -24,7 +24,7 @@ than by a precondition you might forget.
 
 ## When the depth is bounded
 
-If you know the maximum, skip the allocator entirely — a fixed array plus a
+If you know the maximum, skip the allocator entirely: a fixed array plus a
 length index is a complete stack with no failure mode. This matters for
 embedded targets and hot paths, and it is the sort of thing Zig makes
 comfortable rather than exotic.

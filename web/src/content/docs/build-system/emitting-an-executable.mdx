@@ -34,7 +34,7 @@ This is how every snippet on this site is built:
 zig build-exe main.zig -target wasm32-wasi -OReleaseSmall
 ```
 
-For a freestanding wasm module with no WASI — the browser-canvas case — you
+For a freestanding wasm module with no WASI (the browser-canvas case), you
 want `-target wasm32-freestanding` plus `-fno-entry` and explicit exports:
 
 ```bash

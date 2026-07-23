@@ -1,12 +1,12 @@
 //! title: C Pointers
-//! `[*c]T` exists for translated C headers — avoid it elsewhere.
+//! `[*c]T` exists for translated C headers. Avoid it elsewhere.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
 test "a C pointer is the permissive one" {
     var value: i32 = 42;
-    // [*c]T can be null, can be indexed, and coerces freely — it gives up
+    // [*c]T can be null, can be indexed, and coerces freely. It gives up
     // every guarantee Zig's other pointer types provide.
     const c_ptr: [*c]i32 = &value;
     try expect(c_ptr.* == 42);

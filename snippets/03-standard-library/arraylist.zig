@@ -26,7 +26,7 @@ test "items is a plain slice" {
 
     for (0..5) |i| try list.append(gpa, @intCast(i * i));
 
-    // `.items` is a `[]T` into the list's buffer — valid until the next
+    // `.items` is a `[]T` into the list's buffer, valid until the next
     // reallocation, so do not hold it across an append.
     try expect(list.items[4] == 16);
 }

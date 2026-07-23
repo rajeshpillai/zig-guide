@@ -8,7 +8,7 @@ order: 34
 import Playground from "../../../components/Playground.astro";
 
 `comptime` is Zig's answer to templates, macros, generics, reflection, and
-constant folding — all with one mechanism: **run normal Zig at compile time,
+constant folding, all with one mechanism: **run normal Zig at compile time,
 where types are values.**
 
 <Playground name="02-language.comptime" />
@@ -25,7 +25,7 @@ fn max(comptime T: type, a: T, b: T) T {
 ```
 
 `comptime T: type` says this parameter must be known at compile time. Each
-distinct `T` produces a separately compiled function — monomorphisation, with
+distinct `T` produces a separately compiled function: monomorphisation, with
 no special syntax.
 
 ## Generic types are functions returning types
@@ -37,7 +37,7 @@ fn List(comptime T: type) type {
 ```
 
 `List(i32)` and `List(u8)` are genuinely different types. `std.ArrayList` and
-`std.HashMap` are ordinary functions like this one — nothing in the standard
+`std.HashMap` are ordinary functions like this one. Nothing in the standard
 library gets privileged syntax you cannot use yourself.
 
 ## The branch quota
@@ -56,6 +56,6 @@ the work belongs at runtime.
 
 ## Where it pays off
 
-Anything computed at comptime is not in the binary as code — only as its
+Anything computed at comptime is not in the binary as code, only as its
 result. Format strings are checked against their arguments, lookup tables are
 generated, and dead configuration branches disappear entirely.

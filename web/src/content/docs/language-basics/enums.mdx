@@ -29,13 +29,13 @@ const Value = enum(u8) { zero = 0, one = 1, hundred = 100 };
 
 Specifying the tag type fixes both the size and the numeric values, which
 matters for wire formats and C interop. Convert with `@intFromEnum` and
-`@enumFromInt` — the latter is checked in safety builds, because not every
+`@enumFromInt`. The latter is checked in safety builds, because not every
 integer is a valid tag.
 
 ## Methods
 
 Enums can declare functions. `Suit.hearts.isRed()` is exactly
-`Suit.isRed(Suit.hearts)` — method syntax is sugar for passing the receiver as
+`Suit.isRed(Suit.hearts)`: method syntax is sugar for passing the receiver as
 the first argument. There is no dynamic dispatch and no vtable.
 
 ## Reflection
@@ -51,7 +51,7 @@ info.mode;             // .exhaustive
 ```
 
 Note these are **parallel arrays**, not one array of field structs. Older
-tutorials show `info.fields[i].name`; that shape is gone — the split landed
+tutorials show `info.fields[i].name`; that shape is gone. The split landed
 between `0.17.0-dev.644` and `dev.1441`, and was the only break across all 53
 snippets in this guide when the compiler was updated.
 

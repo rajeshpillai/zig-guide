@@ -43,5 +43,5 @@ convert at the edges.
 
 Zig will often auto-vectorise a plain loop. Explicit vectors are for when you
 need the guarantee, or when the operation does not map onto a simple loop. If
-the target lacks SIMD, the code still works — the compiler lowers it to scalar
+the target lacks SIMD, the code still works. The compiler lowers it to scalar
 operations.

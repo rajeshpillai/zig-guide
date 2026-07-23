@@ -10,7 +10,7 @@ import Playground from "../../../components/Playground.astro";
 <Playground name="02-language.anonymous-structs" />
 
 `.{ ... }` is a struct literal whose type comes from context. When the target
-type is known — a parameter, a field, a return type — the name is redundant:
+type is known (a parameter, a field, a return type), the name is redundant:
 
 ```zig
 describe(.{ .x = 1, .y = 2 });
@@ -27,7 +27,7 @@ tuple[0];   // 1
 tuple.len;  // 3
 ```
 
-Index with a comptime-known constant — `tuple[i]` for a runtime `i` cannot work,
+Index with a comptime-known constant: `tuple[i]` for a runtime `i` cannot work,
 because each element has its own type. Walk them with
 [`inline for`](/language-basics/inline-loops/).
 
@@ -37,7 +37,7 @@ because each element has its own type. Walk them with
 std.fmt.bufPrint(&buf, "{s}={d}", .{ "x", 42 });
 ```
 
-That second argument is just a tuple. There is no varargs mechanism in Zig —
+That second argument is just a tuple. There is no varargs mechanism in Zig:
 `print` takes one value that happens to be a struct, walks it with `inline for`,
 and checks it against the format string at compile time. A mismatched `{d}` is
 a compile error, not a runtime surprise.

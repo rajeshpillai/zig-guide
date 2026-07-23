@@ -1,5 +1,5 @@
 //! title: Opaque
-//! A type with unknown size and layout — a handle you can only point at.
+//! A type with unknown size and layout: a handle you can only point at.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -25,6 +25,6 @@ test "opaque types are only usable behind a pointer" {
 
 test "distinct opaque types do not mix" {
     // *Window and *Handle are unrelated types, so the compiler prevents
-    // passing one where the other is expected — unlike C's void*.
+    // passing one where the other is expected, unlike C's void*.
     try expect(*Window != *Handle);
 }

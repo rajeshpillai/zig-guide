@@ -24,8 +24,8 @@ until the thread finishes; `detach` gives up the handle instead.
 
 ## Synchronisation moved to `std.Io`
 
-This is the part that breaks older code. `std.Thread.Mutex` no longer exists —
-it is `std.Io.Mutex`, and `lock` takes the io instance:
+This is the part that breaks older code. `std.Thread.Mutex` no longer exists.
+It is `std.Io.Mutex` now, and `lock` takes the io instance:
 
 ```zig
 var mutex: std.Io.Mutex = .init;
@@ -45,7 +45,7 @@ var counter = std.atomic.Value(u32).init(0);
 _ = counter.fetchAdd(1, .monotonic);
 ```
 
-Note the `_ =` — `fetchAdd` returns the previous value, and Zig will not let
+Note the `_ =`: `fetchAdd` returns the previous value, and Zig will not let
 you drop it silently.
 
 ## Prefer structured concurrency
@@ -53,4 +53,4 @@ you drop it silently.
 For most work, [`Io.async` and `Io.Group`](/standard-library/concurrency/) are
 a better fit than spawning raw threads: they are cancellable, they cannot leak
 a running task past their scope, and they work on targets that have no threads
-at all — including the one this site runs on.
+at all, including the one this site runs on.

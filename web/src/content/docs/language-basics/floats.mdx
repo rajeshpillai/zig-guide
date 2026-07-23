@@ -29,7 +29,7 @@ sources of bugs to be worth two extra words.
 
 This one catches people, and it caught an earlier draft of this page. Unlike
 `comptime_int`, which really is arbitrary precision, `comptime_float` is backed
-by `f128`. Doing arithmetic at compile time gives you more bits — not exact
+by `f128`. Doing arithmetic at compile time gives you more bits, not exact
 decimal:
 
 ```zig
@@ -46,5 +46,5 @@ std.math.approxEqAbs(f64, a, b, 1e-12)
 ## NaN and infinity
 
 `std.math.nan(f32)` and `std.math.inf(f32)` construct them; `isNan` and `isInf`
-test for them. Remember `nan != nan` — which is exactly why `approxEqAbs`
+test for them. Remember `nan != nan`. That is exactly why `approxEqAbs`
 exists and why `==` on floats deserves suspicion.

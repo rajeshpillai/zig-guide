@@ -7,7 +7,7 @@ order: 1
 
 import Playground from "../../../components/Playground.astro";
 
-Here is a complete Zig program. Press **Run** — it executes in your browser as
+Here is a complete Zig program. Press **Run**; it executes in your browser as
 WebAssembly.
 
 <Playground name="01-getting-started.hello-world" />
@@ -21,7 +21,7 @@ current Zig master, `main` receives a `std.process.Init`:
 pub fn main(init: std.process.Init) !void
 ```
 
-That `init` carries an **`Io` instance** — `init.io`. This is the same idea as
+That `init` carries an **`Io` instance**, `init.io`. This is the same idea as
 `Allocator`, applied to I/O: just as Zig never allocates behind your back, it
 now never blocks behind your back either. Any function that touches the
 filesystem, network, or clock takes an `Io` explicitly, so the caller decides
@@ -37,7 +37,7 @@ output. For that you want a buffered writer:
 
 <Playground name="01-getting-started.buffered-stdout" />
 
-Since Zig 0.15 — the release nicknamed *"writergate"* — writers are buffered and
+Since Zig 0.15 (the release nicknamed *"writergate"*), writers are buffered and
 the buffer is part of the **interface**, not the implementation. You supply the
 memory, which means no hidden allocation.
 
@@ -47,7 +47,7 @@ it: click **Edit**, remove the line, and Run again.
 
 <aside>
 
-**A note on `std.debug.print`** — it writes to stderr, is unbuffered, and needs
+**A note on `std.debug.print`**: it writes to stderr, is unbuffered, and needs
 no `Io`. That makes it convenient for quick debugging, but it is deliberately
 not the tool for program output.
 

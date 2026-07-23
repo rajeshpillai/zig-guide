@@ -5,7 +5,7 @@ const std = @import("std");
 const expect = std.testing.expect;
 
 test "c types are separate from fixed-width ones" {
-    // `c_int` is whatever `int` is on this target — use it only at the
+    // `c_int` is whatever `int` is on this target. Use it only at the
     // C boundary, and use i32/u64/etc everywhere else.
     try expect(@sizeOf(c_int) == 4);
     try expect(@sizeOf(c_char) == 1);

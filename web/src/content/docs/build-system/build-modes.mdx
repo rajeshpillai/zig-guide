@@ -36,7 +36,7 @@ default.
 ## Where the checks are removed, the rules do not change
 
 In `ReleaseFast` and `ReleaseSmall`, an out-of-bounds index is **illegal
-behaviour** — the same category as C's undefined behaviour. The check was a
+behaviour**, the same category as C's undefined behaviour. The check was a
 diagnostic for breaking the rule, not the definition of it. Code that only
 works because Debug caught the panic is already wrong.
 
@@ -46,10 +46,10 @@ works because Debug caught the panic is already wrong.
 @setRuntimeSafety(true);
 ```
 
-Keeps checks in one function of an otherwise unchecked build — useful for the
+Keeps checks in one function of an otherwise unchecked build, useful for the
 one routine parsing untrusted input.
 
 ## Knowing the mode at compile time
 
 `@import("builtin").mode` is a comptime value, so mode-specific code costs
-nothing at runtime — the dead branch is not compiled in.
+nothing at runtime: the dead branch is not compiled in.

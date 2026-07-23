@@ -17,7 +17,7 @@ target's C ABI says.
 
 Because `long` is not one size. It is 8 bytes on 64-bit Linux and macOS,
 4 bytes on Windows and on wasm32. Code that hardcodes `i64` for a C `long` is
-correct on one platform and silently wrong on another — the kind of bug that
+correct on one platform and silently wrong on another, the kind of bug that
 appears only after a port.
 
 `c_int` and `i32` are **distinct types** even when they are the same size, so
@@ -39,7 +39,7 @@ assumption everywhere.
 
 ## `anyopaque`
 
-`anyopaque` is Zig's `void` in the C sense — the pointee type of `void*`. So
+`anyopaque` is Zig's `void` in the C sense: the pointee type of `void*`. So
 C's `void *ptr` becomes `*anyopaque`, and C's `void f(void)` returns Zig's
 `void`. The two meanings of C's `void` are separated.
 

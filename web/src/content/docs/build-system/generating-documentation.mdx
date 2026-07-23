@@ -17,7 +17,7 @@ zig build docs        # if your build.zig declares it
 | Syntax | Attaches to |
 | --- | --- |
 | `///` | the declaration that follows |
-| `//!` | the enclosing file/module — must be at the top |
+| `//!` | the enclosing file/module (must be at the top) |
 | `//` | ordinary comment, not documentation |
 
 ```zig
@@ -33,7 +33,7 @@ pub const Point = struct {
 Doc comments are Markdown, and only `pub` declarations appear in the output.
 
 A `///` comment in a position where it cannot attach to anything is a compile
-error, not a warning — so they cannot silently drift away from what they
+error, not a warning, so they cannot silently drift away from what they
 describe.
 
 ## In `build.zig`
@@ -50,6 +50,6 @@ b.step("docs", "Generate documentation").dependOn(&docs.step);
 ## Doctests
 
 Because tests are ordinary language constructs, a `test` block next to a
-function serves as both a test and an example — and unlike a comment, it cannot
+function serves as both a test and an example. Unlike a comment, it cannot
 go stale without the build noticing. That is the same principle this entire
 guide is built on.

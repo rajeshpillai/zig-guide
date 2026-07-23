@@ -28,7 +28,7 @@ test "sort structs with a custom comparator" {
         .{ .name = "a", .age = 10 },
         .{ .name = "b", .age = 20 },
     };
-    // The `{}` is the context argument — a value passed to every comparison,
+    // The `{}` is the context argument: a value passed to every comparison,
     // useful when the ordering depends on something external.
     std.mem.sort(Person, &people, {}, byAge);
     try expect(people[0].age == 10);

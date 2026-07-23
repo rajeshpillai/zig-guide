@@ -14,7 +14,7 @@ instead of quietly reading whatever came next in memory.
 
 <Playground
   name="02-language.runtime-safety"
-  note="Deliberately panics — compiled by CI to prove it is still valid, but not executed."
+  note="Deliberately panics. Compiled by CI to prove it is still valid, but not executed."
 />
 
 ## Safety depends on the build mode
@@ -31,7 +31,7 @@ checks and is a genuinely reasonable default for production; `ReleaseFast`
 trades them for speed.
 
 Where a check is removed, the situation it was catching becomes **illegal
-behaviour** — the same category as C's undefined behaviour, with the same
+behaviour**: the same category as C's undefined behaviour, with the same
 consequences. The checks are not the definition of correctness, they are a
 diagnostic for violating it.
 

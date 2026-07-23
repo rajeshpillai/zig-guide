@@ -11,7 +11,7 @@ A `?T` holds either a `T` or `null`. The compiler will not let you use the
 value without handling the `null` case first, so there is no such thing as an
 accidental null dereference.
 
-These are real tests — Run executes the actual `zig test` runner, compiled to
+These are real tests. Run executes the actual `zig test` runner, compiled to
 WebAssembly.
 
 <Playground name="02-language.optionals" />
@@ -31,7 +31,7 @@ const port = maybe_port orelse 8080;
 ## Optional pointers are free
 
 `?*T` is the same size as `*T`. Zig uses the null address as the `null` tag, so
-optional pointers cost nothing — no extra byte, no wrapper struct. The last test
+optional pointers cost nothing: no extra byte, no wrapper struct. The last test
 above asserts exactly this with `@sizeOf`.
 
 Note that this only applies to pointers. A `?u32` genuinely needs a tag byte

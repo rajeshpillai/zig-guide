@@ -7,13 +7,13 @@ order: 0
 
 This guide tracks **Zig master**, not a tagged release. Every snippet here is
 compiled and executed against a fresh master build nightly, which is what keeps
-it correct — but it also means a stable release will not compile some of these
+it correct. It also means a stable release will not compile some of these
 examples.
 
 ## Getting master
 
 The simplest route is a prebuilt tarball from
-[ziglang.org/download](https://ziglang.org/download/) — take the one under
+[ziglang.org/download](https://ziglang.org/download/). Take the one under
 **master**, not the latest release.
 
 If you switch versions often, a version manager is worth it:
@@ -39,7 +39,7 @@ will not build against it.
 ## Which version is this site?
 
 The exact compiler that built and verified every snippet on this site is shown
-in the footer. If your local `zig version` differs, expect small divergences —
+in the footer. If your local `zig version` differs, expect small divergences:
 master moves daily.
 
 ## An editor
@@ -52,5 +52,5 @@ spurious errors on current syntax.
 ## Nothing else required
 
 Zig is a single binary. It ships its own C compiler, cross-compiles to every
-supported target out of the box, and needs no separate build tool — `zig build`
-is part of it. There is no toolchain to assemble.
+supported target out of the box, and needs no separate build tool (`zig build`
+is part of it). There is no toolchain to assemble.

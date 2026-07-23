@@ -1,5 +1,5 @@
 //! title: Errors
-//! Errors are values, returned in an error union — never thrown.
+//! Errors are values, returned in an error union, never thrown.
 
 const std = @import("std");
 const expect = std.testing.expect;
