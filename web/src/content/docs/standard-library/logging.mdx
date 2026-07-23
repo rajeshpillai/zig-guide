@@ -1,0 +1,75 @@
+---
+title: Logging
+description: One log function, chosen at the root and known at compile time.
+section: Standard Library
+order: 55
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.logging" />
+
+## Four levels, tagged by scope
+
+`std.log` gives you `debug`, `info`, `warn`, and `err`. Each takes a
+compile-time format string and its arguments, the same shape as everywhere
+else. `std.log.scoped(.name)` returns the same four functions but tags every
+line with a subsystem, so a reader (or a filter) can tell where a message came
+from. The default scope is `.default`.
+
+The output above is the standard formatter writing to stderr. In your browser
+the playground shows stdout and stderr together, which is why you see the log
+lines at all.
+
+## The level is set at the root, and it is a compile-time gate
+
+The whole configuration lives in one declaration read from the **root** of the
+program:
+
+```zig
+pub const std_options: std.Options = .{
+    .log_level = .debug,
+    .log_scope_levels = &.{
+        .{ .scope = .noisy, .level = .warn },
+    },
+};
+```
+
+Two things follow from "root," and both bite people:
+
+- It must be in the root source file (the one with `main`). A `pub const
+  std_options` in a library file, or in a `zig test` file, is **ignored** —
+  the test runner is the root there, not your file. That is exactly why this
+  chapter's snippet is a program rather than a test.
+- A call below the active level is compiled *out*, not skipped at run time.
+  `std.log.debug` in a release build costs nothing because it is not there.
+  `std.log.logEnabled(level, scope)` reports this, and is itself
+  comptime-known.
+
+`log_scope_levels` caps individual subsystems: above, `.noisy` is quiet until
+`warn` even though the global level is `.debug`. Raise or lower one area
+without touching the rest.
+
+## Replacing the formatter
+
+`std.Options.logFn` is the single function every message passes through.
+Override it to change the format, add timestamps, route to a file, or emit
+structured JSON:
+
+```zig
+pub const std_options: std.Options = .{
+    .logFn = myLogFn,
+};
+
+fn myLogFn(
+    comptime level: std.log.Level,
+    comptime scope: @EnumLiteral(),
+    comptime fmt: []const u8,
+    args: anytype,
+) void {
+    // ... format `level`, `scope`, and `fmt`/`args` however you like ...
+}
+```
+
+Because there is one seam, a whole program's logging changes in one place, and
+libraries that call `std.log` inherit it for free without knowing it happened.

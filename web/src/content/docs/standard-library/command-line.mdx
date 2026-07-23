@@ -1,0 +1,56 @@
+---
+title: Command-Line Arguments
+description: Reading argv and the environment through std.process.
+section: Standard Library
+order: 43
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.command-line" />
+
+## Where the real arguments come from
+
+Your `main` receives a `std.process.Init` (the same value that carries `io`,
+`gpa`, and the arena). Its `minimal.args` field is a `std.process.Args`, and
+`iterate` turns it into an iterator whose `next` yields each argument as a
+`[:0]const u8`:
+
+```zig
+pub fn main(init: std.process.Init) !void {
+    var it = init.minimal.args.iterate();
+    defer it.deinit();
+
+    _ = it.next(); // argv[0]: the program's own path
+    while (it.next()) |arg| {
+        // ... handle arg ...
+    }
+}
+```
+
+The snippet above uses `Args.IteratorGeneral`, which parses a fixed string
+with the identical `next` shape. That is what lets it run in your browser: the
+WASI sandbox has no argv of its own, so a real iterator would come back empty.
+The parsing logic you write is the same either way.
+
+## Parsing is yours to write
+
+There is no `argparse` in the standard library. For a small tool the loop in
+the snippet, match a flag, and pull the next token when it takes a value, is
+usually all you need. The first argument is always the program path, so skip it
+before parsing. Reach for a package (see the Build System section) only when
+you want subcommands, help text, and typed conversion.
+
+## Environment variables
+
+`init.environ_map` is a `std.process.Environ.Map` built from the real
+environment. It behaves like the other maps in this section: `get` returns an
+optional, `contains` a bool. Because absence is normal for an environment
+variable, `get` returning `null` is the case you handle, not an error.
+
+## Spawning other programs
+
+The reverse direction, running a subprocess, is `std.process.Child`. Like
+everything that touches the outside world it takes an `Io`, and it lets you
+wire up the child's stdin, stdout, and stderr or capture its output. It needs a
+real OS process, so it is not something the browser sandbox can demonstrate.
