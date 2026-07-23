@@ -1,0 +1,76 @@
+---
+import Base from "../layouts/Base.astro";
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Base
+  title="Privacy"
+  description="What this site collects, what it does not, and what third-party advertising does."
+  crumbs={[{ label: "Privacy" }]}
+>
+  <article>
+    <h1>Privacy</h1>
+
+    <p class="lede">
+      This is a static site. It has no accounts, no login, no comment system,
+      and no server that could store anything about you. The pages are files on
+      a CDN.
+    </p>
+
+    <h2>What the site itself stores</h2>
+    <p>
+      Nothing. The guide sets no cookies of its own and keeps no analytics.
+      Code you run in a playground is compiled and executed entirely in your
+      browser as WebAssembly: it is never uploaded, and edits you make to a
+      snippet are discarded when you leave the page. The search index is a
+      static JSON file your browser downloads and queries locally, so what you
+      type into the search box is never sent anywhere.
+    </p>
+
+    <h2>Advertising</h2>
+    <p>
+      The site is funded by Google AdSense. Google and its partners serve ads
+      here, and they set their own cookies and read device identifiers to do
+      it. Those cookies are used to serve and measure ads, and, where Google
+      has a legal basis for it, to personalise them based on your prior visits
+      to this and other sites.
+    </p>
+    <p>
+      You can turn personalised advertising off at{" "}
+      <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">
+        Google Ad Settings</a>. Google explains how it uses data from sites that
+      use its services on its{" "}
+      <a
+        href="https://policies.google.com/technologies/partner-sites"
+        target="_blank"
+        rel="noopener noreferrer"
+      >partner sites policy</a> page, and you can opt out of third-party vendor
+      cookies more broadly at{" "}
+      <a href="https://optout.aboutads.info" target="_blank" rel="noopener noreferrer"
+        >aboutads.info</a>. Blocking cookies in your browser also works; the guide
+      itself does not need them.
+    </p>
+
+    <h2>Third parties the pages contact</h2>
+    <p>
+      Ad requests go to Google's advertising domains. Everything else the site
+      needs, including the compiler artifacts and the editor, is served from
+      this domain. Links out to sites like ziglang.org or Codeberg are ordinary
+      links: following one is a visit to that site under its own policy.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      This guide is maintained by Rajesh Pillai. Questions about this page, or
+      anything else, can go to the{" "}
+      <a
+        href="https://github.com/rajeshpillai/zig-guide"
+        target="_blank"
+        rel="noopener noreferrer"
+      >issue tracker</a>.
+    </p>
+
+    <p><a href={base}>Back to the guide</a></p>
+  </article>
+</Base>

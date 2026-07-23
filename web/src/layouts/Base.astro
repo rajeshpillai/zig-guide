@@ -2,6 +2,7 @@
 import { getCollection } from "astro:content";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { ADSENSE_CLIENT } from "../adsense";
 import "../styles/global.css";
 
 interface Crumb {
@@ -68,6 +69,15 @@ try {
 
 const current = Astro.url.pathname;
 const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
+
+// Exactly one section is expanded: the one the reader is in, falling back to
+// the first. Pages outside the chapters (home, privacy) match nothing, and a
+// sidebar of entirely closed headings gives a first-time reader nothing to
+// click.
+const sectionList = [...sections];
+const openSlug =
+  sectionList.find(([, { slug }]) => current.includes(`/${slug}/`))?.[1].slug ??
+  sectionList[0]?.[1].slug;
 ---
 
 <html lang="en">
@@ -76,6 +86,25 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title === SITE_NAME ? title : `${title} · ${SITE_NAME}`}</title>
     {description && <meta name="description" content={description} />}
+    {/* Ads are opt-in: with no publisher id configured nothing third-party is
+        loaded at all. The meta tag is how AdSense verifies ownership of the
+        domain; the script is the auto-ads loader, and placement is controlled
+        from the AdSense dashboard rather than from markup here. */}
+    {
+      ADSENSE_CLIENT && (
+        <>
+          <meta name="google-adsense-account" content={ADSENSE_CLIENT} />
+          {/* `is:inline` keeps Astro from treating this as a script to bundle,
+              which would move it out of <head> where AdSense expects it. */}
+          <script
+            is:inline
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+            crossorigin="anonymous"
+          />
+        </>
+      )
+    }
   </head>
   <body>
     {/* Checkbox, not a button: the drawer works with JS off. Must precede
@@ -139,10 +168,10 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
     <div class="shell">
       <nav class="sidebar" aria-label="Chapters">
         {
-          [...sections].map(([section, { slug, entries }]) => (
-            /* Open only the section the reader is in, so the phone drawer
-               starts as a short list rather than every chapter at once. */
-            <details class="nav-group" open={current.includes(`/${slug}/`)}>
+          sectionList.map(([section, { slug, entries }]) => (
+            /* Open one section only, so the phone drawer starts as a short
+               list rather than every chapter at once. */
+            <details class="nav-group" open={slug === openSlug}>
               <summary>{section}</summary>
               <ul>
                 <li>
@@ -263,6 +292,7 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
         Developed by <strong>Rajesh Pillai</strong>
       </span>
 
+
       <span class="status-item status-links">
         <a
           href="https://github.com/rajeshpillai/zig-guide"
@@ -284,6 +314,7 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
           </svg>
           @rajeshpillai
         </a>
+        <a href={`${base}privacy/`}>Privacy</a>
       </span>
     </footer>
 

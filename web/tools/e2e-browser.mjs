@@ -66,6 +66,16 @@ const BASE = (given ?? hosted.url).replace(/\/$/, "");
 const browser = await chromium.launch();
 const page = await browser.newPage();
 
+// Stub the ad network out. Its script is third-party and non-deterministic:
+// left live it would make every `networkidle` wait on an ad auction, and its
+// own console noise would fail a gate that exists to test the snippets. An
+// empty 200 rather than an abort, because a blocked request is itself logged
+// as a console error.
+await page.route(
+  /(googlesyndication|googletagservices|googleadservices|doubleclick)\.(com|net)/,
+  (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
+);
+
 const consoleErrors = new Set();
 page.on("pageerror", (e) => consoleErrors.add(`pageerror: ${e.message}`));
 page.on("console", (m) => {
