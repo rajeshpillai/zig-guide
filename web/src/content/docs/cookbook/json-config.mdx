@@ -1,0 +1,70 @@
+---
+title: "Recipe: Loading a JSON Config"
+description: Defaults for what's missing, validation for what's wrong, clean errors for the rest.
+section: Cookbook
+order: 91
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+Your program reads a JSON config file that users edit by hand. That means every
+failure mode will happen: fields left out, values that parse but make no sense,
+typo'd field names, and files that are not JSON at all. The program should take
+sensible defaults for what's missing, reject what's wrong with a *specific*
+error, and never crash or half-load.
+
+## The plan
+
+1. **Defaults live on the struct.** Give every field a default value, and
+   `std.json.parseFromSlice` fills only what the input provides: an empty
+   `{}` is a complete, valid config.
+2. **Validation is a separate step.** The parser checks *shape* (types and
+   field names); whether `port: 80` is acceptable is your policy, so it goes
+   in a `validate` function with named errors.
+3. **One `load` entry point** wires them together, with `errdefer` so a
+   config that parses but fails validation is freed, not leaked.
+
+<Playground name="06-cookbook.json-config" />
+
+## Walking the five cases
+
+- **Partial input:** `host` and `port` come from the file, `workers` and
+  `debug` from the defaults. This is the everyday path.
+- **Empty input:** `{}` yields the all-defaults config. If that case errors,
+  your defaults were never real.
+- **Bad value:** `"port": 80` is perfectly valid JSON, so only `validate`
+  can catch it. `error.PrivilegedPort` tells the user what to fix;
+  `error.InvalidConfig` would not.
+- **Typo'd field:** `"prot"` fails with `error.UnknownField` because
+  rejecting unknown fields is the parser's default. Keep it: it catches the
+  config the user *thought* they wrote. Opt out with
+  `.ignore_unknown_fields = true` only when consuming payloads you don't
+  fully model.
+- **Not JSON:** the parser reports a syntax error; nothing was allocated to
+  clean up.
+
+## The errdefer is the subtle line
+
+```zig
+const parsed = try std.json.parseFromSlice(Config, gpa, text, .{});
+errdefer parsed.deinit();
+try validate(parsed.value);
+return parsed;
+```
+
+`parsed` owns allocations (the `host` string, for one). If `validate` rejects
+it, `load` returns an error and the caller never sees `parsed`, so nobody
+else *can* free it. `errdefer` runs exactly on that path and only that path;
+a plain `defer` would free the config on success too.
+
+## Variations
+
+- **Reading from disk:** feed `load` the result of
+  `dir.readFileAlloc(io, path, gpa, limit)`. The parsing and validation
+  don't change. (See the [Filesystem](/standard-library/filesystem/)
+  chapter for the I/O side.)
+- **Nested config:** struct fields can be structs, arrays, optionals, and
+  enums; the parser maps JSON onto all of them, and enum fields give you
+  "one of these strings" validation for free.

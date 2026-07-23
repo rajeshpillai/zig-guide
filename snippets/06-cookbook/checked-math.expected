@@ -1,0 +1,5 @@
+std.math.add: Overflow
+saturating +|: 255
+wrapping   +%: 44
+@addWithOverflow: result=44 overflowed=1
+u8 floor stays a u8: 255

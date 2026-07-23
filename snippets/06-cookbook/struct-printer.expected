@@ -1,0 +1,9 @@
+struct-printer.Server {
+  host: "0.0.0.0"
+  port: 8080
+  debug: true
+}
+struct-printer.Point {
+  x: 1.5
+  y: -2.25
+}

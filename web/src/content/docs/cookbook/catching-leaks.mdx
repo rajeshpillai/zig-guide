@@ -1,0 +1,58 @@
+---
+title: "Recipe: Catching Memory Leaks"
+description: Make the test suite prove that every allocation is freed.
+section: Cookbook
+order: 93
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+Manual memory management means every `alloc` needs a matching `free`, on every
+path, including the paths that only happen when something else fails. Reading
+the code very carefully does not scale. You want the test suite to fail, with
+a stack trace, the moment a path leaks.
+
+Zig ships this. `std.testing.allocator` tracks every allocation made through
+it, and a test that ends with anything still allocated **fails**, printing
+where the orphaned memory was allocated.
+
+## The plan
+
+1. Route all allocation in tests through `std.testing.allocator`.
+2. For any `init` that makes more than one allocation, cover the halfway
+   failure with `std.testing.FailingAllocator`, which succeeds N times and
+   then returns `error.OutOfMemory` on purpose.
+3. Where many small allocations share one lifetime, use an arena so cleanup
+   is a single call instead of a bookkeeping exercise.
+
+<Playground name="06-cookbook.catching-leaks" />
+
+## The failure path is the one that leaks
+
+Look at `Buffers.init`. The first `alloc` succeeds, the second may fail. On
+that path the function returns an error, the caller never receives the struct,
+and `a` would be orphaned. The `errdefer gpa.free(a)` runs exactly on that
+error return and nowhere else.
+
+The second test proves it. `FailingAllocator` with `fail_index = 1` lets the
+first allocation through and fails the second, forcing `init` down the error
+path. If you delete the `errdefer` line, this test fails with a leak report.
+That is the pattern worth copying: every multi-allocation `init` deserves a
+test that fails each allocation in turn.
+
+## Why this works in ReleaseFast too
+
+Leak detection here is a property of the allocator, not of a build mode. The
+testing allocator wraps a debug allocator regardless of how the code under
+test is compiled, so CI catches leaks without shipping a debug build.
+
+## Variations
+
+- **Whole-program leak checking:** `std.heap.GeneralPurposeAllocator` (the
+  debug allocator) reports leaks from `deinit` at process exit; return code
+  and stderr tell you what was left.
+- **Exhaustive failure injection:** `std.testing.checkAllAllocationFailures`
+  runs a function once per allocation it makes, failing a different one each
+  time. It automates the `fail_index` sweep this recipe does by hand.

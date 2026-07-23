@@ -1,0 +1,64 @@
+---
+title: "Recipe: A SIMD Dot Product"
+description: Using @Vector to process four elements per operation, tail included.
+section: Cookbook
+order: 96
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You have two arrays of numbers and want their dot product, and the scalar
+loop is on your profile. Modern CPUs (and wasm) have SIMD registers that
+apply one operation to several values at once. Zig exposes them portably
+through `@Vector`, with normal operators, so the vector code looks like the
+scalar code.
+
+The two parts people get wrong are the ends: turning slice data into vector
+operands, and handling the tail when the length is not a multiple of the
+lane count.
+
+## The plan
+
+1. Define a vector type: `@Vector(4, i32)` is four `i32` lanes.
+2. Loop over the slice in whole-vector steps. `xs[i..][0..Lanes].*` takes
+   four contiguous elements as an array, which coerces to a vector.
+3. Multiply and accumulate with plain `*` and `+=`: element-wise on every
+   lane at once.
+4. After the loop, collapse the lanes with `@reduce(.Add, acc)` and finish
+   the remaining zero to three elements with a scalar loop.
+
+<Playground name="06-cookbook.simd-sum" />
+
+## The slice-to-vector cast
+
+`xs[i..][0..Lanes]` is the idiom worth memorizing. The first slice moves the
+start; the second has a comptime-known length, so its type is a pointer to
+an array, `*const [4]i32`. Dereferencing with `.*` yields the array by
+value, and arrays coerce to vectors of the same length and element type. No
+`@memcpy`, no unsafe cast, and the bounds are checked in safe builds.
+
+## The tail is not optional
+
+Ten elements at four lanes leaves two over. Skipping the tail loop produces
+code that works on every test with a round length and silently drops data on
+the rest. Keeping a scalar epilogue is the standard shape; the snippet
+checks itself against the scalar version to prove equivalence.
+
+## What to expect from performance
+
+The accumulator holds `i32` lanes and the totals use `i64`, so the widening
+happens once per reduce plus once per tail element. On wasm this compiles to
+the 128-bit SIMD instruction set; on native targets the same source uses
+whatever the CPU offers. Measure before assuming a win: for small arrays the
+setup and reduce can cost more than the loop saves.
+
+## Variations
+
+- **Other reductions:** `@reduce` also takes `.Min`, `.Max`, `.And`, `.Or`,
+  `.Xor`, and `.Mul`.
+- **Lane count:** `std.simd.suggestVectorLength(i32)` asks the target for a
+  good width instead of hardcoding 4.
+- **Floats:** the same code works with `f32` lanes; mind that float addition
+  is not associative, so vector and scalar sums can differ in the last bits.

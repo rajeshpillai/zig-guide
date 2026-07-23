@@ -1,0 +1,59 @@
+---
+title: "Recipe: Printing Any Struct"
+description: Comptime reflection builds a debug printer that works for every struct type.
+section: Cookbook
+order: 94
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You want to dump any struct for debugging or logging: field names, values,
+strings quoted, without writing a print function per type and without runtime
+reflection machinery. In most languages this costs a reflection API and some
+runtime overhead. In Zig it is a loop that runs at compile time.
+
+## The plan
+
+1. Take the value as `anytype` and get its type with `@TypeOf`.
+2. Ask the compiler for the struct's shape with `@typeInfo`.
+3. `inline for` over the fields. The loop unrolls at compile time, so each
+   iteration can use a different field type, and the generated code is
+   straight-line prints.
+
+<Playground name="06-cookbook.struct-printer" />
+
+## The shape of `@typeInfo` changed
+
+If you learned this API before, note the delta: `@typeInfo(T).@"struct"` used
+to expose one `fields` slice of `StructField` structs, each with a `name` and
+a `type`. Current master splits that into parallel arrays: `field_names`,
+`field_types`, and `field_attrs`, guaranteed to have the same length. Iterating
+names and types together is a two-slice `inline for`:
+
+```zig
+inline for (info.field_names, info.field_types) |name, Field| {
+    const v = @field(value, name);
+}
+```
+
+A tutorial showing `.fields` with `field.name` and `field.type` no longer
+compiles. The idea is unchanged; only the field layout moved.
+
+## Why the branch costs nothing
+
+`if (comptime Field == []const u8)` is decided while compiling, per field.
+For `host` the compiler emits only the quoted-string print; for `port` only
+the `{any}` print. The other branch is not compiled at all, which also means
+this works even when a branch would be a type error for the other fields.
+
+## Variations
+
+- **Nested structs:** recurse when `@typeInfo(Field)` is itself a struct.
+  Watch for cycles if types can reference themselves through pointers.
+- **The built-in shortcut:** `{any}` on a whole struct already prints
+  something usable. Write a custom printer when you need control over
+  format, indentation, or which fields appear.
+- **Enums and unions:** `{t}` prints tag names directly; combine with this
+  recipe for tagged unions.

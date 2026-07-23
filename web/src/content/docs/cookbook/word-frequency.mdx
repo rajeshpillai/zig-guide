@@ -1,0 +1,60 @@
+---
+title: "Recipe: Word Frequencies"
+description: Count occurrences with a hash map, then rank them with a sort.
+section: Cookbook
+order: 90
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You have a block of text and want the five most common words: case-insensitive,
+punctuation ignored, and with a stable order so two runs never disagree about
+ties. It is the shape behind log analysis, tag clouds, and "top N by count"
+reports of every kind.
+
+The catch that trips people up in Zig: a hash map is the right tool for
+counting, but a hash map **has no order**. Ranking needs a second structure.
+
+## The plan
+
+1. **Tokenize** with `std.mem.tokenizeAny`, treating whitespace and
+   punctuation as delimiters. It never yields an empty token.
+2. **Count** into a `StringHashMapUnmanaged(u32)` using `getOrPut`, one
+   lookup per word instead of a `get` followed by a `put`.
+3. **Rank** by copying the entries into an `ArrayList` and sorting it with a
+   comparator that breaks count ties alphabetically.
+
+<Playground name="06-cookbook.word-frequency" />
+
+## Why the keys are duplicated
+
+`lowerString` writes each lowercased word into the same reused buffer. If the
+map stored that slice as a key, every key would alias one buffer and the last
+word written would overwrite them all. `gpa.dupe` gives each key its own bytes.
+
+This is the recipe's one real ownership decision, and the arena makes it cheap:
+map, list, and duplicated keys all share a lifetime, so a single
+`arena_state.deinit()` frees the lot. No per-key `free`, no leak.
+
+## Why sort a copy
+
+`counts.iterator()` walks entries in hash order: effectively arbitrary, and
+not even stable across compiler versions. Moving `(word, count)` pairs into an
+`ArrayList` costs one pass and gives you a plain slice, which is what
+`std.mem.sort` wants anyway.
+
+The comparator sorts by count descending, then alphabetically. Without the
+tie-break the order of equal counts would depend on hash order, and the output
+would change from run to run. This page's output is verified character-for-
+character by CI, so determinism is not optional here.
+
+## Variations
+
+- **Top N of a large set:** sorting everything to take five is wasteful at
+  scale; `std.sort.heap` a bounded heap, or `std.mem.sort` a partial
+  selection, once profiling says so.
+- **Unicode:** `std.ascii.lowerString` is ASCII-only by design. Real
+  case-folding needs a Unicode library; the standard library deliberately
+  does not guess.
