@@ -92,7 +92,20 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
         </svg>
         Chapters
       </label>
-      <a class="brand" href={base}>⚡ {SITE_NAME}</a>
+      <div class="brand-wrap">
+        <a class="brand" href={base}>⚡ {SITE_NAME}</a>
+        {/* This lives on ziglang.in, one letter from the official ziglang.org;
+            say plainly that it is not affiliated. */}
+        <a
+          class="unofficial"
+          href="https://ziglang.org"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Independent community guide. Not affiliated with the Zig Software Foundation; the official site is ziglang.org."
+        >
+          Unofficial
+        </a>
+      </div>
 
       {/* Progressive enhancement: with JS off this is an inert text field that
           does nothing, so it stays hidden until the script wires it up. */}
@@ -115,8 +128,8 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
         <div class="search-results" id="search-results" role="listbox" aria-label="Search results" hidden></div>
       </div>
 
-      <span class="version" title="Every snippet is compiled and run against this compiler">
-        Zig {zigVersion}
+      <span class="version" title="Every snippet in this guide is compiled and run against this exact compiler, in CI and in your browser">
+        ✓ Zig {zigVersion}
       </span>
       <a class="topbar-link" href={`${base}getting-started/coming-from-older-zig/`}>
         On an older Zig?
@@ -221,7 +234,7 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
     <footer class="statusbar">
       <span class="status-item">
         <strong>Zig {zigVersion}</strong>
-        <span class="status-sub">{snippetCount} snippets verified</span>
+        <span class="status-sub">→ all {snippetCount} snippets compiled and run against this build</span>
       </span>
 
       <span class="status-item">
@@ -232,6 +245,17 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
             target="_blank"
             rel="noopener noreferrer"
           >upstream Zig on Codeberg</a>
+        </span>
+      </span>
+
+      <span class="status-item">
+        <span class="status-sub">
+          an unofficial community guide, not affiliated with the Zig Software
+          Foundation (<a
+            href="https://ziglang.org"
+            target="_blank"
+            rel="noopener noreferrer"
+          >ziglang.org</a>)
         </span>
       </span>
 
