@@ -1,0 +1,64 @@
+---
+title: "Recipe: A Producer/Consumer Queue"
+description: std.Io.Queue as a bounded channel, with close() as the shutdown protocol.
+section: Cookbook
+order: 102
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+One part of your program discovers work; another part does it. The classic
+answer is a queue between them, but hand-rolled versions keep growing
+parts: a mutex, a condition variable, a "no more work" flag, and a subtle
+bug where workers sleep forever on shutdown.
+
+Current Zig master ships the whole thing: `std.Io.Queue(T)` is a bounded,
+thread-safe channel with blocking put and get and a close protocol.
+
+## The plan
+
+1. Create `std.Io.Queue(u64)` over a fixed buffer you provide. The buffer
+   length is the queue's capacity, and capacity is backpressure: a
+   producer more than that far ahead blocks until workers catch up.
+2. Spawn workers that loop on `getOne`, which blocks until an item
+   arrives.
+3. Produce, then call `close`. Workers drain the remaining items, then
+   `getOne` returns `error.Closed` and each worker exits its loop.
+4. `join` the workers.
+
+<Playground
+  name="06-cookbook.worker-queue"
+  note="Built and run natively by CI. wasm32-wasi is single-threaded, so std.Thread.spawn does not compile for it at all."
+/>
+
+## Close is the shutdown protocol
+
+The traditional failure mode of worker queues is shutdown: a sentinel
+value per worker, or a flag plus a broadcast, each easy to get wrong.
+`close` folds it into the queue's contract: puts after close fail,
+items already queued are still delivered, and only then do getters see
+`error.Closed`. The worker loop is therefore two lines with no special
+cases, and no worker can sleep through shutdown.
+
+## Why the queue takes `io`
+
+Every blocking operation goes through the `std.Io` interface, queues
+included. That is the same design the rest of the standard library
+follows now: whoever provides the io implementation decides how blocking
+is implemented (OS threads here; an event loop elsewhere) and blocking
+operations become cancelation points. Passing `io` into the worker is not
+noise; it is what makes the same worker code portable across execution
+models.
+
+## Variations
+
+- **Batching:** `put` and `get` move slices, not just single items, and
+  return how many they moved; `putAll` blocks until everything is in.
+  Batches amortize the synchronization per item.
+- **Multiple producers:** put is threadsafe; several producers can feed
+  one queue. Close once, from the coordinator that knows production is
+  finished.
+- **Results channel:** for a full pipeline, give workers a second queue
+  to put results into, and close it after the worker `join`.
