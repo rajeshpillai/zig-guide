@@ -54,10 +54,11 @@ Other scripts:
 
 Slug is `<chapter-dir>.<filename>`, e.g. `02-language.optionals`. `//!` header comments are metadata and are stripped before the reader sees the code.
 
-**Two non-obvious invariants in build.zig — do not "clean these up":**
+**Three non-obvious invariants in build.zig — do not "clean these up":**
 
 1. Expected files are passed as tracked **file arguments** (`run.addFileArg`), not compared via `expectStdOutEqual`. The latter did not invalidate the build cache when a `.expected` file was edited, so a wrong expectation could pass forever.
 2. It deliberately avoids `standardOptimizeOption` and defaults to `ReleaseSmall`. That helper returns `Debug` unless `-Drelease` is passed, which produced 1.4 MB wasm files (~30x) shipped to every reader.
+3. The wasm target adds the `simd128` CPU feature. Without it `std.simd.suggestVectorLength` returns null, which silently compiles the SIMD path *out* of any snippet that guards on it (the SIMD chapters would ship scalar wasm while claiming otherwise). Every supported browser and Node implement simd128.
 
 **Web.** Astro + ~25 KB of vanilla TypeScript; no framework. The playground is a `<zig-playground>` custom element, progressively enhanced — with JS off every snippet is still a readable highlighted `<pre>`. Code splitting is load-bearing: CodeMirror (~514 KB) loads only on **Edit**, the compiler glue only when running edited code. `Playground.astro` validates the snippet name against `snippets.json` at build time, so a bad reference is a **build error**, not a runtime 404; it also fails with an explicit message when the manifest is missing.
 

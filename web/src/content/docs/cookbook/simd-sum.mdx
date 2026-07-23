@@ -62,3 +62,7 @@ setup and reduce can cost more than the loop saves.
   good width instead of hardcoding 4.
 - **Floats:** the same code works with `f32` lanes; mind that float addition
   is not associative, so vector and scalar sums can differ in the last bits.
+- **Searching instead of summing:**
+  [the byte scanning recipe](/cookbook/simd-scan/) uses the same loop shape
+  to find and count bytes, with comparisons and bit masks in place of
+  arithmetic.

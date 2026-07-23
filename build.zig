@@ -22,9 +22,15 @@ pub fn build(b: *std.Build) void {
         "optimize",
         "Optimization mode for snippets (default: ReleaseSmall)",
     ) orelse .ReleaseSmall;
+    // simd128 is opt-in for wasm32, and without it `std.simd.suggestVectorLength`
+    // returns null, which would compile the SIMD path *out* of any snippet that
+    // guards on it — the reader's browser would silently run scalar code under
+    // a page claiming otherwise. Every engine this site supports (Chrome 91+,
+    // Firefox 89+, Safari 16.4+, Node 16+) implements simd128.
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .wasi,
+        .cpu_features_add = std.Target.wasm.featureSet(&.{.simd128}),
     });
 
     const verify_step = b.step("verify", "Compile and run every snippet (CI gate)");

@@ -1,0 +1,6 @@
+lanes:  16
+scalar: 56
+simd:   56
+byte:   \
+quotes: 14 scalar, 14 simd
+agree:  true
