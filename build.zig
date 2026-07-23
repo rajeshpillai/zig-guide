@@ -14,14 +14,16 @@ const snippets_root = "snippets";
 const wasm_out_dir = "../web/public/wasm";
 
 pub fn build(b: *std.Build) void {
-    // Default to ReleaseSmall rather than `standardOptimizeOption`, which
-    // yields Debug unless `-Drelease` is passed — a ~30x size difference in
-    // the wasm every reader downloads (1.4 MB vs ~46 KB).
+    // Default to .small (the mode formerly spelled ReleaseSmall) rather than
+    // `standardOptimizeOption`, which yields .debug unless `-Drelease` is
+    // passed — a ~30x size difference in the wasm every reader downloads
+    // (1.4 MB vs ~46 KB). Master lowercased these enum tags; the `-Doptimize=`
+    // CLI still accepts the old ReleaseSmall/Debug spellings.
     const optimize = b.option(
         std.builtin.OptimizeMode,
         "optimize",
-        "Optimization mode for snippets (default: ReleaseSmall)",
-    ) orelse .ReleaseSmall;
+        "Optimization mode for snippets (default: small)",
+    ) orelse .small;
     // simd128 is opt-in for wasm32, and without it `std.simd.suggestVectorLength`
     // returns null, which would compile the SIMD path *out* of any snippet that
     // guards on it — the reader's browser would silently run scalar code under

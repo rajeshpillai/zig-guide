@@ -1,22 +1,24 @@
 //! title: Build Modes
-//! The four modes, and what each trades away.
+//! The four modes, and what each trades away. Tags are lowercase since 0.17-dev.
 
 const std = @import("std");
 const builtin = @import("builtin");
 const expect = std.testing.expect;
 
 test "the current mode is known at compile time" {
-    // These snippets are built as ReleaseSmall.
-    try expect(builtin.mode == .ReleaseSmall);
+    // These snippets are built as .small. Master lowercased the mode tags:
+    // .Debug/.ReleaseSafe/.ReleaseFast/.ReleaseSmall are now
+    // .debug/.safe/.fast/.small.
+    try expect(builtin.mode == .small);
 }
 
 test "safety checks follow the mode" {
-    // True in Debug and ReleaseSafe, false in ReleaseFast and ReleaseSmall.
+    // True in .debug and .safe, false in .fast and .small.
     const safety_on = switch (builtin.mode) {
-        .Debug, .ReleaseSafe => true,
-        .ReleaseFast, .ReleaseSmall => false,
+        .debug, .safe => true,
+        .fast, .small => false,
     };
-    try expect(!safety_on); // because we are in ReleaseSmall
+    try expect(!safety_on); // because we are in .small
 }
 
 test "safety can be forced back on for a scope" {
