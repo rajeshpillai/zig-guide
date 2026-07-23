@@ -1,0 +1,76 @@
+---
+title: "Recipe: An HTTP Round Trip"
+description: A std.http.Server on a thread, a std.http.Client fetching from it, no dependencies.
+section: Cookbook
+order: 105
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You want to make an HTTP request from Zig, or handle one, using only the
+standard library. Both halves exist in `std.http`, both were rebuilt on
+the `std.Io` reader/writer interfaces, and most tutorial code for either
+predates the rebuild.
+
+As with [TCP](/cookbook/tcp-echo/), the recipe runs server and client in
+one process. CI executes it and diffs the output, so the page cannot
+quietly rot.
+
+## The plan
+
+1. Listen on an ephemeral TCP port, exactly as in the TCP recipe. HTTP is
+   a layer, not a different kind of socket.
+2. On the server thread, wrap the accepted stream's reader and writer in
+   `std.http.Server.init`, then loop: `receiveHead()` gives a request,
+   route on `request.head.target`, answer with `respond()`.
+3. On the client side, create a `std.http.Client` and call `fetch()` with
+   a URL and a `response_writer`. One call drives connect, request,
+   redirect handling, and body delivery.
+
+<Playground
+  name="06-cookbook.http-roundtrip"
+  note="Built and run natively by CI: a real client fetches from a real server over loopback. Browser wasm has no sockets."
+/>
+
+## The layering is literal
+
+`std.http.Server.init(&reader.interface, &writer.interface)` takes the
+same two interfaces every stream in current Zig exposes. The HTTP layer
+never sees the socket; hand it a pipe or a fixed buffer and it works the
+same, which is how the standard library tests itself. If you understand
+the TCP recipe, the only new machinery here is head parsing and response
+formatting, and both belong to `std.http`.
+
+The server loop also explains keep-alive concretely: both fetches in the
+snippet arrive over one TCP connection, as two iterations of the
+`receiveHead` loop. The loop exits when the client's connection pool
+closes the stream.
+
+## What fetch does for you
+
+`fetch()` is the one-shot path: it parses the URL, takes a pooled
+connection or opens one, sends the request, follows redirects (up to
+three by default for GET), decompresses the body if needed, and writes
+the body into the writer you supply. The result carries the status code.
+For streaming bodies, per-request headers, or long-lived requests, drop
+down to `client.request()`; the shape is the same, spelled out.
+
+## Status is data, not an error
+
+The 404 comes back as `FetchResult.status`, not as a Zig error. Errors
+are for the transport failing (refused connection, malformed response);
+whether a 404 is a failure is your application's decision. Route on the
+status enum: `.ok`, `.not_found`, or the numeric value via
+`@intFromEnum`.
+
+## Variations
+
+- **POST:** set `.payload = body` in the fetch options; the method
+  defaults to POST when a payload is present.
+- **Serving files:** pair the router with
+  [Filesystem](/standard-library/filesystem/) reads; `respond` takes any
+  byte slice.
+- **HTTPS:** `fetch` handles `https://` URLs with the bundled TLS client;
+  nothing changes at the call site.

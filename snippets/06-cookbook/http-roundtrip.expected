@@ -1,0 +1,3 @@
+GET /hello -> 200
+body: hello from zig
+GET /nope  -> 404
