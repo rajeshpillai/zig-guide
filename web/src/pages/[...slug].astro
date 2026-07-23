@@ -25,10 +25,31 @@ export async function getStaticPaths() {
     paths.push({ params: { slug }, props: { entry: null, section: bucket } });
   }
 
+  // And an index per group (a library under Building Libraries), living at
+  // the group's directory, so the sidebar node and breadcrumb both resolve.
+  const groups = new Map();
+  for (const doc of docs) {
+    if (!doc.data.group) continue;
+    const slug = doc.id.split("/").slice(0, -1).join("/");
+    const bucket = groups.get(slug) ?? {
+      title: doc.data.group,
+      slug,
+      sectionTitle: doc.data.section,
+      sectionSlug: doc.id.split("/")[0],
+      entries: [],
+    };
+    bucket.entries.push(doc);
+    groups.set(slug, bucket);
+  }
+  for (const [slug, bucket] of groups) {
+    bucket.entries.sort((a, b) => a.data.order - b.data.order);
+    paths.push({ params: { slug }, props: { entry: null, section: null, group: bucket } });
+  }
+
   return paths;
 }
 
-const { entry, section } = Astro.props;
+const { entry, section, group = null } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
 /** Ungrouped chapters first, then one labelled bucket per `group`. */
@@ -46,28 +67,62 @@ const Content = entry ? (await render(entry)).Content : null;
 
 const crumbs = section
   ? [{ label: section.title }]
-  : [
-      { label: entry.data.section, href: `${base}${entry.id.split("/")[0]}/` },
-      { label: entry.data.title },
-    ];
+  : group
+    ? [
+        { label: group.sectionTitle, href: `${base}${group.sectionSlug}/` },
+        { label: group.title },
+      ]
+    : [
+        { label: entry.data.section, href: `${base}${entry.id.split("/")[0]}/` },
+        ...(entry.data.group
+          ? [
+              {
+                label: entry.data.group,
+                href: `${base}${entry.id.split("/").slice(0, -1).join("/")}/`,
+              },
+            ]
+          : []),
+        { label: entry.data.title },
+      ];
 ---
 
 <Base
-  title={section ? section.title : entry.data.title}
+  title={section ? section.title : group ? group.title : entry.data.title}
   description={section
     ? `${section.entries.length} chapters on ${section.title}.`
-    : entry.data.description}
+    : group
+      ? `${group.entries.length} chapters on ${group.title}.`
+      : entry.data.description}
   crumbs={crumbs}
 >
   {
-    section ? (
+    group ? (
+      <article>
+        <h1>{group.title}</h1>
+        <p class="section-lede">{group.entries.length} chapters.</p>
+        <ul class="section-index">
+          {group.entries.map((chapter) => (
+            <li>
+              <a href={`${base}${chapter.id}/`}>{chapter.data.title}</a>
+              {chapter.data.description && <span>{chapter.data.description}</span>}
+            </li>
+          ))}
+        </ul>
+      </article>
+    ) : section ? (
       <article>
         <h1>{section.title}</h1>
         <p class="section-lede">{section.entries.length} chapters.</p>
         {
           grouped(section.entries).map(([label, members]) => (
             <>
-              {label && <h2 class="section-group">{label}</h2>}
+              {label && (
+                <h2 class="section-group">
+                  <a href={`${base}${members[0].id.split("/").slice(0, -1).join("/")}/`}>
+                    {label}
+                  </a>
+                </h2>
+              )}
               <ul class="section-index">
                 {members.map((chapter) => (
                   <li>

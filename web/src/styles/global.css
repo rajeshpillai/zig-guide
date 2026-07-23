@@ -238,14 +238,47 @@ pre {
   font-style: italic;
 }
 
-/* Sub-group label inside a section: a heading row, not a link. */
-.nav-subgroup {
-  padding: 0.6rem 0.6rem 0.2rem;
+/* A library inside a section: its own collapsible node, one level in. */
+.nav-subgroup > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--muted);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  list-style: none;
+}
+
+.nav-subgroup > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-subgroup > summary::before {
+  content: "";
+  width: 0.35rem;
+  height: 0.35rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.nav-subgroup[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.nav-subgroup > summary:hover {
+  color: var(--text);
+}
+
+.nav-subgroup > ul {
+  padding-left: 0.7rem;
 }
 
 .sidebar ul {
@@ -428,7 +461,16 @@ main th {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.section-group a {
   color: var(--muted);
+  text-decoration: none;
+}
+
+.section-group a:hover {
+  color: var(--text);
+  text-decoration: underline;
 }
 
 .section-index {

@@ -34,13 +34,19 @@ for (const doc of docs.sort((a, b) => a.data.order - b.data.order)) {
  * Split a section's entries into the ungrouped run followed by one bucket
  * per `group` label, preserving order within each. Sections without groups
  * come back as a single unlabelled bucket, so the common case renders as
- * before.
+ * before. A group's slug is its directory (e.g. `building-libraries/orm`),
+ * which is also where its overview page lives.
  */
 function grouped(entries: typeof docs) {
-  const buckets = new Map<string, typeof docs>();
+  const buckets = new Map<string, { slug: string; members: typeof docs }>();
   for (const entry of entries) {
     const key = entry.data.group ?? "";
-    (buckets.get(key) ?? buckets.set(key, []).get(key)!).push(entry);
+    const bucket = buckets.get(key) ?? {
+      slug: entry.id.split("/").slice(0, -1).join("/"),
+      members: [],
+    };
+    bucket.members.push(entry);
+    buckets.set(key, bucket);
   }
   // Ungrouped first, then groups in first-appearance order.
   return [...buckets.entries()].sort((a, b) => (a[0] === "" ? -1 : b[0] === "" ? 1 : 0));
@@ -113,10 +119,42 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
                     Overview
                   </a>
                 </li>
-                {grouped(entries).map(([label, members]) => (
-                  <>
-                    {label && <li class="nav-subgroup">{label}</li>}
-                    {members.map((entry) => (
+                {grouped(entries).map(([label, { slug: groupSlug, members }]) =>
+                  label ? (
+                    /* A library gets its own collapsible node with an
+                       overview page, so its chapters read as one unit. */
+                    <li>
+                      <details class="nav-subgroup" open={current.includes(`/${groupSlug}/`)}>
+                        <summary>{label}</summary>
+                        <ul>
+                          <li>
+                            <a
+                              class="nav-overview"
+                              href={`${base}${groupSlug}/`}
+                              aria-current={
+                                current.endsWith(`/${groupSlug}/`) ? "page" : undefined
+                              }
+                            >
+                              Overview
+                            </a>
+                          </li>
+                          {members.map((entry) => (
+                            <li>
+                              <a
+                                href={`${base}${entry.id}/`}
+                                aria-current={
+                                  current.endsWith(`/${entry.id}/`) ? "page" : undefined
+                                }
+                              >
+                                {entry.data.title}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    </li>
+                  ) : (
+                    members.map((entry) => (
                       <li>
                         <a
                           href={`${base}${entry.id}/`}
@@ -125,9 +163,9 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
                           {entry.data.title}
                         </a>
                       </li>
-                    ))}
-                  </>
-                ))}
+                    ))
+                  ),
+                )}
               </ul>
             </details>
           ))
