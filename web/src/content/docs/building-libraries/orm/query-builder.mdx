@@ -1,0 +1,60 @@
+---
+title: "A Typed Query Builder"
+description: Compile-time field checking and injection-proof rendering, with no allocator.
+section: Building Libraries
+group: "An Ecto-Style ORM"
+order: 111
+---
+
+import Playground from "../../../../components/Playground.astro";
+
+## The problem
+
+Every database library faces the same two failure modes: queries that
+reference columns that do not exist (found at runtime, in production, as
+a database error), and string-spliced values (found as an injection).
+A Zig library can rule out both at the type level, and the machinery is
+smaller than you would guess.
+
+## The pattern
+
+1. `std.meta.FieldEnum(T)` turns the schema struct's field names into an
+   enum. A filter takes that enum, so `.where(.emial, .eq)` is a compile
+   error with the misspelling in it.
+2. The builder is a plain value. `where` copies it, appends to a bounded
+   array, and returns the copy; chaining needs no allocator and the
+   caller can fork a base query freely.
+3. `render` writes numbered placeholders (`$1`, `$2`); values never touch
+   the SQL text. They travel to the driver separately.
+
+<Playground name="07-building-libraries.query-builder" />
+
+## What the enum buys
+
+The `Field` enum exists only at compile time; by runtime a filter is an
+integer tag. `{t}` formats the tag name back into SQL, so the enum is
+simultaneously the validator and the column-name source. One decision,
+three properties: typo-proof, zero-cost, and no string table to keep in
+sync with the schema.
+
+The same trick generalizes beyond ORMs. Any library that accepts "one of
+this struct's fields" as an argument (sorters, serializers, diff tools)
+can take `FieldEnum(T)` instead of a string and move the failure to
+compile time.
+
+## Why the builder is by-value
+
+`where` returning a modified copy makes the builder immutable in
+practice: a shared base query cannot be corrupted by one call site adding
+its filters. The bounded array keeps the copy cheap and the API
+allocator-free, at the cost of a fixed capacity. That trade is worth
+stating in your library's documentation as a design decision, not hiding
+as an implementation detail.
+
+## In a full ORM
+
+The real builder grows operators, `ORDER BY`, joins, and an `insert`
+path, and pairs each placeholder with a typed value list for the driver.
+The draft this section distills from renders to PostgreSQL and SQLite
+dialects from the same builder; the dialect switch lives in `render`,
+exactly where this snippet's SQL formatting lives.

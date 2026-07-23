@@ -1,0 +1,57 @@
+---
+title: "Validation from Declarations"
+description: Optional capabilities discovered with @hasDecl, the convention-over-configuration of Zig.
+section: Building Libraries
+group: "An Ecto-Style ORM"
+order: 112
+---
+
+import Playground from "../../../../components/Playground.astro";
+
+## The problem
+
+Your library wants optional, per-type behavior: validation rules on one
+schema, custom serialization on another, nothing on a third. Interfaces
+and inheritance are the classical answers; Zig has neither. What it has
+is better suited to libraries: the caller *declares* what they support,
+and the library *asks*, at compile time.
+
+## The pattern
+
+1. The convention: a schema may declare `pub const rules = .{ ... }`,
+   naming its own fields.
+2. The library checks `@hasDecl(T, "rules")` before touching it. No
+   declaration means no validation and zero generated code.
+3. `inline for` walks the rules; `@hasField` on each rule struct decides
+   which checks apply. Every lookup resolves while compiling; the runtime
+   work is just the comparisons themselves.
+
+<Playground name="07-building-libraries.validation-rules" />
+
+## Errors land at the right build
+
+Two mistakes are caught at the caller's compile, with no effort from the
+library author:
+
+- A rule for a nonexistent field: `@field(value, "nmae")` cannot resolve.
+- A `min_len` rule on an integer field: `v.len` does not exist on `u8`.
+
+This is the deep reason to prefer declarations over registration
+functions. A runtime `registerValidator("name", ...)` call can only fail
+at runtime; a declaration is analyzed against the schema while both are
+open in the compiler.
+
+## The standard library does the same thing
+
+This is not an ORM invention. `std.json` looks for `jsonStringify` on
+your type; formatting looks for a `format` declaration. When your
+library adopts the same shape (a documented declaration name, discovered
+with `@hasDecl`), Zig users already know how to hold it.
+
+## In a full ORM
+
+The draft this distills from runs validation inside `insert` and
+`update`, returning a typed error set with the violation attached, and
+adds cross-field rules (unique-together, conditional requirements) as
+declarations following the same discovery pattern. The skeleton stays
+this page's twenty lines; everything else is more rules.
