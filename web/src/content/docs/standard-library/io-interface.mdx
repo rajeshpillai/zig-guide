@@ -1,0 +1,74 @@
+---
+title: The Io Interface
+description: Anything that can block takes an Io; the caller picks how.
+section: Standard Library
+order: 15
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Modern Zig has one idea running through its whole standard library: any
+operation that can block, reading a file, opening a socket, sleeping, reading
+the clock, takes an `std.Io` parameter. Nothing blocks behind your back, the
+same way nothing allocates behind your back. If a function's signature has no
+`Io`, it cannot do I/O.
+
+<Playground name="03-standard-library.io-interface" />
+
+## What `Io` is
+
+`std.Io` is an interface: a pointer plus a vtable, exactly the shape of
+`std.mem.Allocator`. The vtable holds function pointers for the primitive
+operations, reading, writing, waiting, scheduling, and a concrete
+implementation fills them in. The standard one is `std.Io.Threaded`, backed by
+a real thread pool. It is the same dependency-injection pattern the allocator
+uses, applied to blocking instead of to memory. That is why this chapter sits
+next to [Allocators](/standard-library/allocators/): learn the two together
+and the rest of the library stops surprising you.
+
+## Where an `Io` comes from
+
+You almost never construct one. It arrives at the top of your program and you
+thread it downward:
+
+| Context | The `Io` you use |
+| --- | --- |
+| `main` | `init.io`, a field on the `std.process.Init` passed to `main` |
+| A test | `std.testing.io` |
+| A library function | whatever the caller hands you: take `io: std.Io` |
+
+A function that needs to block does not reach for a global. It accepts an `Io`
+and passes it to the calls that block. This is why `std.Io.File.readFile`,
+`std.Io.Clock.Timestamp.now`, and `Io.Mutex.lock` all take one as their first
+argument.
+
+## Why route everything through one interface
+
+Two payoffs justify the parameter that is now on every I/O call.
+
+**The signature tells the truth.** A function that takes an `Io` announces that
+it may block; one that does not, cannot. You can see a function's effects from
+its type, with no documentation and no surprises, the same guarantee the
+allocator parameter gives you for memory.
+
+**The caller chooses the execution model.** Because blocking goes *through* the
+interface, the interface can also schedule it. `io.async` starts a task: on
+`Io.Threaded` it runs on another thread; hand the same code an event-loop `Io`
+and the identical call suspends a coroutine instead. The function being called
+never changes. This is Zig's answer to the "function coloring" problem, there
+is no separate `async` version of `readFile`, only one function that does
+whatever the `Io` it was given does.
+
+The [Concurrency](/standard-library/concurrency/) chapter builds on this with
+`Future` and `Group`; [Readers and Writers](/standard-library/readers-and-writers/),
+[Filesystem](/standard-library/filesystem/), and [Time](/standard-library/time/)
+are each one corner of the same interface.
+
+## If you are arriving from an older Zig
+
+This is the change nicknamed *"writergate"* (Zig 0.15) and its follow-on work.
+Code that once wrote `std.fs.cwd().openFile(...)` or `std.time.timestamp()`
+with no `Io` in sight now routes through `std.Io.Dir` and
+`std.Io.Clock`. The free-standing, globally-available I/O functions are gone;
+the [migration page](/getting-started/coming-from-older-zig/) lists the
+specific renames.
