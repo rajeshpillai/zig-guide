@@ -92,10 +92,10 @@ The impeccable skill (`.claude/skills/impeccable/`) is installed for design work
 
 - Pages is served from the **`gh-pages` branch**. Do not switch to `actions/deploy-pages` without also changing the repo Pages source, or the live site silently stops updating.
 - Both `gh-deploy.sh` and CI publish as a fresh **orphan commit** of `web/dist`, so anything else on that branch is deleted.
-**"Ship it"** means: work happens on `dev`, so fast-forward `main` onto `dev`, push `main` (that push is what deploys), then check `dev` back out and stay there.
+**"Ship it"** means: work happens on `dev`, so first push `dev` to its remote (keeping `origin/dev` in sync), then fast-forward `main` onto `dev` and push `main` (that push is what deploys to `gh-pages` via CI), then check `dev` back out and stay there. Both remote branches end up matching local; the deploy follows from the `main` push.
 
 ```bash
-git checkout main && git merge --ff-only dev && git push origin main && git checkout dev
+git push origin dev && git checkout main && git merge --ff-only dev && git push origin main && git checkout dev
 ```
 
 If the fast-forward is refused, stop and report — do not merge or force-push without asking.
