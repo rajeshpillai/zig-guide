@@ -238,6 +238,16 @@ pre {
   font-style: italic;
 }
 
+/* Sub-group label inside a section: a heading row, not a link. */
+.nav-subgroup {
+  padding: 0.6rem 0.6rem 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .sidebar ul {
   list-style: none;
   margin: 0;
@@ -409,6 +419,15 @@ main th {
 /* ---------- section index ---------- */
 
 .section-lede {
+  color: var(--muted);
+}
+
+.section-group {
+  margin: 2rem 0 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 

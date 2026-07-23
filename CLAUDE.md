@@ -61,7 +61,7 @@ Slug is `<chapter-dir>.<filename>`, e.g. `02-language.optionals`. `//!` header c
 
 **Web.** Astro + ~25 KB of vanilla TypeScript; no framework. The playground is a `<zig-playground>` custom element, progressively enhanced — with JS off every snippet is still a readable highlighted `<pre>`. Code splitting is load-bearing: CodeMirror (~514 KB) loads only on **Edit**, the compiler glue only when running edited code. `Playground.astro` validates the snippet name against `snippets.json` at build time, so a bad reference is a **build error**, not a runtime 404; it also fails with an explicit message when the manifest is missing.
 
-Content lives in `web/src/content/docs/<section>/*.mdx`; the directory maps to the URL namespace. Frontmatter requires `title` and `section`, with optional `description` and `order` (sidebar sort). See [web/src/content.config.ts](web/src/content.config.ts).
+Content lives in `web/src/content/docs/<section>/*.mdx`; the directory maps to the URL namespace. Frontmatter requires `title` and `section`, with optional `description` and `order` (sidebar sort). A section that hosts several bodies of work (Building Libraries, one per library) nests pages one directory deeper and labels them with optional `group`; grouped chapters render under a sub-heading in the sidebar and section index, after any ungrouped ones. See [web/src/content.config.ts](web/src/content.config.ts).
 
 `web/public/wasm/` and `web/public/compiler/` are generated — never edit or commit them.
 

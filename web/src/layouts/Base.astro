@@ -30,6 +30,22 @@ for (const doc of docs.sort((a, b) => a.data.order - b.data.order)) {
   sections.set(doc.data.section, bucket);
 }
 
+/**
+ * Split a section's entries into the ungrouped run followed by one bucket
+ * per `group` label, preserving order within each. Sections without groups
+ * come back as a single unlabelled bucket, so the common case renders as
+ * before.
+ */
+function grouped(entries: typeof docs) {
+  const buckets = new Map<string, typeof docs>();
+  for (const entry of entries) {
+    const key = entry.data.group ?? "";
+    (buckets.get(key) ?? buckets.set(key, []).get(key)!).push(entry);
+  }
+  // Ungrouped first, then groups in first-appearance order.
+  return [...buckets.entries()].sort((a, b) => (a[0] === "" ? -1 : b[0] === "" ? 1 : 0));
+}
+
 // Emitted by `zig build`; states the compiler that actually verified the
 // snippets rather than a version hardcoded here.
 let zigVersion = "master";
@@ -97,15 +113,20 @@ const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
                     Overview
                   </a>
                 </li>
-                {entries.map((entry) => (
-                  <li>
-                    <a
-                      href={`${base}${entry.id}/`}
-                      aria-current={current.endsWith(`/${entry.id}/`) ? "page" : undefined}
-                    >
-                      {entry.data.title}
-                    </a>
-                  </li>
+                {grouped(entries).map(([label, members]) => (
+                  <>
+                    {label && <li class="nav-subgroup">{label}</li>}
+                    {members.map((entry) => (
+                      <li>
+                        <a
+                          href={`${base}${entry.id}/`}
+                          aria-current={current.endsWith(`/${entry.id}/`) ? "page" : undefined}
+                        >
+                          {entry.data.title}
+                        </a>
+                      </li>
+                    ))}
+                  </>
                 ))}
               </ul>
             </details>
