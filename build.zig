@@ -48,13 +48,20 @@ pub fn build(b: *std.Build) void {
             b.addTest(.{ .name = snippet.name, .root_module = module });
 
         if (snippet.native) {
-            // Host binary: run it directly. Nothing to ship to the browser,
-            // so the site renders this snippet without a Run button.
-            const run = b.addRunArtifact(compile);
-            // Capture stdout rather than letting it through, so a passing
-            // `verify` stays silent like the wasm runner does. A failure
-            // still surfaces, because the step's exit code is checked.
-            if (snippet.kind == .exe) _ = run.captureStdOut(.{});
+            // Host binary: run it through the same runner shape as the wasm
+            // path, so a sibling `.expected` file is diffed here too rather
+            // than silently ignored. Nothing to ship to the browser, so the
+            // site renders this snippet without a Run button.
+            const run = b.addSystemCommand(&.{ "node", "tools/run-native.mjs" });
+            run.addArtifactArg(compile);
+            run.expectExitCode(0);
+
+            // Tracked as a file argument for the same reason as below:
+            // editing the expectation must invalidate the cached run.
+            if (snippet.expected) |expected_path| {
+                run.addFileArg(b.path(expected_path));
+            }
+
             verify_step.dependOn(&run.step);
             continue;
         }

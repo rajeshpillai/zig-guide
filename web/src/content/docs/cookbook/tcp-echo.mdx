@@ -1,0 +1,75 @@
+---
+title: "Recipe: A TCP Round Trip"
+description: Listen, connect, and echo through std.Io.net, all in one process.
+section: Cookbook
+order: 103
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You want a TCP server and a client talking to it, in Zig, with today's
+API. This is the topic where stale tutorials hurt the most: networking
+moved from `std.net` to `std.Io.net`, every operation now takes the `io`
+instance, and code copied from a last-year guide does not get past the
+compiler.
+
+The recipe runs both halves in one process. That is not a toy compromise;
+it is also how you write an integration test for any protocol code.
+
+## The plan
+
+1. Parse `127.0.0.1` with **port 0**, and `listen`. Port 0 tells the OS
+   to pick a free ephemeral port; `server.socket.address` carries the
+   resolved one, so nothing hardcodes a port that might be taken.
+2. Spawn a thread for the server half: `accept`, read a line, reply.
+3. In the main thread, `connect` to the recorded address, send a line,
+   read the reply.
+4. Join the thread. CI runs exactly this and diffs the output.
+
+<Playground
+  name="06-cookbook.tcp-echo"
+  note="Built and run natively by CI, exchanging real bytes over loopback. Browser wasm has no sockets."
+/>
+
+## What changed from std.net
+
+If you learned Zig networking before the `std.Io` rework, the map is:
+
+| Then | Now |
+| --- | --- |
+| `std.net.Address.parseIp(...)` | `std.Io.net.IpAddress.parse(...)` |
+| `address.listen(.{})` | `address.listen(io, .{})` |
+| `listener.accept()` | `server.accept(io)` |
+| `std.net.tcpConnectToAddress(addr)` | `addr.connect(io, .{ .mode = .stream })` |
+| `stream.reader()` / `.writer()` | `stream.reader(io, &buf)` / `.writer(io, &buf)`, then `.interface` |
+
+The pattern behind every row: blocking operations go through the `io`
+parameter, and buffers are yours to supply.
+
+## One interface for sockets and files
+
+`stream.reader(io, &buf).interface` is the same `std.Io.Reader` you use
+for files and stdin, so `takeDelimiterExclusive('\n')` reads a line off a
+socket exactly as it would off a file. Protocol code written against the
+interface does not know or care that a socket is underneath, which is
+what makes it testable with `std.Io.Reader.fixed` in unit tests.
+
+## Why a thread
+
+`accept` blocks until a client arrives, and `connect` blocks until the
+server accepts, so one thread cannot do both halves interleaved without
+relying on kernel queue subtleties. A second thread keeps each half
+straight-line. On the wasm target none of this compiles (no sockets, no
+threads), which is why CI runs this snippet natively.
+
+## Variations
+
+- **Many clients:** wrap the accept-and-serve body in a loop and spawn a
+  thread per connection, or feed accepted streams to a
+  [worker queue](/cookbook/worker-queue/).
+- **Timeouts:** `connect` takes an `Io.Timeout` in its options; reads can
+  use `receiveTimeout` on the socket level.
+- **Structured protocols:** length-prefixed frames beat line-delimited
+  text for binary data; see [the wire format recipe](/cookbook/binary-roundtrip/).

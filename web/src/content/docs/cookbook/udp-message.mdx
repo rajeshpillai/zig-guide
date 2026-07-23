@@ -1,0 +1,61 @@
+---
+title: "Recipe: UDP Datagrams"
+description: Bound sockets and discrete messages, no connection anywhere.
+section: Cookbook
+order: 104
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+Some traffic does not want a connection: metrics, discovery pings, game
+state, sensor readings. Losing one message is fine; the cost of TCP's
+ordering and retransmission is not. That is UDP, and its API shape is
+different enough from TCP that porting the "listen and accept" mental
+model produces confusion rather than code.
+
+There is nothing to accept. A socket binds to an address, and messages
+arrive whenever they arrive.
+
+## The plan
+
+1. `bind` with `.mode = .dgram` instead of `listen`. Binding to port 0
+   picks an ephemeral port, recorded on `socket.address`.
+2. Send with `socket.send(io, &destination, bytes)`: destination per
+   message, because there is no connection to remember it.
+3. Receive with `socket.receive(io, &buffer)`, which returns the data
+   slice and the sender's address.
+
+<Playground
+  name="06-cookbook.udp-message"
+  note="Built and run natively by CI, sending real datagrams over loopback. Browser wasm has no sockets."
+/>
+
+## No threads in this one, and why that works
+
+The snippet sends both messages before receiving either, on one thread.
+The kernel queues datagrams on the bound socket until someone reads them.
+That decoupling is the actual model: sender and receiver do not
+rendezvous, they just share an address. (The queue is finite; when it
+overflows, datagrams are dropped, which is UDP behaving as documented.)
+
+## Message boundaries are real
+
+Two `send` calls produced exactly two `receive` results, 14 bytes each.
+TCP would happily deliver those 28 bytes as one read or three; a datagram
+socket never merges or splits messages. That is the property protocol
+designers buy with UDP, and it comes with the matching constraint: a
+datagram larger than the receive buffer is truncated, signalled by
+`msg.flags.trunc`.
+
+## Variations
+
+- **Know your sender:** `receive` fills `msg.from` with the sender's
+  address; reply by sending back to it. That pair is the entire core of a
+  request/response protocol over UDP.
+- **Timeouts:** `receiveTimeout` returns `error.Timeout` instead of
+  blocking forever, which is how you write "wait up to a second for a
+  reply".
+- **Broadcast:** set `.allow_broadcast = true` in the bind options to
+  send to broadcast addresses on a LAN.
