@@ -1,0 +1,64 @@
+---
+title: "Transactions and errdefer"
+description: COMMIT on success, ROLLBACK on every error path, enforced by four lines.
+section: Building Libraries
+group: "An Ecto-Style ORM"
+order: 117
+---
+
+import Playground from "../../../../components/Playground.astro";
+
+## The problem
+
+A transaction wrapper has one job: no path may leave the transaction
+open. Languages solve it with `finally`, context managers, or RAII, and
+the bugs live in the paths someone forgot: the early return, the error
+between two statements, the failed COMMIT itself. Zig's `errdefer` was
+built for exactly this shape, and a library API is where it earns its
+keep.
+
+## The pattern
+
+The entire contract:
+
+```zig
+try r.driver.exec("BEGIN");
+errdefer r.driver.exec("ROLLBACK") catch {};
+try body.run(r);
+try r.driver.exec("COMMIT");
+```
+
+Every `try` after the `errdefer` is covered by it: an error inside the
+caller's body, or in COMMIT itself, fires the ROLLBACK and propagates
+the original error. Success skips the `errdefer` entirely. There is no
+path that reaches the function's end with the transaction open, and you
+can verify that by reading four lines rather than auditing every
+return.
+
+<Playground name="07-building-libraries.transactions" />
+
+## Why the ROLLBACK swallows its own error
+
+The `catch {}` on the ROLLBACK is deliberate and worth documenting in a
+real library: the wrapper is already unwinding with the *caller's*
+error, which is the one that explains what went wrong. Replacing it
+with a secondary "and also the rollback failed" error would hide the
+cause. A production library logs the rollback failure; it still
+propagates the original.
+
+## The callback shape
+
+`body` is anytype with a `run` method, the snippet's stand-in for a
+closure. The caller's work runs *inside* the wrapper's frame, which is
+what lets `errdefer` see its errors. The same shape appears anywhere a
+library brackets user code: arena-per-request handlers, file locks,
+the draft's pool checkout (acquire, run, always release).
+
+## In a full ORM
+
+Real transactions nest (SAVEPOINT instead of BEGIN when already inside
+one), which the draft tracks with a depth counter on the connection;
+the errdefer shape is identical at every depth. The recording-driver
+tests from [the previous page](/building-libraries/orm/repo/) extend
+naturally: assert BEGIN/SAVEPOINT/ROLLBACK sequences for the nested
+cases.

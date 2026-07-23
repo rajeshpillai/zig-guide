@@ -1,0 +1,56 @@
+---
+title: "Writing Rows"
+description: INSERT and UPDATE statements derived from the schema, with values as a typed array.
+section: Building Libraries
+group: "An Ecto-Style ORM"
+order: 113
+---
+
+import Playground from "../../../../components/Playground.astro";
+
+## The problem
+
+Reading was the [query builder](/building-libraries/orm/query-builder/);
+writing is the other half. An INSERT must name every column and number
+every placeholder; an UPDATE must split key columns from data columns.
+Writing those statements by hand, per table, is exactly the repetitive,
+drift-prone work the schema already has the information to do.
+
+## The pattern
+
+1. Derive `insert_sql` at compile time: column list and placeholder list
+   walked from the same fields, so they cannot disagree in length or
+   order.
+2. Derive `update_sql` with a stated convention: the first field is the
+   key. Conventions a library documents are API; pick them deliberately.
+3. Pair each statement with `bind`, which turns a row into an array of
+   tagged-union `Value`s, one per placeholder, in the same field order.
+
+<Playground name="07-building-libraries.insert-update" />
+
+## The statement and its values cannot drift
+
+The deep property here: `insert_sql`'s placeholders and `bind`'s output
+are generated from one walk over one list of fields. Add a column to the
+struct and both change together at the next compile. The classic ORM bug
+(a statement with four placeholders fed five values) is not caught here;
+it is unrepresentable.
+
+`comptimePrint` does the number formatting during compilation, so even
+`$3` is baked into the constant. At runtime, `bind` is a fixed sequence
+of stores; the `inline for` leaves no loop behind.
+
+## The Value union is the wire contract
+
+Drivers do not take Zig structs; they take a statement and a list of
+typed values. The `Value` union is that list's element type, and the
+compile error in `bind`'s `else` arm is the schema's type system meeting
+the driver's: a field type with no wire mapping fails the build, naming
+the field.
+
+## In a full ORM
+
+The draft adds `RETURNING id` to inserts, skips auto-managed columns
+(`created_at`, `updated_at` get their values from the library, not the
+caller), and marks the key column explicitly instead of by position.
+All three are more comptime walking of the same field list.
