@@ -1,0 +1,74 @@
+---
+title: "Recipe: Struct Memory Layout"
+description: Read the size, alignment, and field offsets a struct actually gets, and control them.
+section: How-To
+order: 107
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You need to know how a struct sits in memory: how big it is, where each
+field lands, and whether you can hand it to C or to hardware. Guessing from
+the field types is a mistake, because the default layout is allowed to
+reorder fields and insert padding. Zig gives you builtins to read the real
+numbers and keywords to pin them down when it matters.
+
+## The plan
+
+1. Inspect any type with `@sizeOf`, `@alignOf`, and `@offsetOf`.
+2. Force a field boundary with `align(N)`.
+3. Use `packed struct` for bit-level fields with no padding, then `@bitCast`
+   it to an integer.
+4. Use `extern struct` when the layout must match the C ABI.
+
+<Playground name="06-cookbook.memory-layout" />
+
+## The default layout reorders fields
+
+`Padded` is declared `a: u8, b: u64, c: u32`. A C programmer expects `a` at
+offset 0, seven bytes of padding, `b` at 8, `c` at 16, for 24 bytes. Zig's
+default layout is `auto`, which is explicitly unspecified, and the current
+compiler uses that freedom: it places `b` at 0, `c` at 8, and `a` at 12, for
+a total of 16 bytes. Putting the largest field first removes the padding a
+naive order would need.
+
+The lesson is not the specific numbers, which belong to this compiler and
+this target. It is that you must not depend on the field order of an `auto`
+struct. If a byte offset matters, read it with `@offsetOf`, or use a layout
+that guarantees order.
+
+## `align(N)` raises the whole struct
+
+`Aligned` forces `a` to a 16-byte boundary. A field's alignment cannot lower
+the struct's alignment, only raise it, so the whole struct becomes 16-aligned
+and 16 bytes. Reach for this when a buffer must be cache-line aligned or when
+a device expects a specific boundary.
+
+## Packed structs give you bits
+
+`packed struct` drops padding, keeps fields in declaration order, and allows
+sub-byte integers. `Register` packs a `bool`, a `u3`, a `u4`, and a `u8` into
+exactly two bytes. `@bitCast` reinterprets it as a `u16` with no copy: the
+fields fill the integer from the least significant bit up, so `enable` is bit
+0 and `value` occupies the high byte. The result is `0x2A0B`, which is how
+you would build a hardware register value or decode one.
+
+## Extern structs match C
+
+`extern struct` follows the platform C ABI: fields stay in order, padding
+follows C rules, so `CStruct` is 8 bytes with `b` at offset 4. This is the
+layout to use across an FFI boundary. The
+[ABI chapter](/working-with-c/abi/) covers passing these to and from C in
+full.
+
+## Variations
+
+- **`std.debug.print("{}", .{@typeInfo(T)})`** dumps a type's fields and
+  their declared types when you want the whole picture at comptime.
+- **`@sizeOf` versus `@bitSizeOf`:** the second reports bit width, which is
+  what packed fields actually consume.
+- **Round-tripping bytes:** once a layout is fixed with `packed` or `extern`,
+  [the binary round-trip recipe](/how-to/binary-roundtrip/) writes and reads
+  it as raw bytes with defined endianness.

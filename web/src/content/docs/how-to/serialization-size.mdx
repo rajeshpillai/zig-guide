@@ -1,0 +1,68 @@
+---
+title: "Recipe: JSON vs Binary, by Size"
+description: The same 100,000 records as JSON and as packed bytes, measured exactly.
+section: How-To
+order: 92.5
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You are choosing a wire format for a stream of records and want a concrete
+number, not a rule of thumb. JSON is readable and self-describing; a packed
+binary layout is compact. This recipe encodes the same 100,000 events both
+ways and prints the exact byte counts, so the trade is a measurement rather
+than an argument.
+
+The data is seeded, so the sizes are reproducible: you get the same numbers
+every run, which is also why this page can assert them.
+
+## The plan
+
+1. Generate 100,000 events from a fixed PRNG seed.
+2. Serialize the slice with `std.json.Stringify.value` and measure the text.
+3. Serialize each event as a fixed 24-byte little-endian record and measure
+   the bytes.
+4. Divide.
+
+<Playground name="06-cookbook.serialization-size" />
+
+## Why binary wins on size
+
+JSON is 4.62 times larger here, and the reasons are structural. Every record
+repeats its field names as text (`"player_id"`, `"timestamp"`) where the
+binary form carries none. Numbers expand: a `u32` that is four bytes in
+binary becomes up to ten decimal digits in JSON, and a float becomes a
+decimal string that is usually longer than its four raw bytes. The enum,
+one byte in binary, serializes as `"move"` or `"attack"`. None of this is
+waste in JSON's terms; it is the cost of being self-describing.
+
+The binary record is a flat 24 bytes regardless of the values: `i64`
+timestamp, `u32` id, two `f32` coordinates, a one-byte tag, three bytes of
+padding. `std.mem.writeInt` with an explicit `.little` endianness means the
+bytes are defined, not host-dependent, which is what makes the format a
+format rather than a memory dump. That discipline is the subject of
+[the binary round-trip recipe](/how-to/binary-roundtrip/).
+
+## What about speed
+
+Speed is the other half of the choice, and binary usually wins there too:
+it skips formatting numbers into decimal on write and parsing them back on
+read. This page does not print timings, for two reasons. Wall-clock time is
+not reproducible, so it could not be asserted the way every snippet here is.
+And on this site the clock lives behind the `Io` interface, since timing is
+an effect like any other I/O. To measure it yourself on a native build, wrap
+each encode loop in a `std.time.Timer` and compare the elapsed nanoseconds;
+expect the gap to widen as the records get more numeric.
+
+## Variations
+
+- **Smaller still:** drop the three padding bytes for a 21-byte record, or
+  bit-pack the enum into spare bits, when density matters more than alignment.
+- **Compress the JSON:** gzip closes much of the size gap, at CPU cost on both
+  ends; measure that trade the same way.
+- **Schema evolution:** JSON tolerates added and missing fields; a fixed
+  binary record does not, so a real binary format usually carries a version
+  byte. See [struct memory layout](/how-to/memory-layout/) for how the record
+  is laid out.

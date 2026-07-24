@@ -1,0 +1,69 @@
+---
+title: "Recipe: A Custom JSON Serializer"
+description: Give a struct a jsonStringify method to rename fields and add computed ones.
+section: How-To
+order: 91.5
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+The default JSON serializer emits your struct exactly as declared: same field
+names, same values, nothing more. Often the wire format has to differ. The
+field is `is_admin` in Zig but `admin` in the API, or the response needs a
+value you compute rather than store. You want that control without hand-rolling
+string concatenation and without giving up the checks that keep the output
+valid.
+
+Zig's answer is a hook: declare `pub fn jsonStringify` on the type and
+`std.json.Stringify` calls it instead of walking the fields.
+
+## The plan
+
+1. Define the struct as usual.
+2. Add `pub fn jsonStringify(self: T, jws: anytype) !void`. `jws` is a
+   pointer to the write stream.
+3. Drive the stream: `beginObject`, then `objectField(name)` and `write(value)`
+   per field, then `endObject`.
+4. Serialize with `std.json.Stringify.value(x, .{}, writer)`. The hook is
+   picked up automatically.
+
+<Playground name="06-cookbook.json-custom" />
+
+## The hook, field by field
+
+`objectField("user_id")` writes the key, and `write(self.id)` writes the
+value with normal serialization, including quoting strings and escaping them.
+Because you name each key yourself, renaming is just typing a different
+string: `is_admin` becomes `admin`, `name` becomes `full_name`. The stream
+tracks structure, so if you forget an `endObject` or write a value where a key
+belongs, it is a compile-time or runtime error rather than silently malformed
+JSON.
+
+## Computed fields
+
+`epoch_day` is not a struct field. The hook computes it from `created_at` and
+writes it like any other value. This is the main reason to write a custom
+serializer: the output can carry derived data (a formatted timestamp, a
+signed URL, a total) that you would not want to store on the struct itself.
+
+## `write` versus `print`
+
+`write(value)` serializes a Zig value as JSON: numbers stay numbers, strings
+get quoted. When you need to emit a literal fragment, `jws.print("{d}", .{n})`
+writes raw text into the stream, so you are responsible for the quotes and
+escaping. Prefer `write` unless you specifically need the raw form; it is the
+one that cannot produce invalid output.
+
+## Variations
+
+- **Whitespace:** `std.json.Stringify.value(x, .{ .whitespace = .indent_2 }, w)`
+  pretty-prints with two-space indentation.
+- **Omitting fields:** a hook can skip a field entirely (write nothing for it),
+  which the default serializer cannot do.
+- **Unions and enums:** the same `jsonStringify` hook works on tagged unions and
+  enums, not just structs.
+- **The read side:** parsing back is covered by
+  [the JSON config recipe](/how-to/json-config/), which validates the shape as
+  it loads.

@@ -1,0 +1,4 @@
+Padded:   size=16 align=8 offsets a=12 b=0 c=8
+Aligned:  size=16 align=16 offset b=1
+Register: size=2 raw=0x2A0B
+CStruct:  size=8 offset b=4
