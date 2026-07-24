@@ -1,0 +1,11 @@
+> startup (user=zig)
+auth:    ok
+param:   server_version=16.0
+param:   client_encoding=UTF8
+backend: pid=4242
+ready:   idle
+> query: SELECT 'zig' AS greeting
+fields:  1 (greeting)
+row:     zig
+done:    SELECT 1
+ready:   idle

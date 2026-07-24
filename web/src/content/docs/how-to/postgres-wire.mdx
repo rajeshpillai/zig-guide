@@ -1,0 +1,83 @@
+---
+title: "Recipe: The PostgreSQL Wire Protocol"
+description: Speak Postgres directly, framing a startup handshake and a query by hand.
+section: How-To
+order: 110
+group: Databases
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+A Postgres driver is mostly a codec for one TCP protocol. Seeing that protocol
+without a driver in the way is the fastest route to understanding what a query
+actually costs and where a hang comes from. This recipe implements enough of
+both ends to complete a startup handshake and run one query, so the exact bytes
+are on the page.
+
+As with the other database recipes, it stands up a mock backend in the same
+process, so CI runs and diffs the whole exchange without a running
+`postgres`. The framing is the real thing; only the auth and the query engine
+are stubbed.
+
+## The plan
+
+1. Everything is big-endian. Write one `putInt` and one `getInt` and reuse them.
+2. Send a `StartupMessage`: it has no type byte, just a length and a list of
+   parameters ending in a null.
+3. Read the backend's reply stream until `ReadyForQuery` (`Z`), decoding each
+   message by its type byte.
+4. Send a `Query` (`Q`) and read `RowDescription` (`T`), `DataRow` (`D`),
+   `CommandComplete` (`C`), and the next `ReadyForQuery`.
+
+<Playground
+  name="06-cookbook.postgres-wire"
+  note="A self-contained client and mock backend, built and run natively by CI. No postgres server, and browser wasm has no sockets."
+/>
+
+## Two message shapes
+
+After the first message, every Postgres message has the same frame: a one-byte
+type, an `Int32` length that counts itself but not the type byte, then
+`length - 4` bytes of payload. `sendMsg` and `readMsg` encode exactly that, so
+the rest of the code only cares about payloads. The startup message is the one
+exception: it predates the type-byte convention, so it is a bare length and
+body. That asymmetry is why `sendStartup` and `readMsg` are separate.
+
+## The handshake is a stream, not a call
+
+Sending the startup message does not get you one reply. The backend answers
+with a run of messages: `AuthenticationOk`, one `ParameterStatus` per server
+setting (`server_version`, `client_encoding`, and normally a dozen more),
+`BackendKeyData` with the process id and secret used to cancel queries, and
+finally `ReadyForQuery`. The client loops until it sees `Z`, which is the
+signal that the connection is usable. A real driver caches those parameters and
+the cancel key here.
+
+## Reading a result
+
+A query answers with the same streaming shape. `RowDescription` names the
+columns and their types; `DataRow` carries one row as length-prefixed column
+values, where a length of -1 means SQL `NULL`; `CommandComplete` reports the
+tag (`SELECT 1`); and `ReadyForQuery` closes the batch. The `Cursor` helper
+walks a payload with an index, reading integers and null-terminated strings,
+which is all the parsing these messages need.
+
+## Flush or hang
+
+Every send here is followed by a flush, and the reason is the bug this recipe
+first hit. The socket writer buffers, so a message you "sent" is still in your
+buffer until you flush. If both sides then block reading, nothing moves. That
+is the classic wire-protocol deadlock, and it is easy to introduce the moment a
+send stops being immediately followed by a flush.
+
+## Variations
+
+- **Real auth:** the backend can answer startup with `AuthenticationCleartextPassword`
+  or an MD5/SCRAM challenge instead of `AuthenticationOk`; the client replies
+  with a `PasswordMessage` and the loop continues.
+- **Prepared statements:** the extended-query protocol replaces `Q` with
+  `Parse`/`Bind`/`Execute`, which is how parameters stay out of the SQL text.
+- **A local database instead:** for persistence without a server or a protocol,
+  [SQLite from Zig](/how-to/sqlite-basic/) links the C library directly.
