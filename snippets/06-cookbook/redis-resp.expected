@@ -1,0 +1,8 @@
+> SET framework zig
+  simple: OK
+> GET framework
+  bulk:   "zig"
+> GET missing
+  bulk:   (nil)
+> QUIT
+  simple: OK
