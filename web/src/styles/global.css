@@ -347,8 +347,22 @@ pre {
   border-bottom: 1px solid var(--border);
 }
 
+/* Open drawer on phones: a fixed, full-height overlay so it owns a single
+   scroll. As a sticky element in normal flow it shared scrolling with the page
+   underneath, which made the lower items (a collapsed last section especially)
+   hard to reach on touch. The overlay sits under the topbar (z-index 10) and
+   over the content, and is opaque so nothing shows through. */
 .nav-toggle:checked ~ .shell .sidebar {
   display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--topbar-h);
+  height: calc(100dvh - var(--topbar-h));
+  max-height: none;
+  z-index: 9;
+  background: var(--bg);
+  padding: 0.25rem 0 2.5rem;
 }
 
 /* Each section is a <details>, so collapsing needs no JS. */
@@ -935,9 +949,17 @@ zig-playground pre:not(.pg-output) {
   .sidebar,
   .nav-toggle:checked ~ .shell .sidebar {
     display: block;
-    border-bottom: 0;
-    padding-top: 0;
+    /* Undo the mobile overlay: on desktop the sidebar is always a sticky
+       column, whatever state the (hidden) drawer toggle is left in. */
+    position: sticky;
+    inset: auto;
     top: calc(var(--topbar-h) + 1rem);
+    height: auto;
+    max-height: calc(100dvh - var(--topbar-h));
+    z-index: auto;
+    background: transparent;
+    border-bottom: 0;
+    padding: 0 0 1rem;
   }
 
   .sidebar a {
