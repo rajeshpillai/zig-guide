@@ -1,0 +1,3 @@
+original:           960 bytes
+compressed smaller: true
+roundtrip matches:  true

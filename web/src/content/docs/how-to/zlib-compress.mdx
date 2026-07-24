@@ -1,0 +1,69 @@
+---
+title: "Recipe: Compressing with zlib"
+description: One-shot compress and decompress through the system zlib, linked from Zig.
+section: How-To
+order: 92.9
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You need to shrink a buffer before writing or sending it, and zlib is the
+library already on every machine. It is C, so the job is calling three
+functions and linking `libz`. This recipe compresses a buffer and decompresses
+it back, checking the round trip.
+
+## The plan
+
+1. Ask `compressBound` for the largest the output could be, and size the
+   destination buffer to it.
+2. `compress2(dest, &destLen, src, srcLen, level)` fills the buffer and updates
+   `destLen` to the real size. `Z_OK` means success.
+3. `uncompress` reverses it into a buffer the size of the original.
+4. Compare the result to the input.
+
+<Playground
+  name="06-cookbook.zlib-compress"
+  note="Links the system libz, so CI builds and runs it natively. Browser wasm cannot link a C library."
+/>
+
+## Naming the header and the library separately
+
+zlib is the case that shows why a header and a library are not the same name.
+The library is `z` (you link it with `-lz`), but the header is `zlib.h`. This
+guide's `build.zig` reads two markers from the snippet: `//! link: z` for the
+library and `//! cinclude: zlib.h` for the header. It synthesizes a header that
+includes `zlib.h`, translates it with a translate-c step, links `z`, and hands
+the snippet the module as `c`. For SQLite the two names happen to match, so it
+needs only `//! link: sqlite3`; zlib needs both.
+
+## Sizing the output buffer
+
+Compression can, on incompressible input, produce slightly more bytes than it
+consumed, so you cannot assume the output fits in the input's size.
+`compressBound(srcLen)` returns the worst case, which is what the destination
+buffer is sized to. After `compress2` returns, `destLen` holds the actual
+compressed length, almost always far smaller. The same in-out length pattern
+appears in `uncompress`: you pass the buffer capacity in, and get the real
+length back.
+
+## Why the size is not on the page
+
+The output reports that the compressed form is smaller and that the round trip
+matches, but not the exact compressed byte count. That number depends on the
+zlib version doing the compressing, and every line this guide prints has to be
+reproducible across the machines that run it. The relationships (smaller than
+the original, decompresses to the original) hold on every version, so those are
+what the snippet asserts. Print `comp_len` yourself to see the real ratio.
+
+## Variations
+
+- **Levels:** the last argument to `compress2` is 0 to 9, trading speed for
+  size. Level 6 is the usual default.
+- **Streaming:** for data too large to hold at once, zlib's `deflate`/`inflate`
+  work on chunks through a `z_stream`, at the cost of more bookkeeping.
+- **Gzip framing:** `compress2` writes a zlib stream; for a `.gz` file with its
+  header and CRC, use `deflateInit2` with the gzip window bits.
+- **Pure Zig:** `std.compress.flate` does deflate and gzip in the standard
+  library, no C linking, when you would rather not depend on the system zlib.
