@@ -12,3 +12,6 @@ web/public/wasm/
 
 # Optional in-browser compiler — reproduce with tools/build-browser-compiler.sh
 web/public/compiler/
+
+# transient file written by the todo-store snippet during `zig build verify`
+todo-demo.db

@@ -1,0 +1,74 @@
+---
+title: "Recipe: A File-Backed To-Do Store"
+description: Fixed-size records on disk, updated in place by id with positional reads and writes.
+section: How-To
+order: 92.7
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You want to persist a list of items and update any one of them without
+rewriting the whole file. The trick is to make every record the same size. Then
+record `N` lives at a fixed byte offset, so reading or updating it is one
+positional operation, not a scan. This is the idea under every fixed-page
+database file.
+
+## The plan
+
+1. Define the record as an `extern struct`, so its byte layout is fixed and
+   identical on every write.
+2. Add by appending at the current end of file.
+3. Read or update record `N` at `offset = (N - 1) * @sizeOf(Record)`.
+4. Update in place: read the slot, change a field, write it back to the same
+   offset.
+
+<Playground
+  name="06-cookbook.todo-store"
+  note="Uses the real filesystem, so CI builds and runs it natively. The browser WASI sandbox has no directories to open."
+/>
+
+## Fixed size is the whole trick
+
+The record is an `extern struct`, which pins its layout: an `id`, a `done`
+flag, a length byte, and 64 bytes of text, the same 72 bytes every time (the
+extra two are alignment padding, and they are harmless because every offset is
+computed from `@sizeOf(Record)`). Because the size is constant, the file is an
+array on disk. Item 3 is at offset `2 * 72`, always, so `toggle` jumps straight
+there. A variable-length format, JSON lines for instance, loses this: you would
+have to read from the start to find where record 3 begins.
+
+## Positional I/O, not seek
+
+Since Zig 0.16 the filesystem lives behind the `Io` interface, and random
+access is done with `readPositionalAll` and `writePositionalAll`, each taking
+an explicit offset. There is no separate seek call to forget: the offset is an
+argument to the read or write itself. The older `seekTo` plus `getPos` dance is
+gone. `file.length(io)` gives the end of file, which is both the append point
+and the loop bound for listing.
+
+`std.mem.asBytes(&rec)` is what bridges the struct and the file: it views the
+record as the `[N]u8` the I/O calls want, with no copy. Reading does the
+reverse, filling a `Record` straight from the bytes on disk. That only works
+because the layout is fixed, which is why the struct is `extern`.
+
+## Update in place
+
+`toggle` is the payoff. It reads the one record at its offset, flips `done`, and
+writes those same bytes back to the same offset. Nothing else in the file moves.
+A real store would add a free list for deletions and an index for lookups by
+something other than id, but the core, a fixed record addressed by offset, does
+not change.
+
+## Variations
+
+- **Delete:** mark a record with a tombstone flag rather than removing it, so
+  later offsets stay valid; compact later.
+- **Larger text:** raise the `text` array, or store long values in a second
+  file and keep an offset and length in the record.
+- **Endianness:** `extern` layout is host byte order. To move the file between
+  machines, write fields explicitly like
+  [the binary round-trip recipe](/how-to/binary-roundtrip/) does.
+- **A real database engine:** [SQLite from Zig](/how-to/sqlite-basic/) gives you
+  the same on-disk durability with SQL on top.
