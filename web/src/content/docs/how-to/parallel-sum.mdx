@@ -1,7 +1,7 @@
 ---
 title: "Recipe: Splitting Work Across Threads"
 description: Divide a slice among threads with no locks and one join.
-section: Cookbook
+section: How-To
 order: 101
 ---
 
@@ -58,7 +58,7 @@ spawn and join directly, as here; for structured task concurrency, see
   instead of a constant, capped by the amount of work worth splitting.
 - **Uneven work:** equal chunk sizes assume equal cost per element. When
   items vary wildly, static chunks leave threads idle; the
-  [atomic work index](/cookbook/work-index/) recipe fixes that.
+  [atomic work index](/how-to/work-index/) recipe fixes that.
 - **False sharing:** adjacent `u64` slots can share a cache line. It does
   not change correctness, and for a demo it does not matter; pad slots to
   cache-line size if profiling shows the merge pattern hot.

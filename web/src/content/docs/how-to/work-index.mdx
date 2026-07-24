@@ -1,7 +1,7 @@
 ---
 title: "Recipe: An Atomic Work Index"
 description: Dynamic load balancing with fetchAdd instead of locks or chunking.
-section: Cookbook
+section: How-To
 order: 102
 ---
 
@@ -60,6 +60,6 @@ done"; count completions separately if you need the number.
 - **Results per job:** when each job produces data rather than a number
   to fold, write to `results[i]`; index ownership makes the slot private,
   so the write needs no lock.
-- **Compare with chunking:** the [parallel sum](/cookbook/parallel-sum/)
+- **Compare with chunking:** the [parallel sum](/how-to/parallel-sum/)
   recipe is the static version; prefer it when per-item cost is uniform,
   since it touches the shared counter zero times.

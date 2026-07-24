@@ -1,7 +1,7 @@
 ---
 title: "Recipe: An HTTP Round Trip"
 description: A std.http.Server on a thread, a std.http.Client fetching from it, no dependencies.
-section: Cookbook
+section: How-To
 order: 106
 ---
 
@@ -14,7 +14,7 @@ standard library. Both halves exist in `std.http`, both were rebuilt on
 the `std.Io` reader/writer interfaces, and most tutorial code for either
 predates the rebuild.
 
-As with [TCP](/cookbook/tcp-echo/), the recipe runs server and client in
+As with [TCP](/how-to/tcp-echo/), the recipe runs server and client in
 one process. CI executes it and diffs the output, so the page cannot
 quietly rot.
 

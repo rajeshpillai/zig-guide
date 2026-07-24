@@ -1,7 +1,7 @@
 ---
 title: "Recipe: A TCP Round Trip"
 description: Listen, connect, and echo through std.Io.net, all in one process.
-section: Cookbook
+section: How-To
 order: 104
 ---
 
@@ -68,8 +68,8 @@ threads), which is why CI runs this snippet natively.
 
 - **Many clients:** wrap the accept-and-serve body in a loop and spawn a
   thread per connection, or feed accepted streams to a
-  [worker queue](/cookbook/worker-queue/).
+  [worker queue](/how-to/worker-queue/).
 - **Timeouts:** `connect` takes an `Io.Timeout` in its options; reads can
   use `receiveTimeout` on the socket level.
 - **Structured protocols:** length-prefixed frames beat line-delimited
-  text for binary data; see [the wire format recipe](/cookbook/binary-roundtrip/).
+  text for binary data; see [the wire format recipe](/how-to/binary-roundtrip/).

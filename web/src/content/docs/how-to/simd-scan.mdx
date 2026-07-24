@@ -1,7 +1,7 @@
 ---
 title: "Recipe: SIMD Byte Scanning"
 description: The five-step pattern that turns a byte-at-a-time loop into a register-wide scan.
-section: Cookbook
+section: How-To
 order: 97
 ---
 
@@ -17,7 +17,7 @@ while (i < bytes.len and bytes[i] != '"' and bytes[i] != '\\') i += 1;
 
 One byte per iteration. The machine underneath holds 16 bytes in a single
 128-bit vector register and can compare all of them in one instruction.
-[The dot product recipe](/cookbook/simd-sum/) used vectors for arithmetic;
+[The dot product recipe](/how-to/simd-sum/) used vectors for arithmetic;
 this one uses them for searching, which is where parsers, scanners, and
 codecs get their real SIMD wins. The shape of this recipe follows Mitchell
 Hashimoto's
