@@ -76,7 +76,7 @@ Content lives in `web/src/content/docs/<section>/*.mdx`; the directory maps to t
 
 ## Writing style
 
-Applies to everything a reader sees: `.mdx` prose, snippet comments, page copy, home-page text. The voice is a careful human engineer: concrete, specific, plain. Detectable AI-generated phrasing is a defect in this repo.
+Applies to everything a reader sees: `.mdx` prose, snippet comments, page copy, home-page text. The voice is a careful human engineer: concrete, specific, plain. Nothing a reader sees may carry an AI or LLM tone: no assistant-style hedging, framing, or summary voice, no "as an AI", no generic upbeat filler. Every page must read as if a human engineer wrote it by hand. Detectable AI-generated phrasing is a defect in this repo, on the same footing as a broken snippet.
 
 - **No em dashes (—) or en dashes (–) in prose.** Rewrite the sentence instead: split it, or use a colon, comma, or parentheses. Hyphens in compound words are fine.
 - **Banned phrasing:** "delve", "dive into", "seamless(ly)", "leverage" (as a verb), "robust", "powerful", "unlock", "elevate", "supercharge", "landscape", "game-changer", "journey", "excited to", and any "it's not just X, it's Y" construction.
