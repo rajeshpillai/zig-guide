@@ -1,6 +1,6 @@
 # Zig Guide Live ⚡
 
-**<https://rajeshpillai.github.io/zig-guide/>**
+**<https://www.ziglang.in>**
 
 A Zig tutorial where **every snippet is compiled and executed against current
 Zig master on every build**, and where **readers run that same code in their
