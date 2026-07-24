@@ -171,7 +171,7 @@ const openSlug =
           sectionList.map(([section, { slug, entries }]) => (
             /* Open one section only, so the phone drawer starts as a short
                list rather than every chapter at once. */
-            <details class="nav-group" open={slug === openSlug}>
+            <details class="nav-group" data-nav-key={slug} open={slug === openSlug}>
               <summary>{section}</summary>
               <ul>
                 <li>
@@ -188,7 +188,11 @@ const openSlug =
                     /* A library gets its own collapsible node with an
                        overview page, so its chapters read as one unit. */
                     <li>
-                      <details class="nav-subgroup" open={current.includes(`/${groupSlug}/`)}>
+                      <details
+                        class="nav-subgroup"
+                        data-nav-key={groupSlug}
+                        open={current.includes(`/${groupSlug}/`)}
+                      >
                         <summary>{label}</summary>
                         <ul>
                           <li>
@@ -321,6 +325,7 @@ const openSlug =
     <script>
       import "../scripts/copy-code.ts";
       import "../scripts/search.ts";
+      import "../scripts/nav-state.ts";
     </script>
   </body>
 </html>
