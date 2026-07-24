@@ -1,0 +1,6 @@
+opened :memory:
+created table users
+inserted 3 rows
+1 | Ziggy Stardust | ziggy@ziglang.in
+2 | Grace Hopper | grace@ziglang.in
+3 | Alan Turing | alan@ziglang.in

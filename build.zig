@@ -48,7 +48,25 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path(snippet.path),
             .target = if (snippet.native) b.graph.host else target,
             .optimize = optimize,
+            // A `//! link:` snippet needs libc plus the named system libraries.
+            // wasm32-wasi cannot resolve those, so these are always host builds
+            // (see `native` below).
+            .link_libc = if (snippet.link_libs.len > 0) true else null,
         });
+        if (snippet.link_libs.len > 0) {
+            // @cImport was removed from the language on Zig master; C headers
+            // now come through a build-system translate-c step. We synthesize a
+            // header that includes each library's `<name>.h`, translate it, and
+            // hand the snippet the result as `@import("c")`.
+            const translate = b.addTranslateC(.{
+                .root_source_file = cImportHeader(b, snippet.link_libs),
+                .target = b.graph.host,
+                .optimize = optimize,
+                .link_libc = true,
+            });
+            for (snippet.link_libs) |lib| translate.linkSystemLibrary(lib, .{});
+            module.addImport("c", translate.createModule());
+        }
 
         const compile = if (snippet.kind == .exe)
             b.addExecutable(.{ .name = snippet.name, .root_module = module })
@@ -142,9 +160,15 @@ const Snippet = struct {
     runnable: bool,
     /// True for snippets marked `//! native`: built and run for the host
     /// instead of wasm32-wasi, because they do not compile for wasm at all
-    /// (threads are the main case — wasm32-wasi is single-threaded). Still
-    /// fully gated by CI, just not shipped to the browser.
+    /// (threads are the main case — wasm32-wasi is single-threaded). Also true
+    /// whenever `link_libs` is non-empty, since linking a system C library is a
+    /// host-only affair. Still fully gated by CI, just not shipped to the
+    /// browser.
     native: bool,
+    /// System libraries named by `//! link:` header lines, e.g. `sqlite3`.
+    /// Each pulls in libc and is linked into the host binary. Empty for the
+    /// pure-Zig snippets that are the common case.
+    link_libs: []const []const u8,
 
     const Kind = enum { exe, @"test" };
 };
@@ -183,15 +207,21 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
         const expected_rel = b.fmt("{s}/{s}.expected", .{ root, replaceExt(b, entry.path) });
         const expected: ?[]const u8 = if (fileExists(b, expected_rel)) expected_rel else null;
 
+        const link_libs = parseLinkLibs(b, source);
+        // A C-linked snippet is inherently a host build; treat it as native
+        // even without an explicit `//! native` line.
+        const native = std.mem.indexOf(u8, source, "//! native") != null or link_libs.len > 0;
+
         try out.append(b.allocator, .{
             .name = b.fmt("{s}.{s}", .{ chapter, stem }),
             .path = rel,
             .chapter = b.dupe(chapter),
             .kind = if (std.mem.indexOf(u8, source, "pub fn main") != null) .exe else .@"test",
             .expected = expected,
-            .runnable = std.mem.indexOf(u8, source, "//! norun") == null and
-                std.mem.indexOf(u8, source, "//! native") == null,
-            .native = std.mem.indexOf(u8, source, "//! native") != null,
+            // `//! norun` and native builds are both unshippable to the browser.
+            .runnable = std.mem.indexOf(u8, source, "//! norun") == null and !native,
+            .native = native,
+            .link_libs = link_libs,
         });
     }
 
@@ -218,6 +248,34 @@ fn writeManifest(b: *std.Build, snippets: []const Snippet) std.Build.LazyPath {
     w.writeAll("]\n") catch @panic("OOM");
 
     return b.addWriteFiles().add("snippets.json", allocating.written());
+}
+
+/// Build a C header that includes `<name>.h` for each linked library, and
+/// return it as a generated file for translate-c to consume. The convention is
+/// that a system library `foo` exposes a header `foo.h`, which holds for the
+/// libraries used here (sqlite3 -> sqlite3.h).
+fn cImportHeader(b: *std.Build, libs: []const []const u8) std.Build.LazyPath {
+    var allocating: std.Io.Writer.Allocating = .init(b.allocator);
+    for (libs) |lib| {
+        allocating.writer.print("#include <{s}.h>\n", .{lib}) catch @panic("OOM");
+    }
+    return b.addWriteFiles().add("c_imports.h", allocating.written());
+}
+
+/// Collect the system libraries named by `//! link:` header lines. The value
+/// after the colon is a comma- or space-separated list, so
+/// `//! link: sqlite3` and `//! link: foo, bar` both work.
+fn parseLinkLibs(b: *std.Build, source: []const u8) []const []const u8 {
+    var libs: std.ArrayList([]const u8) = .empty;
+    var lines = std.mem.splitScalar(u8, source, '\n');
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+        const prefix = "//! link:";
+        if (!std.mem.startsWith(u8, trimmed, prefix)) continue;
+        var toks = std.mem.tokenizeAny(u8, trimmed[prefix.len..], " \t,");
+        while (toks.next()) |tok| libs.append(b.allocator, b.dupe(tok)) catch @panic("OOM");
+    }
+    return libs.toOwnedSlice(b.allocator) catch @panic("OOM");
 }
 
 fn replaceExt(b: *std.Build, path: []const u8) []const u8 {

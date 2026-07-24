@@ -38,6 +38,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Snippets marked `//! link:<lib>` in build.zig are host builds that link
+      # a system C library (the SQLite recipe links libsqlite3). The runner
+      # needs the dev package so translate-c can read the header and the linker
+      # can resolve the symbols.
+      - name: Install C libraries for linked snippets
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
       # `master` resolves to the current nightly on every run, which is what
       # makes the schedule meaningful.
       - uses: mlugg/setup-zig@v2
