@@ -196,3 +196,64 @@ fn argId(argv: []const [:0]const u8, out: *std.Io.Writer) !u32 {
     }
     return std.fmt.parseInt(u32, argv[2], 10) catch 0;
 }
+
+// The tests drive the same file operations `main` does, against a throwaway
+// temp directory, so `zig build verify` catches API drift here too even though
+// the example is not an output-diffed snippet. `std.testing.io` is the Io, and
+// a fixed writer swallows the command output the assertions don't need.
+const testing = std.testing;
+
+test "add assigns sequential ids and stores text" {
+    const io = testing.io;
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var buf: [1024]u8 = undefined;
+    var w = std.Io.Writer.fixed(&buf);
+
+    try cmdAdd(io, tmp.dir, &w, "alpha");
+    try cmdAdd(io, tmp.dir, &w, "beta");
+    try cmdAdd(io, tmp.dir, &w, "gamma");
+
+    const file = try openDb(io, tmp.dir);
+    defer file.close(io);
+
+    const r1 = (try readRec(io, file, 1)).?;
+    try testing.expectEqual(@as(u32, 1), r1.id);
+    try testing.expectEqualStrings("alpha", r1.text[0..r1.len]);
+    try testing.expect(!r1.done and !r1.deleted);
+
+    const r3 = (try readRec(io, file, 3)).?;
+    try testing.expectEqualStrings("gamma", r3.text[0..r3.len]);
+
+    // Nothing past the last record.
+    try testing.expect((try readRec(io, file, 4)) == null);
+}
+
+test "done, toggle, and remove update in place" {
+    const io = testing.io;
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var buf: [1024]u8 = undefined;
+    var w = std.Io.Writer.fixed(&buf);
+
+    try cmdAdd(io, tmp.dir, &w, "one");
+    try cmdAdd(io, tmp.dir, &w, "two");
+
+    try cmdUpdate(io, tmp.dir, &w, 1, .done);
+    try cmdUpdate(io, tmp.dir, &w, 2, .remove);
+
+    {
+        const file = try openDb(io, tmp.dir);
+        defer file.close(io);
+        try testing.expect((try readRec(io, file, 1)).?.done);
+        try testing.expect((try readRec(io, file, 2)).?.deleted);
+    }
+
+    // Toggle flips the flag back.
+    try cmdUpdate(io, tmp.dir, &w, 1, .toggle);
+    {
+        const file = try openDb(io, tmp.dir);
+        defer file.close(io);
+        try testing.expect(!(try readRec(io, file, 1)).?.done);
+    }
+}

@@ -122,6 +122,25 @@ pub fn build(b: *std.Build) void {
         }
     }
 
+    // The interactive example under `examples/` is not a snippet: it takes
+    // commands rather than producing one diffable output, so it is not scanned
+    // above. Its unit tests still gate against API drift, run through the same
+    // native runner as the threaded and socket snippets.
+    {
+        const example = b.addTest(.{
+            .name = "example-todo",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("examples/todo/todo.zig"),
+                .target = b.graph.host,
+                .optimize = optimize,
+            }),
+        });
+        const run = b.addSystemCommand(&.{ "node", "tools/run-native.mjs" });
+        run.addArtifactArg(example);
+        run.expectExitCode(0);
+        verify_step.dependOn(&run.step);
+    }
+
     // Record the exact compiler that verified these snippets, so the site can
     // state it rather than claiming a version nobody checked.
     const build_info = b.addWriteFiles().add("build-info.json", b.fmt(
