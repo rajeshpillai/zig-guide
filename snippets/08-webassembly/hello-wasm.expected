@@ -1,0 +1,3 @@
+cpu arch: wasm32
+os tag:   wasi
+pointer:  32 bits

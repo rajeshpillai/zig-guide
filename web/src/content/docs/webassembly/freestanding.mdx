@@ -1,0 +1,81 @@
+---
+title: "Recipe: A Freestanding Module"
+description: The smallest wasm target, with no WASI and no libc, and the memory builtins that replace them.
+section: WebAssembly
+order: 88
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+You want the smallest possible module with no dependency on a system interface:
+something a JavaScript host or a native embedder drives, where WASI's files and
+clocks would only be dead weight. That is `wasm32-freestanding`. It gives you
+wasm and nothing else.
+
+## The plan
+
+1. Write functions with no reliance on an OS: no files, no stdout, no `main`.
+2. Provide your own memory, since there is no system allocator underneath.
+3. Build for `wasm32-freestanding`.
+
+<Playground name="08-webassembly.freestanding" />
+
+The tests here run because the guide builds every snippet for `wasm32-wasi` so
+it can verify them. The source is unchanged for freestanding: nothing in it
+touches WASI. Only the build command's target differs, and the next section is
+that command.
+
+## Building freestanding
+
+```bash
+zig build-exe freestanding.zig \
+  -target wasm32-freestanding \
+  -O ReleaseSmall -fno-entry \
+  --export=sumRange --export=growOnePage
+```
+
+Same reactor flags as the [JavaScript recipe](../export-to-js/). The only change
+is `-target wasm32-freestanding` in place of `wasm32-wasi`. That single swap
+removes the WASI import layer entirely: the module imports nothing at all and
+depends on no runtime beyond a bare wasm engine.
+
+## What freestanding takes away
+
+Everything OS-shaped, because there is no OS:
+
+- **No `main` / `_start`.** There is no entry point to call. The host reaches in
+  through the exports.
+- **No stdout, no files, no clock, no sockets.** `std.fs`, `std.time`, and
+  friends have nothing to lower onto. Reaching for them is a compile error, not
+  a runtime surprise.
+- **No system allocator.** `std.heap.page_allocator` and the general-purpose
+  allocator assume an OS. You bring memory yourself.
+
+The snippet handles the allocator by handing a `FixedBufferAllocator` a 64 KiB
+static array. That array lives in linear memory, which is the only memory there
+is. It never calls the OS because there is no OS to call.
+
+## The memory builtins
+
+Freestanding does not mean you are stuck with the memory you started with. Two
+wasm builtins manage linear memory directly, with no runtime underneath:
+
+- `@wasmMemorySize(0)` returns the current size in 64 KiB pages.
+- `@wasmMemoryGrow(0, n)` asks the engine for `n` more pages and returns the
+  previous size, or `-1` if the engine refuses.
+
+`growOnePage` in the snippet is the second one. A real allocator calls it when
+its buffer is exhausted, then carves the fresh pages into allocations. This is
+the layer beneath the fixed buffer: where the bytes ultimately come from when a
+freestanding module needs more than it was compiled with.
+
+## When to choose it over WASI
+
+Reach for freestanding when a host is already there to give the module whatever
+it needs, and you want the module itself to carry nothing extra. A browser is
+such a host, and so is a native program embedding wasmtime. Reach for WASI
+instead when the module is a program in its own right that has to run from a
+shell and do OS-shaped work. The [command recipe](../wasi-command/) is that case;
+this one is its opposite.

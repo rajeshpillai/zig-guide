@@ -1,0 +1,93 @@
+---
+title: What WebAssembly Is
+description: A portable binary target for a sandboxed stack machine, and how Zig reaches it.
+section: WebAssembly
+order: 84
+---
+
+import Playground from "../../../components/Playground.astro";
+
+WebAssembly (wasm) is a binary instruction format for a stack machine. It is a
+compile *target*, not a language: you write Zig, C, or Rust, and the compiler
+emits a `.wasm` module. An engine (a browser, Node, wasmtime) loads that module
+and runs it in a sandbox at close to native speed.
+
+This whole site is the demonstration. Every snippet you have read is Zig
+compiled to `wasm32-wasi`, and the Run button hands that exact module to a WASI
+shim in your browser. Press it below and the code reports the target it was
+built for.
+
+<Playground name="08-webassembly.hello-wasm" />
+
+## Module, instance, linear memory
+
+Three words carry most of the model.
+
+A **module** is the compiled `.wasm` file: code and a description of what it
+imports and exports. It is inert, like an unloaded shared library.
+
+An **instance** is a module that an engine has loaded and wired up. Instantiating
+resolves the module's imports (functions the host provides) and gives it its
+memory. You can instantiate the same module more than once; each instance has
+its own state.
+
+**Linear memory** is the instance's heap: one flat, contiguous array of bytes,
+addressed from zero, that the module and the host both see. It starts at some
+number of 64 KiB pages and can grow. A Zig pointer inside a wasm module is just
+an offset into this array. There is no other memory the module can touch.
+
+## Only numbers cross a call
+
+A wasm function signature can only mention four types: `i32`, `i64`, `f32`,
+`f64`. That is the entire boundary vocabulary. There is no string type, no
+struct, no array that a call can pass or return.
+
+Anything larger travels as bytes in linear memory, referred to by an `i32`
+offset and (usually) an `i32` length. A Zig `[]const u8` slice becomes a
+pointer and a length; across the wasm boundary that is two `i32`s. The
+[linear memory recipe](../linear-memory/) works through the pattern in full.
+
+## The sandbox
+
+A wasm module has no ambient authority. It cannot open a file, read the clock,
+or make a network call on its own. It can only do what its imports let it do.
+A module that was handed no imports can compute and nothing else.
+
+This is why the same `.wasm` runs unchanged in a browser tab and on a server:
+capability comes from the host, not from the binary. It is also why running an
+untrusted module is reasonable in a way that running an untrusted native binary
+is not.
+
+## Three ways Zig reaches wasm
+
+The difference is the target triple you pass, which decides what the sandbox is
+allowed to reach.
+
+| Target | What it gives you | Use it for |
+| --- | --- | --- |
+| `wasm32-freestanding` | Nothing but wasm itself. No libc, no OS. You export functions and manage memory. | Modules a JavaScript or native host drives. |
+| `wasm32-wasi` | A POSIX-shaped system interface: files, args, clock, stdout, an entry point. | Command-line programs that run under Node, wasmtime, or Wasmer. |
+| `wasm32-emscripten` | The Emscripten runtime and its libc/JS glue. | Porting a large C/C++ codebase that expects that environment. |
+
+This guide verifies against `wasm32-wasi` because it needs stdout to diff, and
+the [freestanding recipe](../freestanding/) shows the smaller target.
+
+## Command and reactor
+
+Two shapes of module, split by whether they have an entry point.
+
+A **command** has a `_start` function. The engine calls it once, it runs to
+completion like a `main`, and the instance is spent. Every WASI program in this
+guide is a command. A Zig file with `pub fn main` compiles to one.
+
+A **reactor** has no entry point. The engine instantiates it and then calls its
+exported functions on demand, many times, keeping the instance alive between
+calls. This is the shape you want when JavaScript calls into Zig. You build it
+with `-fno-entry` and name the functions to export.
+
+Which one you need decides which recipe applies. The next pages build each in
+turn: a [WASI command](../wasi-command/) you run from a shell, a
+[reactor called from JavaScript](../export-to-js/), the
+[memory handshake](../linear-memory/) between them, a
+[freestanding module](../freestanding/), and finally
+[loading one in a browser](../browser-instantiate/).
