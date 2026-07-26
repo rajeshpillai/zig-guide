@@ -41,9 +41,11 @@ jobs:
       # Snippets marked `//! link:<lib>` in build.zig are host builds that link
       # a system C library (the SQLite recipe links libsqlite3). The runner
       # needs the dev package so translate-c can read the header and the linker
-      # can resolve the symbols.
+      # can resolve the symbols. libx11-dev is for the graphics window chapter,
+      # which is `//! norun`: it is linked but never executed, since it opens a
+      # window and waits for a keypress. No X server is needed to build it.
       - name: Install C libraries for linked snippets
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev zlib1g-dev
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev zlib1g-dev libx11-dev
 
       # `master` resolves to the current nightly on every run, which is what
       # makes the schedule meaningful.

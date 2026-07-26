@@ -1,0 +1,80 @@
+---
+title: Antialiasing
+description: Coverage is alpha. Sample the inside test sixteen times per pixel and the staircase goes away.
+section: Graphics
+order: 126
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A pixel is not a point. It is a small square of the image, and a shape's edge
+usually crosses it rather than landing neatly outside or inside. Testing only
+the pixel's centre forces a yes-or-no answer to a question whose real answer is
+a fraction, and the staircase you see on every hard edge is the rounding error
+made visible.
+
+Ask the same question at sixteen points inside the pixel and the answer becomes
+a count from 0 to 16. That count is **coverage**, and coverage is exactly the
+alpha value to composite with.
+
+<Playground name="09-graphics.antialias" />
+
+The two circles are the same radius and the same colour. The left one uses the
+hard test from [Circles](../circles/). The right one runs a 4x4 grid of samples
+per pixel and blends by the fraction that passed. The printed table walks across
+the right circle's edge on one row, where a pixel that is half covered comes out
+at alpha 127.
+
+## The arithmetic stays integer
+
+Sub-positions sit at the centres of a 4x4 grid inside the pixel, which puts them
+at odd multiples of half a sub-pixel. Multiplying every coordinate by `2 *
+samples` makes those whole numbers, so the distance test is the same
+squared-integer comparison as before:
+
+```zig
+const scale = samples * 2;
+const px = x * scale + 2 * sx + 1;
+```
+
+The `+ 1` is the half-sub-pixel offset. Sampling at the corners instead (dropping
+it) biases the whole edge by half a pixel, which is small, systematic, and
+visible when two antialiased shapes are meant to meet.
+
+## What this costs
+
+Sixteen inside tests per pixel, over a bounding box that has to grow by one
+pixel on each side so partially covered pixels are not skipped. That is a real
+cost, and it is why supersampling is the technique you reach for first and
+replace later.
+
+The cheaper answers all compute coverage analytically instead of sampling it.
+For a circle, the distance from the centre already tells you how far into the
+edge a pixel is, and a one-pixel-wide ramp on that distance gives a good edge in
+one test. Signed distance fields generalize that idea to arbitrary shapes.
+Analytic coverage for polygon edges is what a font rasterizer does, because
+sampling text at this quality would be far too slow.
+
+Supersampling has one advantage those do not: it needs no knowledge of the
+shape. Any inside test at all, however it is written, becomes antialiased by
+evaluating it more often. That makes it the right first move and a reasonable
+permanent answer for offline rendering.
+
+## Where the result is wrong
+
+Blending happens in sRGB here, as it does everywhere else in this section. A
+half-covered pixel therefore comes out darker than half the light of a covered
+one, which makes thin antialiased strokes look thinner than they are. Text
+rasterizers care about this a lot; see the note at the end of
+[Alpha Blending](../blending/).
+
+## Exercises
+
+1. **Vary the sample count.** Drop to 2x2 and the ramp gets four levels instead
+   of sixteen; the character dump makes the banding easy to count.
+2. **Rotate the sample grid.** A regular grid resolves near-horizontal and
+   near-vertical edges worst, which is why hardware uses rotated grid patterns.
+   Offset the samples and compare the top of the circle.
+3. **Antialias a line.** Xiaolin Wu's algorithm is Bresenham with the error term
+   reused as coverage, which is this page's idea applied to
+   [Lines](../lines/) with no extra sampling at all.

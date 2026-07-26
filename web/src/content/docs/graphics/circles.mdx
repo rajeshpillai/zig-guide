@@ -1,0 +1,73 @@
+---
+title: Circles
+description: Compare squared distances, loop over the bounding box, and let putPixel clip.
+section: Graphics
+order: 123
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A point is inside a circle when its distance to the centre is at most the
+radius:
+
+```
+sqrt(dx*dx + dy*dy) <= r
+```
+
+Square both sides and the square root disappears:
+
+```
+dx*dx + dy*dy <= r*r
+```
+
+Both sides are now integers, and the test is two multiplies and a compare. This
+trick is worth internalizing well beyond graphics: any time you are about to
+call `sqrt` in order to *compare* two lengths, don't. Hit testing, nearest
+neighbour searches, and collision detection all run on squared distances.
+
+<Playground name="09-graphics.circles" />
+
+## The bounding box
+
+The naive version scans the whole buffer to fill one circle. At 64x32 that is
+2048 tests for a shape covering about 150 pixels; at 640x480 a circle of radius
+100 costs 307,200 tests to fill 31,000 pixels. Looping `y` and `x` over
+`[centre - r, centre + r]` instead tests `(2r+1)^2` pixels, which the snippet
+prints alongside the naive count.
+
+The reason this stays a three-line change is that `putPixel` clips. The bounding
+box of a circle near an edge runs off the buffer, and nothing in `fillCircle`
+checks for that. The last circle in the snippet hangs off three sides at once to
+show it. Without clipping in one place, every shape routine would need its own
+`@min`/`@max` against the buffer size, and one of them would eventually get it
+wrong.
+
+## An outline is the same test twice
+
+```zig
+if (d2 <= outer and d2 > inner) putPixel(...);
+```
+
+Inside the outer radius and outside the inner one is a band. No new algorithm,
+no separate case, and the thickness is a parameter. The midpoint circle
+algorithm draws a one-pixel outline faster by walking only one octant and
+mirroring it eight ways, which is the circle equivalent of Bresenham. It is
+worth reading once. It is also worth knowing that for anything you intend to
+fill, the squared-distance test is simpler and vectorizes.
+
+## What is missing
+
+The edge is hard: a pixel is in or out, with nothing between. That is the
+staircase you can see in the output, and fixing it means computing what
+*fraction* of each pixel falls inside the circle and using that as an alpha
+value. [Antialiasing](../antialiasing/) does exactly that, on this same shape.
+
+## Exercises
+
+1. **Ellipses.** Scale one axis before squaring: `(dx*dx) * ry*ry + (dy*dy) *
+   rx*rx <= rx*rx * ry*ry`. Still integers, still no square root.
+2. **Rounded rectangles.** A rectangle, plus the circle test applied only in the
+   four corner boxes.
+3. **A span fill.** For each row, solve for the two x values where the circle
+   crosses it and write that run of pixels directly. One `@memset` per row beats
+   a per-pixel test by a wide margin, and it is the shape a real rasterizer uses.

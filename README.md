@@ -89,15 +89,19 @@ button, with a note saying why.
 
 ## What's in it
 
-59 chapters, mirroring zig.guide's structure, every one with CI-verified code:
+121 chapters, every one with CI-verified code:
 
 | Section | Chapters |
 | --- | --- |
 | Getting Started | 4 |
 | Language | 31 |
-| Standard Library | 15 |
-| Build System | 5 |
+| Standard Library | 26 |
+| Build System | 6 |
 | Working with C | 4 |
+| WebAssembly | 6 |
+| How-To | 27 |
+| Building Libraries | 9 |
+| Graphics | 8 |
 
 Two pages show code that is *not* CI-verified, and both say so on the page:
 [Importing C](web/src/content/docs/working-with-c/cimport.mdx), because

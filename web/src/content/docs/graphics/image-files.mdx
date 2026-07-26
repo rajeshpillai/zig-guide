@@ -1,0 +1,124 @@
+---
+title: Writing an Image File
+description: PPM, the image format you can write without a library, and the one rule that will bite you.
+section: Graphics
+order: 121
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A buffer nobody can look at is not much of a picture. PPM is the shortest route
+out: a short text header, then the pixel bytes. That is the whole format worth
+knowing, and it needs no library at all.
+
+It belongs to the Netpbm family, which is six formats along two axes: what a
+pixel is, and whether the data is text or binary.
+
+| | ASCII | Binary | A pixel is |
+| --- | --- | --- | --- |
+| **PBM** (bitmap) | `P1` | `P4` | one bit, black or white |
+| **PGM** (graymap) | `P2` | `P5` | one gray sample |
+| **PPM** (pixmap) | `P3` | `P6` | three samples: R, G, B |
+
+`P6` is the one to write. `P3` holds the same pixels as decimal numbers in text,
+which is larger and slower but worth generating once if you want to read your own
+image in an editor.
+
+## The header
+
+```
+P6\n64 32\n255\n<6144 raw bytes>
+```
+
+Four fields, then data: the magic, the width, the height, and the maxval (the
+largest value a sample may take). They are separated by any mix of spaces, tabs,
+and newlines, so `P6 64 32 255 ` is as valid as the form above.
+
+Then the rule that actually matters:
+
+> **Exactly one whitespace byte follows the maxval.** Everything after that
+> single byte is pixel data.
+
+Write `"255\n\n"` and every pixel shifts by one byte. The image comes out as
+diagonal noise, and no parser can detect the mistake, because `0x0A` is a
+perfectly legal pixel value. The snippet below ends by decoding a file with that
+exact defect so you can see what the reader gets.
+
+<Playground name="09-graphics.ppm-write" />
+
+## The pixel data
+
+Pixels run left to right, top to bottom. No padding, no alignment, no row
+headers. Each pixel is three samples in R, G, B order.
+
+Sample size follows from the maxval:
+
+- **maxval below 256** gives one byte per sample. `640 * 480 * 3` is 921,600
+  bytes.
+- **maxval from 256 to 65535** gives *two* bytes per sample, **big-endian**.
+  This is the only place PPM has a byte order, and it catches people on
+  little-endian machines.
+
+Anything other than 255 means your samples are scaled: with a maxval of 100, a
+sample of 50 is mid-gray. Use 255 unless you have a reason not to.
+
+A `#` starts a comment that runs to the end of the line and may appear anywhere
+whitespace may. Writing one is easy; reading them is not, because a strict parser
+has to strip comments while it scans the header fields. Plenty of naive parsers
+get that wrong, so leave them out if the file has to travel.
+
+## Format the header from the constants
+
+```zig
+const header = try std.fmt.bufPrint(out, "P6\n{d} {d}\n255\n", .{ width, height });
+```
+
+The header comes from the same `width` and `height` that size the buffer.
+Hardcoding `"P6\n640 480\n255\n"` works right up until someone changes a
+constant, at which point the header and the data disagree, the image tears
+diagonally, and nothing anywhere reports an error.
+
+## On disk
+
+The file version is two writes: the header, then the pixels.
+
+<Playground
+  name="09-graphics.ppm-file"
+  note="Writes a file, so it needs a real filesystem. Compiled by CI on every run."
+/>
+
+Note the drawing order. Background first, then the circle on top, and the circle
+simply overwrites what was there. That is the painter's algorithm, and until
+[Alpha Blending](../blending/) it is the entire compositing model here.
+
+To look at the result, most Linux viewers open PPM directly (`feh output.ppm`),
+and both ImageMagick and the netpbm tools convert it:
+
+```bash
+magick output.ppm output.png
+pnmtopng output.ppm > output.png
+```
+
+To check the header without opening the whole file:
+
+```bash
+head -c 20 output.ppm | xxd
+# 00000000: 5036 0a36 3430 2034 3830 0a32 3535 0a00  P6.640 480.255..
+```
+
+`5036` is `P6`, and the `0a` immediately before the pixel data is that one
+mandatory whitespace byte.
+
+## When to use something else
+
+PPM is uncompressed. A 4K frame is 24 MB and a sequence of them fills a disk
+quickly. It is the right tool for getting pixels out of a program you are
+writing, and the wrong tool for storing or sharing them. Once the image is
+correct, convert it.
+
+The exception is video. `ffmpeg` reads a stream of concatenated PPMs, which
+makes it a good pipe format for a software renderer producing frames:
+
+```bash
+./renderer | ffmpeg -f image2pipe -i - out.mp4
+```

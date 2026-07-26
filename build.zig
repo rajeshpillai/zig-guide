@@ -74,6 +74,16 @@ pub fn build(b: *std.Build) void {
             b.addTest(.{ .name = snippet.name, .root_module = module });
 
         if (snippet.native) {
+            // `//! norun` on a host build: compile and link it, but do not run
+            // it. The X11 snippet opens a window and waits for a keypress,
+            // which no CI step can sit through — but linking it against the
+            // real libX11 still gates translate-c against header drift, which
+            // is the whole reason it is here.
+            if (snippet.norun) {
+                verify_step.dependOn(&compile.step);
+                continue;
+            }
+
             // Host binary: run it through the same runner shape as the wasm
             // path, so a sibling `.expected` file is diffed here too rather
             // than silently ignored. Nothing to ship to the browser, so the
@@ -177,6 +187,10 @@ const Snippet = struct {
     /// still applies) but never executed, because they need capabilities the
     /// browser sandbox lacks — a real filesystem, sockets.
     runnable: bool,
+    /// The `//! norun` marker itself, kept separate from `runnable` because
+    /// `runnable` is already false for every native snippet. A native snippet
+    /// is normally still executed on the host; this one says don't.
+    norun: bool,
     /// True for snippets marked `//! native`: built and run for the host
     /// instead of wasm32-wasi, because they do not compile for wasm at all
     /// (threads are the main case — wasm32-wasi is single-threaded). Also true
@@ -233,6 +247,7 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
 
         const link_libs = parseDirectiveList(b, source, "//! link:");
         const c_includes = parseDirectiveList(b, source, "//! cinclude:");
+        const norun = std.mem.indexOf(u8, source, "//! norun") != null;
         // A C-linked snippet is inherently a host build; treat it as native
         // even without an explicit `//! native` line.
         const native = std.mem.indexOf(u8, source, "//! native") != null or
@@ -245,7 +260,8 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
             .kind = if (std.mem.indexOf(u8, source, "pub fn main") != null) .exe else .@"test",
             .expected = expected,
             // `//! norun` and native builds are both unshippable to the browser.
-            .runnable = std.mem.indexOf(u8, source, "//! norun") == null and !native,
+            .runnable = !norun and !native,
+            .norun = norun,
             .native = native,
             .link_libs = link_libs,
             .c_includes = c_includes,

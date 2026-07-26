@@ -51,6 +51,7 @@ Other scripts:
 - `_`-prefixed filename → helper module, not a snippet
 - `//! norun` → compiled but never run (panics, filesystem — still gates API drift)
 - `//! native` → built and run for the **host** instead of wasm (threads: `wasm32-wasi` is single-threaded)
+- `//! norun` **on a native snippet** → compiled and linked for the host, never run. This is what lets the X11 chapter link against the real libX11 (so translate-c drift fails the build) without CI sitting through a window waiting for a keypress.
 
 Slug is `<chapter-dir>.<filename>`, e.g. `02-language.optionals`. `//!` header comments are metadata and are stripped before the reader sees the code.
 

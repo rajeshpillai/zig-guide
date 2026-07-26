@@ -1,0 +1,9 @@
+total bytes: 6157
+header:      13 bytes, body 64x32x3 = 6144
+first 16:    50 36 0A 36 34 20 33 32 0A 32 35 35 0A 00 00 50
+as text:     P6.64 32.255...P
+
+decoded:     64x32, 6144 bytes of pixel data
+pixel (0,0): 0 0 80
+last pixel:  255 255 80
+shifted by one: first pixel reads 10 1 2
