@@ -133,7 +133,9 @@ on. A frozen version never rots, because its compiler never changes again.
 
 ## Quick start
 
-Requires **Zig master** (see [Zig version](#zig-version)) and **Node 22+**.
+Requires **Zig master** (see [Zig version](#zig-version)) and **Node 24+**. Node 22
+intermittently segfaults running one of the wasm snippets under `node:wasi`, so
+`zig build verify` is only reliable from 24 on.
 
 ```bash
 ./dev-start.sh

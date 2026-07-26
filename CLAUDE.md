@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Zig tutorial site (Astro) where **every code snippet is compiled and executed by CI against current Zig master**, and where the *same* `.wasm` artifact CI ran is what the reader executes in their browser. There is deliberately no second code path — the docs *are* the code. Silent staleness is the one bug class this project cannot tolerate.
 
-Requires **Zig master** (tracks master, not a stable release) and **Node 22+**.
+Requires **Zig master** (tracks master, not a stable release) and **Node 24+**. Node 22 segfaults inside `node:wasi` on about 1% of runs of the `06-cookbook.serialization-size` snippet, which made the nightly fail on an unchanged tree; CI pins 24 for that reason and the comment in `ci.yml` records the measurement.
 
 ## Commands
 
