@@ -210,6 +210,14 @@ const openSlug =
         >
           Unofficial
         </a>
+        {/* The other half of the sentence. Unaffiliated is a caveat; verified
+            is the answer to it, and the two only mean something together. */}
+        <span
+          class="verified"
+          title={`Every one of the ${snippetCount} snippets on this site was compiled and run by CI against Zig ${zigVersion}. If one stopped working, the build would be red and this page would not have published.`}
+        >
+          but fully verified
+        </span>
       </div>
 
       {/* Progressive enhancement: with JS off this is an inert text field that

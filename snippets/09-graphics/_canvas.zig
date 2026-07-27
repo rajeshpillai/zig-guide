@@ -43,6 +43,51 @@ pub fn fill(pixels: []u32, color: u32) void {
     @memset(pixels, color);
 }
 
+/// A deterministic test picture for the image-processing chapters.
+///
+/// Three things a filter needs something to bite on: a smooth ramp, so contrast
+/// and blur have a gradient to stretch or soften; a hard-edged block, so an edge
+/// detector has an edge to find; and two saturated discs, so a colour transform
+/// has some chroma to move. Drawing it here rather than in each chapter means
+/// all three filter chapters run on the same input and their dumps can be read
+/// against each other.
+pub fn scene(pixels: []u32) void {
+    for (0..height) |y| {
+        for (0..width) |x| {
+            // A diagonal ramp, so neither a horizontal nor a vertical kernel
+            // sees a flat signal.
+            const t: u32 = @intCast((x + y * 2) * 255 / (width + height * 2 - 3));
+            putPixel(pixels, @intCast(x), @intCast(y), rgb(
+                @intCast(10 + t / 5),
+                @intCast(10 + t / 5),
+                @intCast(40 + t / 3),
+            ));
+        }
+    }
+
+    // Hard edges on all four sides, on purpose.
+    for (6..15) |y| {
+        for (8..25) |x| {
+            putPixel(pixels, @intCast(x), @intCast(y), rgb(255, 220, 60));
+        }
+    }
+
+    disc(pixels, 44, 10, 7, rgb(230, 40, 40));
+    disc(pixels, 50, 23, 6, rgb(40, 220, 90));
+}
+
+fn disc(pixels: []u32, cx: i32, cy: i32, r: i32, color: u32) void {
+    var y = cy - r;
+    while (y <= cy + r) : (y += 1) {
+        var x = cx - r;
+        while (x <= cx + r) : (x += 1) {
+            const dx = x - cx;
+            const dy = y - cy;
+            if (dx * dx + dy * dy <= r * r) putPixel(pixels, x, y, color);
+        }
+    }
+}
+
 /// Ten characters, dark to light. Ten levels is enough to read a gradient and
 /// few enough that a shape's edge stays visible.
 const ramp = " .:-=+*#%@";

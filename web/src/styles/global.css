@@ -108,6 +108,24 @@ pre {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
+/* Reads as the second half of the amber pill's sentence, so it is green rather
+   than amber and lower case rather than shouting. Hidden on phones with the
+   same reasoning as the version badge: the brand needs the row more than this
+   does, and the footer states the same fact on every page. */
+.verified {
+  display: none;
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ok);
+  cursor: help;
+}
+
+.verified::before {
+  content: "✓ ";
+}
+
 /* Hidden on phones: the dev version string is far too long for the topbar,
    and the status bar states the same compiler at the foot of every page. */
 .version {
@@ -913,6 +931,10 @@ zig-playground pre:not(.pg-output) {
   }
 
   .version {
+    display: inline;
+  }
+
+  .verified {
     display: inline;
   }
 

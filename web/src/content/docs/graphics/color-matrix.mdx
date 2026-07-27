@@ -1,0 +1,159 @@
+---
+title: Colour Matrices
+description: Grayscale, sepia and saturation are one 3x3 matrix, and a chain of them multiplies into a single matrix before the image is touched.
+section: Graphics
+order: 129
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Grayscale, sepia, saturation, hue rotation and channel swaps look like separate
+filters. They are one filter with different constants: a 3x3 matrix multiplying
+the channel vector.
+
+```
+[ R' ]   [ a b c ] [ R ]
+[ G' ] = [ d e f ] [ G ]
+[ B' ]   [ g h i ] [ B ]
+```
+
+The reason to write them this way is not elegance. It is that matrices multiply,
+so a chain of four colour filters becomes one matrix computed before the image
+is touched, and then one pass.
+
+<Playground name="09-graphics.color-matrix" />
+
+## Grayscale, written as a matrix
+
+Put the luma weights in all three rows:
+
+```zig
+const luma_matrix: Matrix = .{
+    77, 150, 29,
+    77, 150, 29,
+    77, 150, 29,
+};
+```
+
+Every output channel becomes the same weighted average, which is grayscale. The
+entries are scaled by 256 and the multiply divides by 256 at the end, so this
+stays in integers throughout. Floats would buy precision that the final cast to
+`u8` throws away, and cost a conversion at each end.
+
+## Saturation is a line through grey
+
+```
+out = luma + s * (in - luma)
+```
+
+At `s = 0` that is grayscale, at `s = 1` the original, and above 1 it keeps going
+in the same direction, away from grey. As a matrix it is a blend of the luma
+matrix and the identity:
+
+```zig
+fn saturation(s: i32) Matrix {
+    var m: Matrix = undefined;
+    for (&m, identity, luma_matrix) |*out, i, l| {
+        out.* = @divTrunc(s * i + (scale - s) * l, scale);
+    }
+    return m;
+}
+```
+
+Writing it as a matrix rather than as a special case is what lets it compose with
+the others.
+
+There is a property worth noticing in the output. Saturation moves chroma and
+leaves brightness alone:
+
+```
+luma under saturation (original, sat 0, sat 200%)
+     red disc:  97  97  76
+   green disc: 151 151 152
+ yellow block: 212 212 209
+```
+
+Grayscale preserves luma exactly, because the grey it produces is defined as the
+luma. At 200% the numbers drift, and the red disc drops from 97 to 76. That is
+clipping, not a flaw in the maths: extrapolating red past 100% saturation gives
+`255, 0, 0`, the channels hit the wall, and a clipped colour no longer has the
+luma the matrix asked for. Any saturation control pushed far enough loses
+brightness in exactly the colours it was supposed to intensify.
+
+## Sepia's rows do not sum to 256
+
+```zig
+const sepia: Matrix = .{
+    101, 197, 48,
+    89,  176, 43,
+    70,  137, 34,
+};
+```
+
+Those rows sum to 346, 308 and 241. A row summing to 256 preserves brightness;
+these deliberately do not. Sepia is meant to lift the image as it tints it, and
+the red row gains the most, which is where the warmth comes from. Getting this
+matrix "wrong" in the direction of 256 gives a muddy grey-brown that looks
+nothing like the effect.
+
+It is worth knowing the difference, because a matrix that unintentionally sums
+to more than 256 blows out highlights for no reason.
+
+## Composition, and what it costs
+
+The product of two colour matrices is the matrix that applies both:
+
+```zig
+fn compose(a: Matrix, b: Matrix) Matrix { ... }  // applies b first
+```
+
+Sepia after 62% saturation, as one matrix:
+
+```
+  +100 +198  +43
+   +89 +177  +38
+   +70 +138  +30
+```
+
+One pass over the image instead of two, and the saving grows with the length of
+the chain. A photo app applying six adjustments does one multiply per pixel, not
+six.
+
+The composition is not exact:
+
+```
+two passes vs one composed matrix: 1560 of 2048 pixels differ, by at most 1
+```
+
+Two passes round to a byte in between; the composed matrix rounds once, inside
+the matrix product. This is the difference from the lookup tables in
+[per-pixel transforms](/graphics/per-pixel/), where composing was exact to the
+last bit. A table maps bytes to bytes and there is nowhere for an error to hide.
+A matrix carries fractions, and rounding them earlier or later gives different
+answers.
+
+Off by one per channel is below what anyone can see, and it is the composed
+version that is more accurate, since it rounds once instead of twice. Worth
+knowing anyway, because it means "same filter, different order of operations"
+does not give bit-identical output, and a test that compares images byte for
+byte will fail on it.
+
+## What a matrix cannot do
+
+**Anything spatial.** A colour matrix reads one pixel. Blur, sharpen and edge
+detection need neighbours, which is [convolution](/graphics/convolution/), a
+different loop with a different cost.
+
+**Anything non-linear.** Gamma, curves and thresholds are not linear functions of
+the channels, so no matrix expresses them. Those are lookup tables, and a real
+pipeline mixes both: tables for the curves, a matrix for the colour mixing.
+
+**Alpha.** These are 3x3 over RGB. Systems that include alpha use a 4x5 (four
+rows, four coefficients plus a constant offset), which is what the CSS
+`feColorMatrix` filter and Android's `ColorMatrix` both take. The extra column is
+what lets a matrix add a constant, and that is how tinting toward a fixed colour
+works.
+
+Everything on this page also multiplies sRGB bytes directly, with the same caveat
+[alpha blending](/graphics/blending/) sets out: those bytes are not linear light.
+Colour operations that care convert to linear first.

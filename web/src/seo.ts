@@ -105,17 +105,20 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "recipe is a complete program that CI compiled and ran.",
   },
   graphics: {
-    seoTitle: "Zig Graphics: Software Rendering from Scratch",
+    seoTitle: "Zig Graphics: Software Rendering and Image Processing",
     description:
-      "Software rendering in Zig with no graphics library: framebuffers, line " +
-      "and circle rasterization, triangles, alpha blending, antialiasing, writing " +
-      "a PNG, and putting pixels on a real screen.",
+      "Software rendering and image processing in Zig with no graphics library: " +
+      "framebuffers, line and circle rasterization, triangles, alpha blending, " +
+      "antialiasing, brightness and contrast, gaussian blur, Sobel edge " +
+      "detection, colour matrices, writing a PNG, and putting pixels on a screen.",
     lede:
       "A renderer built out of an array of bytes, with no graphics library " +
       "underneath. Start with a framebuffer, draw lines and circles, rasterize " +
-      "triangles with barycentric coordinates, composite with alpha, kill the " +
-      "staircase with supersampling, write the result to a PNG, and finally get " +
-      "it onto a window. Everything before the last chapter runs in your browser.",
+      "triangles with barycentric coordinates, composite with alpha, and kill the " +
+      "staircase with supersampling. Then read the buffer back: brightness and " +
+      "contrast as lookup tables, blur and Sobel edges as convolution kernels, " +
+      "grayscale and sepia as colour matrices. Everything before the last chapter " +
+      "runs in your browser.",
   },
   webassembly: {
     seoTitle: "Zig and WebAssembly",
