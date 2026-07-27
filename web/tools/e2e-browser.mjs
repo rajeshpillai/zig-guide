@@ -66,13 +66,14 @@ const BASE = (given ?? hosted.url).replace(/\/$/, "");
 const browser = await chromium.launch();
 const page = await browser.newPage();
 
-// Stub the ad network out. Its script is third-party and non-deterministic:
-// left live it would make every `networkidle` wait on an ad auction, and its
-// own console noise would fail a gate that exists to test the snippets. An
-// empty 200 rather than an abort, because a blocked request is itself logged
-// as a console error.
+// Stub the ad network and analytics out. Both are third-party and
+// non-deterministic: left live they would make every `networkidle` wait on an
+// ad auction or a beacon, their own console noise would fail a gate that
+// exists to test the snippets, and every gate run would report itself as
+// traffic. An empty 200 rather than an abort, because a blocked request is
+// itself logged as a console error.
 await page.route(
-  /(googlesyndication|googletagservices|googleadservices|doubleclick)\.(com|net)/,
+  /(googlesyndication|googletagservices|googleadservices|doubleclick|googletagmanager|google-analytics)\.(com|net)/,
   (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
 );
 

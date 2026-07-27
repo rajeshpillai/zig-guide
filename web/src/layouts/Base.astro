@@ -3,6 +3,7 @@ import { getCollection } from "astro:content";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { ADSENSE_CLIENT } from "../adsense";
+import { ANALYTICS_ID } from "../analytics";
 import { SITE_NAME, SITE_DESCRIPTION, AUTHOR, OG_IMAGE } from "../seo";
 import "../styles/global.css";
 
@@ -178,6 +179,38 @@ const openSlug =
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
             crossorigin="anonymous"
           />
+        </>
+      )
+    }
+
+    {/* Analytics are opt-in on the same terms as the ads: with no measurement
+        id configured nothing is loaded. Astro builds every page as its own
+        document, so there is no client-side routing for gtag to miss; the
+        default page_view on load counts every navigation. */}
+    {
+      ANALYTICS_ID && (
+        <>
+          {/* `is:inline` on both, for the same reason as the ad loader: the
+              config block must run in <head> after the loader tag, and a
+              bundled module would be hoisted out of order. */}
+          <script
+            is:inline
+            async
+            src={`https://www.googletagmanager.com/gtag/js?id=${ANALYTICS_ID}`}
+          />
+          <script is:inline define:vars={{ ANALYTICS_ID }}>
+            // Google's snippet declares `function gtag()`, but `define:vars`
+            // wraps this block in an IIFE, which would scope that declaration
+            // out of the global namespace. Pageviews would still work (the
+            // loader reads `dataLayer` itself), while any later
+            // `gtag("event", …)` call would throw. Assign to `window`.
+            window.dataLayer = window.dataLayer || [];
+            window.gtag = function () {
+              window.dataLayer.push(arguments);
+            };
+            gtag("js", new Date());
+            gtag("config", ANALYTICS_ID);
+          </script>
         </>
       )
     }

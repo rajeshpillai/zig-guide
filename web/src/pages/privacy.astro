@@ -20,12 +20,29 @@ const base = import.meta.env.BASE_URL;
 
     <h2>What the site itself stores</h2>
     <p>
-      Nothing. The guide sets no cookies of its own and keeps no analytics.
-      Code you run in a playground is compiled and executed entirely in your
+      Nothing. The guide sets no cookies of its own and runs no server that
+      could log you. Code you run in a playground is compiled and executed entirely in your
       browser as WebAssembly: it is never uploaded, and edits you make to a
       snippet are discarded when you leave the page. The search index is a
       static JSON file your browser downloads and queries locally, so what you
       type into the search box is never sent anywhere.
+    </p>
+
+    <h2>Measurement</h2>
+    <p>
+      The site uses Google Analytics to count how many people read it, which
+      chapters they read, and roughly where in the world they are. It records
+      the page you are on, the link that sent you here, your browser and
+      device type, and a country-level location derived from your IP address.
+      It sets a cookie so that two page loads from the same browser are
+      counted as one visit rather than two. There is no login here and nothing
+      asks for your name or email, so none of this is tied to an identity.
+    </p>
+    <p>
+      Blocking the domains <code>googletagmanager.com</code> and{" "}
+      <code>google-analytics.com</code>, or using a browser that blocks
+      trackers, stops the measurement entirely. Nothing on the site depends on
+      it: every page, playground and search works the same either way.
     </p>
 
     <h2>Advertising</h2>
@@ -54,9 +71,9 @@ const base = import.meta.env.BASE_URL;
 
     <h2>Third parties the pages contact</h2>
     <p>
-      Ad requests go to Google's advertising domains. Everything else the site
-      needs, including the compiler artifacts and the editor, is served from
-      this domain. Links out to sites like ziglang.org or Codeberg are ordinary
+      Ad requests go to Google's advertising domains, and analytics beacons to
+      Google's measurement domains. Everything else the site needs, including
+      the compiler artifacts and the editor, is served from this domain. Links out to sites like ziglang.org or Codeberg are ordinary
       links: following one is a visit to that site under its own policy.
     </p>
 
