@@ -1,0 +1,118 @@
+---
+title: Scaling and Resampling
+description: Nearest, bilinear and box filtering, the half-pixel bug that shifts your whole image, and why downscaling without a filter turns detail into a solid bar.
+section: Graphics
+order: 132
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Every filter so far kept the grid it was given: one output pixel for one input
+pixel, in the same place. Changing the size breaks that. Output pixels no longer
+line up with input pixels, and the question becomes what colour sits at a
+position that is not a pixel.
+
+<Playground name="09-graphics.resample" />
+
+## The mapping, and the bug in it
+
+An output pixel covers a range of the input. The point to sample is the centre
+of that range:
+
+```
+src = (dst + 0.5) * scale - 0.5
+```
+
+Both halves matter. `dst + 0.5` moves from the output pixel's index to its
+centre; `- 0.5` moves from the input's centre back to its index. Drop them and
+you get `src = dst * scale`, which aligns the two images by their top-left
+corners rather than their centres and shifts the result by half a source pixel.
+
+The snippet upscales four pixels to eight, with and without the correction:
+
+```
+4 pixels -> 8, source luma 0 0 255 255
+  bilinear, centres correct:
+      0   0   0   0  63 191 255 255
+  bilinear, half-pixel bug (note the shift):
+      0   0   0   0 127 255 255 255
+```
+
+The correct version puts a symmetric two-sample ramp across the edge. The buggy
+one puts a one-sample ramp starting later, and the whole image sits half a
+source pixel to the left of where it should. On a 2x upscale that is a visible
+offset, and it is the single most common resampling bug: easy to write, hard to
+see in a single image, obvious the moment you blend the result against the
+original.
+
+Fixed point rather than floats here, because a resampler that rounds differently
+on two machines produces different files, and a difference of one in the last
+bit is enough to fail a checksum.
+
+## Nearest and bilinear
+
+**Nearest** rounds the sample position to the closest pixel centre. One read per
+output pixel, no arithmetic on colours at all, and it preserves exact values,
+which is why it is the right choice for pixel art, indexed colour, and any image
+whose values are labels rather than measurements. A segmentation mask
+interpolated bilinearly produces class 7.5, which is not a class.
+
+**Bilinear** reads the four surrounding pixels and weights them by how close the
+sample point is to each. It is a genuine interpolation, and for upscaling
+photographs it is the cheapest thing that does not look blocky. Bicubic reads 16
+and gives a slightly sharper result; Lanczos reads more still. The pattern
+continues, with each step buying less.
+
+## Downscaling is a different problem
+
+Upscaling asks for values between the ones you have. Downscaling asks you to
+throw values away, and the way you throw them away decides whether the result is
+a smaller version of the picture or a different picture.
+
+The snippet makes this unambiguous with a row of alternating black and white
+columns downscaled to a quarter width. The true average of that row is 127
+everywhere:
+
+```
+alternating black/white columns, 64 -> 16 (true average is 127)
+  nearest:
+      0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+  box filtered:
+    127 127 127 127 127 127 127 127 127 127 127 127 127 127 127 127
+```
+
+Nearest neighbour samples every fourth pixel, and every fourth pixel of an
+alternating pattern is the same colour. The answer is a solid black bar. Not
+approximately right, not noisy: confidently, uniformly wrong, and it would have
+been a solid white bar had the grid landed one pixel over.
+
+That is aliasing. The input contained detail finer than the output grid can
+represent, and point-sampling turned it into a large false feature rather than
+losing it gracefully. The same effect is why a striped shirt strobes on video
+and why a brick wall in the distance turns into moiré.
+
+The fix is to remove the detail before discarding the samples: average every
+input pixel that falls inside the output pixel, which is the box filter above,
+or blur first and then point-sample. Either way, the filter has to look at all
+the input. Any downscaler that reads one pixel per output pixel is guessing.
+
+## Where this connects
+
+[Antialiasing](/graphics/antialiasing/) took sixteen samples inside one pixel to
+turn a hard inside/outside test into a coverage fraction. This is the same idea
+arriving from the other direction: a pixel is not a point, it is an area, and
+treating it as a point is what produces both the staircase there and the solid
+bar here.
+
+Two practical notes:
+
+**Filter in linear light.** Averaging sRGB bytes makes a downscaled image
+darker than it should be, and the error is largest exactly where contrast is
+highest. This is the same caveat [alpha blending](/graphics/blending/) sets out,
+and downscaling is where it is most visible, because a checkerboard of black and
+white averages to 127 in sRGB and to about 187 done correctly.
+
+**Use premultiplied alpha.** Interpolating colours that carry their own alpha
+without premultiplying pulls the colour of fully transparent pixels into the
+result, which puts a halo of whatever the transparent regions happened to
+contain around every edge.

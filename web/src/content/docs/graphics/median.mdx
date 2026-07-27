@@ -1,0 +1,128 @@
+---
+title: Median and Rank Filters
+description: A convolution cannot ignore a value. Sorting the neighbourhood gives one function that is a denoiser, an eroder and a dilator depending on the index.
+section: Graphics
+order: 131
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A [convolution](/graphics/convolution/) is a weighted sum. Every pixel under the
+kernel contributes something, and there is no weight that means "this value is
+wrong, disregard it". That limitation has a name and a whole family of filters
+that get around it.
+
+Sort the neighbourhood and pick by position instead.
+
+<Playground name="09-graphics.median" />
+
+## One function, three filters
+
+```zig
+fn rankFilter(dst: []u32, src: []const u32, comptime rank: usize) void
+```
+
+Sort the nine pixels of a 3x3 window by brightness and take the one at `rank`.
+Rank 4 is the median. Rank 0 is the minimum, which is erosion. Rank 8 is the
+maximum, which is dilation. The whole of basic morphology and the standard
+denoiser are the same loop with a different index, and because `rank` is
+`comptime` each one compiles to its own specialised function rather than a
+branch in the inner loop.
+
+The output confirms the morphology at the end: the block and discs cover 153
+pixels brighter than 200, which erosion cuts to 105 and dilation grows to 209.
+Bright regions shrink and grow by a pixel of boundary. Running one then the
+other is opening and closing, which is how small specks get removed without
+changing the size of anything large.
+
+## Why the median beats the blur on this noise
+
+Salt and pepper noise replaces a pixel outright with black or white. The
+corrupted value has no relationship to what was there, which is precisely the
+case a weighted average handles badly:
+
+```
+            black white  mean luma error vs clean
+     noisy:    54    75        9.03
+  gaussian:     0     0       11.80
+    median:     0     2        1.59
+```
+
+Read the first two columns alone and the gaussian looks perfect: not a single
+pure black or pure white pixel survives. It is a useless measurement. The
+gaussian removed each noisy pixel by averaging it into a grey smudge nine pixels
+wide, and the third column says what that cost: mean error against the clean
+picture went *up*, from 9.03 to 11.80. The filter made the image worse than the
+noise did.
+
+The median throws the outlier away. In a window of nine where one value is
+extreme, the extreme value sorts to an end and the middle element is one of the
+eight that were fine. Error drops to 1.59.
+
+This is the general principle. A mean is dragged by any outlier no matter how
+few; a median ignores up to half of them entirely. It is the same reason
+statistics reports medians for income.
+
+## And why it keeps the edge
+
+```
+     x    |    5    6    7    8    9   10   11   12
+ original |   24   24   25  212  212  212  212  212
+ gaussian |   23   24   71  165  212  212  212  212
+   median |   24   24   25  212  212  212  212  212
+```
+
+The gaussian softens the block's edge, because at a pixel on the boundary the
+window straddles both sides and the average lands in between. The median does
+not move it at all: at any pixel on the dark side, at least five of the nine
+neighbours are still dark, so the middle element is dark. The edge stays exactly
+where it was.
+
+Edge-preserving smoothing is the property that makes rank filters worth their
+cost, and the cost is real: nine values sorted per pixel against nine multiplies
+and one divide.
+
+## The sort
+
+Nine elements, so insertion sort:
+
+```zig
+var i: usize = 1;
+while (i < window.len) : (i += 1) {
+    const key = window[i];
+    var j = i;
+    while (j > 0 and canvas.luma(window[j - 1]) > canvas.luma(key)) : (j -= 1) {
+        window[j] = window[j - 1];
+    }
+    window[j] = key;
+}
+```
+
+The quadratic bound does not matter at this size, and insertion sort has almost
+no constant overhead. Production implementations go further and use a fixed
+sorting network: 19 compare-and-swap operations for nine elements, in straight
+line code with no loop and no data-dependent branches at all, which matters
+because a mispredicted branch per pixel is expensive and a sorting network has
+none. It is also directly vectorisable, which the loop above is not.
+
+If you only need the median rather than the full order, you can stop early:
+selection needs fewer comparisons than a sort. The 19-operation network is
+already close enough to the floor that most code does not bother.
+
+## Sort whole pixels, not channels
+
+The window holds packed pixels and sorts them by luma, so the output is a colour
+that genuinely appeared in the neighbourhood. Taking the median of the red
+channel, the green channel and the blue channel independently is easier and is
+wrong: the three medians can come from three different pixels, producing a
+colour that was nowhere in the window. On coloured noise that invents colours
+that were never in the image.
+
+## Where the family goes next
+
+The median's weakness is that it treats every pixel in the window as equally
+relevant regardless of how far away it is or how different it is. The bilateral
+filter fixes that by weighting each neighbour by both distance and colour
+difference, which smooths flat regions while leaving edges alone even better
+than a median does. It is a weighted average again, but with weights that depend
+on the data, so it is not a convolution either.
