@@ -6,7 +6,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "e2e": "node tools/e2e-browser.mjs"
+    "e2e": "node tools/e2e-browser.mjs",
+    "og": "node tools/make-og-image.mjs"
   },
   "type": "module",
   "dependencies": {

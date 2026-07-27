@@ -1,16 +1,24 @@
 ---
 import Base from "../layouts/Base.astro";
 import { getCollection } from "astro:content";
+import { SECTIONS, SITE_DESCRIPTION } from "../seo";
 
 const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
 const first = docs[0];
 const base = import.meta.env.BASE_URL;
+
+// Sections in reading order, with a count each. Built from the collection so
+// a new section appears here without anyone remembering to add it.
+const sections = new Map<string, { title: string; count: number }>();
+for (const doc of docs) {
+  const slug = doc.id.split("/")[0];
+  const bucket = sections.get(slug) ?? { title: doc.data.section, count: 0 };
+  bucket.count++;
+  sections.set(slug, bucket);
+}
 ---
 
-<Base
-  title="Zig Guide Live"
-  description="A Zig guide where every snippet is compiled and run against current Zig master, and runs in your browser."
->
+<Base title="Zig Guide Live" seoTitle="Zig Tutorial and Cookbook" description={SITE_DESCRIPTION}>
   <h1>Zig Guide Live</h1>
   <p class="lede">
     A tutorial for the Zig programming language where <strong>every snippet is
@@ -28,4 +36,16 @@ const base = import.meta.env.BASE_URL;
     See <a href={`${base}getting-started/coming-from-older-zig/`}>what changed</a>.
   </p>
   {first && <p><a href={`${base}${first.id}/`}>Start with {first.data.title} →</a></p>}
+
+  <h2>Sections</h2>
+  <ul class="section-index">
+    {
+      [...sections].map(([slug, { title, count }]) => (
+        <li>
+          <a href={`${base}${slug}/`}>{title}</a>
+          <span>{SECTIONS[slug]?.description ?? `${count} chapters.`}</span>
+        </li>
+      ))
+    }
+  </ul>
 </Base>

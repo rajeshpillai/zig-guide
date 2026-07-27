@@ -6,7 +6,7 @@ order: 109
 group: Databases
 ---
 
-import Playground from "../../../components/Playground.astro";
+import Playground from "../../../../components/Playground.astro";
 
 ## The problem
 
@@ -71,4 +71,4 @@ commands return; add the array case (`*`) for commands like `KEYS` or `HGETALL`.
 - **Binary values:** because bulk strings are length-prefixed, storing raw
   bytes works without escaping.
 - **A persistent store:** for a database that keeps data on disk from Zig, see
-  [SQLite from Zig](/how-to/sqlite-basic/).
+  [SQLite from Zig](/how-to/databases/sqlite-basic/).

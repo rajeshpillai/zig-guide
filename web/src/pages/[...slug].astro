@@ -2,6 +2,7 @@
 import { getCollection, render } from "astro:content";
 import Base from "../layouts/Base.astro";
 import Playground from "../components/Playground.astro";
+import { SECTIONS, GROUPS, SITE_NAME, AUTHOR } from "../seo";
 
 export async function getStaticPaths() {
   const docs = await getCollection("docs");
@@ -84,21 +85,61 @@ const crumbs = section
           : []),
         { label: entry.data.title },
       ];
+
+// Hand-written copy for an index page, when there is any. A section without an
+// entry still gets a page; it just falls back to the chapter count, which is
+// what every index read before this existed.
+const meta = section ? SECTIONS[section.slug] : group ? GROUPS[group.slug] : null;
+const indexCount = section
+  ? section.entries.length
+  : group
+    ? group.entries.length
+    : 0;
+
+/**
+ * What this page is, for a crawler. A chapter is a TechArticle; an index is a
+ * CollectionPage listing the chapters under it, which is how a search result
+ * for "zig cookbook" can show the recipes rather than just the page title.
+ */
+const schema = entry
+  ? {
+      "@type": "TechArticle",
+      headline: entry.data.title,
+      description: entry.data.description,
+      inLanguage: "en",
+      author: { "@type": "Person", name: AUTHOR },
+      publisher: { "@type": "Organization", name: SITE_NAME },
+      articleSection: entry.data.section,
+      proficiencyLevel: "Beginner",
+    }
+  : {
+      "@type": "CollectionPage",
+      name: (section ?? group).title,
+      description: meta?.description,
+      hasPart: (section ?? group).entries.map((chapter) => ({
+        "@type": "TechArticle",
+        name: chapter.data.title,
+        description: chapter.data.description,
+        url: new URL(`${base}${chapter.id}/`, Astro.site).href,
+      })),
+    };
 ---
 
 <Base
   title={section ? section.title : group ? group.title : entry.data.title}
-  description={section
-    ? `${section.entries.length} chapters on ${section.title}.`
-    : group
-      ? `${group.entries.length} chapters on ${group.title}.`
-      : entry.data.description}
+  seoTitle={meta?.seoTitle}
+  description={meta?.description ??
+    (section || group
+      ? `${indexCount} chapters on ${(section ?? group).title}.`
+      : entry.data.description)}
   crumbs={crumbs}
+  schema={schema}
 >
   {
     group ? (
       <article>
         <h1>{group.title}</h1>
+        {meta && <p class="section-intro">{meta.lede}</p>}
         <p class="section-lede">{group.entries.length} chapters.</p>
         <ul class="section-index">
           {group.entries.map((chapter) => (
@@ -112,6 +153,7 @@ const crumbs = section
     ) : section ? (
       <article>
         <h1>{section.title}</h1>
+        {meta && <p class="section-intro">{meta.lede}</p>}
         <p class="section-lede">{section.entries.length} chapters.</p>
         {
           grouped(section.entries).map(([label, members]) => (

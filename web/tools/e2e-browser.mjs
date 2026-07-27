@@ -91,8 +91,59 @@ if (chapters.length === 0) {
 
 const failures = [];
 const internalLinks = new Set();
+const visited = new Set();
 let playgrounds = 0;
 let compileOnly = 0;
+
+/**
+ * What a crawler and a link preview read. None of it is visible on the page,
+ * so a missing canonical or an empty description would never be noticed by
+ * looking at the site — exactly the failure mode this gate exists for.
+ */
+async function checkHead(href) {
+  const head = await page.evaluate(() => ({
+    title: document.title,
+    description: document.querySelector('meta[name="description"]')?.content ?? "",
+    canonical: document.querySelector('link[rel="canonical"]')?.href ?? "",
+    ogTitle: document.querySelector('meta[property="og:title"]')?.content ?? "",
+    ogImage: document.querySelector('meta[property="og:image"]')?.content ?? "",
+    jsonLd: [...document.querySelectorAll('script[type="application/ld+json"]')].map(
+      (s) => s.textContent,
+    ),
+    h1: document.querySelectorAll("h1").length,
+  }));
+
+  if (!head.title.trim()) failures.push(`${href} has no <title>`);
+  if (!head.description.trim()) failures.push(`${href} has no meta description`);
+  if (!head.ogTitle.trim()) failures.push(`${href} has no og:title`);
+  if (!head.ogImage.trim()) failures.push(`${href} has no og:image`);
+  if (head.h1 !== 1) failures.push(`${href} has ${head.h1} <h1> elements, want exactly 1`);
+
+  // The canonical must name this page. A layout that emitted one fixed URL
+  // would tell Google every chapter is a duplicate of the home page.
+  if (!head.canonical) {
+    failures.push(`${href} has no canonical link`);
+  } else if (new URL(head.canonical).pathname !== new URL(BASE + href).pathname) {
+    failures.push(`${href} canonical points at ${new URL(head.canonical).pathname}`);
+  }
+
+  if (head.jsonLd.length !== 1) {
+    failures.push(`${href} has ${head.jsonLd.length} JSON-LD blocks, want exactly 1`);
+  }
+  for (const block of head.jsonLd) {
+    try {
+      const parsed = JSON.parse(block);
+      const types = (parsed["@graph"] ?? []).map((n) => n["@type"]);
+      if (!types.includes("BreadcrumbList")) {
+        failures.push(`${href} JSON-LD has no BreadcrumbList`);
+      }
+    } catch (e) {
+      failures.push(`${href} JSON-LD is not valid JSON: ${e.message}`);
+    }
+  }
+
+  visited.add(new URL(BASE + href).pathname);
+}
 
 for (const href of chapters) {
   const response = await page.goto(BASE + href, { waitUntil: "networkidle" });
@@ -100,6 +151,7 @@ for (const href of chapters) {
     failures.push(`${href} -> HTTP ${response?.status() ?? "no response"}`);
     continue;
   }
+  await checkHead(href);
   compileOnly += await page.locator(".pg-static").count();
 
   for (const link of await page.$$eval("main a[href^='/']", (as) =>
@@ -137,6 +189,16 @@ for (const href of chapters) {
   }
 }
 
+// The pages outside the chapter list still have to carry correct metadata.
+for (const href of [`${PREFIX}/`, `${PREFIX}/privacy/`]) {
+  const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
+  if (!res?.ok()) {
+    failures.push(`${href} -> HTTP ${res?.status() ?? "no response"}`);
+    continue;
+  }
+  await checkHead(href);
+}
+
 let brokenLinks = 0;
 for (const href of internalLinks) {
   const res = await page.request.get(BASE + href);
@@ -146,13 +208,63 @@ for (const href of internalLinks) {
   }
 }
 
+/**
+ * The sitemap is generated from the content collection, so it cannot list a
+ * page that does not exist — but it can silently *omit* one, which is how a
+ * whole section stays unindexed with nothing failing. Assert both directions:
+ * every page this run reached is listed, and everything listed resolves.
+ */
+const sitemapRes = await page.request.get(`${BASE}${PREFIX}/sitemap.xml`);
+let sitemapCount = 0;
+if (!sitemapRes.ok()) {
+  failures.push(`sitemap.xml -> HTTP ${sitemapRes.status()}`);
+} else {
+  const locs = [...(await sitemapRes.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  sitemapCount = locs.length;
+  const listed = new Set(locs.map((loc) => new URL(loc).pathname));
+
+  for (const path of visited) {
+    if (!listed.has(path)) failures.push(`${path} is not listed in sitemap.xml`);
+  }
+  for (const path of listed) {
+    const res = await page.request.get(BASE + path);
+    if (!res.ok()) failures.push(`sitemap entry ${path} -> HTTP ${res.status()}`);
+  }
+}
+
+// robots.txt has to point at the sitemap that exists, on the origin the site
+// is actually deployed to.
+const robotsRes = await page.request.get(`${BASE}${PREFIX}/robots.txt`);
+if (!robotsRes.ok()) {
+  failures.push(`robots.txt -> HTTP ${robotsRes.status()}`);
+} else {
+  const robots = await robotsRes.text();
+  const sitemapLine = robots.match(/^Sitemap:\s*(\S+)$/m);
+  if (!sitemapLine) {
+    failures.push("robots.txt has no Sitemap: line");
+  } else if (new URL(sitemapLine[1]).pathname !== `${PREFIX}/sitemap.xml`) {
+    failures.push(
+      `robots.txt points at ${new URL(sitemapLine[1]).pathname}, want ${PREFIX}/sitemap.xml`,
+    );
+  }
+  if (/^Disallow:\s*\/\s*$/m.test(robots)) {
+    failures.push("robots.txt disallows the whole site");
+  }
+}
+
+// The preview card is referenced by absolute URL from every page; a rename
+// would leave every share on every network showing a blank rectangle.
+const ogRes = await page.request.get(`${BASE}${PREFIX}/og.png`);
+if (!ogRes.ok()) failures.push(`og.png -> HTTP ${ogRes.status()}`);
+
 await browser.close();
 hosted?.server.close();
 
 console.log(
   `pages: ${chapters.length}  playgrounds: ${playgrounds}  ` +
     `compile-only: ${compileOnly}  links: ${internalLinks.size}  ` +
-    `broken: ${brokenLinks}  console errors: ${consoleErrors.size}`,
+    `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
+    `console errors: ${consoleErrors.size}`,
 );
 
 // A run that exercised nothing must not report success — that would turn a

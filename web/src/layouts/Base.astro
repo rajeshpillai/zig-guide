@@ -3,6 +3,7 @@ import { getCollection } from "astro:content";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { ADSENSE_CLIENT } from "../adsense";
+import { SITE_NAME, SITE_DESCRIPTION, AUTHOR, OG_IMAGE } from "../seo";
 import "../styles/global.css";
 
 interface Crumb {
@@ -15,11 +16,16 @@ interface Props {
   description?: string;
   /** Trail shown above the page heading. "Home" is prepended automatically. */
   crumbs?: Crumb[];
+  /**
+   * Overrides the <title> without touching the visible heading, for pages
+   * whose in-site name ("Graphics") is not what someone would search for.
+   */
+  seoTitle?: string;
+  /** Page-specific JSON-LD, merged with the site-wide graph. */
+  schema?: Record<string, unknown>;
 }
 
-const SITE_NAME = "Zig Guide Live";
-
-const { title, description, crumbs = [] } = Astro.props;
+const { title, description, crumbs = [], seoTitle, schema } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
 const docs = await getCollection("docs");
@@ -70,6 +76,54 @@ try {
 const current = Astro.url.pathname;
 const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
 
+// Absolute URLs for every tag a crawler or link preview reads. `Astro.site`
+// carries the deploy origin (the custom domain, or a github.io project site
+// with its path prefix), so these follow the same switch as every internal
+// link instead of hardcoding a host that would go stale on a move.
+const abs = (path: string) => new URL(path, Astro.site).href;
+const canonical = abs(current);
+const pageTitle = seoTitle ?? title;
+const headTitle = pageTitle === SITE_NAME ? pageTitle : `${pageTitle} · ${SITE_NAME}`;
+const metaDescription = description ?? SITE_DESCRIPTION;
+
+// One JSON-LD graph per page: the site itself, the trail that leads here, and
+// whatever the page is (a chapter, a collection of chapters). Google reads the
+// breadcrumb to render the path under the result instead of a bare URL.
+const graph: Record<string, unknown>[] = [
+  {
+    "@type": "WebSite",
+    "@id": `${abs(base)}#website`,
+    name: SITE_NAME,
+    url: abs(base),
+    description: SITE_DESCRIPTION,
+    inLanguage: "en",
+    author: { "@type": "Person", name: AUTHOR },
+  },
+  {
+    "@type": "BreadcrumbList",
+    itemListElement: trail.map((crumb, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: crumb.label === "Home" ? SITE_NAME : crumb.label,
+      item: crumb.href ? abs(crumb.href) : canonical,
+    })),
+  },
+  // The page only knows what kind of thing it is; the layout is what knows
+  // where it lives, so the URL fields are filled in here rather than repeated
+  // at every call site where they could disagree with the canonical.
+  ...(schema
+    ? [
+        {
+          ...schema,
+          url: canonical,
+          mainEntityOfPage: canonical,
+          isPartOf: { "@id": `${abs(base)}#website` },
+        },
+      ]
+    : []),
+];
+const jsonLd = JSON.stringify({ "@context": "https://schema.org", "@graph": graph });
+
 // Exactly one section is expanded: the one the reader is in, falling back to
 // the first. Pages outside the chapters (home, privacy) match nothing, and a
 // sidebar of entirely closed headings gives a first-time reader nothing to
@@ -84,8 +138,30 @@ const openSlug =
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title === SITE_NAME ? title : `${title} · ${SITE_NAME}`}</title>
-    {description && <meta name="description" content={description} />}
+    <title>{headTitle}</title>
+    <meta name="description" content={metaDescription} />
+    <link rel="canonical" href={canonical} />
+    <meta name="author" content={AUTHOR} />
+
+    {/* Link previews. og:image is absolute because Slack, X and iMessage
+        resolve it against nothing. */}
+    <meta property="og:type" content={schema?.["@type"] === "TechArticle" ? "article" : "website"} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:title" content={headTitle} />
+    <meta property="og:description" content={metaDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={abs(`${base}${OG_IMAGE}`)} />
+    <meta property="og:locale" content="en" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@rajeshpillai" />
+    <meta name="twitter:creator" content="@rajeshpillai" />
+    <meta name="twitter:title" content={headTitle} />
+    <meta name="twitter:description" content={metaDescription} />
+    <meta name="twitter:image" content={abs(`${base}${OG_IMAGE}`)} />
+
+    <link rel="sitemap" type="application/xml" href={`${base}sitemap.xml`} />
+    <script type="application/ld+json" is:inline set:html={jsonLd} />
+
     {/* Ads are opt-in: with no publisher id configured nothing third-party is
         loaded at all. The meta tag is how AdSense verifies ownership of the
         domain; the script is the auto-ads loader, and placement is controlled

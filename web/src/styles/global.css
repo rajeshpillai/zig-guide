@@ -645,8 +645,22 @@ main th {
 
 /* ---------- section index ---------- */
 
+.section-intro {
+  font-size: 1.05rem;
+  max-width: 62ch;
+}
+
+/* Sits under the intro paragraph, so it reads as a caption on the list that
+   follows rather than as the page's opening line. */
 .section-lede {
   color: var(--muted);
+}
+
+.section-intro + .section-lede {
+  margin-top: 1.25rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .section-group {
