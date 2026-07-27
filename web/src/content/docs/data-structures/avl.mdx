@@ -1,0 +1,163 @@
+---
+title: Keeping It Balanced
+description: Store a height, check it after every insert, repair it with a local rotation. Four cases, none longer than five lines.
+section: Data Structures
+order: 66
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The previous chapter's tree turns into a linked list on sorted input. An AVL
+tree fixes that with three additions: a height stored in each node, a check
+after every insert, and a rotation to repair the shape when the check fails.
+
+The result on the exact input that ruined the plain tree:
+
+```
+final height 4, ideal 4, rotations 11
+balanced everywhere: true
+```
+
+Fifteen values inserted in ascending order, and the tree comes out at the
+minimum possible height, having done eleven rotations to get there.
+
+<Playground name="10-data-structures.avl" />
+
+## The invariant
+
+Each node stores its height, a leaf being 1. The balance factor is the left
+height minus the right height, and the rule is that it stays within -1 to 1 at
+every node in the tree.
+
+```zig
+fn balance(maybe: ?*Node) i32 {
+    const node = maybe orelse return 0;
+    return heightOf(node.left) - heightOf(node.right);
+}
+```
+
+A factor of 2 means one side is a full level deeper than the other, which is the
+moment to rotate. That bound is what guarantees the height stays within about
+1.44 log₂(n): looser than a red-black tree, which is why AVL trees do more
+rotations on insert and give slightly faster lookups in exchange.
+
+The height is stored rather than computed. Computing it is the O(n) walk the
+structure exists to avoid.
+
+## A rotation is four pointer writes
+
+```
+      y            x
+     / \          / \
+    x   C   ->   A   y
+   / \              / \
+  A   B            B   C
+```
+
+Read both trees in order: `A x B y C`, before and after. The rotation preserves
+the ordering, which is why it can be applied anywhere at any time without
+checking whether it breaks the search property. Only `B` changes parent.
+
+```zig
+fn rotateRight(self: *Tree, y: *Node) *Node {
+    const x = y.left.?;
+    y.left = x.right;
+    x.right = y;
+    refresh(y);   // y first: it is now the lower node
+    refresh(x);
+    self.rotations += 1;
+    return x;
+}
+```
+
+The `refresh` order matters. `y` is now below `x`, so its height has to be
+correct before `x`'s can be computed from it.
+
+## Four cases, and the reason there are four
+
+Rebalancing happens on the way back *up* from the insertion point. Each node on
+that path gets its height refreshed and its balance checked, and the function
+returns the subtree's new root so a rotation relinks itself into its parent:
+
+```zig
+node.left = try self.insertInto(node.left, value);
+```
+
+That assignment is the relink. It is why this insert is recursive when the
+plain tree's was a loop.
+
+Then:
+
+```zig
+if (bias > 1 and value < node.left.?.value) return self.rotateRight(node);
+if (bias < -1 and value > node.right.?.value) return self.rotateLeft(node);
+if (bias > 1) {
+    node.left = self.rotateLeft(node.left.?);
+    return self.rotateRight(node);
+}
+if (bias < -1) {
+    node.right = self.rotateRight(node.right.?);
+    return self.rotateLeft(node);
+}
+```
+
+The outer test says which side got too deep. The inner test says whether the new
+node went to the *outside* of that side or the *inside*. Outside is one
+rotation. Inside is two, because a single rotation on a zig-zag shape just
+produces the mirror image of the same problem: rotate the child first to
+straighten it out, then rotate the node.
+
+Four cases, and they are mirror images in pairs. That is the entire algorithm.
+
+## It is cheap
+
+```
+inserting 1..15 in order, height after each:
+ 1 2 2 3 3 3 3 4 4 4 4 4 4 4 4
+```
+
+The height climbs to 4 and stops. Eleven rotations across fifteen inserts, and
+each rotation is a handful of pointer writes on nodes that were just visited and
+are still in cache. Rebalancing is not a periodic expensive pass; it is a
+constant amount of work folded into the insert that caused it.
+
+Three inputs, all landing balanced:
+
+```
+inserting 15..1: height 4, rotations 11, balanced true
+zig-zag input:   height 5, rotations 16, balanced true
+```
+
+Descending input is the mirror of ascending and costs the same. The zig-zag
+input, which alternates between extremes, is what drives the two-rotation cases,
+and it costs more rotations for a slightly taller tree, still within the bound.
+
+## Checking rather than claiming
+
+```zig
+fn isBalanced(maybe: ?*Node) bool {
+    const node = maybe orelse return true;
+    if (@abs(balance(node)) > 1) return false;
+    return isBalanced(node.left) and isBalanced(node.right);
+}
+```
+
+The snippet walks the whole tree and checks the invariant at every node, rather
+than trusting that the four cases were written correctly. It also confirms all
+fifteen values are still findable afterwards, because a rotation that is subtly
+wrong produces a tree that is beautifully balanced and has lost a subtree.
+
+For a structure whose entire purpose is maintaining an invariant, the invariant
+check belongs in the code and not only in the prose.
+
+## Deletion, which is not here
+
+Insert is the easy half. Deleting an internal node means replacing it with its
+in-order predecessor or successor and then rebalancing the whole path back to
+the root, and unlike insertion, one deletion can require rotations at every
+level rather than stopping after the first fix.
+
+This is the usual point at which people reach for a red-black tree, whose looser
+invariant makes deletion cheaper, or for `std.Treap`, which sidesteps the case
+analysis entirely by assigning each node a random priority and maintaining a
+heap on it.

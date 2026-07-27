@@ -1,0 +1,29 @@
+inserting 1..15 in order, height after each:
+ 1 2 2 3 3 3 3 4 4 4 4 4 4 4 4
+
+final height 4, ideal 4, rotations 11
+balanced everywhere: true
+
+in-order: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 
+
+shape (rotate the page 90 degrees clockwise):
+            15
+        14
+            13
+    12
+            11
+        10
+            9
+8
+            7
+        6
+            5
+    4
+            3
+        2
+            1
+
+values 1..15 still present: 15 of 15
+
+inserting 15..1: height 4, rotations 11, balanced true
+zig-zag input:   height 5, rotations 16, balanced true

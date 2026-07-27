@@ -68,6 +68,23 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "Unicode and the filesystem. std moves faster than the language, so these " +
       "are the pages most worth re-reading against a fresh compiler.",
   },
+  "data-structures": {
+    seoTitle: "Zig Data Structures from Scratch",
+    description:
+      "Building containers in Zig: a linked list with an allocator you own, " +
+      "generic containers as comptime type functions, the intrusive lists std " +
+      "actually ships, a binary search tree, AVL rotations, and a hash map with " +
+      "open addressing.",
+    lede:
+      "The standard library hands you an ArrayList and a hash map. These chapters " +
+      "build them. A linked list first, because it is the smallest structure that " +
+      "forces you to answer who allocates and who frees. Then the same list made " +
+      "generic by a comptime type function, which is all Zig's generics are. Then " +
+      "the intrusive lists std actually ships today, which look nothing like the " +
+      "ones in older tutorials. Then a binary search tree, the sorted input that " +
+      "ruins it, and the rotations that fix it. Finally a hash map, where deleting " +
+      "without a tombstone quietly loses your keys.",
+  },
   "build-system": {
     seoTitle: "The Zig Build System",
     description:

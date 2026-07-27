@@ -1,0 +1,18 @@
+inserting 14 keys into a map that starts at capacity 8:
+  grew 8 -> 16 while inserting "d"
+  grew 16 -> 32 while inserting "erlang"
+   after inserts: 14 live,  0 tombstones, capacity 32, mean probe 1.57, worst 6
+
+get("zig")    -> 1
+get("elixir") -> 14
+get("perl")   -> null
+
+removed 5 keys with tombstones
+   after removes:  9 live,  5 tombstones, capacity 32, mean probe 1.88, worst 6
+survivors still reachable: 9 of 9
+
+same deletes, clearing the slot instead:
+survivors still reachable: 7 of 9
+lost by breaking the probe chain: 2
+
+std.StringHashMap: 14 entries, get("nim") -> 6

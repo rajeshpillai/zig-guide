@@ -1,0 +1,108 @@
+---
+title: A Binary Search Tree
+description: Two pointers instead of one buys ordered iteration and O(log n) lookup, on a condition the structure does nothing to enforce.
+section: Data Structures
+order: 65
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Give the node a second pointer and keep everything smaller on the left, larger
+on the right. Lookup halves the search space at each step, and an in-order walk
+visits the values in sorted order for free.
+
+That is the whole idea, and it holds only while the tree stays roughly balanced.
+Nothing in the insert code makes it stay balanced.
+
+<Playground name="10-data-structures.bst" />
+
+## Insert through a pointer to a pointer
+
+The recursive version is what textbooks show. This one is a loop:
+
+```zig
+var link: *?*Node = &self.root;
+while (link.*) |node| {
+    if (value == node.value) return;
+    link = if (value < node.value) &node.left else &node.right;
+}
+
+const node = try self.allocator.create(Node);
+node.* = .{ .value = value };
+link.* = node;
+```
+
+`link` points at the slot the new node will go into, rather than at the node
+above it. Inserting into an empty tree writes through `&self.root`; inserting at
+a leaf writes through `&node.left`. Both are the same two lines, so there is no
+special case for the empty tree and no "was this the root" branch.
+
+`*?*Node` is worth reading slowly: a pointer, to an optional, to a node. Each
+layer is doing something. The optional is the empty slot; the outer pointer is
+what lets us write into it.
+
+## The deinit has to be post-order
+
+```zig
+fn freeSubtree(allocator: std.mem.Allocator, maybe: ?*Node) void {
+    const node = maybe orelse return;
+    freeSubtree(allocator, node.left);
+    freeSubtree(allocator, node.right);
+    allocator.destroy(node);
+}
+```
+
+Children first, then the node. Freeing the node first loses the only pointers to
+its subtrees, and that leak is unreachable memory rather than a crash. The
+snippet runs under a leak-checking allocator, so the order is enforced rather
+than remembered.
+
+Recursion here is bounded by the tree's height, which is the number the next
+section is about. On a degenerate tree of a million nodes this would overflow
+the stack, which is one reason production tree code often keeps an explicit
+stack instead.
+
+## Insertion order decides everything
+
+The same fifteen values, inserted two ways:
+
+```
+  sorted input:   height 15  (a linked list wearing a tree's type)
+  balanced input: height  4
+  ideal for 15 nodes: 4
+```
+
+Sorted input never branches. Every value is larger than the last, so it goes
+right, every time, and the result is a linked list with an unused `left` pointer
+in every node. The search property still holds and in-order traversal still
+prints the values in order. Only the cost changed:
+
+```
+lookups to find 15:
+  degenerate tree: 15 comparisons
+  balanced tree:   4 comparisons
+```
+
+That is the whole problem with an unbalanced binary search tree, and sorted
+input is not an unusual case. It is what you get from a database export, a
+sorted file, a monotonic ID, or a timestamp: exactly the inputs most likely to
+show up in production and least likely to appear in a test written with
+hand-picked literals.
+
+## What the standard library gives you
+
+There is no general-purpose balanced tree in `std`. The options are:
+
+- **[Hash maps](/standard-library/hash-maps/)** when you need lookup and not
+  order. Faster than any tree for that, and what most code actually wants.
+- **Sort an ArrayList and binary search it** when the data is built once and
+  queried many times. Contiguous, cache-friendly, and it beats a tree at
+  everything except interleaved inserts and lookups.
+- **[PriorityQueue](/standard-library/priority-queue/)** when you only ever need
+  the smallest element. That is a heap, and a different structure.
+- **`std.Treap`**, which is in `std` and keeps itself balanced probabilistically
+  rather than by rotation.
+
+Which leaves the case where you genuinely need ordered iteration with
+interleaved inserts. For that the tree has to repair its own shape, which is the
+next chapter.

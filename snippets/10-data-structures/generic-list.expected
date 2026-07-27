@@ -1,0 +1,16 @@
+List(i32):   [3, 1, 4, 1, 5]
+List(Point): [.{ .x = 1, .y = 2 }, .{ .x = 3, .y = 4 }]
+
+contains(4)          -> true
+contains(9)          -> false
+contains(Point 3,4)  -> true
+
+@typeName(List(i32))  = generic-list.List(i32)
+List(i32) == List(i32) -> true
+List(i32) == List(u8)  -> false
+
+@typeName(List(u8).Node)    = generic-list.List(u8).Node
+@typeName(List(Point).Node) = generic-list.List(generic-list.Point).Node
+List(u8).Node == List(i32).Node -> false
+
+std.ArrayList(i32): { 3, 1, 4 }

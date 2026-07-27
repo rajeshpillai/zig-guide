@@ -1,0 +1,10 @@
+[5 -> 10 -> 20 -> 30] len=4
+find(20)  -> 20
+find(99)  -> null
+after remove(20): [5 -> 10 -> 30] len=3
+after remove(5):  [10 -> 30] len=2
+after remove(30): [10] len=1
+
+@sizeOf(?*Node) == @sizeOf(*Node) -> true
+@sizeOf(?i32)    > @sizeOf(i32)    -> true (an integer has no spare value to mean null)
+@sizeOf(Node) in pointers = 2

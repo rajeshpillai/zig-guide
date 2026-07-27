@@ -1,0 +1,15 @@
+in-order:  20 30 40 50 60 70 80 
+contains(40) -> true
+contains(45) -> false
+len 7, height 3
+
+same 15 values, two insertion orders
+  sorted input:   height 15  (a linked list wearing a tree's type)
+  balanced input: height  4
+  ideal for 15 nodes: 4
+
+degenerate tree, in-order: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 
+
+lookups to find 15:
+  degenerate tree: 15 comparisons
+  balanced tree:   4 comparisons

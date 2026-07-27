@@ -1,0 +1,105 @@
+---
+title: Making It Generic
+description: Zig has no generics syntax. A generic container is a function that takes a type and returns a type, evaluated at compile time.
+section: Data Structures
+order: 63
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The list in the previous chapter holds `i32` and nothing else. Making it hold
+anything does not need a new language feature, because Zig already has functions
+and types are already values at compile time.
+
+```zig
+fn List(comptime T: type) type {
+    return struct {
+        head: ?*Node = null,
+        // ...
+        const Self = @This();
+        pub const Node = struct {
+            value: T,
+            next: ?*Node = null,
+        };
+    };
+}
+```
+
+`List` is an ordinary function. Its argument happens to be a type, its return
+value happens to be a type, and `comptime` on the parameter says it must be
+known when the function is called. There is no separate generics system to
+learn; this is the same mechanism [comptime](/language-basics/comptime/)
+describes, applied to a struct definition.
+
+<Playground name="10-data-structures.generic-list" />
+
+## `@This()` and why `Self` is a convention
+
+Inside a type function the struct being defined is anonymous, so there is no
+name to refer to it by. `@This()` returns it, and `const Self = @This()` gives
+that name locally. It appears in almost every Zig container because it has to.
+
+## The call is memoized
+
+```
+List(i32) == List(i32) -> true
+List(i32) == List(u8)  -> false
+```
+
+Calling a type function twice with the same argument returns *the same type*,
+not two structurally identical ones. Without that, `fn takes(list: List(i32))`
+could not be called with a `List(i32)` built elsewhere, because they would be
+different types. It is what makes type functions usable in signatures at all.
+
+## Each instantiation is a real struct
+
+```
+@typeName(List(u8).Node)    = generic-list.List(u8).Node
+@typeName(List(Point).Node) = generic-list.List(generic-list.Point).Node
+List(u8).Node == List(i32).Node -> false
+```
+
+The nested `Node` is instantiated along with its list, so every `List(T)` gets
+its own node type laid out for its own `T`. There is no boxing, no type erasure
+and no shared code path with a size parameter threaded through it. This is
+monomorphization, the same thing a C++ template or a Rust generic does, reached
+without a second syntax and without a separate compilation phase.
+
+The nesting also means `List(i32).Node` and `List(u8).Node` are unrelated types,
+so a node from one list cannot be handed to the other. That falls out of the
+structure rather than being a rule anyone had to write down.
+
+## Equality has to come from somewhere
+
+`contains` needs to compare two `T` values, and `T` is not known when the code is
+written. `std.meta.eql` compares field by field and handles integers, enums, and
+structs of those, which covers the two examples in the snippet.
+
+It has a sharp edge worth knowing: it compares slices by pointer and length, not
+by content. `std.meta.eql` on two `[]const u8` holding the same characters at
+different addresses returns false. A container that needs to compare strings has
+to be told how, which is why `std.StringHashMap` exists as a separate thing from
+`std.AutoHashMap` rather than being a special case inside it.
+
+The general answer is to take the comparison as a parameter, the same way
+[sorting](/standard-library/sorting/) takes a `lessThan`. A container that
+hardcodes `std.meta.eql` works until the first type it is wrong for.
+
+## This is what std is
+
+```zig
+var array: std.ArrayList(i32) = .empty;
+defer array.deinit(allocator);
+try array.append(allocator, 3);
+```
+
+[ArrayList](/standard-library/arraylist/) is the same idea with contiguous
+storage instead of nodes, and `std.ArrayList(i32)` is a call to a type function
+exactly like `List(i32)`. Reading `std` gets easier once that stops looking like
+special syntax.
+
+One difference worth copying: on master `ArrayList` does not store the
+allocator. Every method that can allocate takes one as an argument. The list in
+this chapter stores it, which is more convenient and costs a pointer in every
+instance, and means two lists can never share one arena's worth of bookkeeping.
+The unmanaged form is the direction std has moved in.

@@ -1,0 +1,112 @@
+---
+title: A Linked List by Hand
+description: The smallest structure that needs an allocator, an optional pointer and a deinit that gets the order right.
+section: Data Structures
+order: 62
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A linked list is a poor container. It scatters its elements across memory, so
+traversing one is a sequence of dependent loads that the prefetcher cannot help
+with, and an [ArrayList](/standard-library/arraylist/) beats it at almost
+everything you would reach for a list to do.
+
+It is still the right first structure to build, because it is the smallest one
+that forces you to answer the three questions every container in Zig has to
+answer: who allocates, what does "no next element" look like in the type system,
+and who frees.
+
+<Playground name="10-data-structures.linked-list" />
+
+## `?*Node`, not `*?Node`
+
+```zig
+const Node = struct {
+    value: i32,
+    next: ?*Node = null,
+};
+```
+
+`?*Node` is an optional pointer: either null, or the address of a node.
+`*?Node` would be a pointer to a slot that may contain a node, which needs the
+slot to exist somewhere and is a different structure entirely. The order reads
+outside in, and getting it backwards is the most common early mistake with
+linked structures.
+
+The optional is free:
+
+```
+@sizeOf(?*Node) == @sizeOf(*Node) -> true
+@sizeOf(?i32)    > @sizeOf(i32)   -> true
+```
+
+A pointer can never validly be zero, so Zig uses zero as the null representation
+rather than storing a flag beside it. An optional integer has no spare value to
+use that way, so it does grow. This is why `?*T` is the idiomatic way to say
+"maybe a node" and why inventing a sentinel value buys nothing.
+
+## The deinit has an ordering rule
+
+```zig
+var current = self.head;
+while (current) |node| {
+    const next = node.next;        // read first
+    self.allocator.destroy(node);  // then free
+    current = next;
+}
+```
+
+Reading `node.next` after destroying `node` is a use-after-free. It usually
+appears to work, because the allocator has not yet handed that memory to anyone
+else, which is what makes it a bug that ships.
+
+The snippet runs under `std.heap.DebugAllocator`, whose `deinit` returns `.leak`
+if anything was not freed. A container that hands out memory is exactly where a
+leak comes from, so it is worth having the allocator check rather than reasoning
+about it. [Catching Memory Leaks](/how-to/catching-leaks/) covers the tooling.
+
+## Two fields that are not obvious
+
+**`tail`** exists so `append` is O(1). Without it, appending walks the whole
+list first, and building a list of n items is O(n²). Almost every hand-rolled
+list on the internet omits it.
+
+**`len`** is stored rather than counted. Counting is O(n), and a `len()` that
+walks the list turns an innocent `if (list.len() > 0)` inside a loop into a
+quadratic bug.
+
+Both are the same trade: a few bytes of bookkeeping in exchange for a whole
+class of accidental quadratic behaviour.
+
+## Where a singly linked list stops being pleasant
+
+Removal needs the node *before* the one being removed, and you cannot get there
+from the node itself. So `remove` tracks `previous` through the walk and special
+cases the head:
+
+```zig
+if (previous) |prev| {
+    prev.next = node.next;
+} else {
+    self.head = node.next;
+}
+```
+
+This is the shape that pushes people to a doubly linked list, and then to
+wondering why `std`'s lists look nothing like this one. Both are the next two
+chapters.
+
+## When a linked list is actually right
+
+Not often, but the cases are real and they are all about pointer stability:
+
+- Elements must not move when the collection grows. An ArrayList reallocates,
+  which invalidates every pointer into it; a linked list never moves a node.
+- Splicing a whole run from one list into another in O(1), without touching the
+  elements.
+- Insertion must never fail, or must not allocate at the moment of insertion.
+  This is what the intrusive design two chapters from now is for, and it is why
+  allocators and schedulers are full of linked lists.
+
+If none of those apply, use an ArrayList.

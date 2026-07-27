@@ -1,0 +1,17 @@
+singly linked, walked by node:
+  build (priority 2)
+  verify (priority 1)
+  deploy (priority 3)
+len = 3
+
+after removing verify, len = 2
+
+doubly linked, forwards:  1 2 3 
+doubly linked, backwards: 3 2 1 
+
+sizes in pointer widths
+  SinglyLinkedList.Node = 1
+  DoublyLinkedList.Node = 2
+  Task                  = 4 (a slice, a byte, and the node, padded)
+
+lists are types, not type functions: SinglyLinkedList, DoublyLinkedList
