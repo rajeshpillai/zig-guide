@@ -1,9 +1,9 @@
 ---
-import { getCollection } from "astro:content";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { ADSENSE_CLIENT } from "../adsense";
 import { ANALYTICS_ID } from "../analytics";
+import { navSections } from "../nav";
 import { SITE_NAME, SITE_DESCRIPTION, AUTHOR, OG_IMAGE } from "../seo";
 import "../styles/global.css";
 
@@ -29,36 +29,9 @@ interface Props {
 const { title, description, crumbs = [], seoTitle, schema } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
-const docs = await getCollection("docs");
-const sections = new Map<string, { slug: string; entries: typeof docs }>();
-for (const doc of docs.sort((a, b) => a.data.order - b.data.order)) {
-  const slug = doc.id.split("/")[0];
-  const bucket = sections.get(doc.data.section) ?? { slug, entries: [] };
-  bucket.entries.push(doc);
-  sections.set(doc.data.section, bucket);
-}
-
-/**
- * Split a section's entries into the ungrouped run followed by one bucket
- * per `group` label, preserving order within each. Sections without groups
- * come back as a single unlabelled bucket, so the common case renders as
- * before. A group's slug is its directory (e.g. `building-libraries/orm`),
- * which is also where its overview page lives.
- */
-function grouped(entries: typeof docs) {
-  const buckets = new Map<string, { slug: string; members: typeof docs }>();
-  for (const entry of entries) {
-    const key = entry.data.group ?? "";
-    const bucket = buckets.get(key) ?? {
-      slug: entry.id.split("/").slice(0, -1).join("/"),
-      members: [],
-    };
-    bucket.members.push(entry);
-    buckets.set(key, bucket);
-  }
-  // Ungrouped first, then groups in first-appearance order.
-  return [...buckets.entries()].sort((a, b) => (a[0] === "" ? -1 : b[0] === "" ? 1 : 0));
-}
+// Sections, their groups and their chapters, in the one order the pager at the
+// foot of each page walks as well.
+const sectionList = await navSections();
 
 // Emitted by `zig build`; states the compiler that actually verified the
 // snippets rather than a version hardcoded here.
@@ -129,10 +102,9 @@ const jsonLd = JSON.stringify({ "@context": "https://schema.org", "@graph": grap
 // the first. Pages outside the chapters (home, privacy) match nothing, and a
 // sidebar of entirely closed headings gives a first-time reader nothing to
 // click.
-const sectionList = [...sections];
 const openSlug =
-  sectionList.find(([, { slug }]) => current.includes(`/${slug}/`))?.[1].slug ??
-  sectionList[0]?.[1].slug;
+  sectionList.find((section) => current.includes(`/${section.slug}/`))?.slug ??
+  sectionList[0]?.slug;
 ---
 
 <html lang="en">
@@ -220,6 +192,27 @@ const openSlug =
         `.shell` so CSS can reach the sidebar as a sibling. */}
     <input class="nav-toggle" type="checkbox" id="nav-toggle" aria-label="Show chapters" />
 
+    {/* The same trick for the permanent sidebar on wide screens: checked means
+        folded away, giving the chapter the full width. */}
+    <input
+      class="rail-toggle"
+      type="checkbox"
+      id="rail-toggle"
+      aria-label="Show or hide the chapter sidebar"
+    />
+    {/* Inline and unbundled, so the reader's last choice is applied before the
+        sidebar is parsed. A deferred module would run after first paint and
+        the sidebar would visibly flash open on every page. */}
+    <script is:inline>
+      try {
+        if (localStorage.getItem("nav-rail") === "closed") {
+          document.getElementById("rail-toggle").checked = true;
+        }
+      } catch {
+        // Private mode: the sidebar just starts open.
+      }
+    </script>
+
     <header class="topbar">
       <label class="nav-button" for="nav-toggle">
         <svg class="nav-open" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="currentColor">
@@ -227,6 +220,26 @@ const openSlug =
         </svg>
         <svg class="nav-close" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="currentColor">
           <path d="M2.34 3.76 3.76 2.34 8 6.59l4.24-4.25 1.42 1.42L9.41 8l4.25 4.24-1.42 1.42L8 9.41l-4.24 4.25-1.42-1.42L6.59 8 2.34 3.76Z"></path>
+        </svg>
+        Chapters
+      </label>
+
+      {/* Wide screens only; below 860px the drawer button above is the control.
+          The word stays put and only the icon changes, so the brand beside it
+          does not jump when the sidebar folds. */}
+      <label class="rail-button" for="rail-toggle" title="Show or hide the chapter sidebar">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <rect
+            x="1.5"
+            y="2.5"
+            width="13"
+            height="11"
+            rx="1.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          ></rect>
+          <path class="rail-fill" d="M2.9 3.9h2.7v8.2H2.9z" fill="currentColor"></path>
         </svg>
         Chapters
       </label>
@@ -285,22 +298,26 @@ const openSlug =
     <div class="shell">
       <nav class="sidebar" aria-label="Chapters">
         {
-          sectionList.map(([section, { slug, entries }]) => (
+          sectionList.map((section) => (
             /* Open one section only, so the phone drawer starts as a short
                list rather than every chapter at once. */
-            <details class="nav-group" data-nav-key={slug} open={slug === openSlug}>
-              <summary>{section}</summary>
+            <details
+              class="nav-group"
+              data-nav-key={section.slug}
+              open={section.slug === openSlug}
+            >
+              <summary>{section.title}</summary>
               <ul>
                 <li>
                   <a
                     class="nav-overview"
-                    href={`${base}${slug}/`}
-                    aria-current={current.endsWith(`/${slug}/`) ? "page" : undefined}
+                    href={`${base}${section.slug}/`}
+                    aria-current={current.endsWith(`/${section.slug}/`) ? "page" : undefined}
                   >
                     Overview
                   </a>
                 </li>
-                {grouped(entries).map(([label, { slug: groupSlug, members }]) =>
+                {section.groups.map(({ label, slug: groupSlug, members }) =>
                   label ? (
                     /* A library gets its own collapsible node with an
                        overview page, so its chapters read as one unit. */

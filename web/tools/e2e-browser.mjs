@@ -93,6 +93,7 @@ if (chapters.length === 0) {
 const failures = [];
 const internalLinks = new Set();
 const visited = new Set();
+const pagers = new Map();
 let playgrounds = 0;
 let compileOnly = 0;
 
@@ -155,6 +156,14 @@ for (const href of chapters) {
   await checkHead(href);
   compileOnly += await page.locator(".pg-static").count();
 
+  pagers.set(
+    href,
+    await page.evaluate(() => ({
+      prev: document.querySelector(".pager-prev")?.getAttribute("href") ?? null,
+      next: document.querySelector(".pager-next")?.getAttribute("href") ?? null,
+    })),
+  );
+
   for (const link of await page.$$eval("main a[href^='/']", (as) =>
     as.map((a) => a.getAttribute("href")),
   )) {
@@ -198,6 +207,38 @@ for (const href of [`${PREFIX}/`, `${PREFIX}/privacy/`]) {
     continue;
   }
   await checkHead(href);
+}
+
+/**
+ * The pager and the sidebar are generated from one ordering, and this is what
+ * proves they stayed that way: every page carries a link, each "next" is
+ * answered by the matching "previous", and following "next" from the first
+ * page reaches every page the sidebar lists. A pager that skipped a chapter,
+ * or led into a loop, would still look perfectly reasonable on any single page.
+ */
+let ends = 0;
+for (const [href, pager] of pagers) {
+  if (!pager.prev) ends++;
+  if (!pager.next) ends++;
+  if (!pager.prev && !pager.next) failures.push(`${href} has no previous or next link`);
+  if (pager.next && pagers.has(pager.next) && pagers.get(pager.next).prev !== href) {
+    failures.push(
+      `${href} points next at ${pager.next}, which points back at ` +
+        `${pagers.get(pager.next).prev ?? "nothing"}`,
+    );
+  }
+}
+if (ends !== 2) {
+  failures.push(`${ends} pages are missing a previous or next link, want exactly 2 (the ends)`);
+}
+
+let walked = 0;
+const first = [...pagers].find(([, pager]) => !pager.prev)?.[0];
+for (let at = first; at && walked <= pagers.size; walked++) {
+  at = pagers.get(at)?.next;
+}
+if (walked !== pagers.size) {
+  failures.push(`walking "next" from the first page reached ${walked} of ${pagers.size} pages`);
 }
 
 let brokenLinks = 0;
@@ -263,7 +304,8 @@ hosted?.server.close();
 
 console.log(
   `pages: ${chapters.length}  playgrounds: ${playgrounds}  ` +
-    `compile-only: ${compileOnly}  links: ${internalLinks.size}  ` +
+    `compile-only: ${compileOnly}  pager chain: ${walked}  ` +
+    `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
     `console errors: ${consoleErrors.size}`,
 );

@@ -57,3 +57,19 @@ for (const details of groups) {
 requestAnimationFrame(() => {
   restoring = false;
 });
+
+/**
+ * Whether the whole sidebar is folded away, on wide screens. Restoring it is
+ * the job of the inline script in the layout (this module runs too late to
+ * avoid a flash); all that is left here is writing the reader's choice down.
+ */
+const RAIL_KEY = "nav-rail";
+const rail = document.getElementById("rail-toggle") as HTMLInputElement | null;
+
+rail?.addEventListener("change", () => {
+  try {
+    localStorage.setItem(RAIL_KEY, rail.checked ? "closed" : "open");
+  } catch {
+    // Same as above: the sidebar simply stops remembering.
+  }
+});

@@ -1,50 +1,43 @@
 ---
-import { getCollection, render } from "astro:content";
+import { render } from "astro:content";
 import Base from "../layouts/Base.astro";
 import Playground from "../components/Playground.astro";
+import { navSections, neighbours, readingOrder } from "../nav";
 import { SECTIONS, GROUPS, SITE_NAME, AUTHOR } from "../seo";
 
 export async function getStaticPaths() {
-  const docs = await getCollection("docs");
+  const sections = await navSections();
+  const paths = [];
 
-  // One page per chapter.
-  const paths = docs.map((entry) => ({
-    params: { slug: entry.id },
-    props: { entry, section: null },
-  }));
+  for (const section of sections) {
+    // An index per section, so the breadcrumb's middle link resolves.
+    paths.push({ params: { slug: section.slug }, props: { entry: null, section } });
 
-  // Plus an index per section, so the breadcrumb's middle link resolves.
-  const sections = new Map();
-  for (const doc of docs) {
-    const slug = doc.id.split("/")[0];
-    const bucket = sections.get(slug) ?? { title: doc.data.section, slug, entries: [] };
-    bucket.entries.push(doc);
-    sections.set(slug, bucket);
-  }
-  for (const [slug, bucket] of sections) {
-    bucket.entries.sort((a, b) => a.data.order - b.data.order);
-    paths.push({ params: { slug }, props: { entry: null, section: bucket } });
-  }
+    for (const bucket of section.groups) {
+      // And an index per group (a library under Building Libraries), living at
+      // the group's directory, so the sidebar node and breadcrumb both resolve.
+      if (bucket.label) {
+        paths.push({
+          params: { slug: bucket.slug },
+          props: {
+            entry: null,
+            section: null,
+            group: {
+              title: bucket.label,
+              slug: bucket.slug,
+              sectionTitle: section.title,
+              sectionSlug: section.slug,
+              members: bucket.members,
+            },
+          },
+        });
+      }
 
-  // And an index per group (a library under Building Libraries), living at
-  // the group's directory, so the sidebar node and breadcrumb both resolve.
-  const groups = new Map();
-  for (const doc of docs) {
-    if (!doc.data.group) continue;
-    const slug = doc.id.split("/").slice(0, -1).join("/");
-    const bucket = groups.get(slug) ?? {
-      title: doc.data.group,
-      slug,
-      sectionTitle: doc.data.section,
-      sectionSlug: doc.id.split("/")[0],
-      entries: [],
-    };
-    bucket.entries.push(doc);
-    groups.set(slug, bucket);
-  }
-  for (const [slug, bucket] of groups) {
-    bucket.entries.sort((a, b) => a.data.order - b.data.order);
-    paths.push({ params: { slug }, props: { entry: null, section: null, group: bucket } });
+      // One page per chapter.
+      for (const entry of bucket.members) {
+        paths.push({ params: { slug: entry.id }, props: { entry, section: null } });
+      }
+    }
   }
 
   return paths;
@@ -53,18 +46,22 @@ export async function getStaticPaths() {
 const { entry, section, group = null } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
-/** Ungrouped chapters first, then one labelled bucket per `group`. */
-function grouped(entries: typeof section.entries) {
-  const buckets = new Map();
-  for (const doc of entries) {
-    const key = doc.data.group ?? "";
-    (buckets.get(key) ?? buckets.set(key, []).get(key)).push(doc);
-  }
-  return [...buckets.entries()].sort((a, b) => (a[0] === "" ? -1 : b[0] === "" ? 1 : 0));
-}
+/** Every chapter under an index page, in sidebar order. */
+const indexChapters = section
+  ? section.groups.flatMap((bucket) => bucket.members)
+  : group
+    ? group.members
+    : [];
 
 // Only chapters have MDX bodies to render.
 const Content = entry ? (await render(entry)).Content : null;
+
+// Where this page sits in the guide. Both ends are absent on exactly one page
+// each, so a reader can walk the whole guide with the pager alone.
+const { prev, next } = neighbours(
+  readingOrder(await navSections()),
+  entry ? entry.id : (section ?? group).slug,
+);
 
 const crumbs = section
   ? [{ label: section.title }]
@@ -90,11 +87,7 @@ const crumbs = section
 // entry still gets a page; it just falls back to the chapter count, which is
 // what every index read before this existed.
 const meta = section ? SECTIONS[section.slug] : group ? GROUPS[group.slug] : null;
-const indexCount = section
-  ? section.entries.length
-  : group
-    ? group.entries.length
-    : 0;
+const indexCount = indexChapters.length;
 
 /**
  * What this page is, for a crawler. A chapter is a TechArticle; an index is a
@@ -116,7 +109,7 @@ const schema = entry
       "@type": "CollectionPage",
       name: (section ?? group).title,
       description: meta?.description,
-      hasPart: (section ?? group).entries.map((chapter) => ({
+      hasPart: indexChapters.map((chapter) => ({
         "@type": "TechArticle",
         name: chapter.data.title,
         description: chapter.data.description,
@@ -140,9 +133,9 @@ const schema = entry
       <article>
         <h1>{group.title}</h1>
         {meta && <p class="section-intro">{meta.lede}</p>}
-        <p class="section-lede">{group.entries.length} chapters.</p>
+        <p class="section-lede">{indexCount} chapters.</p>
         <ul class="section-index">
-          {group.entries.map((chapter) => (
+          {group.members.map((chapter) => (
             <li>
               <a href={`${base}${chapter.id}/`}>{chapter.data.title}</a>
               {chapter.data.description && <span>{chapter.data.description}</span>}
@@ -154,15 +147,13 @@ const schema = entry
       <article>
         <h1>{section.title}</h1>
         {meta && <p class="section-intro">{meta.lede}</p>}
-        <p class="section-lede">{section.entries.length} chapters.</p>
+        <p class="section-lede">{indexCount} chapters.</p>
         {
-          grouped(section.entries).map(([label, members]) => (
+          section.groups.map(({ label, slug: groupSlug, members }) => (
             <>
               {label && (
                 <h2 class="section-group">
-                  <a href={`${base}${members[0].id.split("/").slice(0, -1).join("/")}/`}>
-                    {label}
-                  </a>
+                  <a href={`${base}${groupSlug}/`}>{label}</a>
                 </h2>
               )}
               <ul class="section-index">
@@ -184,4 +175,27 @@ const schema = entry
       </article>
     )
   }
+
+  {/* The same order the sidebar lists, so following "next" from the first page
+      reaches every page in the guide exactly once. */}
+  <nav class="pager" aria-label="Chapter">
+    {
+      prev && (
+        <a class="pager-link pager-prev" href={prev.href} rel="prev">
+          <span class="pager-dir">← Previous</span>
+          <span class="pager-kicker">{prev.kicker}</span>
+          <span class="pager-title">{prev.title}</span>
+        </a>
+      )
+    }
+    {
+      next && (
+        <a class="pager-link pager-next" href={next.href} rel="next">
+          <span class="pager-dir">Next →</span>
+          <span class="pager-kicker">{next.kicker}</span>
+          <span class="pager-title">{next.title}</span>
+        </a>
+      )
+    }
+  </nav>
 </Base>

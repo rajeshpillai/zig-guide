@@ -291,9 +291,10 @@ pre {
   color: var(--muted);
 }
 
-/* ---------- nav toggle (checkbox, so it works with JS off) ---------- */
+/* ---------- nav toggles (checkboxes, so they work with JS off) ---------- */
 
-.nav-toggle {
+.nav-toggle,
+.rail-toggle {
   /* Off-screen rather than `display: none` so it stays keyboard-focusable. */
   position: absolute;
   width: 1px;
@@ -305,7 +306,8 @@ pre {
   white-space: nowrap;
 }
 
-.nav-button {
+.nav-button,
+.rail-button {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -320,26 +322,47 @@ pre {
   user-select: none;
 }
 
-.nav-button svg {
+.nav-button svg,
+.rail-button svg {
   display: block;
 }
 
-.nav-toggle:focus-visible + .nav-button {
+/* The label sits inside .topbar rather than next to the input, so these have
+   to reach through the header; an adjacent-sibling selector matches nothing
+   here and would silently drop the keyboard focus ring. */
+.nav-toggle:focus-visible ~ .topbar .nav-button,
+.rail-toggle:focus-visible ~ .topbar .rail-button {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
-.nav-toggle:checked + .nav-button {
+.nav-toggle:checked ~ .topbar .nav-button {
   color: var(--accent);
 }
 
 .nav-button .nav-close,
-.nav-toggle:checked + .nav-button .nav-open {
+.nav-toggle:checked ~ .topbar .nav-button .nav-open {
   display: none;
 }
 
-.nav-toggle:checked + .nav-button .nav-close {
+.nav-toggle:checked ~ .topbar .nav-button .nav-close {
   display: block;
+}
+
+/* Folding the sidebar away is a wide-screen affordance: on phones the drawer
+   is already closed by default and .nav-button is the control. */
+.rail-button {
+  display: none;
+}
+
+.rail-button:hover {
+  color: var(--text);
+}
+
+/* The filled column in the icon is the sidebar itself. With the sidebar folded
+   away the frame is empty, which is what the click will undo. */
+.rail-toggle:checked ~ .topbar .rail-button .rail-fill {
+  display: none;
 }
 
 .shell {
@@ -730,6 +753,56 @@ main th {
   color: var(--muted);
 }
 
+/* ---------- previous / next ---------- */
+
+.pager {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.pager-link {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-decoration: none;
+}
+
+.pager-link:hover {
+  border-color: var(--accent);
+}
+
+.pager-link:hover .pager-title {
+  text-decoration: underline;
+}
+
+.pager-dir {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pager-kicker {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.pager-title {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pager-next {
+  text-align: right;
+}
+
 /* ---------- status bar ---------- */
 
 .statusbar {
@@ -961,6 +1034,17 @@ zig-playground pre:not(.pg-output) {
     gap: 1rem 1.5rem;
   }
 
+  .pager {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  /* Pinned right, so the last page of the guide (which has no next) does not
+     leave "Previous" sitting alone in the middle. */
+  .pager-next {
+    grid-column: 2;
+  }
+
   .status-credit {
     margin-left: auto;
   }
@@ -1005,5 +1089,25 @@ zig-playground pre:not(.pg-output) {
   .nav-group > summary {
     min-height: 0;
     margin-top: 0.75rem;
+  }
+
+  .rail-button {
+    display: inline-flex;
+  }
+
+  /* Folded: the chapter gets the whole shell. Capped and centred rather than
+     run out to the full 1200px, because a 1200px line of prose is harder to
+     read than the two-column layout it replaced. */
+  .rail-toggle:checked ~ .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail-toggle:checked ~ .shell .sidebar {
+    display: none;
+  }
+
+  .rail-toggle:checked ~ .shell main {
+    max-width: 64rem;
+    margin-inline: auto;
   }
 }
