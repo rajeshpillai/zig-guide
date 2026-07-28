@@ -147,6 +147,44 @@ async function checkHead(href) {
   visited.add(new URL(BASE + href).pathname);
 }
 
+/**
+ * The sidebar has to show you where you are. Opening the current section is
+ * only half of it: the sidebar is its own scroll container, so on a page far
+ * down the list the active link can sit below the fold and the reader arrives
+ * looking at whatever the previous page left on screen. Nothing else here
+ * would catch that, because every link still resolves and the page still
+ * renders. Also assert the document did not scroll, which is how this would
+ * break if someone reached for `scrollIntoView`.
+ */
+async function checkSidebarSync(href) {
+  const state = await page.evaluate(() => {
+    const sidebar = document.querySelector(".sidebar");
+    const link = sidebar?.querySelector('a[aria-current="page"]');
+    if (!sidebar || !link) return null;
+    const top = link.getBoundingClientRect().top - sidebar.getBoundingClientRect().top;
+    return {
+      visible: top >= 0 && top + link.offsetHeight <= sidebar.clientHeight,
+      top: Math.round(top),
+      height: sidebar.clientHeight,
+      pageScrollY: Math.round(window.scrollY),
+    };
+  });
+
+  if (!state) {
+    failures.push(`${href} has no sidebar link marked aria-current="page"`);
+    return;
+  }
+  if (!state.visible) {
+    failures.push(
+      `${href} sidebar did not scroll its active link into view ` +
+        `(at ${state.top}px in a ${state.height}px sidebar)`,
+    );
+  }
+  if (state.pageScrollY !== 0) {
+    failures.push(`${href} scrolled the document to ${state.pageScrollY} on load`);
+  }
+}
+
 for (const href of chapters) {
   const response = await page.goto(BASE + href, { waitUntil: "networkidle" });
   if (!response || !response.ok()) {
@@ -154,6 +192,7 @@ for (const href of chapters) {
     continue;
   }
   await checkHead(href);
+  await checkSidebarSync(href);
   compileOnly += await page.locator(".pg-static").count();
 
   pagers.set(

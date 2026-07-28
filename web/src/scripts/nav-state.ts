@@ -59,6 +59,47 @@ requestAnimationFrame(() => {
 });
 
 /**
+ * Bring the current chapter into view inside the sidebar.
+ *
+ * Opening its section is not enough on its own. The sidebar is its own scroll
+ * container (`overflow-y: auto` under a `max-height`), and with four tracks and
+ * a hundred and thirty chapters the active link is often below the fold, so
+ * arriving from search or from a link would land you on a page whose entry in
+ * the sidebar you cannot see. The sidebar would be showing whatever the last
+ * page happened to leave it showing.
+ *
+ * Only `scrollTop` on the sidebar is touched, never `scrollIntoView`, which
+ * would scroll the document as well and move the chapter you just opened.
+ */
+function revealCurrent(): void {
+  const sidebar = document.querySelector<HTMLElement>(".sidebar");
+  const link = sidebar?.querySelector<HTMLElement>('a[aria-current="page"]');
+  if (!sidebar || !link) return;
+
+  // Hidden (the phone drawer, or the folded rail) has no layout to measure.
+  if (sidebar.scrollHeight <= sidebar.clientHeight) return;
+
+  const top = link.getBoundingClientRect().top - sidebar.getBoundingClientRect().top;
+  const bottom = top + link.offsetHeight;
+
+  // Already visible: leave the scroll where the reader had it.
+  if (top >= 0 && bottom <= sidebar.clientHeight) return;
+
+  const centred = sidebar.scrollTop + top - (sidebar.clientHeight - link.offsetHeight) / 2;
+  sidebar.scrollTop = Math.max(0, Math.min(centred, sidebar.scrollHeight - sidebar.clientHeight));
+}
+
+revealCurrent();
+
+// Both toggles reveal a sidebar that was `display: none`, so it had no
+// measurable layout above and this is the first chance to place it.
+for (const id of ["nav-toggle", "rail-toggle"]) {
+  document
+    .getElementById(id)
+    ?.addEventListener("change", () => requestAnimationFrame(revealCurrent));
+}
+
+/**
  * Whether the whole sidebar is folded away, on wide screens. Restoring it is
  * the job of the inline script in the layout (this module runs too late to
  * avoid a flash); all that is left here is writing the reader's choice down.
