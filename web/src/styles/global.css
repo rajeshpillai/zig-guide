@@ -3,18 +3,60 @@
  * `min-width` blocks near the bottom are the only places that widen it.
  */
 
+/*
+ * Two palettes, one set of tokens. `light-dark()` picks a column from the
+ * used `color-scheme`, so each value is written once and switching a theme
+ * is the two one-line rules below rather than a duplicated block that drifts.
+ *
+ * The dark column is the palette this site shipped with, unchanged. The light
+ * one is its GitHub-light counterpart, with two values that could not be
+ * carried over directly:
+ *
+ *   --accent   Zig amber on white is 2.04:1, so it cannot be link text. The
+ *              light column darkens it until it can (6.27:1 on --bg, and 5.3:1 on the
+ *              amber-tinted pill it also has to survive).
+ *   --on-accent  Text sitting on an accent fill. Near-black over amber in
+ *              dark, near-white over the darkened amber in light: the one
+ *              token that has to invert rather than lighten.
+ *
+ * Ratios for every pair are asserted by `npm run e2e` against the rendered
+ * page, in both themes, so a future palette edit cannot quietly fail AA.
+ */
 :root {
-  --bg: #0d1117;
-  --surface: #161b22;
-  --border: #30363d;
-  --text: #e6edf3;
-  --muted: #8b949e;
-  --accent: #f7a41d; /* Zig amber */
-  --ok: #3fb950;
-  --err: #f85149;
+  /* Both are allowed, so an untouched page follows the reader's system
+     setting. The two rules below narrow it when they choose explicitly. */
+  color-scheme: light dark;
+
+  --bg: light-dark(#ffffff, #0d1117);
+  --surface: light-dark(#f6f8fa, #161b22);
+  /* Lifted off the surface: buttons, the copy affordance. */
+  --raised: light-dark(#eaeef2, #21262d);
+  /* Recessed into it: program output, which is not part of the page. */
+  --sunken: light-dark(#f6f8fa, #0b0e13);
+  --border: light-dark(#d0d7de, #30363d);
+  --text: light-dark(#1f2328, #e6edf3);
+  --muted: light-dark(#59636e, #8b949e);
+  --accent: light-dark(#8a5400, #f7a41d); /* Zig amber */
+  --on-accent: light-dark(#ffffff, #1a1200);
+  --ok: light-dark(#1a7f37, #3fb950);
+  --err: light-dark(#cf222e, #f85149);
+  /* A shadow that reads on white cannot be the one that reads on near-black:
+     the light column tints toward the text colour instead of going darker. */
+  --shadow: light-dark(0 12px 32px rgb(31 35 40 / 0.16), 0 12px 32px rgb(0 0 0 / 0.45));
   --radius: 8px;
   --gutter: 1rem;
   --topbar-h: 3.25rem;
+}
+
+/* An explicit choice, set on <html> before first paint by the inline script
+   in Base.astro. Narrowing `color-scheme` is the whole switch: every token
+   above resolves from it, as do the form controls and scrollbars the browser
+   draws for us. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
   color-scheme: dark;
 }
 
@@ -99,13 +141,17 @@ pre {
   white-space: nowrap;
   color: var(--accent);
   border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  /* 8%, not 12%. The fill tints the surface toward the same hue as the text
+     on it, so it is the one place the accent competes with itself: at 12% the
+     light theme measured 4.49:1 against a 4.5 threshold. Dark had headroom
+     either way and is visually unchanged at this strength. */
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border-radius: 999px;
   padding: 0.1rem 0.4rem;
 }
 
 .unofficial:hover {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 /* Reads as the second half of the amber pill's sentence, so it is green rather
@@ -150,6 +196,41 @@ pre {
 
 .topbar-link:hover {
   text-decoration: underline;
+}
+
+/* Icon-only, so it needs a real hit area rather than the 16px glyph: 2.25rem
+   square clears the 44px touch target once the topbar padding is counted, and
+   it is the same height as the search box beside it. */
+.theme-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* One icon at a time: whichever names the theme the click would produce. Both
+   ship in the markup so the swap costs no request and cannot flash. */
+.theme-toggle .theme-sun,
+.theme-toggle .theme-moon {
+  display: none;
+  grid-area: 1 / 1;
+}
+
+.theme-toggle[data-next="light"] .theme-sun,
+.theme-toggle[data-next="dark"] .theme-moon {
+  display: block;
 }
 
 /* ---------- search ---------- */
@@ -228,7 +309,7 @@ pre {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  box-shadow: var(--shadow);
   padding: 0.35rem;
   z-index: 20;
 }
@@ -603,6 +684,21 @@ main pre {
   overflow-x: auto;
 }
 
+/* With `defaultColor: false` Shiki bakes no colour into the markup at all: it
+   emits `--shiki-light` and `--shiki-dark` on every token and leaves the
+   choice to CSS. This is that choice, and it is the same `light-dark()` the
+   rest of the palette uses, so a code block cannot end up lit for the theme
+   the page is not in. The per-token rule sets colour only; the background
+   belongs to the block, not to each span. */
+.astro-code {
+  background-color: light-dark(var(--shiki-light-bg), var(--shiki-dark-bg));
+}
+
+.astro-code,
+.astro-code span {
+  color: light-dark(var(--shiki-light), var(--shiki-dark));
+}
+
 /* Copy button floated over plain fenced blocks. The wrapper exists so the
    button anchors to the frame, not the horizontally scrolling content. */
 .code-copy-wrap {
@@ -619,7 +715,7 @@ main pre {
   padding: 0.2rem 0.6rem;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: #21262d;
+  background: var(--raised);
   color: var(--text);
   cursor: pointer;
   opacity: 0;
@@ -997,7 +1093,7 @@ zig-playground pre:not(.pg-output) {
   gap: 0.5rem;
   padding: 0.5rem var(--gutter);
   border-bottom: 1px solid var(--border);
-  background: #1c2129;
+  background: var(--surface);
 }
 
 .pg-toolbar button {
@@ -1008,7 +1104,7 @@ zig-playground pre:not(.pg-output) {
   padding: 0.25rem 0.9rem;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: #21262d;
+  background: var(--raised);
   color: var(--text);
   cursor: pointer;
 }
@@ -1016,7 +1112,7 @@ zig-playground pre:not(.pg-output) {
 .pg-toolbar .pg-run {
   background: var(--accent);
   border-color: var(--accent);
-  color: #1a1200;
+  color: var(--on-accent);
 }
 
 .pg-toolbar button:disabled {
@@ -1034,7 +1130,7 @@ zig-playground pre:not(.pg-output) {
   margin: 0;
   padding: 0.85rem var(--gutter);
   border-top: 1px solid var(--border);
-  background: #0b0e13;
+  background: var(--sunken);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 22rem;
@@ -1070,7 +1166,7 @@ zig-playground pre:not(.pg-output) {
   padding: 0.2rem 0.8rem;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: #21262d;
+  background: var(--raised);
   color: var(--text);
   cursor: pointer;
 }

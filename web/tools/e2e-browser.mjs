@@ -288,6 +288,116 @@ if (walked !== pagers.size) {
   failures.push(`walking "next" from the first page reached ${walked} of ${pagers.size} pages`);
 }
 
+/**
+ * WCAG AA contrast, measured on the rendered page in both themes.
+ *
+ * Reading computed styles rather than the stylesheet is the point: it resolves
+ * `light-dark()`, composites the semi-transparent `color-mix` backgrounds
+ * against whatever is actually behind them, and picks up Shiki's per-token
+ * custom properties, none of which can be read off the source. A palette edit
+ * that drops a colour below AA is invisible on the page to anyone who is not
+ * already struggling to read it, so nothing else here would catch it.
+ */
+const THEME_PAGES = [
+  `${PREFIX}/`,
+  `${PREFIX}/language-basics/optionals/`,
+  `${PREFIX}/networking/`,
+];
+
+let contrastChecks = 0;
+for (const theme of ["light", "dark"]) {
+  for (const href of THEME_PAGES) {
+    await page.goto(BASE + href, { waitUntil: "networkidle" });
+    await page.evaluate((t) => {
+      document.documentElement.dataset.theme = t;
+    }, theme);
+
+    const results = await page.evaluate(() => {
+      const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+      const parse = (s) => (s.match(/[\d.]+/g) ?? []).map(Number);
+      const lum = ([r, g, b]) =>
+        0.2126 * srgb(r / 255) + 0.7152 * srgb(g / 255) + 0.0722 * srgb(b / 255);
+      const over = (fg, bg) => {
+        const a = fg[3] ?? 1;
+        return [0, 1, 2].map((i) => fg[i] * a + bg[i] * (1 - a));
+      };
+
+      // Walk up compositing every translucent layer until something opaque.
+      const backdrop = (el) => {
+        const layers = [];
+        for (let n = el; n; n = n.parentElement) {
+          const c = parse(getComputedStyle(n).backgroundColor);
+          if (c.length && (c[3] ?? 1) > 0) {
+            layers.push(c);
+            if ((c[3] ?? 1) === 1) break;
+          }
+        }
+        layers.push([255, 255, 255]);
+        return layers.reduceRight((acc, c) => over(c, acc));
+      };
+
+      const out = [];
+      const seen = new Set();
+      const selectors = [
+        "main p",
+        "main li",
+        "main a",
+        ".section-index span",
+        ".sidebar a",
+        ".nav-track",
+        ".status-sub",
+        ".pg-status",
+        ".pg-note",
+        ".pg-run",
+        ".unofficial",
+        ".theme-toggle",
+        ".astro-code span",
+      ];
+
+      for (const sel of selectors) {
+        let n = 0;
+        for (const el of document.querySelectorAll(sel)) {
+          if (n >= 12) break;
+          const text = (el.textContent ?? "").trim();
+          if (!text) continue;
+          const cs = getComputedStyle(el);
+          if (cs.visibility === "hidden" || cs.display === "none") continue;
+          if (!el.getClientRects().length) continue;
+
+          const fg = parse(cs.color);
+          if (!fg.length) continue;
+          const composed = over(fg, backdrop(el));
+          const [hi, lo] = [lum(composed), lum(backdrop(el))].sort((a, b) => b - a);
+          const ratio = (hi + 0.05) / (lo + 0.05);
+
+          // WCAG large text: 24px, or 18.66px at 700+.
+          const size = parseFloat(cs.fontSize);
+          const weight = parseInt(cs.fontWeight, 10) || 400;
+          const large = size >= 24 || (size >= 18.66 && weight >= 700);
+          const need = large ? 3 : 4.5;
+
+          const key = `${sel}|${cs.color}|${ratio.toFixed(2)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          n++;
+          out.push({ sel, ratio, need, color: cs.color, sample: text.slice(0, 28) });
+        }
+      }
+      return out;
+    });
+
+    for (const r of results) {
+      contrastChecks++;
+      if (r.ratio < r.need) {
+        failures.push(
+          `${theme} ${href} "${r.sel}" ${r.ratio.toFixed(2)}:1 needs ${r.need}:1 ` +
+            `(${r.color}, "${r.sample}")`,
+        );
+      }
+    }
+  }
+}
+
 let brokenLinks = 0;
 for (const href of internalLinks) {
   const res = await page.request.get(BASE + href);
@@ -351,7 +461,7 @@ hosted?.server.close();
 
 console.log(
   `pages: ${chapters.length}  playgrounds: ${playgrounds}  ` +
-    `compile-only: ${compileOnly}  pager chain: ${walked}  ` +
+    `compile-only: ${compileOnly}  pager chain: ${walked}  contrast: ${contrastChecks}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
     `console errors: ${consoleErrors.size}`,

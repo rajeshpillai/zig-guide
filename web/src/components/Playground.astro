@@ -10,6 +10,17 @@ import { Code } from "astro:components";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+/**
+ * The same pair `astro.config.mjs` gives fenced blocks in prose. Repeated
+ * here because `<Code>` takes its themes as a prop and does not read the
+ * markdown config; if the two ever disagreed, a playground would be lit
+ * differently from the code fence directly above it.
+ */
+const CODE_THEMES = {
+  light: "github-light-high-contrast",
+  dark: "github-dark-high-contrast",
+} as const;
+
 interface Props {
   /** Snippet slug, e.g. `02-language.optionals`. */
   name: string;
@@ -63,7 +74,7 @@ const shown = source.replace(/^(\/\/!.*\n)+\n?/, "").trimEnd();
       data-kind={entry.kind}
       data-name={entry.name}
     >
-      <Code code={shown} lang="zig" theme="github-dark" />
+      <Code code={shown} lang="zig" themes={CODE_THEMES} defaultColor={false} />
     </zig-playground>
   ) : (
     <div class="pg-static">
@@ -72,7 +83,7 @@ const shown = source.replace(/^(\/\/!.*\n)+\n?/, "").trimEnd();
           {note ?? "Compiled by CI, but not runnable in the browser sandbox."}
         </span>
       </div>
-      <Code code={shown} lang="zig" theme="github-dark" />
+      <Code code={shown} lang="zig" themes={CODE_THEMES} defaultColor={false} />
     </div>
   )
 }
