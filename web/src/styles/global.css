@@ -406,6 +406,26 @@ pre {
   padding: 0.25rem 0 2.5rem;
 }
 
+/* A track is a label, not a link and not a collapsible: it names the run of
+   sections under it and gets out of the way. The sections below already carry
+   the loudest treatment in the sidebar (uppercase, bold, a disclosure arrow),
+   so this reads as the level above by being quieter and more widely tracked
+   rather than heavier, and by owning the whitespace around it. */
+.nav-track {
+  margin: 1.6rem 0 0.4rem;
+  padding: 0 0.6rem;
+  color: var(--muted);
+  opacity: 0.65;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.nav-track:first-child {
+  margin-top: 0.5rem;
+}
+
 /* Each section is a <details>, so collapsing needs no JS. */
 .nav-group + .nav-group {
   border-top: 1px solid var(--border);
@@ -722,6 +742,39 @@ main th {
   text-decoration: underline;
 }
 
+/* One line under a track heading on the home page. It replaces the gap the
+   list would otherwise open under the heading, so the blurb and the sections
+   it introduces read as one block. */
+.track-blurb {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.track-blurb + .section-index {
+  margin-top: 0.9rem;
+}
+
+/* The three or four things worth keeping from a section, stated before the
+   chapter list rather than after it: a reader deciding whether to spend an
+   evening here wants the conclusions first. */
+.takeaways {
+  margin: 1.5rem 0 0;
+  padding: 1rem 1.1rem 1rem 2.4rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: grid;
+  gap: 0.6rem;
+  max-width: 68ch;
+}
+
+.takeaways li::marker {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .section-index {
   list-style: none;
   margin: 1.5rem 0 0;
@@ -750,6 +803,47 @@ main th {
 .section-index span {
   display: block;
   font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* ---------- reading paths ---------- */
+
+.path {
+  margin-top: 2.75rem;
+}
+
+.path > h2 {
+  margin-bottom: 0.4rem;
+}
+
+/* Numbered because the order is the point: this is a route, not a menu. */
+.path-steps {
+  margin: 1rem 0 0;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.path-steps li::marker {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.path-steps a {
+  font-weight: 600;
+}
+
+/* The section a chapter belongs to, so a reader can tell where a path has
+   taken them without following the link. */
+.path-steps span {
+  margin-left: 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.path-then {
+  margin-top: 1rem;
   color: var(--muted);
 }
 

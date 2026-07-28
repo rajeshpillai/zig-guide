@@ -1,12 +1,11 @@
 ---
 title: "Migrations as Data"
 description: Schema history as an append-only list, and applying it as a pure plan.
-section: Building Libraries
-group: "An Ecto-Style ORM"
-order: 115
+section: An Ecto-Style ORM
+order: 70
 ---
 
-import Playground from "../../../../components/Playground.astro";
+import Playground from "../../../components/Playground.astro";
 
 ## The problem
 
@@ -26,7 +25,7 @@ then nothing is testable without a database.
    steps to execute, in order. Upgrades walk forward; downgrades walk
    the affected range newest-first.
 3. Executing the plan is a separate, boring loop that belongs to the
-   [repo](/building-libraries/orm/repo/).
+   [repo](/orm/repo/).
 
 <Playground name="07-building-libraries.migrations" />
 

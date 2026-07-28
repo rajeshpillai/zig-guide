@@ -1,12 +1,11 @@
 ---
 title: "The Adapter Seam"
 description: One query renderer, several SQL dialects, resolved at compile time.
-section: Building Libraries
-group: "An Ecto-Style ORM"
-order: 114
+section: An Ecto-Style ORM
+order: 60
 ---
 
-import Playground from "../../../../components/Playground.astro";
+import Playground from "../../../components/Playground.astro";
 
 ## The problem
 
@@ -38,7 +37,7 @@ Nothing declares "Mysql implements Dialect". The requirement is exactly
 the set of declarations the renderer touches, and a dialect missing one
 fails to compile at the line that needed it. This is the same contract
 style the standard library uses for its `Io` implementations and the
-[repo's driver](/building-libraries/orm/repo/) uses for databases.
+[repo's driver](/orm/repo/) uses for databases.
 
 The three tests are the seam's specification: the same call produces
 three exact SQL strings, and the diff between them is precisely the

@@ -90,6 +90,20 @@ const meta = section ? SECTIONS[section.slug] : group ? GROUPS[group.slug] : nul
 const indexCount = indexChapters.length;
 
 /**
+ * Takeaways name identifiers (`?T`, `errdefer`, `[*c]T`), and a takeaway that
+ * cannot say `+%` without it being read as prose is a takeaway that gets
+ * written vaguely instead. Backticks in `seo.ts` become <code>, and nothing
+ * else in the string is treated as markup: it is escaped first, so the copy
+ * stays plain strings rather than a second content format to maintain.
+ */
+const inlineCode = (text: string) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+
+/**
  * What this page is, for a crawler. A chapter is a TechArticle; an index is a
  * CollectionPage listing the chapters under it, which is how a search result
  * for "zig cookbook" can show the recipes rather than just the page title.
@@ -147,6 +161,17 @@ const schema = entry
       <article>
         <h1>{section.title}</h1>
         {meta && <p class="section-intro">{meta.lede}</p>}
+        {
+          /* Conclusions before the chapter list, so a reader deciding whether
+             to spend an evening in this section can see what it buys them. */
+          meta?.takeaways && (
+            <ol class="takeaways">
+              {meta.takeaways.map((point) => (
+                <li set:html={inlineCode(point)} />
+              ))}
+            </ol>
+          )
+        }
         <p class="section-lede">{indexCount} chapters.</p>
         {
           section.groups.map(({ label, slug: groupSlug, members }) => (

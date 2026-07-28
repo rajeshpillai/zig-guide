@@ -5,8 +5,13 @@
  * about what comes after what. Deriving both from this module is what keeps
  * them from drifting: a chapter that moves in the sidebar moves in the pager
  * with it, and neither can be edited into a different order by hand.
+ *
+ * Three levels, and only the first two are URLs: track (from `TRACKS`) holds
+ * sections (a top-level directory), which hold groups (one directory deeper)
+ * or bare chapters.
  */
 import { getCollection, type CollectionEntry } from "astro:content";
+import { TRACKS, TRACK_OF } from "./tracks";
 
 export type Doc = CollectionEntry<"docs">;
 
@@ -25,6 +30,12 @@ export interface NavSection {
   groups: NavGroup[];
 }
 
+export interface NavTrack {
+  title: string;
+  blurb: string;
+  sections: NavSection[];
+}
+
 /** A single stop on the linear walk through the guide. */
 export interface Stop {
   /** Route param: a chapter's `id`, or a section or group directory. */
@@ -40,20 +51,16 @@ const base = import.meta.env.BASE_URL;
 export const pageHref = (id: string) => `${base}${id}/`;
 
 /**
- * Sections in sidebar order: chapters sorted by `order`, bucketed by section,
- * sections themselves in the order their first chapter appears.
+ * The whole guide, in sidebar order: chapters sorted by `order` within their
+ * section, sections in the order `TRACKS` lists them, tracks in table order.
  */
-export async function navSections(): Promise<NavSection[]> {
+export async function navTracks(): Promise<NavTrack[]> {
   const docs = await getCollection("docs");
   const sections = new Map<string, NavSection>();
 
   for (const doc of docs.sort((a, b) => a.data.order - b.data.order)) {
     const slug = doc.id.split("/")[0];
-    const section = sections.get(doc.data.section) ?? {
-      title: doc.data.section,
-      slug,
-      groups: [],
-    };
+    const section = sections.get(slug) ?? { title: doc.data.section, slug, groups: [] };
 
     const label = doc.data.group ?? "";
     const group = section.groups.find((g) => g.label === label) ?? {
@@ -64,7 +71,7 @@ export async function navSections(): Promise<NavSection[]> {
     if (!section.groups.includes(group)) section.groups.push(group);
     group.members.push(doc);
 
-    sections.set(doc.data.section, section);
+    sections.set(slug, section);
   }
 
   // Ungrouped first, then groups in first-appearance order.
@@ -72,7 +79,30 @@ export async function navSections(): Promise<NavSection[]> {
     section.groups.sort((a, b) => (a.label === "" ? -1 : b.label === "" ? 1 : 0));
   }
 
-  return [...sections.values()];
+  // A section missing from the table is a build error rather than a silent
+  // default. Falling back would drop it at one end of the guide under whatever
+  // heading happened to be last, which reads as deliberate and would survive
+  // every check on this site: the pages build, the links resolve, the pager
+  // walks. `SECTIONS` in seo.ts falls back instead because what it supplies is
+  // copy; what this supplies is where the section is.
+  const unplaced = [...sections.keys()].filter((slug) => !TRACK_OF.has(slug));
+  if (unplaced.length > 0) {
+    throw new Error(
+      `Section(s) ${unplaced.join(", ")} are not listed in any track. ` +
+        `Add them to TRACKS in src/tracks.ts, which is what orders the guide.`,
+    );
+  }
+
+  return TRACKS.map((track) => ({
+    title: track.title,
+    blurb: track.blurb,
+    sections: track.sections.flatMap((slug) => sections.get(slug) ?? []),
+  }));
+}
+
+/** Every section, tracks flattened away, for the callers that want one list. */
+export async function navSections(): Promise<NavSection[]> {
+  return (await navTracks()).flatMap((track) => track.sections);
 }
 
 /**

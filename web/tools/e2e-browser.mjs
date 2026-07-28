@@ -200,13 +200,21 @@ for (const href of chapters) {
 }
 
 // The pages outside the chapter list still have to carry correct metadata.
-for (const href of [`${PREFIX}/`, `${PREFIX}/privacy/`]) {
+for (const href of [`${PREFIX}/`, `${PREFIX}/paths/`, `${PREFIX}/privacy/`]) {
   const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
   if (!res?.ok()) {
     failures.push(`${href} -> HTTP ${res?.status() ?? "no response"}`);
     continue;
   }
   await checkHead(href);
+
+  // These three are the only pages whose links are not also a chapter's links,
+  // and the reading paths are entirely links, so collect them here too.
+  for (const link of await page.$$eval("main a[href^='/']", (as) =>
+    as.map((a) => a.getAttribute("href")),
+  )) {
+    internalLinks.add(link);
+  }
 }
 
 /**

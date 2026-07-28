@@ -22,6 +22,8 @@ export const GET: APIRoute = async ({ site }) => {
   };
 
   add(base, 1.0);
+  // Not a chapter and not in the sidebar, so nothing else would list it.
+  add(`${base}paths/`, 0.9);
 
   const sections = new Set<string>();
   const groups = new Set<string>();

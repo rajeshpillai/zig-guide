@@ -1,21 +1,14 @@
 ---
 import Base from "../layouts/Base.astro";
-import { getCollection } from "astro:content";
+import { navTracks } from "../nav";
 import { SECTIONS, SITE_DESCRIPTION } from "../seo";
 
-const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
-const first = docs[0];
 const base = import.meta.env.BASE_URL;
 
-// Sections in reading order, with a count each. Built from the collection so
-// a new section appears here without anyone remembering to add it.
-const sections = new Map<string, { title: string; count: number }>();
-for (const doc of docs) {
-  const slug = doc.id.split("/")[0];
-  const bucket = sections.get(slug) ?? { title: doc.data.section, count: 0 };
-  bucket.count++;
-  sections.set(slug, bucket);
-}
+// The same tracks, sections and order the sidebar and the pager use, so this
+// page cannot advertise a running order the rest of the site does not have.
+const tracks = await navTracks();
+const first = tracks[0]?.sections[0]?.groups[0]?.members[0];
 ---
 
 <Base title="Zig Guide Live" seoTitle="Zig Tutorial and Cookbook" description={SITE_DESCRIPTION}>
@@ -35,17 +28,29 @@ for (const doc of docs) {
     itself only when every snippet still passes. Already on a tagged release?
     See <a href={`${base}getting-started/coming-from-older-zig/`}>what changed</a>.
   </p>
-  {first && <p><a href={`${base}${first.id}/`}>Start with {first.data.title} →</a></p>}
+  <p>
+    {first && <a href={`${base}${first.id}/`}>Start with {first.data.title} →</a>}
+    {first && " or "}
+    <a href={`${base}paths/`}>pick a reading path</a>.
+  </p>
 
-  <h2>Sections</h2>
-  <ul class="section-index">
-    {
-      [...sections].map(([slug, { title, count }]) => (
-        <li>
-          <a href={`${base}${slug}/`}>{title}</a>
-          <span>{SECTIONS[slug]?.description ?? `${count} chapters.`}</span>
-        </li>
-      ))
-    }
-  </ul>
+  {
+    tracks.map((track) => (
+      <>
+        <h2>{track.title}</h2>
+        <p class="track-blurb">{track.blurb}</p>
+        <ul class="section-index">
+          {track.sections.map((section) => (
+            <li>
+              <a href={`${base}${section.slug}/`}>{section.title}</a>
+              <span>
+                {SECTIONS[section.slug]?.description ??
+                  `${section.groups.reduce((n, g) => n + g.members.length, 0)} chapters.`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </>
+    ))
+  }
 </Base>

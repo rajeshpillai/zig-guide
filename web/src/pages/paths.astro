@@ -1,0 +1,214 @@
+---
+/**
+ * Reading paths: short routes through the guide for people who arrived with a
+ * goal rather than an afternoon.
+ *
+ * The chapter ids below are resolved against the content collection and an
+ * unknown one throws, so a renamed or deleted chapter fails `astro build`
+ * rather than shipping a dead link on the one page whose whole job is to be a
+ * shortcut. Same reason `Playground.astro` validates snippet names at build
+ * time instead of letting the browser 404.
+ *
+ * This page is deliberately outside the sidebar and the pager. It is a view of
+ * the guide, not a stop in it, and adding it to the linear walk would put a
+ * page of links between two chapters.
+ */
+import Base from "../layouts/Base.astro";
+import { getCollection } from "astro:content";
+import { SITE_NAME } from "../seo";
+
+const base = import.meta.env.BASE_URL;
+const docs = await getCollection("docs");
+const byId = new Map(docs.map((doc) => [doc.id, doc]));
+
+interface Path {
+  title: string;
+  who: string;
+  /** Chapter ids, in the order this path reads them. */
+  chapters: string[];
+  /** What to do when the path runs out. */
+  then: string;
+}
+
+const PATHS: Path[] = [
+  {
+    title: "New to systems programming",
+    who:
+      "You have written software, but never in a language that made you say " +
+      "where a value lives. Take the long way through the first two sections; " +
+      "this path is the spine of them.",
+    chapters: [
+      "getting-started/installation",
+      "getting-started/hello-world",
+      "getting-started/running-tests",
+      "language-basics/assignment",
+      "language-basics/arrays",
+      "language-basics/if-expressions",
+      "language-basics/while-loops",
+      "language-basics/for-loops",
+      "language-basics/functions",
+      "language-basics/defer",
+      "language-basics/errors",
+      "language-basics/pointers",
+      "language-basics/slices",
+      "language-basics/optionals",
+      "language-basics/structs",
+      "standard-library/allocators",
+      "standard-library/arraylist",
+    ],
+    then: "Then Data Structures, which makes you answer who frees what.",
+  },
+  {
+    title: "Coming from C",
+    who:
+      "You already know pointers, the stack and undefined behaviour. Skip the " +
+      "tour and read the places Zig disagrees with C, then go straight at the " +
+      "interop.",
+    chapters: [
+      "getting-started/hello-world",
+      "language-basics/integer-rules",
+      "language-basics/runtime-safety",
+      "language-basics/pointers",
+      "language-basics/many-item-pointers",
+      "language-basics/slices",
+      "language-basics/sentinel-termination",
+      "language-basics/errors",
+      "language-basics/defer",
+      "language-basics/comptime",
+      "standard-library/allocators",
+      "working-with-c/c-primitive-types",
+      "working-with-c/c-pointers",
+      "working-with-c/abi",
+      "working-with-c/cimport",
+      "build-system/cross-compilation",
+    ],
+    then: "Then the Cookbook, which is where the C you would have written shows up.",
+  },
+  {
+    title: "Coming from a garbage-collected language",
+    who:
+      "Go, Java, C#, Python, JavaScript. The syntax will not be the hard part. " +
+      "Memory and error handling will, so this path front-loads both.",
+    chapters: [
+      "getting-started/hello-world",
+      "getting-started/running-tests",
+      "language-basics/optionals",
+      "language-basics/errors",
+      "language-basics/defer",
+      "language-basics/pointers",
+      "language-basics/slices",
+      "standard-library/allocators",
+      "how-to/catching-leaks",
+      "standard-library/arraylist",
+      "standard-library/hash-maps",
+      "standard-library/strings",
+      "language-basics/comptime",
+      "standard-library/io-interface",
+    ],
+    then: "Then Concurrency, which is the other thing your old runtime was doing for you.",
+  },
+  {
+    title: "I want to ship something this week",
+    who:
+      "You will read the language later. This is the shortest route to a " +
+      "program that reads input, does work, and writes a result.",
+    chapters: [
+      "getting-started/installation",
+      "getting-started/hello-world",
+      "standard-library/allocators",
+      "standard-library/arraylist",
+      "standard-library/command-line",
+      "standard-library/filesystem",
+      "standard-library/json",
+      "how-to/json-config",
+      "how-to/word-frequency",
+      "build-system/zig-build",
+      "build-system/build-modes",
+      "build-system/cross-compilation",
+    ],
+    then: "Then pick the recipe that matches what you are building.",
+  },
+  {
+    title: "Upgrading from an older Zig",
+    who:
+      "Your code compiled on 0.13 or 0.14 and does not now. Read what moved, " +
+      "then the four areas that moved the most.",
+    chapters: [
+      "getting-started/coming-from-older-zig",
+      "standard-library/io-interface",
+      "standard-library/readers-and-writers",
+      "standard-library/formatting",
+      "standard-library/arraylist",
+      "language-basics/arrays",
+    ],
+    then: "Then re-run your own test suite against a master build.",
+  },
+];
+
+// Resolve now, so a stale id is a build failure rather than a 404 for a reader.
+const paths = PATHS.map((path) => ({
+  ...path,
+  entries: path.chapters.map((id) => {
+    const doc = byId.get(id);
+    if (!doc) {
+      throw new Error(
+        `Reading path "${path.title}" lists chapter "${id}", which is not in the ` +
+          `docs collection. Fix the id in src/pages/paths.astro or restore the chapter.`,
+      );
+    }
+    return doc;
+  }),
+}));
+
+const description =
+  "Short routes through the Zig guide for people who arrived with a goal: new " +
+  "to systems programming, coming from C, coming from a garbage-collected " +
+  "language, shipping something this week, or upgrading from an older Zig.";
+
+const schema = {
+  "@type": "CollectionPage",
+  name: "Reading paths",
+  description,
+};
+---
+
+<Base
+  title="Reading paths"
+  seoTitle="Zig Reading Paths: Where to Start"
+  description={description}
+  crumbs={[{ label: "Reading paths" }]}
+  schema={schema}
+>
+  <article>
+    <h1>Reading paths</h1>
+    <p class="section-intro">
+      The guide has one order and the arrows at the foot of each page follow it.
+      These are the shortcuts. Each one is a run of chapters that answers a
+      particular starting point, and every link goes to the same chapter the
+      sidebar does.
+    </p>
+
+    {
+      paths.map((path) => (
+        <section class="path">
+          <h2>{path.title}</h2>
+          <p>{path.who}</p>
+          <ol class="path-steps">
+            {path.entries.map((doc) => (
+              <li>
+                <a href={`${base}${doc.id}/`}>{doc.data.title}</a>
+                <span>{doc.data.section}</span>
+              </li>
+            ))}
+          </ol>
+          <p class="path-then">{path.then}</p>
+        </section>
+      ))
+    }
+
+    <p>
+      None of these fit? <a href={base}>The section list</a> is the whole guide,
+      and the first chapter of Getting Started leads through all of it.
+    </p>
+  </article>
+</Base>

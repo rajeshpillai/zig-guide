@@ -1,9 +1,8 @@
 ---
 title: "What Is an Ecto-Style ORM?"
-description: The Elixir design this group borrows from, explained for people who never wrote Elixir.
-section: Building Libraries
-group: "An Ecto-Style ORM"
-order: 109
+description: The Elixir design these chapters borrow from, explained for people who never wrote Elixir.
+section: An Ecto-Style ORM
+order: 10
 ---
 
 This group builds a miniature ORM in the style of **Ecto**, the database
@@ -60,7 +59,7 @@ Each of those ideas lands on a Zig feature almost exactly:
 Zig even improves on the original in one respect: what Ecto checks when
 the query runs, Zig can check when the query **compiles**. A misspelled
 field in a filter is a compile error in the
-[query builder chapter](/building-libraries/orm/query-builder/), not a
+[query builder chapter](/orm/query-builder/), not a
 runtime database error.
 
 ## What the alternative looks like
@@ -71,17 +70,17 @@ Convenient at first, it couples every model to a global connection,
 makes tests need a database, and hides queries behind attribute access.
 The Ecto shape has more visible plumbing, and in exchange every piece is
 testable alone, which is exactly the property the
-[Repo chapter](/building-libraries/orm/repo/) exploits with its
+[Repo chapter](/orm/repo/) exploits with its
 recording driver.
 
 ## Where each idea lives in this group
 
-- Schema as declaration: [A Type Function as the Front Door](/building-libraries/orm/schema-to-sql/)
-- Query as a value: [A Typed Query Builder](/building-libraries/orm/query-builder/)
-- Declared validations: [Validation from Declarations](/building-libraries/orm/validation-rules/)
-- Deriving writes from the schema: [Writing Rows](/building-libraries/orm/insert-update/)
-- One gateway, faked in tests: [The Repo](/building-libraries/orm/repo/)
-- Bracketing user code safely: [Transactions and errdefer](/building-libraries/orm/transactions/)
+- Schema as declaration: [A Type Function as the Front Door](/orm/schema-to-sql/)
+- Query as a value: [A Typed Query Builder](/orm/query-builder/)
+- Declared validations: [Validation from Declarations](/orm/validation-rules/)
+- Deriving writes from the schema: [Writing Rows](/orm/insert-update/)
+- One gateway, faked in tests: [The Repo](/orm/repo/)
+- Bracketing user code safely: [Transactions and errdefer](/orm/transactions/)
 
 The Elixir snippet above is the only unverified code in this group; it
 is here as a reference point, not as something to run. Every Zig snippet

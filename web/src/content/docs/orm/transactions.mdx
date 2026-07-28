@@ -1,12 +1,11 @@
 ---
 title: "Transactions and errdefer"
 description: COMMIT on success, ROLLBACK on every error path, enforced by four lines.
-section: Building Libraries
-group: "An Ecto-Style ORM"
-order: 117
+section: An Ecto-Style ORM
+order: 90
 ---
 
-import Playground from "../../../../components/Playground.astro";
+import Playground from "../../../components/Playground.astro";
 
 ## The problem
 
@@ -59,6 +58,6 @@ the draft's pool checkout (acquire, run, always release).
 Real transactions nest (SAVEPOINT instead of BEGIN when already inside
 one), which the draft tracks with a depth counter on the connection;
 the errdefer shape is identical at every depth. The recording-driver
-tests from [the previous page](/building-libraries/orm/repo/) extend
+tests from [the previous page](/orm/repo/) extend
 naturally: assert BEGIN/SAVEPOINT/ROLLBACK sequences for the nested
 cases.

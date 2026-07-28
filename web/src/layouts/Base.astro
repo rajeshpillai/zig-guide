@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { ADSENSE_CLIENT } from "../adsense";
 import { ANALYTICS_ID } from "../analytics";
-import { navSections } from "../nav";
+import { navTracks } from "../nav";
 import { SITE_NAME, SITE_DESCRIPTION, AUTHOR, OG_IMAGE } from "../seo";
 import "../styles/global.css";
 
@@ -29,9 +29,10 @@ interface Props {
 const { title, description, crumbs = [], seoTitle, schema } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
-// Sections, their groups and their chapters, in the one order the pager at the
-// foot of each page walks as well.
-const sectionList = await navSections();
+// Tracks, their sections, groups and chapters, in the one order the pager at
+// the foot of each page walks as well.
+const trackList = await navTracks();
+const sectionList = trackList.flatMap((track) => track.sections);
 
 // Emitted by `zig build`; states the compiler that actually verified the
 // snippets rather than a version hardcoded here.
@@ -298,7 +299,12 @@ const openSlug =
     <div class="shell">
       <nav class="sidebar" aria-label="Chapters">
         {
-          sectionList.map((section) => (
+          /* Track headings are labels, not links: a track has no page of its
+             own, on purpose, so it adds no URL and no stop to the pager. */
+          trackList.map((track) => (
+          <>
+          <p class="nav-track">{track.title}</p>
+          {track.sections.map((section) => (
             /* Open one section only, so the phone drawer starts as a short
                list rather than every chapter at once. */
             <details
@@ -370,6 +376,8 @@ const openSlug =
                 )}
               </ul>
             </details>
+          ))}
+          </>
           ))
         }
 
@@ -452,6 +460,9 @@ const openSlug =
           </svg>
           @rajeshpillai
         </a>
+        {/* Not in the sidebar: that is the list of chapters, and this is a view
+            of it rather than a stop in it. Here it is on every page instead. */}
+        <a href={`${base}paths/`}>Reading paths</a>
         <a href={`${base}privacy/`}>Privacy</a>
       </span>
     </footer>

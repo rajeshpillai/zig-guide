@@ -1,16 +1,15 @@
 ---
 title: "Writing Rows"
 description: INSERT and UPDATE statements derived from the schema, with values as a typed array.
-section: Building Libraries
-group: "An Ecto-Style ORM"
-order: 113
+section: An Ecto-Style ORM
+order: 50
 ---
 
-import Playground from "../../../../components/Playground.astro";
+import Playground from "../../../components/Playground.astro";
 
 ## The problem
 
-Reading was the [query builder](/building-libraries/orm/query-builder/);
+Reading was the [query builder](/orm/query-builder/);
 writing is the other half. An INSERT must name every column and number
 every placeholder; an UPDATE must split key columns from data columns.
 Writing those statements by hand, per table, is exactly the repetitive,
