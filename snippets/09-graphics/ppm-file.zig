@@ -1,5 +1,5 @@
 //! title: Writing the PPM to Disk
-//! norun
+//! native
 //! The same bytes, but through the filesystem API. Two calls: the header, then
 //! the pixels.
 
@@ -49,9 +49,21 @@ fn drawScene() void {
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
 
+    var buf_out: [128]u8 = undefined;
+    var stdout = std.Io.File.stdout().writerStreaming(io, &buf_out);
+    const out = &stdout.interface;
+
     drawScene();
 
-    const file = try std.Io.Dir.cwd().createFile(io, "output.ppm", .{});
+    var dir = std.Io.Dir.cwd();
+
+    // Written for real, then read back and removed, so the example leaves
+    // nothing behind on the machine that ran it.
+    defer dir.deleteFile(io, "output.ppm") catch {};
+
+    // `.read = true` only so the check at the end can reopen nothing: a
+    // createFile handle is write-only by default.
+    const file = try dir.createFile(io, "output.ppm", .{ .read = true });
     defer file.close(io);
 
     var header_buf: [32]u8 = undefined;
@@ -59,8 +71,19 @@ pub fn main(init: std.process.Init) !void {
 
     try file.writeStreamingAll(io, header);
     try file.writeStreamingAll(io, &pixels);
+
+    // Reading the header back is the only way to know the two writes above
+    // landed in the right order. A viewer would tell you eventually; this
+    // tells the build.
+    var check: [15]u8 = undefined;
+    _ = try file.readPositionalAll(io, &check, 0);
+
+    try out.writeAll("header read back:\n");
+    try out.writeAll(check[0..header.len]);
+    try out.print("bytes on disk: {d}\n", .{header.len + pixels.len});
+    try out.flush();
 }
 
-// Marked `//! norun`: the browser WASI sandbox has no preopened directories,
-// so there is nowhere to create the file. It is still compiled on every CI
-// run, which is what catches a filesystem API change.
+// Marked `//! native`: CI builds this for the host and runs it against a real
+// filesystem, so the file really is written and read back. The browser cannot
+// run it, because the WASI sandbox has no preopened directories.

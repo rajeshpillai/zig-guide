@@ -84,12 +84,16 @@ The file version is two writes: the header, then the pixels.
 
 <Playground
   name="09-graphics.ppm-file"
-  note="Writes a file, so it needs a real filesystem. Compiled by CI on every run."
+  note="Built and run natively by CI: the file really is written, read back and removed. Browser wasm has no filesystem to write to."
 />
 
 Note the drawing order. Background first, then the circle on top, and the circle
 simply overwrites what was there. That is the painter's algorithm, and until
 [Alpha Blending](../blending/) it is the entire compositing model here.
+
+The `defer` that deletes `output.ppm` is there so the build that verifies this
+page leaves nothing behind. Drop that one line when you run it yourself, or the
+file you came here to look at will be gone before you can.
 
 To look at the result, most Linux viewers open PPM directly (`feh output.ppm`),
 and both ImageMagick and the netpbm tools convert it:

@@ -407,19 +407,17 @@ pre {
 }
 
 /* A track is a label, not a link and not a collapsible: it names the run of
-   sections under it and gets out of the way. The sections below already carry
-   the loudest treatment in the sidebar (uppercase, bold, a disclosure arrow),
-   so this reads as the level above by being quieter and more widely tracked
-   rather than heavier, and by owning the whitespace around it. */
+   sections under it. It has to outrank the section summaries below, which are
+   already uppercase and bold, so it takes the next step up in size and sits in
+   full-strength text against their muted grey. */
 .nav-track {
-  margin: 1.6rem 0 0.4rem;
+  margin: 1.75rem 0 0.5rem;
   padding: 0 0.6rem;
-  color: var(--muted);
-  opacity: 0.65;
-  font-size: 0.62rem;
-  font-weight: 600;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.1em;
 }
 
 .nav-track:first-child {
