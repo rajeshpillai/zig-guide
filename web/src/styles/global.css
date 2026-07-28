@@ -760,7 +760,6 @@ main th {
   margin: 1.5rem 0 0;
   padding: 1rem 1.1rem 1rem 2.4rem;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   background: var(--surface);
   display: grid;
@@ -768,8 +767,11 @@ main th {
   max-width: 68ch;
 }
 
+/* The numerals carry the emphasis. The card itself is the same plain
+   border-and-surface as every other boxed list on the site. */
 .takeaways li::marker {
-  color: var(--muted);
+  color: var(--accent);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
