@@ -16,7 +16,7 @@ reply is one tagged line. This recipe implements just enough of both ends to
 run `SET` and `GET`, so you can see the exact bytes that go over the wire.
 
 Rather than depend on a running `redis-server`, it stands up a toy RESP server
-in the same process, the way [the TCP recipe](/how-to/tcp-echo/) does. CI runs
+in the same process, the way [the TCP recipe](/networking/tcp-echo/) does. CI runs
 the whole exchange and diffs the output, so the protocol code is verified even
 though there is no external database.
 
@@ -59,7 +59,7 @@ trailing framing bytes.
 
 Point the client at a real server by replacing the in-process listener with a
 connection to `127.0.0.1:6379`, exactly as
-[the TCP recipe](/how-to/tcp-echo/) connects. The encoding and decoding here
+[the TCP recipe](/networking/tcp-echo/) connects. The encoding and decoding here
 are the real thing, so the same `sendCommand` and reply parser work against
 `redis-server` unchanged. The parser handles the four reply types most
 commands return; add the array case (`*`) for commands like `KEYS` or `HGETALL`.

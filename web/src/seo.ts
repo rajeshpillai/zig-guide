@@ -115,6 +115,28 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "A hash map that deletes without leaving a tombstone loses every key that probed past the hole.",
     ],
   },
+  networking: {
+    seoTitle: "Network Programming in Zig",
+    description:
+      "Network programming in Zig from the socket up: message framing, short " +
+      "reads, text and binary protocols, byte order, serving many clients " +
+      "through std.Io, TCP, UDP and HTTP.",
+    lede:
+      "Sockets from the beginning, then the part that actually decides whether " +
+      "a server works: a stream has no message boundaries, so you put them back " +
+      "yourself. Framing three ways, a parser that survives a message split " +
+      "across two reads, text and binary protocols in both directions, byte " +
+      "order, and one handler per connection through the Io interface. The " +
+      "protocol chapters run in your browser, because none of them know what a " +
+      "socket is.",
+    takeaways: [
+      "TCP is a byte stream, not a message stream. A read returning 7 bytes says nothing about where a message ends, and code that assumes otherwise works until it meets a real network.",
+      "Parse from a `Reader`, never from a socket. The same parser then works over a connection, over a test fixture and in a browser, and you write it once.",
+      "State the byte order at every call, and never send a struct. Padding is not yours to define and the layout is whatever your compiler chose today.",
+      "`takeDelimiterExclusive` treats end of stream as a delimiter, so a client that dies mid-message hands you a fragment that looks like a complete one.",
+      "`io.async` and `Group` replaced the removed `async`/`await` keywords. The same source serves connections on a thread pool or inline, and the caller picks.",
+    ],
+  },
   "build-system": {
     seoTitle: "The Zig Build System",
     description:
@@ -150,20 +172,21 @@ export const SECTIONS: Record<string, SectionMeta> = {
   "how-to": {
     seoTitle: "Zig Cookbook: Runnable Recipes",
     description:
-      "A Zig cookbook of runnable recipes: JSON, TCP, UDP and HTTP, SQLite, the " +
-      "PostgreSQL wire protocol, Redis RESP, threads and atomics, SIMD, " +
-      "compression and binary formats.",
+      "A Zig cookbook of runnable recipes: JSON, SQLite, the PostgreSQL wire " +
+      "protocol, Redis RESP, threads and atomics, SIMD, compression and binary " +
+      "formats.",
     lede:
-      "Task-shaped recipes rather than a tour of the language. Networking over " +
-      "TCP, UDP and HTTP. Databases: SQLite through its C API, the PostgreSQL " +
-      "wire protocol byte by byte, and a Redis RESP round trip. Concurrency with " +
-      "threads, atomics and a producer/consumer queue. SIMD scanning and dot " +
-      "products, zlib compression, binary wire formats, and memory layout. Every " +
-      "recipe is a complete program that CI compiled and ran.",
+      "Task-shaped recipes rather than a tour of the language. Databases: SQLite " +
+      "through its C API, the PostgreSQL wire protocol byte by byte, and a Redis " +
+      "RESP round trip. Concurrency with threads, atomics and a producer/consumer " +
+      "queue. SIMD scanning and dot products, zlib compression, binary wire " +
+      "formats, and memory layout. Every recipe is a complete program that CI " +
+      "compiled and ran. Sockets themselves are a section rather than a recipe: " +
+      "see Networking.",
     takeaways: [
       "Every recipe is a whole program, not a fragment. Copy the page and it builds.",
       "A recipe that will not run in your browser says so and says why: sockets, threads, a C library, or a real filesystem.",
-      "Wire protocols are smaller than their client libraries suggest. PostgreSQL and RESP are each one file here.",
+      "Wire protocols are smaller than their client libraries suggest. PostgreSQL and RESP are each one file here, and both build on Networking.",
     ],
   },
   graphics: {

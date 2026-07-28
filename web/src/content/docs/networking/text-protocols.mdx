@@ -1,0 +1,72 @@
+---
+title: A Text Protocol, Both Directions
+description: Parse a command out of bytes, render a reply back into bytes.
+section: Networking
+order: 50
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A text protocol is a delimiter framing with a grammar inside it. This one
+borrows Redis's reply syntax, because it is the smallest one worth copying:
+one leading byte says how to read the rest.
+
+<Playground name="11-networking.text-protocols" />
+
+## The verb is an enum, not a string
+
+```zig
+const Verb = enum { get, set, del, ping };
+
+const verb = std.meta.stringToEnum(Verb, lowered) orelse return error.UnknownCommand;
+```
+
+Converting once, at the edge, buys an exhaustive `switch` everywhere after it.
+Add a command to the enum without handling it and the compiler rejects the
+program. Keep the verb as a `[]const u8` and the same mistake is a request
+that silently does nothing, which you will find in a bug report.
+
+This is the one place the conversion can happen, because it is the only place
+that knows the bytes came from outside.
+
+## Normalise at the edge
+
+Commands are case-insensitive on the wire, as they are in Redis, SMTP and HTTP
+methods. Lowercase once, in `parse`, so nothing downstream has to remember
+that `GET`, `get` and `Get` are the same thing. Every function that has to
+remember is a function that will eventually forget.
+
+## Errors are replies
+
+```zig
+} else |err| {
+    try w.print("-ERR {s}\r\n", .{@errorName(err)});
+}
+```
+
+A malformed command is not a reason to close the connection. The client is
+still there, it can still send valid commands, and it has no idea which one
+you objected to unless you say so. Closing the socket on a parse error turns a
+typo into a reconnect, and under load into a reconnect storm.
+
+Note that `@errorName` leaks your internal error names to whoever is
+connected. That is fine for a guide and worth thinking about for a service on
+a public port.
+
+## The `\r` is not optional and not guaranteed
+
+```zig
+const line = std.mem.trimEnd(u8, raw, "\r");
+```
+
+The specification says CRLF. Real clients, including anything a person types
+into `nc`, send LF alone. Read until `\n`, then strip a `\r` if one is there.
+Requiring it rejects half your users; assuming it is absent corrupts the last
+character for the other half.
+
+## Escape the framing when you print it
+
+The output above shows `\r\n` rather than ending the line, because a reply
+printed raw turns its own framing into layout and you can no longer see what
+was sent. When you are debugging a protocol, the bytes are the thing you need
+to look at, and a terminal is extremely willing to hide them from you.

@@ -1,0 +1,11 @@
+@sizeOf(Header) = 12, on the wire = 10
+
+wire: 5a47010100000005beef68656c6c6f
+      ^^^^ magic  ^^ version  ^^ kind  ^^^^^^^^ length
+
+decoded: version 1, request, 5 bytes: "hello"
+
+length read as big-endian:    5
+length read as little-endian: 83886080
+
+an HTTP request into this parser: NotOurProtocol

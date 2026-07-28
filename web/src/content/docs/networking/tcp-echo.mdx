@@ -1,8 +1,8 @@
 ---
-title: "Recipe: A TCP Round Trip"
+title: A TCP Round Trip
 description: Listen, connect, and echo through std.Io.net, all in one process.
-section: How-To
-order: 104
+section: Networking
+order: 20
 ---
 
 import Playground from "../../../components/Playground.astro";
@@ -29,7 +29,7 @@ it is also how you write an integration test for any protocol code.
 4. Join the thread. CI runs exactly this and diffs the output.
 
 <Playground
-  name="06-cookbook.tcp-echo"
+  name="11-networking.tcp-echo"
   note="Built and run natively by CI, exchanging real bytes over loopback. Browser wasm has no sockets."
 />
 

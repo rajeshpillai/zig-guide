@@ -1,0 +1,11 @@
+length:    000450494e47
+           read back "PING"
+
+delimiter: 50494e470a
+           read back "PING"
+
+tagged:    690000100073000450494e47
+           read back int 4096
+           read back text "PING"
+
+delimiter with a '\n' in the payload: "two" (3 of 9 bytes)

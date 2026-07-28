@@ -1,0 +1,87 @@
+---
+title: Binary Protocols and Byte Order
+description: A struct is not a wire format. Write the fields, and say which end first.
+section: Networking
+order: 60
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Every binary protocol starts with a fixed-size header, so the receiver can
+read a known number of bytes before it knows anything else. Writing one comes
+down to two rules that are easy to state and easy to skip.
+
+<Playground name="11-networking.binary-protocols" />
+
+## A struct is not a wire format
+
+```
+@sizeOf(Header) = 12, on the wire = 10
+```
+
+The struct is bigger than the message. Zig may pad a struct and may reorder
+its fields, and those padding bytes are not yours to define: they are whatever
+was in that memory. Send the struct and you have sent two bytes of something
+else, and the layout you sent is the one your compiler chose on your target
+today.
+
+```zig
+// Do not do this.
+try socket.writeAll(std.mem.asBytes(&header));
+```
+
+`extern struct` fixes the layout and is the right tool for calling C, as
+[ABI](/working-with-c/abi/) covers. It still does not fix byte order, so it is
+not enough here.
+
+Write the fields:
+
+```zig
+try w.writeInt(u16, self.magic, .big);
+try w.writeInt(u8, self.version, .big);
+```
+
+More typing, and the only version that survives a different compiler, a
+different target, or a peer written in another language.
+
+## Say which end first
+
+```
+length read as big-endian:    5
+length read as little-endian: 83886080
+```
+
+Nothing errored. The length is simply wrong, and wrong in the worst possible
+way: a receiver that trusts it will try to wait for, or allocate, 83 megabytes
+because a five-byte message arrived.
+
+Network byte order is big-endian by convention, and the convention is worth
+following even when both ends are little-endian machines today, because one
+day one of them will not be. State the endianness at every call. `readInt` and
+`writeInt` require the argument precisely so that you cannot forget.
+
+This is also why the [Byte Order](/language-basics/integer-rules/) rules matter
+more here than anywhere else in a program: inside your process the question
+never comes up.
+
+## Reject before you trust
+
+```
+an HTTP request into this parser: NotOurProtocol
+```
+
+The magic number is checked before any length is read. A port on the internet
+receives HTTP requests, TLS handshakes and scanner probes within minutes of
+opening, and every one of them will parse as *something* if you let it. Two
+bytes of magic turn that into an immediate rejection.
+
+The same applies to the tag byte:
+
+```zig
+.kind = std.enums.fromInt(Kind, kind) orelse return error.UnknownKind,
+```
+
+A byte off the wire is attacker-controlled. `@enumFromInt` on a value that is
+not a valid tag is undefined behaviour, not a shortcut, and `std.enums.fromInt`
+is what returns null instead. It replaced `std.meta.intToEnum`, which no longer
+exists: if you have that in your code, this is the swap.

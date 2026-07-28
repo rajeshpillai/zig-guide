@@ -129,6 +129,27 @@ const PATHS: Path[] = [
     then: "Then pick the recipe that matches what you are building.",
   },
   {
+    title: "Writing a network service",
+    who:
+      "A server, a client, or anything that speaks a protocol. The framing " +
+      "chapters are the ones that decide whether it survives contact with a " +
+      "real network, so they come before the sockets do most of the work.",
+    chapters: [
+      "standard-library/readers-and-writers",
+      "standard-library/io-interface",
+      "networking/what-is-a-socket",
+      "networking/tcp-echo",
+      "networking/short-reads",
+      "networking/framing",
+      "networking/text-protocols",
+      "networking/binary-protocols",
+      "networking/many-clients",
+      "networking/network-errors",
+      "how-to/databases/redis-resp",
+    ],
+    then: "Then UDP and HTTP, or the PostgreSQL wire protocol for a bigger one.",
+  },
+  {
     title: "Upgrading from an older Zig",
     who:
       "Your code compiled on 0.13 or 0.14 and does not now. Read what moved, " +

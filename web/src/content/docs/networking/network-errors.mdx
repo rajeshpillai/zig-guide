@@ -1,0 +1,88 @@
+---
+title: Failure Is Ordinary
+description: End of stream is not an error, and a truncated message can look like a good one.
+section: Networking
+order: 80
+---
+
+import Playground from "../../../components/Playground.astro";
+
+On a network, failure is not exceptional. Clients disappear mid-request,
+machines go away, and a connection ends every single time it succeeds. The
+question is never whether these happen, only whether your code can tell them
+apart.
+
+<Playground
+  name="11-networking.network-errors"
+  note="Built and run natively by CI, over real loopback sockets. Browser wasm has no sockets."
+/>
+
+## The clean close
+
+```
+clean close:  read "complete", then EndOfStream (expected: the client is done)
+```
+
+`EndOfStream` after a complete message is what a successful conversation looks
+like when it ends. Treat it as a failure and you will log an error for every
+client that ever behaves correctly, which is the fastest way to make a log
+worthless.
+
+## The one that will bite you
+
+```
+truncated:    Exclusive returned "truncat" and no error
+```
+
+The client sent `"truncat"` and died. No newline was ever transmitted. And
+`takeDelimiterExclusive` returned it as a message, successfully, with nothing
+to check.
+
+That is not a bug in the standard library. It is documented:
+
+> End-of-stream is treated equivalent to a delimiter, unless it would result
+> in a length 0 return value, in which case `null` is returned instead.
+
+That behaviour is right for a text file, where the last line often has no
+trailing newline. It is wrong for a socket, where the absence of the delimiter
+is exactly how you learn the sender did not finish. If your protocol acts on
+what it reads, this default will act on half a request.
+
+## The call that refuses to invent a delimiter
+
+```
+truncated:    Inclusive returned EndOfStream, so the 7 buffered bytes get discarded
+```
+
+`takeDelimiterInclusive` returns the delimiter as part of the slice, which is
+precisely why it cannot make one up. No delimiter means `EndOfStream`, and you
+discard the fragment.
+
+The rule is short: **on a stream where a partial message is possible, use
+`takeDelimiterInclusive` and strip the delimiter yourself.** Reach for
+`takeDelimiterExclusive` when a truncated final record is acceptable, which on
+a socket it almost never is.
+
+## Refused
+
+```
+refused:      ConnectionRefused
+```
+
+Nothing was listening, so the kernel on the other machine answered on its
+behalf and the connect failed immediately. This is the good case. The bad case
+is a host that does not answer at all, where the connect hangs until a
+timeout you did not set, and the default is measured in minutes.
+
+## What to do with each
+
+| What happened | What it means | What to do |
+| --- | --- | --- |
+| `EndOfStream`, message complete | The client is done | Close, do not log an error |
+| `EndOfStream`, message partial | The client died mid-request | Discard the fragment, close |
+| `ConnectionRefused` | Nothing is listening there | Fail fast, back off before retrying |
+| `ConnectionResetByPeer` | The peer closed hard, or crashed | Same as a partial message |
+| `BrokenPipe` on write | The peer is gone and you are still writing | Stop, close, do not retry the write |
+
+The last two are the ones a loopback test will not produce for you, which is
+why they are in a table rather than in the snippet.

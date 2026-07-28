@@ -1,0 +1,6 @@
+PING                 -> +PONG\r\n
+set name alice       -> +OK\r\n
+GET name             -> $4\r\nname\r\n
+DEL a b              -> :2\r\n
+SET oops             -> -ERR wrong number of arguments\r\n
+FLY me to the moon   -> -ERR UnknownCommand\r\n

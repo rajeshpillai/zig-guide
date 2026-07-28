@@ -1,0 +1,8 @@
+asked for port:  0
+kernel gave me:  a real port
+still loopback:  true
+
+connected. two handles now refer to one conversation.
+
+server read:     "ping"
+closing: the defers above release three descriptors

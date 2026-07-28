@@ -39,8 +39,11 @@ export const TRACKS: Track[] = [
   },
   {
     title: "Systems",
-    blurb: "Zig against the machine: builds, C, wasm, and pixels.",
-    sections: ["build-system", "working-with-c", "webassembly", "graphics"],
+    blurb: "Zig against the world outside the process: networks, builds, C, wasm, and pixels.",
+    // Networking first, and after Foundations rather than inside it: the
+    // concurrency chapter needs `std.Io` and the protocol chapters lean on
+    // the readers and writers taught in the Standard Library.
+    sections: ["networking", "build-system", "working-with-c", "webassembly", "graphics"],
   },
   {
     title: "Cookbook",

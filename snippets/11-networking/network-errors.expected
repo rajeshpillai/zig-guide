@@ -1,0 +1,9 @@
+clean close:  read "complete", then EndOfStream (expected: the client is done)
+truncated:    Exclusive returned "truncat" and no error
+truncated:    Inclusive returned EndOfStream, so the 7 buffered bytes get discarded
+refused:      ConnectionRefused
+
+None of these are bugs in your program, and all of them will happen.
+The one worth remembering is the second: a truncated message came
+back as a successful read, and only the choice of call decided
+whether the server acted on half a request.

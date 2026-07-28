@@ -1,0 +1,8 @@
+conn 1: ECHO first       -> +first\r\n
+conn 2: COUNT            -> :1\r\n
+conn 3: ECHO second      -> +second\r\n
+conn 4: COUNT            -> :2\r\n
+conn 5: SUBSCRIBE news   -> -ERR unknown command 'SUBSCRIBE'\r\n
+conn 6: COUNT            -> :3\r\n
+
+COUNT reached 3 across 6 connections

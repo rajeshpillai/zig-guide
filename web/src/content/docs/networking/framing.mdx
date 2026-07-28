@@ -1,0 +1,76 @@
+---
+title: Three Ways to Frame
+description: Length prefix, delimiter, self-describing, and what each one costs.
+section: Networking
+order: 40
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The previous chapter said a stream has no message boundaries. Framing is how
+you put them back. There are three ways, every protocol you have used picks
+one of them, and the choice is visible in the hex below.
+
+<Playground name="11-networking.framing" />
+
+## Length prefix
+
+```
+00 04 50 49 4e 47
+^^^^^ length      ^^^^^^^^^^^ payload
+```
+
+The receiver knows exactly how many bytes to wait for before it reads a single
+byte of payload. That is what makes the parser in the last chapter possible,
+and it is why this is the default choice for anything binary.
+
+The payload is untouched, so it may contain any byte at all, including the
+newline the next scheme cannot carry. The cost is that you must know the
+length before you start writing, which means either buffering the whole
+message or knowing its size in advance.
+
+## Delimiter
+
+```
+50 49 4e 47 0a
+^^^^^^^^^^^ payload  ^^ '\n'
+```
+
+Cheap to write, cheap to read, and readable on the wire, which is why HTTP,
+SMTP, IMAP and Redis all use it for their text parts. You can debug it with
+`nc` and your eyes.
+
+The cost is permanent: that byte can never appear in a payload. The last line
+of the output shows what happens when it does. The reader stops early, returns
+`"two"` instead of `"two\nlines"`, and reports no error at all, because from
+its point of view the message ended exactly where a message is supposed to
+end. The rest gets treated as the next message.
+
+Real protocols solve this with escaping or with a length prefix on the body
+only, which is exactly what HTTP does: delimited headers, then
+`Content-Length` and a raw body.
+
+## Self-describing
+
+```
+69 00 00 10 00   73 00 04 50 49 4e 47
+^^ 'i'           ^^ 's'
+```
+
+A tag byte says how to read what follows. Here `i` means a fixed-width
+integer and `s` means a length-prefixed string, so the receiver does not have
+to have agreed in advance on what this field holds.
+
+That is the shape of RESP, of protobuf wire types, of MessagePack and of
+CBOR. The cost is a byte per value and a `switch` that has to reject unknown
+tags rather than trusting them.
+
+## Choosing
+
+Both of the others are special cases of a length prefix: a delimiter is a
+length you have to go looking for, and a tag is a length whose interpretation
+comes with it. If you are designing something new and have no reason to
+prefer readability, use a length prefix and stop thinking about it.
+
+If you want it debuggable by hand, use a delimiter for the envelope and a
+length for the body. That combination has survived thirty years of HTTP.

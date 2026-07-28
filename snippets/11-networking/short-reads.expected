@@ -1,0 +1,7 @@
+20 bytes on the wire for 3 messages
+
+after 7 bytes: "hello"
+after 11 bytes: "hi"
+after 20 bytes: "goodbye"
+
+one read of 20 bytes: 3 messages
