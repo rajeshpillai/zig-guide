@@ -63,6 +63,8 @@ general.
 cancels all of them, so a connection handler cannot outlive the server that
 started it. A bare `Thread.spawn` per connection gives you no such guarantee,
 and shutting down cleanly means tracking every thread you ever started.
+[Cancellation](/standard-library/cancellation/) covers what a handler sees when
+the group it belongs to is cancelled.
 
 ## A handler cannot return an error
 

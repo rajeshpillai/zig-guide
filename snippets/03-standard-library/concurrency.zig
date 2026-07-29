@@ -31,6 +31,19 @@ pub fn main(init: std.process.Init) !void {
     second.await(io);
     try out.print("doubled: {d} {d}\n", .{ a, b });
 
+    // `io.async` is allowed to run the task inline. `io.concurrent` is not: it
+    // promises the caller can make progress meanwhile, and fails when the `Io`
+    // cannot deliver that. On this single-threaded wasm target it fails, and
+    // that is the whole point of the two spellings.
+    var c: u32 = 0;
+    if (io.concurrent(slowDouble, .{ &c, 30 })) |handle| {
+        var pending = handle;
+        pending.await(io);
+        try out.print("concurrent: {d}\n", .{c});
+    } else |err| {
+        try out.print("concurrent: {s}\n", .{@errorName(err)});
+    }
+
     // A Group awaits many tasks at once, so nothing outlives the scope.
     var total: u32 = 0;
     var mutex: std.Io.Mutex = .init;

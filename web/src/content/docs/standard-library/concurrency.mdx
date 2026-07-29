@@ -26,6 +26,39 @@ runs these in parallel; the single-threaded WASI one runs them inline. **Your
 code does not change**, which is exactly why this page is runnable and the
 [Threads](/standard-library/threads/) page is not.
 
+## `async` may run it inline; `concurrent` may not
+
+`io.async` promises only that the result is ready after you await it. It is
+free to call the function immediately, finish it, and hand back a Future that
+is already resolved. That is what happens on this page.
+
+`io.concurrent` makes the stronger promise: the caller gets to keep going while
+the task runs. Not every `Io` can deliver that, so it returns an error union:
+
+```zig
+if (io.concurrent(slowDouble, .{ &c, 30 })) |handle| {
+    var pending = handle;
+    pending.await(io);
+} else |err| {
+    // error.ConcurrencyUnavailable
+}
+```
+
+The snippet above prints `concurrent: ConcurrencyUnavailable`, because the
+single-threaded wasm running it has no second unit of concurrency to give.
+Hand the same binary an `Io.Threaded` and it prints `concurrent: 60`.
+
+The distinction decides correctness, not performance. If a task must make
+progress *before* you await it, `io.async` can deadlock: a producer that fills
+a queue the same thread is about to drain will run to completion first and
+block on a full queue, with nobody left to empty it. Reach for `concurrent`
+there, and handle `error.ConcurrencyUnavailable` rather than `try`-ing it, or
+the program stops working on exactly the targets `async` was portable across.
+`Group` has both spellings too, `group.async` and `group.concurrent`, with the
+same difference.
+
+Default to `async`. It is the one that runs everywhere, including here.
+
 ## `Group` for many tasks
 
 ```zig
@@ -49,6 +82,9 @@ like everything else it takes the io instance:
 try mutex.lock(io);
 defer mutex.unlock(io);
 ```
+
+Cancelling a `Group` cancels every member, which is the subject of the
+[next chapter](/standard-library/cancellation/).
 
 ## The bigger picture
 
