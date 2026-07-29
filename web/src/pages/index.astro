@@ -71,4 +71,41 @@ const chapterCount = tracks.reduce(
     }
   </ul>
   <p><a href={guideHref}>Every section, in order →</a></p>
+
+  {/* The Run button is the promise this site makes, so the floor it needs is
+      worth stating once, on the page a reader lands on. The browser versions
+      are the build target the scripts are compiled to, not a guess. */}
+  <h2>What your browser needs</h2>
+  <p>
+    Running a snippet needs WebAssembly and JavaScript, and nothing else. The
+    scripts here are built for Chrome and Edge 111, Firefox 114, and Safari
+    16.4 (iOS and iPadOS 16.4) or newer. On anything older, or with JavaScript
+    off, every chapter still reads normally and every snippet is on the page,
+    highlighted and complete; only the Run button is missing.
+  </p>
+  <ul>
+    <li>
+      Pressing Run downloads one <code>.wasm</code> file, about 70 KB for a
+      typical snippet and 157 KB for the largest. The page keeps the compiled
+      module, so running the same snippet again fetches nothing.
+    </li>
+    <li>
+      The four chapters that teach vectors are compiled with WebAssembly SIMD,
+      because without it the vector code would quietly compile out. Firefox
+      turns wasm SIMD off on x86 processors without SSE4.1, whatever its
+      version, so those four can fail to load on a machine where every other
+      snippet runs. The playground names the missing requirement instead of
+      showing the raw engine error.
+    </li>
+    <li>
+      Editing a snippet loads a code editor on first use, around 500 KB.
+      Reading and running never load it.
+    </li>
+    <li>
+      Nothing is installed and nothing runs on a server. A snippet executes in
+      the page's sandbox with no filesystem, no network and no input, which is
+      why a handful of examples say they were compiled by CI but cannot run
+      here.
+    </li>
+  </ul>
 </Base>
