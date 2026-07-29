@@ -36,7 +36,7 @@ jobs:
       SITE_URL: ${{ vars.SITE_URL || 'https://www.ziglang.in' }}
       BASE_PATH: ${{ vars.BASE_PATH || '/' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Snippets marked `//! link:<lib>` in build.zig are host builds that link
       # a system C library (the SQLite recipe links libsqlite3). The runner
@@ -49,6 +49,11 @@ jobs:
 
       # `master` resolves to the current nightly on every run, which is what
       # makes the schedule meaningful.
+      #
+      # Still on v2 while the other two are on v7: this action's newest release
+      # (v2.2.1) declares the node20 runtime, which GitHub deprecated and now
+      # force-runs on node24. There is no version of it to move to, so the
+      # deprecation warning stays until upstream ships one.
       - uses: mlugg/setup-zig@v2
         with:
           version: master
@@ -61,7 +66,10 @@ jobs:
       # did not reproduce it in 700 runs. One failure in a hundred is invisible
       # for weeks and then fails the nightly on a tree that did not change,
       # which is the kind of false alarm that teaches people to ignore red.
-      - uses: actions/setup-node@v4
+      # The cache inputs are explicit rather than left to the automatic
+      # detection v5 added: it keys on a `packageManager` field this repo does
+      # not have, and would cache nothing while looking like it cached.
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
