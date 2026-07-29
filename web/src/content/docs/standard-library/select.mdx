@@ -1,0 +1,80 @@
+---
+title: Select
+description: Waiting for whichever task finishes first, and cancelling the rest.
+section: Standard Library
+order: 64
+---
+
+import Playground from "../../../components/Playground.astro";
+
+`Future.await` waits for one task. `Group.await` waits for all of them.
+`std.Io.Select` is the third shape: wait for whichever finishes first, then
+decide what to do about the others. A request against a timeout is the case
+you will write most often.
+
+<Playground
+  name="03-standard-library.select"
+  note="Built and run natively by CI. A race needs the arms running at the same time, which is io.concurrent, and single-threaded wasm has none to give."
+/>
+
+## The union is the result
+
+```zig
+const Outcome = union(enum) {
+    reply: u32,
+    timeout: void,
+};
+
+var slots: [2]Outcome = undefined;
+var select: std.Io.Select(Outcome) = .init(io, &slots);
+```
+
+Each arm is a field. `Select(U)` is a `Group` and a `Queue(U)` together, so the
+buffer you pass is the queue's, and it must have room for every task you spawn:
+cancelling with less space than that deadlocks, because the tasks being
+cancelled still need somewhere to put their results.
+
+```zig
+try select.concurrent(.reply, request, .{ io, reply_after });
+try select.concurrent(.timeout, deadline, .{ io, timeout_after });
+
+switch (try select.await()) {
+    .reply => |value| ...,
+    .timeout => ...,
+}
+```
+
+The field name is comptime, and the function's return type has to match that
+field, so an arm returning the wrong type is a compile error rather than a
+mis-tagged union at run time. `await` returns as soon as any arm completes;
+call it again for the next one, or stop.
+
+## The losers are still running
+
+```zig
+select.cancelDiscard();
+```
+
+A select owns its tasks the way a `Group` does, and the arm that lost is still
+in flight when `await` returns. `cancelDiscard` requests cancellation on all of
+them and waits until they are done, throwing the results away. Use `cancel`
+instead when an arm can return something that has to be freed: it hands back
+one outstanding result per call, and you loop until it returns `null`.
+
+Skipping this does not leak in the ordinary sense, but the select cannot be
+destroyed while a task still points into its buffer, so there is nothing to be
+gained by leaving it out.
+
+## Use `concurrent` for the arms
+
+`select.async` exists and matches `Group.async`, but a race between arms that
+are allowed to run inline is not a race. On an `Io` that runs tasks inline, the
+first arm spawned runs to completion first and wins every time, which for a
+timeout arm means sleeping out the entire timeout before the request is even
+started. The arms here use `concurrent` for that reason, and the snippet is
+native because `concurrent` is what wasm cannot provide.
+
+The durations in the snippet differ by an hour in each direction. That is
+deliberate: the winner is decided by the code rather than by how loaded the
+machine is, so the expected output holds on CI. A race whose margin is
+milliseconds is a flaky test, not a demonstration.

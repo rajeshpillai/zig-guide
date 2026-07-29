@@ -21,7 +21,8 @@ same way nothing allocates behind your back. If a function's signature has no
 `std.mem.Allocator`. The vtable holds function pointers for the primitive
 operations, reading, writing, waiting, scheduling, and a concrete
 implementation fills them in. The standard one is `std.Io.Threaded`, backed by
-a real thread pool. It is the same dependency-injection pattern the allocator
+a real thread pool; [Choosing an Io](/standard-library/choosing-an-io/) covers
+the others and when you would swap. It is the same dependency-injection pattern the allocator
 uses, applied to blocking instead of to memory. That is why this chapter sits
 next to [Allocators](/standard-library/allocators/): learn the two together
 and the rest of the library stops surprising you.

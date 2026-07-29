@@ -1,0 +1,6 @@
+two readers: yes
+writer while reading: false
+writer once alone: true
+permits taken: 2, left: 0
+third permit: Timeout
+after post, left: 1

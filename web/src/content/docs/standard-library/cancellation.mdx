@@ -91,7 +91,7 @@ way the snippet writes each task's outcome into a slot.
 
 ## Cancellation is why `lock` can fail
 
-`Io.Mutex.lock`, `io.sleep` and `Io.RwLock.lock` all return `Cancelable!void`
+`Io.Mutex.lock`, `io.sleep` and [`Io.RwLock.lock`](/standard-library/locks/) all return `Cancelable!void`
 where older code had a plain `void`. It is not that locking became unreliable.
 `Cancelable` is a one-member error set and that member is `error.Canceled`, so
 a signature whose only error is that one is telling you it is a cancellation

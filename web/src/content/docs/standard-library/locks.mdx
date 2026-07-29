@@ -1,0 +1,80 @@
+---
+title: Locks and Semaphores
+description: RwLock, Semaphore and Condition, past the point where a Mutex is enough.
+section: Standard Library
+order: 65
+---
+
+import Playground from "../../../components/Playground.astro";
+
+`Io.Mutex` covers most shared state. Three other primitives cover the rest, and
+all of them take the `io` instance for the same reason the mutex does: blocking
+goes through the interface, so it can be cancelled and it works on an
+implementation with no threads.
+
+<Playground name="03-standard-library.locks" />
+
+## `RwLock`: many readers or one writer
+
+```zig
+try rw.lockShared(io);
+try rw.lockShared(io);
+```
+
+Two readers hold the lock at once. A writer cannot join them, and a reader
+cannot join a writer. That is the whole contract, and it is worth reaching for
+only when reads dominate writes and hold the lock long enough to matter: an
+`RwLock` does more bookkeeping than a `Mutex`, so for a short critical section
+the plain mutex usually wins.
+
+`tryLock` and `tryLockShared` never block. They return whether they got the
+lock, which is how the snippet shows a writer being refused while readers hold
+it and admitted once they leave. Unlock with the matching call: `unlockShared`
+for a shared acquisition, `unlock` for an exclusive one.
+
+## `Semaphore`: a count, not exclusion
+
+```zig
+var sem: std.Io.Semaphore = .{ .permits = 2 };
+try sem.wait(io);
+sem.post(io);
+```
+
+A semaphore counts permits. `wait` consumes one, blocking while there are none;
+`post` adds one. Nothing ties a `post` to the task that waited, which is what
+separates it from a mutex: it is for limiting how many tasks may be somewhere at
+once, such as capping in-flight requests to a service that will not tolerate
+more.
+
+`waitTimeout` gives up rather than waiting forever:
+
+```zig
+const patience: std.Io.Timeout = .{ .duration = .{ .raw = .fromMilliseconds(1), .clock = .awake } };
+if (sem.waitTimeout(io, patience)) |_| { ... } else |err| { ... }
+```
+
+It returns `error.Timeout` on expiry and `error.Canceled` if the task itself is
+cancelled, so the two cases stay distinguishable. `Io.Timeout` is a union of
+`.none`, a duration, or an absolute deadline, and a duration carries the clock
+it is measured on, `.awake` here.
+
+## `Condition`: wait for a predicate
+
+`Io.Condition` is the third, and it is what `Semaphore` is built out of. You
+hold a mutex, test the thing you care about, and wait for a signal while the
+mutex is released:
+
+```zig
+while (!ready) try cond.wait(io, &mutex);
+```
+
+The loop is not optional. A wakeup does not promise the predicate is true, only
+that it might be worth checking again.
+
+## Static initialisation, no deinit
+
+`.init` on `Mutex` and `RwLock`, and a plain struct literal on `Semaphore`, are
+compile-time constants. None of these own memory or a handle, so there is
+nothing to deinit and nothing that can fail to construct. A lock can live in a
+global, in a struct field, or on the stack of the function that spawns the
+tasks sharing it.
