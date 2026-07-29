@@ -74,9 +74,15 @@ registers hold: 16 for this site's wasm, 32 on x86-64 with AVX2, 64 with
 AVX-512, and null when the target has no usable vectors. The result is
 comptime-known, so `orelse return findSpecialScalar(...)` does not emit a
 fallback branch; on a vectorless target the whole SIMD body is never
-compiled. That guard is why the playground prints the lane count: the
-snippets on this site are built with wasm's `simd128` feature enabled, so
-the Run button executes real 16-lane vector instructions in your browser.
+compiled. That guard is why the playground prints the lane count: this
+snippet is built with wasm's `simd128` feature enabled, so the Run button
+executes real 16-lane vector instructions in your browser.
+
+Only the four chapters that teach vectors are built that way. The rest of
+the site is baseline wasm, because `simd128` is a target feature rather than
+a per-function one: turn it on and the compiler auto-vectorizes `std`'s
+memcpy and formatting paths too, so hello-world shipped 159 vector opcodes
+it never asked for and would not load at all on an engine without SIMD.
 
 ## Why not let the compiler do it
 

@@ -1,5 +1,6 @@
 //! title: Vectors
 //! `@Vector(N, T)`: SIMD lanes with ordinary operators.
+//! simd
 
 const std = @import("std");
 const expect = std.testing.expect;

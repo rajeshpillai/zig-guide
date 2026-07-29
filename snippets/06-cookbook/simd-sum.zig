@@ -1,5 +1,6 @@
 //! title: A SIMD Dot Product
 //! @Vector processes lanes in parallel; the tail stays scalar.
+//! simd
 
 const std = @import("std");
 

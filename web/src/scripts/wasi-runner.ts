@@ -25,6 +25,23 @@ export interface RunResult {
 const moduleCache = new Map<string, Promise<WebAssembly.Module>>();
 
 /**
+ * A module whose only function body is `v128.const 0; i8x16.popcnt`. An engine
+ * without WebAssembly SIMD rejects it at validation, which is the only reliable
+ * way to ask: the feature has no `WebAssembly.*` surface to check for.
+ */
+const SIMD_PROBE = Uint8Array.of(
+  0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60, 0x00,
+  0x01, 0x7b, 0x03, 0x02, 0x01, 0x00, 0x0a, 0x0a, 0x01, 0x08, 0x00, 0x41, 0x00,
+  0xfd, 0x0f, 0xfd, 0x62, 0x0b,
+);
+
+let simdSupported: boolean | null = null;
+function hasSimd(): boolean {
+  simdSupported ??= WebAssembly.validate(SIMD_PROBE);
+  return simdSupported;
+}
+
+/**
  * `compileStreaming` requires the response to carry `application/wasm`. Static
  * hosts do not all send it, and a wrong type fails the whole page rather than
  * degrading — so fall back to buffering the bytes ourselves.
@@ -35,9 +52,25 @@ async function compileFrom(url: string): Promise<WebAssembly.Module> {
     throw new Error(`could not fetch ${url} (HTTP ${response.status})`);
   }
   try {
-    return await WebAssembly.compileStreaming(response.clone());
-  } catch {
-    return WebAssembly.compile(await response.arrayBuffer());
+    try {
+      return await WebAssembly.compileStreaming(response.clone());
+    } catch {
+      return await WebAssembly.compile(await response.arrayBuffer());
+    }
+  } catch (err) {
+    // Only the chapters that teach vectors are built with `simd128`, so an
+    // engine without it reaches this for those four snippets and no others.
+    // Raw, the failure reads "unrecognized opcode: fd 0", which tells the
+    // reader nothing about what to do next.
+    if (!hasSimd()) {
+      throw new Error(
+        "This snippet is compiled with WebAssembly SIMD, which this browser " +
+          "cannot run. Chrome needs 91+, Safari 16.4+, and Firefox 89+ on an " +
+          "x86 CPU with SSE4.1. Only the four vector chapters need it; every " +
+          "other snippet on the site runs here.",
+      );
+    }
+    throw err;
   }
 }
 

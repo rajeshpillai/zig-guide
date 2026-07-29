@@ -1,5 +1,6 @@
 //! title: Vector Algebra
 //! Dot, length, normalize, and cross on @Vector, so the math is data-parallel.
+//! simd
 
 const std = @import("std");
 

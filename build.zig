@@ -26,10 +26,21 @@ pub fn build(b: *std.Build) void {
     ) orelse .small;
     // simd128 is opt-in for wasm32, and without it `std.simd.suggestVectorLength`
     // returns null, which would compile the SIMD path *out* of any snippet that
-    // guards on it — the reader's browser would silently run scalar code under
-    // a page claiming otherwise. Every engine this site supports (Chrome 91+,
-    // Firefox 89+, Safari 16.4+, Node 16+) implements simd128.
+    // guards on it: the reader's browser would silently run scalar code under a
+    // page claiming otherwise. So the snippets that teach vectors ask for it by
+    // name with `//! simd`, and only those get it.
+    //
+    // It used to be on for every snippet, which was a mistake. LLVM
+    // auto-vectorizes std's memcpy and formatting paths, so hello-world shipped
+    // 159 v128 opcodes it never asked for, and any engine without SIMD rejected
+    // *every* snippet on the site at validation time rather than the four that
+    // are actually about SIMD. That is a real population: SpiderMonkey turns
+    // wasm SIMD off on x86 CPUs without SSE4.1, whatever the Firefox version.
     const target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .wasi,
+    });
+    const simd_target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .wasi,
         .cpu_features_add = std.Target.wasm.featureSet(&.{.simd128}),
@@ -46,7 +57,12 @@ pub fn build(b: *std.Build) void {
     for (snippets.items) |snippet| {
         const module = b.createModule(.{
             .root_source_file = b.path(snippet.path),
-            .target = if (snippet.native) b.graph.host else target,
+            .target = if (snippet.native)
+                b.graph.host
+            else if (snippet.simd)
+                simd_target
+            else
+                target,
             .optimize = optimize,
             // A `//! link:`/`//! cinclude:` snippet needs libc plus the named
             // system libraries. wasm32-wasi cannot resolve those, so these are
@@ -198,6 +214,12 @@ const Snippet = struct {
     /// host-only affair. Still fully gated by CI, just not shipped to the
     /// browser.
     native: bool,
+    /// True for snippets marked `//! simd`: built with the wasm `simd128`
+    /// feature, so `std.simd.suggestVectorLength` answers and the artifact
+    /// really does contain vector instructions. Only the chapters that teach
+    /// vectors ask for this; everything else stays baseline wasm so it runs on
+    /// engines without SIMD.
+    simd: bool,
     /// System libraries named by `//! link:` header lines, e.g. `sqlite3`.
     /// Each pulls in libc and is linked into the host binary. Empty for the
     /// pure-Zig snippets that are the common case.
@@ -248,6 +270,7 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
         const link_libs = parseDirectiveList(b, source, "//! link:");
         const c_includes = parseDirectiveList(b, source, "//! cinclude:");
         const norun = std.mem.indexOf(u8, source, "//! norun") != null;
+        const simd = std.mem.indexOf(u8, source, "//! simd") != null;
         // A C-linked snippet is inherently a host build; treat it as native
         // even without an explicit `//! native` line.
         const native = std.mem.indexOf(u8, source, "//! native") != null or
@@ -263,6 +286,7 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
             .runnable = !norun and !native,
             .norun = norun,
             .native = native,
+            .simd = simd,
             .link_libs = link_libs,
             .c_includes = c_includes,
         });

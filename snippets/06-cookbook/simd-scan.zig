@@ -1,5 +1,6 @@
 //! title: SIMD Byte Scanning
 //! Splat, load, compare, extract, tail: the whole pattern in one scan.
+//! simd
 
 const std = @import("std");
 
