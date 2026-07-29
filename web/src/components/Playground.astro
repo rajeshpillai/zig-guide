@@ -7,8 +7,7 @@
  * that wasn't compiled and verified.
  */
 import { Code } from "astro:components";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { findSnippet, snippetSource } from "../snippets";
 
 /**
  * The same pair `astro.config.mjs` gives fenced blocks in prose. Repeated
@@ -30,41 +29,11 @@ interface Props {
 
 const { name, note } = Astro.props;
 
-// Anchored to the Astro project root (`web/`) rather than `import.meta.url`,
-// which points into the bundle output once this component is compiled.
-const webRoot = process.cwd();
-const manifestPath = resolve(webRoot, "public/wasm/snippets.json");
-
-interface Entry {
-  name: string;
-  kind: "exe" | "test";
-  source: string;
-  wasm: string;
-  /** False when the snippet needs capabilities the browser sandbox lacks. */
-  runnable: boolean;
-}
-
-let manifest: Entry[];
-try {
-  manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-} catch {
-  throw new Error(
-    `web/public/wasm/snippets.json is missing. Run \`zig build\` at the repo ` +
-      `root before building the site.`,
-  );
-}
-
-const entry = manifest.find((e) => e.name === name);
-if (!entry) {
-  const known = manifest.map((e) => e.name).join(", ");
-  throw new Error(`Unknown snippet "${name}". Available: ${known}`);
-}
-
-// `entry.source` is stored relative to the repo root, one level above `web/`.
-const source = await readFile(resolve(webRoot, "..", entry.source), "utf8");
-
-// Strip the `//!` metadata header; it's for the build, not the reader.
-const shown = source.replace(/^(\/\/!.*\n)+\n?/, "").trimEnd();
+// Manifest lookup and the `//!` header strip live in `src/snippets.ts`, which
+// the plain-markdown routes read too: both have to show a reader and an agent
+// the same text.
+const entry = await findSnippet(name);
+const shown = await snippetSource(entry);
 ---
 
 {

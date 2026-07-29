@@ -24,6 +24,9 @@ const TYPES = {
   ".json": "application/json",
   ".wasm": "application/wasm",
   ".svg": "image/svg+xml",
+  ".md": "text/markdown",
+  ".txt": "text/plain",
+  ".xml": "application/xml",
 };
 
 // For a GitHub Pages project site the build embeds a path prefix in every
@@ -94,6 +97,8 @@ const failures = [];
 const internalLinks = new Set();
 const visited = new Set();
 const pagers = new Map();
+/** Chapter URL to the `.md` twin its head advertises. */
+const markdownLinks = new Map();
 let playgrounds = 0;
 let compileOnly = 0;
 
@@ -113,6 +118,8 @@ async function checkHead(href) {
       (s) => s.textContent,
     ),
     h1: document.querySelectorAll("h1").length,
+    markdown: document.querySelector('link[rel="alternate"][type="text/markdown"]')?.getAttribute("href") ?? "",
+    feed: document.querySelector('link[rel="alternate"][type="application/rss+xml"]')?.getAttribute("href") ?? "",
   }));
 
   if (!head.title.trim()) failures.push(`${href} has no <title>`);
@@ -132,17 +139,51 @@ async function checkHead(href) {
   if (head.jsonLd.length !== 1) {
     failures.push(`${href} has ${head.jsonLd.length} JSON-LD blocks, want exactly 1`);
   }
+  // Set from a top-level graph node, not from the text of the block. A section
+  // index is a CollectionPage that lists a TechArticle per chapter under
+  // `hasPart`, so any test that just looks for the word calls all 13 indexes
+  // chapters and then demands a `.md` twin none of them has.
+  let isChapter = false;
   for (const block of head.jsonLd) {
     try {
       const parsed = JSON.parse(block);
-      const types = (parsed["@graph"] ?? []).map((n) => n["@type"]);
+      const nodes = parsed["@graph"] ?? [];
+      const types = nodes.map((n) => n["@type"]);
       if (!types.includes("BreadcrumbList")) {
         failures.push(`${href} JSON-LD has no BreadcrumbList`);
+      }
+
+      // Dates come from `git log`. On a shallow clone git-dates emits none at
+      // all rather than 145 identical ones, so an article with no dateModified
+      // is the visible symptom of a checkout without fetch-depth: 0 — which is
+      // otherwise a silent, total loss of the freshness signal.
+      const article = nodes.find((n) => n["@type"] === "TechArticle");
+      if (article) {
+        isChapter = true;
+        for (const field of ["datePublished", "dateModified"]) {
+          if (!article[field]) {
+            failures.push(
+              `${href} TechArticle has no ${field} ` +
+                `(git-dates found nothing: shallow clone, or no .git?)`,
+            );
+          } else if (Number.isNaN(Date.parse(article[field]))) {
+            failures.push(`${href} TechArticle ${field} is not a date: ${article[field]}`);
+          }
+        }
       }
     } catch (e) {
       failures.push(`${href} JSON-LD is not valid JSON: ${e.message}`);
     }
   }
+
+  // The plain-Markdown twin every chapter advertises. Checked here rather than
+  // in the link sweep below, which only collects hrefs from `main`.
+  if (head.markdown) {
+    markdownLinks.set(href, head.markdown);
+  } else if (isChapter) {
+    failures.push(`${href} is a chapter but advertises no text/markdown alternate`);
+  }
+  if (!head.feed) failures.push(`${href} has no RSS alternate link`);
 
   visited.add(new URL(BASE + href).pathname);
 }
@@ -420,7 +461,8 @@ let sitemapCount = 0;
 if (!sitemapRes.ok()) {
   failures.push(`sitemap.xml -> HTTP ${sitemapRes.status()}`);
 } else {
-  const locs = [...(await sitemapRes.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  const xml = await sitemapRes.text();
+  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
   sitemapCount = locs.length;
   const listed = new Set(locs.map((loc) => new URL(loc).pathname));
 
@@ -430,6 +472,24 @@ if (!sitemapRes.ok()) {
   for (const path of listed) {
     const res = await page.request.get(BASE + path);
     if (!res.ok()) failures.push(`sitemap entry ${path} -> HTTP ${res.status()}`);
+  }
+
+  // Every entry needs a real `lastmod`, and none may carry `changefreq` or
+  // `priority`. Google ignores the latter two and discounts a file that abuses
+  // them, so re-adding them would quietly devalue the one hint it does read.
+  const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
+  const undated = entries.filter((e) => !/<lastmod>/.test(e)).length;
+  if (undated > 0) {
+    failures.push(
+      `${undated} of ${entries.length} sitemap entries have no <lastmod> ` +
+        `(git-dates found nothing: shallow clone, or no .git?)`,
+    );
+  }
+  for (const [, date] of xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)) {
+    if (Number.isNaN(Date.parse(date))) failures.push(`sitemap lastmod is not a date: ${date}`);
+  }
+  if (/<changefreq>|<priority>/.test(xml)) {
+    failures.push("sitemap.xml emits <changefreq> or <priority>; Google ignores both");
   }
 }
 
@@ -451,6 +511,153 @@ if (!robotsRes.ok()) {
   if (/^Disallow:\s*\/\s*$/m.test(robots)) {
     failures.push("robots.txt disallows the whole site");
   }
+  // The AI crawlers are named on purpose, and a `Disallow` under any of them
+  // would be a policy reversal rather than a typo. Assert the intent both ways.
+  for (const agent of ["GPTBot", "OAI-SearchBot", "ClaudeBot", "PerplexityBot", "Google-Extended"]) {
+    const block = robots.match(new RegExp(`^User-agent: ${agent}$\\n((?:(?!User-agent:)[^\\n]*\\n)*)`, "m"));
+    if (!block) failures.push(`robots.txt does not name ${agent}`);
+    else if (/^Disallow:\s*\//m.test(block[1])) failures.push(`robots.txt disallows ${agent}`);
+  }
+}
+
+/**
+ * The machine-readable surfaces: `llms.txt`, `llms-full.txt`, the `.md` twin of
+ * every chapter, the feed, and the IndexNow key.
+ *
+ * None of these is reachable by clicking, none is visible on any page, and all
+ * of them are generated from the same collection the site is. That combination
+ * is exactly how one of them ends up empty, or listing a URL that 404s, for
+ * months without anyone noticing.
+ */
+const machine = { llms: 0, mdPages: 0, feedItems: 0 };
+
+const llmsRes = await page.request.get(`${BASE}${PREFIX}/llms.txt`);
+if (!llmsRes.ok()) {
+  failures.push(`llms.txt -> HTTP ${llmsRes.status()}`);
+} else {
+  const llms = await llmsRes.text();
+  // The convention is an H1, then a blockquote summary, then link sections.
+  if (!llms.startsWith("# ")) failures.push("llms.txt does not start with an H1");
+  if (!/^> /m.test(llms)) failures.push("llms.txt has no blockquote summary");
+
+  const links = [...llms.matchAll(/\]\((https?:\/\/[^)]+)\)/g)].map((m) => m[1]);
+  machine.llms = links.length;
+
+  // Every chapter, by name rather than by count. The index is generated from
+  // `navTracks()` and a track or section that came back empty would still be
+  // valid Markdown and still have plenty of links in it; what would be missing
+  // is a specific set of chapters, so that is what to say. Compared against the
+  // `.md` twins the pages themselves advertise, not against the sidebar, which
+  // also lists the section indexes and those have no Markdown form.
+  const listed = new Set(links.map((l) => new URL(l).pathname));
+  const missing = [...markdownLinks.values()].filter(
+    (md) => !listed.has(new URL(BASE + md).pathname),
+  );
+  if (missing.length > 0) {
+    failures.push(
+      `llms.txt omits ${missing.length} of ${markdownLinks.size} chapters: ` +
+        `${missing.slice(0, 5).join(", ")}${missing.length > 5 ? ", ..." : ""}`,
+    );
+  }
+  for (const link of links) {
+    const res = await page.request.get(BASE + new URL(link).pathname);
+    if (!res.ok()) failures.push(`llms.txt link ${new URL(link).pathname} -> HTTP ${res.status()}`);
+  }
+}
+
+const fullRes = await page.request.get(`${BASE}${PREFIX}/llms-full.txt`);
+if (!fullRes.ok()) {
+  failures.push(`llms-full.txt -> HTTP ${fullRes.status()}`);
+} else {
+  const full = await fullRes.text();
+  // Every chapter's heading, and the code that is the reason to fetch this at
+  // all. A Playground that failed to expand would leave the component tag.
+  if (!full.includes("```zig")) failures.push("llms-full.txt contains no zig code blocks");
+  if (full.includes("<Playground")) {
+    failures.push("llms-full.txt still contains raw <Playground> tags");
+  }
+  if (/^import\s/m.test(full)) failures.push("llms-full.txt still contains MDX import lines");
+  if (full.length < 100_000) {
+    failures.push(`llms-full.txt is only ${full.length} bytes; the whole guide should be larger`);
+  }
+}
+
+for (const [href, md] of markdownLinks) {
+  const res = await page.request.get(BASE + md);
+  if (!res.ok()) {
+    failures.push(`${href} markdown alternate ${md} -> HTTP ${res.status()}`);
+    continue;
+  }
+  const body = await res.text();
+  machine.mdPages++;
+  if (!body.startsWith("# ")) failures.push(`${md} does not start with an H1`);
+  if (body.includes("<Playground")) failures.push(`${md} still contains a raw <Playground> tag`);
+  if (/^import\s/m.test(body)) failures.push(`${md} still contains an MDX import line`);
+}
+
+const rssRes = await page.request.get(`${BASE}${PREFIX}/rss.xml`);
+if (!rssRes.ok()) {
+  failures.push(`rss.xml -> HTTP ${rssRes.status()}`);
+} else {
+  const rss = await rssRes.text();
+  const items = [...rss.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => m[1]);
+  machine.feedItems = items.length;
+  if (items.length === 0) failures.push("rss.xml has no items");
+
+  // The channel's own URLs, which no reader of the site ever clicks. `rel=self`
+  // is how an aggregator re-fetches the feed, so one built without the base
+  // path points a project site's subscribers at a 404 on the host root, and
+  // every page of the site still looks perfect.
+  for (const [what, url] of [
+    ["atom:link rel=self", rss.match(/<atom:link href="([^"]+)" rel="self"/)?.[1]],
+    ["channel link", rss.match(/<channel>[\s\S]*?<link>([^<]+)<\/link>/)?.[1]],
+  ]) {
+    if (!url) {
+      failures.push(`rss.xml has no ${what}`);
+      continue;
+    }
+    const res = await page.request.get(BASE + new URL(url).pathname);
+    if (!res.ok()) failures.push(`rss ${what} ${new URL(url).pathname} -> HTTP ${res.status()}`);
+  }
+  // Every prefix is declared: an undeclared one makes the whole document
+  // ill-formed, and most readers drop the feed silently rather than complain.
+  for (const [, prefix] of rss.matchAll(/<(\w+):[\w-]+/g)) {
+    if (!rss.includes(`xmlns:${prefix}=`)) {
+      failures.push(`rss.xml uses the ${prefix}: namespace without declaring it`);
+      break;
+    }
+  }
+  for (const item of items) {
+    const link = item.match(/<link>([^<]+)<\/link>/)?.[1];
+    if (!link) {
+      failures.push("rss.xml has an item with no <link>");
+      continue;
+    }
+    const res = await page.request.get(BASE + new URL(link).pathname);
+    if (!res.ok()) failures.push(`rss item ${new URL(link).pathname} -> HTTP ${res.status()}`);
+  }
+}
+
+/**
+ * The IndexNow key file must be served at the host root and must contain the
+ * key the deploy submits. If the two disagree every submission is rejected and
+ * nothing anywhere fails, which is why both are generated from one constant and
+ * why that is worth asserting rather than trusting.
+ */
+const keyMatch = (await readFile(resolve(DIST, "..", "src", "indexnow.ts"), "utf8")).match(
+  /INDEXNOW_KEY\s*=\s*"([a-f0-9]+)"/,
+);
+if (!keyMatch) {
+  failures.push("src/indexnow.ts does not define INDEXNOW_KEY as a hex string literal");
+} else {
+  // Under the prefix, matching the `keyLocation` the submitter sends. A key
+  // file authorises the URLs beneath it, and every URL here is beneath this.
+  const keyRes = await page.request.get(`${BASE}${PREFIX}/${keyMatch[1]}.txt`);
+  if (!keyRes.ok()) {
+    failures.push(`IndexNow key file /${keyMatch[1]}.txt -> HTTP ${keyRes.status()}`);
+  } else if ((await keyRes.text()).trim() !== keyMatch[1]) {
+    failures.push(`IndexNow key file does not contain the key from src/indexnow.ts`);
+  }
 }
 
 // The preview card is referenced by absolute URL from every page; a rename
@@ -466,6 +673,7 @@ console.log(
     `compile-only: ${compileOnly}  pager chain: ${walked}  contrast: ${contrastChecks}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
+    `llms.txt: ${machine.llms}  .md: ${machine.mdPages}  feed: ${machine.feedItems}  ` +
     `console errors: ${consoleErrors.size}`,
 );
 

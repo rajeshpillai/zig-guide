@@ -36,7 +36,15 @@ jobs:
       SITE_URL: ${{ vars.SITE_URL || 'https://www.ziglang.in' }}
       BASE_PATH: ${{ vars.BASE_PATH || '/' }}
     steps:
+      # Full history, not the default single commit. `src/git-dates.ts` derives
+      # every `lastmod` and every article `dateModified` from `git log`, and on
+      # a shallow clone every file dates to the one commit that was fetched. It
+      # detects that and emits no dates rather than 145 identical ones, so the
+      # symptom of dropping this line is a sitemap that quietly loses the only
+      # hint Google reads, with nothing failing.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # Snippets marked `//! link:<lib>` in build.zig are host builds that link
       # a system C library (the SQLite recipe links libsqlite3). The runner
@@ -128,3 +136,28 @@ jobs:
           echo "Published $(zig version) to gh-pages" >> "$GITHUB_STEP_SUMMARY"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Push the URLs this deploy actually changed to IndexNow (Bing, Yandex,
+      # Seznam, Naver) instead of waiting to be recrawled. Bing is the one that
+      # matters most here: ChatGPT search reads its index.
+      #
+      # Only on a push, and only for what changed. The nightly has no diff, so
+      # it submits nothing, which is correct: a rebuild against a new compiler
+      # that changed no page is not news. Submitting every URL every night is
+      # the documented way to get a host's submissions ignored.
+      #
+      # `continue-on-error` because the site is already published by the time
+      # this runs. A 500 from someone else's API must not turn a good deploy red.
+      - name: Notify IndexNow of changed URLs
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        continue-on-error: true
+        run: |
+          before="${{ github.event.before }}"
+          # All-zeroes is a new branch, and a force-push can leave a `before`
+          # that is no longer in the history. Fall back to the last commit.
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$before^{commit}" 2>/dev/null; then
+            before="${GITHUB_SHA}~1"
+          fi
+          git diff --name-only "$before" "${GITHUB_SHA}" \
+            | node web/tools/indexnow.mjs

@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { getCollection } from "astro:content";
+import { datesFor, newest, type PageDates } from "../git-dates";
 import { guideHref, pageHref } from "../nav";
 
 /**
@@ -9,24 +10,39 @@ import { guideHref, pageHref } from "../nav";
  * src/pages": most of the site is one dynamic route, and the section and group
  * indexes it generates have no file of their own to be discovered from.
  *
- * Priorities are deliberately coarse. Search engines treat them as a hint at
- * best, and a per-page number would be a knob nobody could ever tune.
+ * `lastmod` only. `changefreq` and `priority` used to be here and are gone:
+ * Google states plainly that it ignores both, and emitting `daily` against 145
+ * URLs that do not change daily is the pattern that teaches a crawler to
+ * discount the file's hints wholesale, including the one hint it does read.
+ * The dates come from git rather than the build clock for the same reason, and
+ * a page git cannot date is emitted with no `lastmod` rather than with today's.
  */
 export const GET: APIRoute = async ({ site }) => {
   const docs = await getCollection("docs");
   const base = import.meta.env.BASE_URL;
 
+  const dated = new Map<string, PageDates | undefined>();
+  for (const doc of docs) dated.set(doc.id, await datesFor(doc.filePath ?? ""));
+
   // Insertion order is the crawl order a reader would take.
-  const urls = new Map<string, number>();
-  const add = (path: string, priority: number) => {
-    if (!urls.has(path)) urls.set(path, priority);
+  const urls = new Map<string, string | undefined>();
+  const add = (path: string, lastmod?: string) => {
+    if (!urls.has(path)) urls.set(path, lastmod);
   };
 
-  add(base, 1.0);
+  // The home page and the guide index both list every section, so they are as
+  // new as the newest thing they list.
+  const everything = newest([...dated.values()]);
+  add(base, everything);
   // The chapter list. Not a stop in the pager, so the walk would not reach it.
-  add(guideHref, 0.9);
+  add(guideHref, everything);
   // Not a chapter and not in the sidebar, so nothing else would list it.
-  add(`${base}paths/`, 0.9);
+  add(`${base}paths/`, await datesFor("src/pages/paths.astro").then((d) => d?.modified));
+
+  // A section or group index has no source file: it is the list of chapters
+  // beneath it, so it changed when the newest of those did.
+  const under = (prefix: string) =>
+    newest(docs.filter((d) => d.id.startsWith(`${prefix}/`)).map((d) => dated.get(d.id)));
 
   const sections = new Set<string>();
   const groups = new Set<string>();
@@ -34,25 +50,25 @@ export const GET: APIRoute = async ({ site }) => {
     sections.add(doc.id.split("/")[0]);
     if (doc.data.group) groups.add(doc.id.split("/").slice(0, -1).join("/"));
   }
-  for (const slug of sections) add(pageHref(slug), 0.9);
+  for (const slug of sections) add(pageHref(slug), under(slug));
   // A group whose chapters sit directly in the section directory resolves to
   // the section index, which `add` already holds; the dedupe keeps one entry.
-  for (const slug of groups) add(pageHref(slug), 0.8);
+  for (const slug of groups) add(pageHref(slug), under(slug));
 
   for (const doc of docs.sort((a, b) => a.data.order - b.data.order)) {
-    add(pageHref(doc.id), 0.7);
+    add(pageHref(doc.id), dated.get(doc.id)?.modified);
   }
 
-  add(`${base}privacy/`, 0.1);
+  add(`${base}privacy/`, await datesFor("src/pages/privacy.astro").then((d) => d?.modified));
 
   const body = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ...[...urls].map(
-      ([path, priority]) =>
+      ([path, lastmod]) =>
         `  <url><loc>${new URL(path, site).href}</loc>` +
-        `<changefreq>daily</changefreq>` +
-        `<priority>${priority.toFixed(1)}</priority></url>`,
+        (lastmod ? `<lastmod>${lastmod}</lastmod>` : "") +
+        `</url>`,
     ),
     "</urlset>",
     "",

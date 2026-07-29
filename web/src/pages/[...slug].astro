@@ -3,6 +3,7 @@ import { render } from "astro:content";
 import Base from "../layouts/Base.astro";
 import Playground from "../components/Playground.astro";
 import { guideHref, guideRoute, navSections, neighbours, pageHref, readingOrder } from "../nav";
+import { datesFor, newest } from "../git-dates";
 import { SECTIONS, GROUPS, SITE_NAME, AUTHOR } from "../seo";
 
 export async function getStaticPaths() {
@@ -114,6 +115,17 @@ const inlineCode = (text: string) =>
  * CollectionPage listing the chapters under it, which is how a search result
  * for "zig cookbook" can show the recipes rather than just the page title.
  */
+// From git, not from the build clock: this site rebuilds nightly whether or not
+// a word changed, and a `dateModified` that advances every morning is a claim
+// Google is entitled to stop believing. An index page has no file of its own,
+// so it is as new as the newest chapter it lists.
+const dates = entry
+  ? await datesFor(entry.filePath ?? "")
+  : undefined;
+const indexModified = entry
+  ? undefined
+  : newest(await Promise.all(indexChapters.map((c) => datesFor(c.filePath ?? ""))));
+
 const schema = entry
   ? {
       "@type": "TechArticle",
@@ -124,11 +136,13 @@ const schema = entry
       publisher: { "@type": "Organization", name: SITE_NAME },
       articleSection: entry.data.section,
       proficiencyLevel: "Beginner",
+      ...(dates ? { datePublished: dates.published, dateModified: dates.modified } : {}),
     }
   : {
       "@type": "CollectionPage",
       name: (section ?? group).title,
       description: meta?.description,
+      ...(indexModified ? { dateModified: indexModified } : {}),
       hasPart: indexChapters.map((chapter) => ({
         "@type": "TechArticle",
         name: chapter.data.title,
@@ -147,6 +161,7 @@ const schema = entry
       : entry.data.description)}
   crumbs={crumbs}
   schema={schema}
+  markdown={entry ? `${pageHref(entry.id).replace(/\/$/, "")}.md` : undefined}
 >
   {
     group ? (
