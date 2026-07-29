@@ -32,7 +32,7 @@ fn Kernel(comptime side: usize) type {
 compile-time constant inside the convolution loop, so the bounds are known and
 the inner loops unroll, and a 5x5 kernel cannot be passed where a 3x3 is
 expected. A runtime `side: usize` field would compile just as well and give up
-both. [Comptime](/language-basics/comptime/) covers type functions in general;
+both. [Comptime](/learn/language-basics/comptime/) covers type functions in general;
 this is one of the cases where the payoff is concrete.
 
 The `comptime std.debug.assert` runs at compile time. An even side length is a
@@ -72,7 +72,7 @@ fn sample(src: []const u32, x: i32, y: i32) u32 {
 }
 ```
 
-Signed coordinates, again for the reason [circles](/graphics/circles/) needed
+Signed coordinates, again for the reason [circles](/learn/graphics/circles/) needed
 them: the kernel offset makes half the candidate coordinates negative before
 they are clamped.
 

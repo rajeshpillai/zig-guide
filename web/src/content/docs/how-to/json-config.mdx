@@ -63,7 +63,7 @@ a plain `defer` would free the config on success too.
 
 - **Reading from disk:** feed `load` the result of
   `dir.readFileAlloc(io, path, gpa, limit)`. The parsing and validation
-  don't change. (See the [Filesystem](/standard-library/filesystem/)
+  don't change. (See the [Filesystem](/learn/standard-library/filesystem/)
   chapter for the I/O side.)
 - **Nested config:** struct fields can be structs, arrays, optionals, and
   enums; the parser maps JSON onto all of them, and enum fields give you

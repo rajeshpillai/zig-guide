@@ -239,7 +239,9 @@ for (const href of chapters) {
 }
 
 // The pages outside the chapter list still have to carry correct metadata.
-for (const href of [`${PREFIX}/`, `${PREFIX}/paths/`, `${PREFIX}/privacy/`]) {
+// `/learn/` is one of them: it is the chapter list rather than a chapter, so
+// like `/paths/` it is a view of the guide and not a stop in the pager.
+for (const href of [`${PREFIX}/`, `${PREFIX}/learn/`, `${PREFIX}/paths/`, `${PREFIX}/privacy/`]) {
   const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
   if (!res?.ok()) {
     failures.push(`${href} -> HTTP ${res?.status() ?? "no response"}`);
@@ -300,8 +302,8 @@ if (walked !== pagers.size) {
  */
 const THEME_PAGES = [
   `${PREFIX}/`,
-  `${PREFIX}/language-basics/optionals/`,
-  `${PREFIX}/networking/`,
+  `${PREFIX}/learn/language-basics/optionals/`,
+  `${PREFIX}/learn/networking/`,
 ];
 
 let contrastChecks = 0;

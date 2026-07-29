@@ -9,7 +9,7 @@ import Playground from "../../../components/Playground.astro";
 
 A socket is a file descriptor with an address attached. That is nearly the
 whole of it. Once two of them are connected, everything you do is the reader
-and writer interface from [Readers and Writers](/standard-library/readers-and-writers/),
+and writer interface from [Readers and Writers](/learn/standard-library/readers-and-writers/),
 the same one a file uses.
 
 <Playground
@@ -45,7 +45,7 @@ var client = try bound.connect(io, .{ .mode = .stream });
 ```
 
 `.stream` is TCP: ordered, reliable, and connected. `.dgram` is UDP and gives
-you none of those three, which [UDP Datagrams](/networking/udp-message/) covers
+you none of those three, which [UDP Datagrams](/learn/networking/udp-message/) covers
 at the end of this section. The mode is chosen once, at the socket, and every
 difference between the two protocols follows from it.
 
@@ -71,5 +71,5 @@ runs out of memory, and the symptom is `error.ProcessFdQuotaExceeded` on
 `accept` rather than anything pointing at the leak. `defer` at the point of
 creation is how you never have to think about it again.
 
-Next: [A TCP Round Trip](/networking/tcp-echo/), which is this plus an accept
+Next: [A TCP Round Trip](/learn/networking/tcp-echo/), which is this plus an accept
 loop.

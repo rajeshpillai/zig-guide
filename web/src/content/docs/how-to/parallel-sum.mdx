@@ -50,7 +50,7 @@ gone from current master; `std.Thread.spawn` and `join` are the
 primitives, and task-level fan-out is moving to the `std.Io` interface
 (`io.async` and `Io.Group`). For a fixed number of long-lived workers,
 spawn and join directly, as here; for structured task concurrency, see
-[Concurrency](/standard-library/concurrency/).
+[Concurrency](/learn/standard-library/concurrency/).
 
 ## Variations
 
@@ -58,7 +58,7 @@ spawn and join directly, as here; for structured task concurrency, see
   instead of a constant, capped by the amount of work worth splitting.
 - **Uneven work:** equal chunk sizes assume equal cost per element. When
   items vary wildly, static chunks leave threads idle; the
-  [atomic work index](/how-to/work-index/) recipe fixes that.
+  [atomic work index](/learn/how-to/work-index/) recipe fixes that.
 - **False sharing:** adjacent `u64` slots can share a cache line. It does
   not change correctness, and for a demo it does not matter; pad slots to
   cache-line size if profiling shows the merge pattern hot.

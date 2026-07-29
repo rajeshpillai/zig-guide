@@ -24,7 +24,7 @@ second.await(io);
 The `Io` implementation decides what "async" means. A threaded implementation
 runs these in parallel; the single-threaded WASI one runs them inline. **Your
 code does not change**, which is exactly why this page is runnable and the
-[Threads](/standard-library/threads/) page is not.
+[Threads](/learn/standard-library/threads/) page is not.
 
 ## `async` may run it inline; `concurrent` may not
 
@@ -84,7 +84,7 @@ defer mutex.unlock(io);
 ```
 
 Cancelling a `Group` cancels every member, which is the subject of the
-[next chapter](/standard-library/cancellation/).
+[next chapter](/learn/standard-library/cancellation/).
 
 ## The bigger picture
 
@@ -93,8 +93,8 @@ function that takes an `Io` announces that it may block, and the caller chooses
 the execution strategy. Libraries written this way work unchanged on a thread
 pool, an event loop, or a single-threaded wasm runtime.
 
-The rest of the machinery follows from here: [Queues](/standard-library/queues/)
-for tasks that hand work to each other, [Select](/standard-library/select/) for
-whichever finishes first, [Locks and Semaphores](/standard-library/locks/) for
-the shared state underneath, and [Choosing an Io](/standard-library/choosing-an-io/)
+The rest of the machinery follows from here: [Queues](/learn/standard-library/queues/)
+for tasks that hand work to each other, [Select](/learn/standard-library/select/) for
+whichever finishes first, [Locks and Semaphores](/learn/standard-library/locks/) for
+the shared state underneath, and [Choosing an Io](/learn/standard-library/choosing-an-io/)
 for where the instance comes from in the first place.

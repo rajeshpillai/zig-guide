@@ -15,9 +15,9 @@
  */
 import Base from "../layouts/Base.astro";
 import { getCollection } from "astro:content";
+import { guideHref, pageHref } from "../nav";
 import { SITE_NAME } from "../seo";
 
-const base = import.meta.env.BASE_URL;
 const docs = await getCollection("docs");
 const byId = new Map(docs.map((doc) => [doc.id, doc]));
 
@@ -217,7 +217,7 @@ const schema = {
           <ol class="path-steps">
             {path.entries.map((doc) => (
               <li>
-                <a href={`${base}${doc.id}/`}>{doc.data.title}</a>
+                <a href={pageHref(doc.id)}>{doc.data.title}</a>
                 <span>{doc.data.section}</span>
               </li>
             ))}
@@ -228,7 +228,7 @@ const schema = {
     }
 
     <p>
-      None of these fit? <a href={base}>The section list</a> is the whole guide,
+      None of these fit? <a href={guideHref}>The section list</a> is the whole guide,
       and the first chapter of Getting Started leads through all of it.
     </p>
   </article>

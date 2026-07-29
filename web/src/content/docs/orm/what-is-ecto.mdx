@@ -59,7 +59,7 @@ Each of those ideas lands on a Zig feature almost exactly:
 Zig even improves on the original in one respect: what Ecto checks when
 the query runs, Zig can check when the query **compiles**. A misspelled
 field in a filter is a compile error in the
-[query builder chapter](/orm/query-builder/), not a
+[query builder chapter](/learn/orm/query-builder/), not a
 runtime database error.
 
 ## What the alternative looks like
@@ -70,17 +70,17 @@ Convenient at first, it couples every model to a global connection,
 makes tests need a database, and hides queries behind attribute access.
 The Ecto shape has more visible plumbing, and in exchange every piece is
 testable alone, which is exactly the property the
-[Repo chapter](/orm/repo/) exploits with its
+[Repo chapter](/learn/orm/repo/) exploits with its
 recording driver.
 
 ## Where each idea lives in this group
 
-- Schema as declaration: [A Type Function as the Front Door](/orm/schema-to-sql/)
-- Query as a value: [A Typed Query Builder](/orm/query-builder/)
-- Declared validations: [Validation from Declarations](/orm/validation-rules/)
-- Deriving writes from the schema: [Writing Rows](/orm/insert-update/)
-- One gateway, faked in tests: [The Repo](/orm/repo/)
-- Bracketing user code safely: [Transactions and errdefer](/orm/transactions/)
+- Schema as declaration: [A Type Function as the Front Door](/learn/orm/schema-to-sql/)
+- Query as a value: [A Typed Query Builder](/learn/orm/query-builder/)
+- Declared validations: [Validation from Declarations](/learn/orm/validation-rules/)
+- Deriving writes from the schema: [Writing Rows](/learn/orm/insert-update/)
+- One gateway, faked in tests: [The Repo](/learn/orm/repo/)
+- Bracketing user code safely: [Transactions and errdefer](/learn/orm/transactions/)
 
 The Elixir snippet above is the only unverified code in this group; it
 is here as a reference point, not as something to run. Every Zig snippet

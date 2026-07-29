@@ -35,7 +35,7 @@ defer mutex.unlock(io);
 
 `lock` can fail only because it can be *cancelled*, which is what makes it
 composable with the rest of the `Io` machinery. See
-[Cancellation](/standard-library/cancellation/) for what that means.
+[Cancellation](/learn/standard-library/cancellation/) for what that means.
 
 ## Atomics for the simple cases
 
@@ -51,7 +51,7 @@ you drop it silently.
 
 ## Prefer structured concurrency
 
-For most work, [`Io.async` and `Io.Group`](/standard-library/concurrency/) are
+For most work, [`Io.async` and `Io.Group`](/learn/standard-library/concurrency/) are
 a better fit than spawning raw threads: they are cancellable, they cannot leak
 a running task past their scope, and they work on targets that have no threads
 at all, including the one this site runs on.

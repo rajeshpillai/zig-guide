@@ -43,7 +43,7 @@ timestamp, `u32` id, two `f32` coordinates, a one-byte tag, three bytes of
 padding. `std.mem.writeInt` with an explicit `.little` endianness means the
 bytes are defined, not host-dependent, which is what makes the format a
 format rather than a memory dump. That discipline is the subject of
-[the binary round-trip recipe](/how-to/binary-roundtrip/).
+[the binary round-trip recipe](/learn/how-to/binary-roundtrip/).
 
 ## What about speed
 
@@ -64,5 +64,5 @@ expect the gap to widen as the records get more numeric.
   ends; measure that trade the same way.
 - **Schema evolution:** JSON tolerates added and missing fields; a fixed
   binary record does not, so a real binary format usually carries a version
-  byte. See [struct memory layout](/how-to/memory-layout/) for how the record
+  byte. See [struct memory layout](/learn/how-to/memory-layout/) for how the record
   is laid out.

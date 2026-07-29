@@ -31,7 +31,7 @@ try socket.writeAll(std.mem.asBytes(&header));
 ```
 
 `extern struct` fixes the layout and is the right tool for calling C, as
-[ABI](/working-with-c/abi/) covers. It still does not fix byte order, so it is
+[ABI](/learn/working-with-c/abi/) covers. It still does not fix byte order, so it is
 not enough here.
 
 Write the fields:
@@ -60,7 +60,7 @@ following even when both ends are little-endian machines today, because one
 day one of them will not be. State the endianness at every call. `readInt` and
 `writeInt` require the argument precisely so that you cannot forget.
 
-This is also why the [Byte Order](/language-basics/integer-rules/) rules matter
+This is also why the [Byte Order](/learn/language-basics/integer-rules/) rules matter
 more here than anywhere else in a program: inside your process the question
 never comes up.
 

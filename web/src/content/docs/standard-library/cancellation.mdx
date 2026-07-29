@@ -77,7 +77,7 @@ group.cancel(io);
 
 Every member gets the request, and `cancel` returns once all of them have
 stopped. This is the property that makes
-[structured concurrency](/standard-library/concurrency/) worth the parameter: a
+[structured concurrency](/learn/standard-library/concurrency/) worth the parameter: a
 server holding one `Group` of connection handlers shuts down by cancelling the
 group, with no list of threads to track and no handler left running after the
 scope that started it is gone.
@@ -91,7 +91,7 @@ way the snippet writes each task's outcome into a slot.
 
 ## Cancellation is why `lock` can fail
 
-`Io.Mutex.lock`, `io.sleep` and [`Io.RwLock.lock`](/standard-library/locks/) all return `Cancelable!void`
+`Io.Mutex.lock`, `io.sleep` and [`Io.RwLock.lock`](/learn/standard-library/locks/) all return `Cancelable!void`
 where older code had a plain `void`. It is not that locking became unreliable.
 `Cancelable` is a one-member error set and that member is `error.Canceled`, so
 a signature whose only error is that one is telling you it is a cancellation

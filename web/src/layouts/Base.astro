@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { ADSENSE_CLIENT } from "../adsense";
 import { ANALYTICS_ID } from "../analytics";
-import { navTracks } from "../nav";
+import { navTracks, pageHref } from "../nav";
 import { SITE_NAME, SITE_DESCRIPTION, AUTHOR, OG_IMAGE } from "../seo";
 import "../styles/global.css";
 
@@ -307,7 +307,7 @@ const openSlug =
       <span class="version" title="Every snippet in this guide is compiled and run against this exact compiler, in CI and in your browser">
         ✓ Zig {zigVersion}
       </span>
-      <a class="topbar-link" href={`${base}getting-started/coming-from-older-zig/`}>
+      <a class="topbar-link" href={pageHref("getting-started/coming-from-older-zig")}>
         On an older Zig?
       </a>
 
@@ -347,7 +347,7 @@ const openSlug =
                 <li>
                   <a
                     class="nav-overview"
-                    href={`${base}${section.slug}/`}
+                    href={pageHref(section.slug)}
                     aria-current={current.endsWith(`/${section.slug}/`) ? "page" : undefined}
                   >
                     Overview
@@ -368,7 +368,7 @@ const openSlug =
                           <li>
                             <a
                               class="nav-overview"
-                              href={`${base}${groupSlug}/`}
+                              href={pageHref(groupSlug)}
                               aria-current={
                                 current.endsWith(`/${groupSlug}/`) ? "page" : undefined
                               }
@@ -379,7 +379,7 @@ const openSlug =
                           {members.map((entry) => (
                             <li>
                               <a
-                                href={`${base}${entry.id}/`}
+                                href={pageHref(entry.id)}
                                 aria-current={
                                   current.endsWith(`/${entry.id}/`) ? "page" : undefined
                                 }
@@ -395,7 +395,7 @@ const openSlug =
                     members.map((entry) => (
                       <li>
                         <a
-                          href={`${base}${entry.id}/`}
+                          href={pageHref(entry.id)}
                           aria-current={current.endsWith(`/${entry.id}/`) ? "page" : undefined}
                         >
                           {entry.data.title}
@@ -412,7 +412,7 @@ const openSlug =
         }
 
         <p class="nav-aside">
-          <a href={`${base}getting-started/coming-from-older-zig/`}>On an older Zig?</a>
+          <a href={pageHref("getting-started/coming-from-older-zig")}>On an older Zig?</a>
         </p>
       </nav>
 

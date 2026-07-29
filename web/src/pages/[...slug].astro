@@ -2,7 +2,7 @@
 import { render } from "astro:content";
 import Base from "../layouts/Base.astro";
 import Playground from "../components/Playground.astro";
-import { navSections, neighbours, readingOrder } from "../nav";
+import { guideHref, guideRoute, navSections, neighbours, pageHref, readingOrder } from "../nav";
 import { SECTIONS, GROUPS, SITE_NAME, AUTHOR } from "../seo";
 
 export async function getStaticPaths() {
@@ -11,14 +11,14 @@ export async function getStaticPaths() {
 
   for (const section of sections) {
     // An index per section, so the breadcrumb's middle link resolves.
-    paths.push({ params: { slug: section.slug }, props: { entry: null, section } });
+    paths.push({ params: { slug: guideRoute(section.slug) }, props: { entry: null, section } });
 
     for (const bucket of section.groups) {
       // And an index per group (a library under Building Libraries), living at
       // the group's directory, so the sidebar node and breadcrumb both resolve.
       if (bucket.label) {
         paths.push({
-          params: { slug: bucket.slug },
+          params: { slug: guideRoute(bucket.slug) },
           props: {
             entry: null,
             section: null,
@@ -35,7 +35,7 @@ export async function getStaticPaths() {
 
       // One page per chapter.
       for (const entry of bucket.members) {
-        paths.push({ params: { slug: entry.id }, props: { entry, section: null } });
+        paths.push({ params: { slug: guideRoute(entry.id) }, props: { entry, section: null } });
       }
     }
   }
@@ -44,7 +44,6 @@ export async function getStaticPaths() {
 }
 
 const { entry, section, group = null } = Astro.props;
-const base = import.meta.env.BASE_URL;
 
 /** Every chapter under an index page, in sidebar order. */
 const indexChapters = section
@@ -63,20 +62,27 @@ const { prev, next } = neighbours(
   entry ? entry.id : (section ?? group).slug,
 );
 
+// "Guide" is the first stop on every trail below the site root, because every
+// page this route builds lives under one segment and the reader should be able
+// to climb back out of a chapter to the chapter list in one click.
+const guideCrumb = { label: "Guide", href: guideHref };
+
 const crumbs = section
-  ? [{ label: section.title }]
+  ? [guideCrumb, { label: section.title }]
   : group
     ? [
-        { label: group.sectionTitle, href: `${base}${group.sectionSlug}/` },
+        guideCrumb,
+        { label: group.sectionTitle, href: pageHref(group.sectionSlug) },
         { label: group.title },
       ]
     : [
-        { label: entry.data.section, href: `${base}${entry.id.split("/")[0]}/` },
+        guideCrumb,
+        { label: entry.data.section, href: pageHref(entry.id.split("/")[0]) },
         ...(entry.data.group
           ? [
               {
                 label: entry.data.group,
-                href: `${base}${entry.id.split("/").slice(0, -1).join("/")}/`,
+                href: pageHref(entry.id.split("/").slice(0, -1).join("/")),
               },
             ]
           : []),
@@ -127,7 +133,7 @@ const schema = entry
         "@type": "TechArticle",
         name: chapter.data.title,
         description: chapter.data.description,
-        url: new URL(`${base}${chapter.id}/`, Astro.site).href,
+        url: new URL(pageHref(chapter.id), Astro.site).href,
       })),
     };
 ---
@@ -151,7 +157,7 @@ const schema = entry
         <ul class="section-index">
           {group.members.map((chapter) => (
             <li>
-              <a href={`${base}${chapter.id}/`}>{chapter.data.title}</a>
+              <a href={pageHref(chapter.id)}>{chapter.data.title}</a>
               {chapter.data.description && <span>{chapter.data.description}</span>}
             </li>
           ))}
@@ -178,13 +184,13 @@ const schema = entry
             <>
               {label && (
                 <h2 class="section-group">
-                  <a href={`${base}${groupSlug}/`}>{label}</a>
+                  <a href={pageHref(groupSlug)}>{label}</a>
                 </h2>
               )}
               <ul class="section-index">
                 {members.map((chapter) => (
                   <li>
-                    <a href={`${base}${chapter.id}/`}>{chapter.data.title}</a>
+                    <a href={pageHref(chapter.id)}>{chapter.data.title}</a>
                     {chapter.data.description && <span>{chapter.data.description}</span>}
                   </li>
                 ))}

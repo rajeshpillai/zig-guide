@@ -71,7 +71,7 @@ through and resumes as the consumer drains. Nothing coordinates that: a full
 queue blocking the sender *is* the back pressure, and the pair self-regulates
 at the speed of the slower side.
 
-This is the case that needs [`io.concurrent`](/standard-library/concurrency/)
+This is the case that needs [`io.concurrent`](/learn/standard-library/concurrency/)
 rather than `io.async`. A producer started with `async` may run inline, all the
 way to the point where it fills the queue and blocks, with the consumer that
 would drain it still waiting for `async` to return. That deadlock is the reason
@@ -82,6 +82,6 @@ top of the page is not.
 
 Every blocking call here is a cancellation point: `put`, `get`, and their `One`
 and `All` forms return `Cancelable` errors, and the `Uncancelable` variants opt
-out for cleanup paths. See [Cancellation](/standard-library/cancellation/); the
+out for cleanup paths. See [Cancellation](/learn/standard-library/cancellation/); the
 rule that `error.Canceled` should propagate applies to a blocked producer as
 much as anywhere else.

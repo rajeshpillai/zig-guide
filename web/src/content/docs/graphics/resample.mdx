@@ -98,7 +98,7 @@ the input. Any downscaler that reads one pixel per output pixel is guessing.
 
 ## Where this connects
 
-[Antialiasing](/graphics/antialiasing/) took sixteen samples inside one pixel to
+[Antialiasing](/learn/graphics/antialiasing/) took sixteen samples inside one pixel to
 turn a hard inside/outside test into a coverage fraction. This is the same idea
 arriving from the other direction: a pixel is not a point, it is an area, and
 treating it as a point is what produces both the staircase there and the solid
@@ -108,7 +108,7 @@ Two practical notes:
 
 **Filter in linear light.** Averaging sRGB bytes makes a downscaled image
 darker than it should be, and the error is largest exactly where contrast is
-highest. This is the same caveat [alpha blending](/graphics/blending/) sets out,
+highest. This is the same caveat [alpha blending](/learn/graphics/blending/) sets out,
 and downscaling is where it is most visible, because a checkerboard of black and
 white averages to 127 in sRGB and to about 187 done correctly.
 

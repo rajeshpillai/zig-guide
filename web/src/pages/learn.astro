@@ -1,0 +1,90 @@
+---
+/**
+ * The guide's own index: every track, every section, in the one order the
+ * sidebar and the pager walk.
+ *
+ * This page used to be the site root. It moved down a segment so that the root
+ * is free to be about the site rather than about the chapter list, and so that
+ * a section keeps its own word (`/learn/graphics/`) instead of spending a
+ * top-level one. `GUIDE_SLUG` in `src/nav.ts` is the segment, and this file's
+ * name has to match it.
+ *
+ * Not a stop in the pager, for the same reason `/paths/` is not: the linear
+ * walk is the chapters, and a reader clicking "previous" out of the first one
+ * should reach the end of nothing. The links in the body are how you enter.
+ */
+import Base from "../layouts/Base.astro";
+import { navTracks, pageHref } from "../nav";
+import { SECTIONS, SITE_NAME, AUTHOR } from "../seo";
+
+const tracks = await navTracks();
+const first = tracks[0]?.sections[0]?.groups[0]?.members[0];
+const sections = tracks.flatMap((track) => track.sections);
+const chapterCount = sections.reduce(
+  (n, section) => n + section.groups.reduce((m, group) => m + group.members.length, 0),
+  0,
+);
+
+const description =
+  `${chapterCount} chapters on Zig, from installing a master build to writing ` +
+  "a renderer, a network service and an ORM. Every snippet is compiled and " +
+  "run against current Zig master on every build.";
+
+const schema = {
+  "@type": "CollectionPage",
+  name: "The Zig guide",
+  description,
+  author: { "@type": "Person", name: AUTHOR },
+  publisher: { "@type": "Organization", name: SITE_NAME },
+  hasPart: sections.map((section) => ({
+    "@type": "CollectionPage",
+    name: section.title,
+    description: SECTIONS[section.slug]?.description,
+    url: new URL(pageHref(section.slug), Astro.site).href,
+  })),
+};
+---
+
+<Base
+  title="The Guide"
+  seoTitle="Zig Tutorial and Cookbook"
+  description={description}
+  crumbs={[{ label: "Guide" }]}
+  schema={schema}
+>
+  <article>
+    <h1>The Guide</h1>
+    <p class="section-intro">
+      {chapterCount} chapters in four tracks. They read in this order, and the
+      arrows at the foot of every page follow it, so you can start at the top
+      and never choose again. Each track also stands on its own if you already
+      know the language.
+    </p>
+    <p>
+      {first && <a href={pageHref(first.id)}>Start with {first.data.title} →</a>}
+      {first && " or "}
+      <a href={`${import.meta.env.BASE_URL}paths/`}>pick a reading path</a> for
+      where you are coming from.
+    </p>
+
+    {
+      tracks.map((track) => (
+        <>
+          <h2>{track.title}</h2>
+          <p class="track-blurb">{track.blurb}</p>
+          <ul class="section-index">
+            {track.sections.map((section) => (
+              <li>
+                <a href={pageHref(section.slug)}>{section.title}</a>
+                <span>
+                  {SECTIONS[section.slug]?.description ??
+                    `${section.groups.reduce((n, g) => n + g.members.length, 0)} chapters.`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ))
+    }
+  </article>
+</Base>

@@ -28,7 +28,7 @@ fn List(comptime T: type) type {
 `List` is an ordinary function. Its argument happens to be a type, its return
 value happens to be a type, and `comptime` on the parameter says it must be
 known when the function is called. There is no separate generics system to
-learn; this is the same mechanism [comptime](/language-basics/comptime/)
+learn; this is the same mechanism [comptime](/learn/language-basics/comptime/)
 describes, applied to a struct definition.
 
 <Playground name="10-data-structures.generic-list" />
@@ -82,7 +82,7 @@ to be told how, which is why `std.StringHashMap` exists as a separate thing from
 `std.AutoHashMap` rather than being a special case inside it.
 
 The general answer is to take the comparison as a parameter, the same way
-[sorting](/standard-library/sorting/) takes a `lessThan`. A container that
+[sorting](/learn/standard-library/sorting/) takes a `lessThan`. A container that
 hardcodes `std.meta.eql` works until the first type it is wrong for.
 
 ## This is what std is
@@ -93,7 +93,7 @@ defer array.deinit(allocator);
 try array.append(allocator, 3);
 ```
 
-[ArrayList](/standard-library/arraylist/) is the same idea with contiguous
+[ArrayList](/learn/standard-library/arraylist/) is the same idea with contiguous
 storage instead of nodes, and `std.ArrayList(i32)` is a call to a type function
 exactly like `List(i32)`. Reading `std` gets easier once that stops looking like
 special syntax.

@@ -60,7 +60,7 @@ you would build a hardware register value or decode one.
 `extern struct` follows the platform C ABI: fields stay in order, padding
 follows C rules, so `CStruct` is 8 bytes with `b` at offset 4. This is the
 layout to use across an FFI boundary. The
-[ABI chapter](/working-with-c/abi/) covers passing these to and from C in
+[ABI chapter](/learn/working-with-c/abi/) covers passing these to and from C in
 full.
 
 ## Variations
@@ -70,5 +70,5 @@ full.
 - **`@sizeOf` versus `@bitSizeOf`:** the second reports bit width, which is
   what packed fields actually consume.
 - **Round-tripping bytes:** once a layout is fixed with `packed` or `extern`,
-  [the binary round-trip recipe](/how-to/binary-roundtrip/) writes and reads
+  [the binary round-trip recipe](/learn/how-to/binary-roundtrip/) writes and reads
   it as raw bytes with defined endianness.

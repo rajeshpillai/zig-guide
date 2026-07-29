@@ -48,7 +48,29 @@ export interface Stop {
 
 const base = import.meta.env.BASE_URL;
 
-export const pageHref = (id: string) => `${base}${id}/`;
+/**
+ * The one path segment every chapter lives under.
+ *
+ * The guide used to sit at the root, so a section owned a top-level word:
+ * `/graphics/`, `/networking/`, `/how-to/`. Those are the words a page about
+ * something other than a chapter would want, and taking one back after it has
+ * ranked is the expensive move. One segment reserves the rest of the domain
+ * and costs nothing: URL depth is not a ranking factor.
+ *
+ * `src/pages/learn.astro` is the index page for this segment and its filename
+ * has to match. Nothing enforces that directly, but every breadcrumb links
+ * here and the browser gate resolves every link on every page, so a rename of
+ * one without the other fails `npm run e2e` rather than shipping a dead trail.
+ */
+export const GUIDE_SLUG = "learn";
+
+/** The guide's own index page. */
+export const guideHref = `${base}${GUIDE_SLUG}/`;
+
+/** Route param for a chapter, section or group id. */
+export const guideRoute = (id: string) => `${GUIDE_SLUG}/${id}`;
+
+export const pageHref = (id: string) => `${guideHref}${id}/`;
 
 /**
  * The whole guide, in sidebar order: chapters sorted by `order` within their

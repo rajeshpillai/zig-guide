@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { getCollection } from "astro:content";
+import { pageHref } from "../nav";
 
 /**
  * A build-time search index: one record per chapter, emitted as static JSON
@@ -31,7 +32,6 @@ function headings(md: string): string[] {
 
 export const GET: APIRoute = async () => {
   const docs = await getCollection("docs");
-  const base = import.meta.env.BASE_URL;
 
   const records = docs
     .sort((a, b) => a.data.order - b.data.order)
@@ -40,7 +40,7 @@ export const GET: APIRoute = async () => {
       section: entry.data.section,
       group: entry.data.group ?? null,
       description: entry.data.description ?? "",
-      url: `${base}${entry.id}/`,
+      url: pageHref(entry.id),
       headings: headings(entry.body ?? ""),
       // Cap the body: enough to match on, small enough to ship the whole
       // index in one fetch.

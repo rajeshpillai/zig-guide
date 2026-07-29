@@ -68,8 +68,8 @@ threads), which is why CI runs this snippet natively.
 
 - **Many clients:** wrap the accept-and-serve body in a loop and spawn a
   thread per connection, or feed accepted streams to a
-  [worker queue](/how-to/worker-queue/).
+  [worker queue](/learn/how-to/worker-queue/).
 - **Timeouts:** `connect` takes an `Io.Timeout` in its options; reads can
   use `receiveTimeout` on the socket level.
 - **Structured protocols:** length-prefixed frames beat line-delimited
-  text for binary data; see [the wire format recipe](/how-to/binary-roundtrip/).
+  text for binary data; see [the wire format recipe](/learn/how-to/binary-roundtrip/).

@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { getCollection } from "astro:content";
+import { guideHref, pageHref } from "../nav";
 
 /**
  * The sitemap, built from the same collection that builds the pages, so a new
@@ -22,6 +23,8 @@ export const GET: APIRoute = async ({ site }) => {
   };
 
   add(base, 1.0);
+  // The chapter list. Not a stop in the pager, so the walk would not reach it.
+  add(guideHref, 0.9);
   // Not a chapter and not in the sidebar, so nothing else would list it.
   add(`${base}paths/`, 0.9);
 
@@ -31,13 +34,13 @@ export const GET: APIRoute = async ({ site }) => {
     sections.add(doc.id.split("/")[0]);
     if (doc.data.group) groups.add(doc.id.split("/").slice(0, -1).join("/"));
   }
-  for (const slug of sections) add(`${base}${slug}/`, 0.9);
+  for (const slug of sections) add(pageHref(slug), 0.9);
   // A group whose chapters sit directly in the section directory resolves to
   // the section index, which `add` already holds; the dedupe keeps one entry.
-  for (const slug of groups) add(`${base}${slug}/`, 0.8);
+  for (const slug of groups) add(pageHref(slug), 0.8);
 
   for (const doc of docs.sort((a, b) => a.data.order - b.data.order)) {
-    add(`${base}${doc.id}/`, 0.7);
+    add(pageHref(doc.id), 0.7);
   }
 
   add(`${base}privacy/`, 0.1);

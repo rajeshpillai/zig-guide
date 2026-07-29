@@ -120,7 +120,7 @@ var std_map: std.StringHashMapUnmanaged(i32) = .empty;
 try std_map.put(allocator, key, 1);
 ```
 
-[Hash maps](/standard-library/hash-maps/) covers the API. The structural
+[Hash maps](/learn/standard-library/hash-maps/) covers the API. The structural
 difference worth knowing here is that `std` stores a separate array of one-byte
 metadata alongside the entries: each byte holds a few bits of the key's hash
 plus the empty and tombstone flags. A probe scans that compact byte array
@@ -130,7 +130,7 @@ all. That layout is why the same algorithm performs so differently in `std` than
 in a straightforward implementation like this one.
 
 The `Unmanaged` suffix and the allocator argument on every method are the same
-pattern [ArrayList](/standard-library/arraylist/) uses on master: the container
+pattern [ArrayList](/learn/standard-library/arraylist/) uses on master: the container
 does not store the allocator.
 
 ## Keys are borrowed here

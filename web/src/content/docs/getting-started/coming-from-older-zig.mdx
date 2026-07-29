@@ -61,7 +61,7 @@ pub fn main(init: std.process.Init) !void {
 anything that can block. There is no global stdout; you must be handed the
 capability to write.
 
-→ [Hello World](/getting-started/hello-world/)
+→ [Hello World](/learn/getting-started/hello-world/)
 
 ## Writers are buffered ("writergate", 0.15)
 
@@ -84,7 +84,7 @@ The buffer belongs to the *interface*, which is why you supply it: no hidden
 allocation. The missing `flush` is the single most common symptom of following
 an older tutorial.
 
-→ [Readers and Writers](/standard-library/readers-and-writers/)
+→ [Readers and Writers](/learn/standard-library/readers-and-writers/)
 
 ## Filesystem moved onto `Io` (0.16)
 
@@ -103,7 +103,7 @@ defer file.close(io);
 
 Uniform rule: anything that touches the disk takes the `io` instance.
 
-→ [Filesystem](/standard-library/filesystem/)
+→ [Filesystem](/learn/standard-library/filesystem/)
 
 ## `**` no longer exists
 
@@ -122,7 +122,7 @@ tokenises at all, so the compiler reports **"binary operator `*` has whitespace
 on one side, but not the other"**, which tells you nothing about what actually
 happened. `++` concatenation is unaffected.
 
-→ [Arrays](/language-basics/arrays/)
+→ [Arrays](/learn/language-basics/arrays/)
 
 ## `ArrayList` and hash maps are unmanaged
 
@@ -143,7 +143,7 @@ try list.append(gpa, 'a');
 More typing, but the allocator is visible at every call site that can fail. The
 same change applies to `StringHashMapUnmanaged` and `AutoHashMapUnmanaged`.
 
-→ [ArrayList](/standard-library/arraylist/) · [Hash Maps](/standard-library/hash-maps/)
+→ [ArrayList](/learn/standard-library/arraylist/) · [Hash Maps](/learn/standard-library/hash-maps/)
 
 ## Synchronisation moved to `Io`
 
@@ -165,7 +165,7 @@ defer mutex.unlock(io);
 exists, but structured concurrency via `io.async` and `Io.Group` is the better
 default, and works on targets with no threads at all.
 
-→ [Threads](/standard-library/threads/) · [Concurrency](/standard-library/concurrency/)
+→ [Threads](/learn/standard-library/threads/) · [Concurrency](/learn/standard-library/concurrency/)
 
 ## Custom `format` methods
 
@@ -189,7 +189,7 @@ pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
 And it is **no longer invoked by `{}`**; you must ask for it with `{f}`.
 `{t}` prints an enum tag name or error name.
 
-→ [Advanced Formatting](/standard-library/advanced-formatting/)
+→ [Advanced Formatting](/learn/standard-library/advanced-formatting/)
 
 ## Enum reflection
 
@@ -210,7 +210,7 @@ This one is recent: it landed between `0.17.0-dev.644` and `dev.1441`, and was
 the only break across all 53 snippets in this guide when the compiler was
 updated across roughly 800 commits.
 
-→ [Enums](/language-basics/enums/)
+→ [Enums](/learn/language-basics/enums/)
 
 ## `build.zig`
 
@@ -236,7 +236,7 @@ const exe = b.addExecutable(.{
 });
 ```
 
-→ [Zig Build](/build-system/zig-build/)
+→ [Zig Build](/learn/build-system/zig-build/)
 
 ---
 

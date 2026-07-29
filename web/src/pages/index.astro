@@ -1,17 +1,35 @@
 ---
+/**
+ * The site root.
+ *
+ * Deliberately not the chapter list: that is `/learn/`, and duplicating it
+ * here would leave two pages competing for the same searches with the same
+ * words. This page says what the site is and what the promise costs to keep,
+ * and hands off. It is also the page that has room to grow when something on
+ * this domain is not a chapter.
+ */
 import Base from "../layouts/Base.astro";
-import { navTracks } from "../nav";
-import { SECTIONS, SITE_DESCRIPTION } from "../seo";
+import { navTracks, guideHref, pageHref } from "../nav";
+import { SITE_DESCRIPTION } from "../seo";
 
 const base = import.meta.env.BASE_URL;
-
-// The same tracks, sections and order the sidebar and the pager use, so this
-// page cannot advertise a running order the rest of the site does not have.
 const tracks = await navTracks();
-const first = tracks[0]?.sections[0]?.groups[0]?.members[0];
+const chapterCount = tracks.reduce(
+  (n, track) =>
+    n +
+    track.sections.reduce(
+      (m, section) => m + section.groups.reduce((k, group) => k + group.members.length, 0),
+      0,
+    ),
+  0,
+);
 ---
 
-<Base title="Zig Guide Live" seoTitle="Zig Tutorial and Cookbook" description={SITE_DESCRIPTION}>
+<Base
+  title="Zig Guide Live"
+  seoTitle="Zig Tutorial: Every Snippet Verified Against Master"
+  description={SITE_DESCRIPTION}
+>
   <h1>Zig Guide Live</h1>
   <p class="lede">
     A tutorial for the Zig programming language where <strong>every snippet is
@@ -26,31 +44,31 @@ const first = tracks[0]?.sections[0]?.groups[0]?.members[0];
     Zig moves fast, and documentation that is merely proofread rots quietly.
     This one is re-verified against a fresh compiler nightly, and republishes
     itself only when every snippet still passes. Already on a tagged release?
-    See <a href={`${base}getting-started/coming-from-older-zig/`}>what changed</a>.
+    See <a href={pageHref("getting-started/coming-from-older-zig")}>what changed</a>.
   </p>
   <p>
-    {first && <a href={`${base}${first.id}/`}>Start with {first.data.title} →</a>}
-    {first && " or "}
+    <a href={guideHref}>Read the guide →</a>
+    {" or "}
     <a href={`${base}paths/`}>pick a reading path</a>.
   </p>
 
-  {
-    tracks.map((track) => (
-      <>
-        <h2>{track.title}</h2>
-        <p class="track-blurb">{track.blurb}</p>
-        <ul class="section-index">
-          {track.sections.map((section) => (
-            <li>
-              <a href={`${base}${section.slug}/`}>{section.title}</a>
-              <span>
-                {SECTIONS[section.slug]?.description ??
-                  `${section.groups.reduce((n, g) => n + g.members.length, 0)} chapters.`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </>
-    ))
-  }
+  <h2>What is in it</h2>
+  <p>
+    {chapterCount} chapters in four tracks, in one reading order. The arrows at
+    the foot of every page follow that order, so the whole guide is one walk if
+    you want it to be.
+  </p>
+  {/* A track has no page of its own, on purpose, so each one links to where it
+      begins. That is the same place the sidebar and the pager would take you. */}
+  <ul class="section-index">
+    {
+      tracks.map((track) => (
+        <li>
+          <a href={pageHref(track.sections[0].slug)}>{track.title}</a>
+          <span>{track.blurb}</span>
+        </li>
+      ))
+    }
+  </ul>
+  <p><a href={guideHref}>Every section, in order →</a></p>
 </Base>

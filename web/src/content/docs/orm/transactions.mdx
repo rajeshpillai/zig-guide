@@ -58,6 +58,6 @@ the draft's pool checkout (acquire, run, always release).
 Real transactions nest (SAVEPOINT instead of BEGIN when already inside
 one), which the draft tracks with a depth counter on the connection;
 the errdefer shape is identical at every depth. The recording-driver
-tests from [the previous page](/orm/repo/) extend
+tests from [the previous page](/learn/orm/repo/) extend
 naturally: assert BEGIN/SAVEPOINT/ROLLBACK sequences for the nested
 cases.

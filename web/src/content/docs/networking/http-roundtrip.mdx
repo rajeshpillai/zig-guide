@@ -14,7 +14,7 @@ standard library. Both halves exist in `std.http`, both were rebuilt on
 the `std.Io` reader/writer interfaces, and most tutorial code for either
 predates the rebuild.
 
-As with [TCP](/networking/tcp-echo/), the recipe runs server and client in
+As with [TCP](/learn/networking/tcp-echo/), the recipe runs server and client in
 one process. CI executes it and diffs the output, so the page cannot
 quietly rot.
 
@@ -70,7 +70,7 @@ status enum: `.ok`, `.not_found`, or the numeric value via
 - **POST:** set `.payload = body` in the fetch options; the method
   defaults to POST when a payload is present.
 - **Serving files:** pair the router with
-  [Filesystem](/standard-library/filesystem/) reads; `respond` takes any
+  [Filesystem](/learn/standard-library/filesystem/) reads; `respond` takes any
   byte slice.
 - **HTTPS:** `fetch` handles `https://` URLs with the bundled TLS client;
   nothing changes at the call site.

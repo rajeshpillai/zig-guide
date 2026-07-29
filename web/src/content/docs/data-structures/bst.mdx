@@ -93,12 +93,12 @@ hand-picked literals.
 
 There is no general-purpose balanced tree in `std`. The options are:
 
-- **[Hash maps](/standard-library/hash-maps/)** when you need lookup and not
+- **[Hash maps](/learn/standard-library/hash-maps/)** when you need lookup and not
   order. Faster than any tree for that, and what most code actually wants.
 - **Sort an ArrayList and binary search it** when the data is built once and
   queried many times. Contiguous, cache-friendly, and it beats a tree at
   everything except interleaved inserts and lookups.
-- **[PriorityQueue](/standard-library/priority-queue/)** when you only ever need
+- **[PriorityQueue](/learn/standard-library/priority-queue/)** when you only ever need
   the smallest element. That is a heap, and a different structure.
 - **`std.Treap`**, which is in `std` and keeps itself balanced probabilistically
   rather than by rotation.

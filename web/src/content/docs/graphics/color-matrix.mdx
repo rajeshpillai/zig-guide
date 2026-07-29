@@ -127,7 +127,7 @@ two passes vs one composed matrix: 1560 of 2048 pixels differ, by at most 1
 
 Two passes round to a byte in between; the composed matrix rounds once, inside
 the matrix product. This is the difference from the lookup tables in
-[per-pixel transforms](/graphics/per-pixel/), where composing was exact to the
+[per-pixel transforms](/learn/graphics/per-pixel/), where composing was exact to the
 last bit. A table maps bytes to bytes and there is nowhere for an error to hide.
 A matrix carries fractions, and rounding them earlier or later gives different
 answers.
@@ -141,7 +141,7 @@ byte will fail on it.
 ## What a matrix cannot do
 
 **Anything spatial.** A colour matrix reads one pixel. Blur, sharpen and edge
-detection need neighbours, which is [convolution](/graphics/convolution/), a
+detection need neighbours, which is [convolution](/learn/graphics/convolution/), a
 different loop with a different cost.
 
 **Anything non-linear.** Gamma, curves and thresholds are not linear functions of
@@ -155,5 +155,5 @@ what lets a matrix add a constant, and that is how tinting toward a fixed colour
 works.
 
 Everything on this page also multiplies sRGB bytes directly, with the same caveat
-[alpha blending](/graphics/blending/) sets out: those bytes are not linear light.
+[alpha blending](/learn/graphics/blending/) sets out: those bytes are not linear light.
 Colour operations that care convert to linear first.

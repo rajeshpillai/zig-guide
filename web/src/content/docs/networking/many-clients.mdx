@@ -30,7 +30,7 @@ const Connection = struct {
 The transport is missing on purpose. `handle` reads bytes and writes bytes and
 never learns where they came from, which is why this page runs with no network
 underneath it. Put a `std.Io.net.Server` in front of the same function and it
-is [the TCP round trip](/networking/tcp-echo/).
+is [the TCP round trip](/learn/networking/tcp-echo/).
 
 That is the whole argument for writing protocol code against `std.Io.Reader`
 and `std.Io.Writer` instead of against a socket: the tests get to be fast and
@@ -49,12 +49,12 @@ try group.await(io);
 The `Io` implementation decides what "async" means. `std.Io.Threaded` runs
 these on a thread pool; the single-threaded WASI one running this page runs
 them inline. **The source does not change**, which is why
-[Threads](/standard-library/threads/) is a page you cannot run here and this
+[Threads](/learn/standard-library/threads/) is a page you cannot run here and this
 one is.
 
 If you are arriving from an older Zig looking for `async` and `await` as
 keywords: they were removed. This is what replaced them, and it is a library,
-not syntax. [Concurrency](/standard-library/concurrency/) covers the shape in
+not syntax. [Concurrency](/learn/standard-library/concurrency/) covers the shape in
 general.
 
 ## A Group so nothing outlives the scope
@@ -63,7 +63,7 @@ general.
 cancels all of them, so a connection handler cannot outlive the server that
 started it. A bare `Thread.spawn` per connection gives you no such guarantee,
 and shutting down cleanly means tracking every thread you ever started.
-[Cancellation](/standard-library/cancellation/) covers what a handler sees when
+[Cancellation](/learn/standard-library/cancellation/) covers what a handler sees when
 the group it belongs to is cancelled.
 
 ## A handler cannot return an error
@@ -75,7 +75,7 @@ fn handle(conn: *Connection, counter: *usize, mutex: *std.Io.Mutex, io: std.Io) 
 Note the `void`. There is nobody to return an error to: the caller has moved
 on to the next connection. So a per-connection failure has to become part of
 that connection's reply, which is the same conclusion the
-[text protocol chapter](/networking/text-protocols/) reached from the other
+[text protocol chapter](/learn/networking/text-protocols/) reached from the other
 direction. One client sending garbage must not affect any other client.
 
 ## Shared state still needs a lock
