@@ -14,21 +14,34 @@ WebAssembly.
 
 ## Why does `main` take a parameter?
 
-If you have seen Zig before, you probably expect `pub fn main() !void`. On
-current Zig master, `main` receives a `std.process.Init`:
+If you have seen Zig before, you probably expect `pub fn main() !void`. That
+still compiles:
+
+<Playground
+  name="01-getting-started.older-main"
+  note="The older shape. Compiled by CI against master every night to prove the claim above, but not executed here."
+/>
+
+On current Zig master there is also a form that takes an argument:
 
 ```zig
 pub fn main(init: std.process.Init) !void
 ```
 
-That `init` carries an **`Io` instance**, `init.io`. This is the same idea as
-`Allocator`, applied to I/O: just as Zig never allocates behind your back, it
-now never blocks behind your back either. Any function that touches the
-filesystem, network, or clock takes an `Io` explicitly, so the caller decides
-whether that work is threaded, evented, or something else entirely.
+`init.io` is an **`Io`**: a value carrying the ability to do input and output.
+Writing to a file, opening a socket, reading the clock: each of those takes an
+`Io` as an argument, so code cannot block or start a thread unless a caller
+handed it one. There is no global `stdout` to reach for. You are handed the
+capability to write, and the program above passes it straight through to
+`writeStreamingAll`.
 
-The practical consequence is that you cannot reach for a global `stdout`. You
-must be handed the capability to write.
+Who does the handing is then the caller's choice, which is where the threaded
+and event-loop implementations come in. That is
+[the `Io` interface](/learn/standard-library/io-interface/), a later chapter;
+here it is enough that `main` was given one.
+
+(If you already know Zig's `Allocator`, this is the same move applied to I/O:
+the caller supplies the mechanism, and nothing happens behind your back.)
 
 ## Buffering, and the `flush` you must not forget
 
