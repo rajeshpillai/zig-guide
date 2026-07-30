@@ -1,18 +1,17 @@
 ---
 /**
- * What's new: what was published, day by day, from the repository's history.
+ * What's new: the chapters this guide gained, day by day.
  *
- * A guide whose whole claim is that it is not stale needs somewhere a reader
- * can check that claim without taking it on trust. The version badge in the
- * header says which compiler verified the snippets; this page says what moved
- * and when, including the nights where the only change was a snippet that had
- * to be rewritten because Zig master moved under it.
+ * Additions only. `changelog.ts` keeps a commit only when it added a page a
+ * reader can open, which is what leaves out the theming, the tooling, the SEO
+ * plumbing and the repository's own house rules. A reader arriving here wants
+ * to know what there is to read that was not here last time.
  *
- * Derived, never hand-maintained: `changelog.ts` reads `git log`, and a chapter
- * named in a commit is resolved against the content collection here. A chapter
- * that has since been renamed or deleted is shown as plain text rather than as
- * a link, because history is full of paths that no longer resolve and a dead
- * link on this page would be a worse lie than a missing one.
+ * Derived, never hand-maintained: the chapters named in a commit are resolved
+ * against the content collection here. One that has since been renamed or
+ * deleted is shown as plain text rather than as a link, because history is full
+ * of paths that no longer resolve and a dead link on this page would be worse
+ * than a missing one.
  *
  * Outside the sidebar and the pager, on the same terms as `/paths/`: a view of
  * the guide rather than a stop in it.
@@ -30,9 +29,9 @@ const docs = await getCollection("docs");
 const byId = new Map(docs.map((doc) => [doc.id, doc]));
 
 /**
- * Chapters listed per entry before the rest become a count. One commit moved
- * every chapter in the guide under `/learn/`, and naming all 145 of them turns
- * the page into a wall that hides the entries either side of it.
+ * Chapters named per entry before the rest become a count. A section arrives in
+ * one commit, and a fourteen-chapter section listed in full is a wall that
+ * buries the entries either side of it.
  */
 const SHOWN = 6;
 
@@ -65,11 +64,11 @@ const schema = {
   <article>
     <h1>What's new</h1>
     <p class="section-intro">
-      Everything below was published. This page is generated from the
-      repository's history at build time, so it lists what actually shipped
-      rather than what someone remembered to write down. The guide currently
-      serves <strong>Zig {zigVersion}</strong>, and all {snippetCount} snippets
-      were compiled and run against that build before this page existed.
+      New chapters, in the order they were published. Generated from the
+      repository's history at build time, so it lists what shipped rather than
+      what someone remembered to write down. The guide currently serves
+      <strong>Zig {zigVersion}</strong>, and all {snippetCount} snippets were
+      compiled and run against that build before this page existed.
     </p>
 
     {
@@ -89,42 +88,33 @@ const schema = {
               {day.entries.map((entry) => (
                 <li>
                   <p class="release-subject">{entry.subject}</p>
-                  {entry.chapters.length > 0 && (
-                    <p class="release-touched">
-                      {/* New chapters first, so they are the ones that survive
-                          the cap on a commit that touched a whole section. */}
-                      {[...entry.chapters]
-                        .sort((a, b) => Number(b.added) - Number(a.added))
-                        .slice(0, SHOWN)
-                        .map(({ id, added }) => {
-                          const doc = byId.get(id);
-                          return (
-                            <span class="release-chapter">
-                              {doc ? (
-                                <a href={pageHref(id)}>{doc.data.title}</a>
-                              ) : (
-                                <span class="release-gone">{id}</span>
-                              )}
-                              {added && <span class="release-badge">new</span>}
-                            </span>
-                          );
-                        })}
-                      {entry.chapters.length > SHOWN && (
-                        <span class="release-meta">
-                          and {entry.chapters.length - SHOWN} more
+                  <p class="release-touched">
+                    {/* The count, not a badge per chapter: every chapter in an
+                        entry is an addition, so a row of "new" labels would say
+                        the same thing as many times as there are links. */}
+                    <span class="release-badge">
+                      {entry.chapters.length === 1
+                        ? "1 chapter"
+                        : `${entry.chapters.length} chapters`}
+                    </span>
+                    {entry.chapters.slice(0, SHOWN).map(({ id }) => {
+                      const doc = byId.get(id);
+                      return (
+                        <span class="release-chapter">
+                          {doc ? (
+                            <a href={pageHref(id)}>{doc.data.title}</a>
+                          ) : (
+                            <span class="release-gone">{id}</span>
+                          )}
                         </span>
-                      )}
-                    </p>
-                  )}
-                  {entry.chapters.length === 0 && entry.snippets.length > 0 && (
-                    <p class="release-touched">
+                      );
+                    })}
+                    {entry.chapters.length > SHOWN && (
                       <span class="release-meta">
-                        {entry.snippets.length === 1
-                          ? "1 snippet recompiled and rerun"
-                          : `${entry.snippets.length} snippets recompiled and rerun`}
+                        and {entry.chapters.length - SHOWN} more
                       </span>
-                    </p>
-                  )}
+                    )}
+                  </p>
                 </li>
               ))}
             </ul>

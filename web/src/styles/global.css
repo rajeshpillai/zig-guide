@@ -40,6 +40,10 @@
   --on-accent: light-dark(#ffffff, #1a1200);
   --ok: light-dark(#1a7f37, #3fb950);
   --err: light-dark(#cf222e, #f85149);
+  /* The what's-new dot, and nothing else. Deliberately more vivid than the
+     muted --ok green: it is a decorative mark rather than text, so it is tuned
+     to catch the eye on both surfaces instead of to a text contrast ratio. */
+  --fresh: light-dark(#00a63e, #3ddc84);
   /* A shadow that reads on white cannot be the one that reads on near-black:
      the light column tints toward the text colour instead of going darker. */
   --shadow: light-dark(0 12px 32px rgb(31 35 40 / 0.16), 0 12px 32px rgb(0 0 0 / 0.45));
@@ -196,6 +200,44 @@ pre {
 
 .topbar-link:hover {
   text-decoration: underline;
+}
+
+/* A dot beside "What's new", breathing slowly and then stopping.
+   Five cycles, not infinite: a header that never settles is a header a reader
+   learns to look away from, and this has to work on all 166 pages. The dot
+   stays afterwards, so the affordance outlives the animation. Decorative, so
+   it is drawn with ::after rather than markup and is never announced. */
+.topbar-new::after {
+  content: "";
+  display: inline-block;
+  width: 0.375rem;
+  height: 0.375rem;
+  margin-left: 0.3rem;
+  vertical-align: 0.05em;
+  border-radius: 50%;
+  background: var(--fresh);
+  opacity: 0.85;
+  animation: whats-new 2.6s ease-in-out 5;
+}
+
+@keyframes whats-new {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+/* Someone who asked the system for less motion has asked for this too. The
+   dot itself stays: it is the mark, and only the movement was the flourish. */
+@media (prefers-reduced-motion: reduce) {
+  .topbar-new::after {
+    animation: none;
+  }
 }
 
 /* Icon-only, so it needs a real hit area rather than the 16px glyph: 2.25rem

@@ -1,19 +1,24 @@
 /**
- * What changed on this site, derived from the repository's own history.
+ * What was added to this guide, derived from the repository's own history.
  *
  * There is no hand-written changelog file, for the same reason there is no
  * hand-written version string: the two would drift, and the one that drifts is
  * always the one a human has to remember to edit. `git log` already records
- * every change that was published, in the order it was published, and CI
- * deploys from that history, so it cannot describe a release that did not
- * happen.
+ * what was published and when, and CI deploys from that history, so this cannot
+ * describe a release that did not happen.
  *
- * What this loses is curation. Entries read the way commit subjects read, which
- * on this repo means a sentence about what changed and not marketing copy. What
- * it buys is that the page is correct without anyone maintaining it, including
- * on the nights when the only thing that changed was a snippet that stopped
- * compiling against Zig master, which is exactly the change a reader of this
- * site wants to hear about.
+ * **New chapters only.** An entry survives only if the commit added a page a
+ * reader can now open. Everything else this repository does to itself is
+ * excluded by that one rule: theming and layout work, CI and tooling, SEO
+ * plumbing, refactors, planning notes, and the writing-style and house rules
+ * that govern how the prose is produced. None of it is news to a reader, and
+ * some of it is repository housekeeping that has no business on a public page
+ * at all.
+ *
+ * The cost is that fixes do not appear, including the nights a snippet had to
+ * be rewritten because Zig master moved. Those are visible per chapter as its
+ * modified date, and in `rss.xml`, which orders by change rather than by
+ * addition.
  */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -32,9 +37,8 @@ export interface Entry {
   iso: string;
   /** First line of the commit message. */
   subject: string;
+  /** The chapters this commit added. Never empty: an entry with none is dropped. */
   chapters: Chapter[];
-  /** Snippet slugs (`chapter.name`) whose source changed. */
-  snippets: string[];
 }
 
 export interface Day {
@@ -44,18 +48,15 @@ export interface Day {
 }
 
 /**
- * Paths that never reach a reader. A commit touching only these shipped
- * nothing, and listing it would pad the page with planning notes and editor
- * configuration.
+ * Subjects that never belong on a public page, whatever else the commit did.
+ *
+ * The "added a chapter" rule already excludes every one of these that exists
+ * today, since none of them added a page. This is the backstop for the commit
+ * that adds a chapter *and* changes how the repository is worked on in the same
+ * breath: instructions to a coding agent, and the house rules about tone and
+ * phrasing that shape the prose. A reader is here for Zig.
  */
-const INVISIBLE = [
-  "todo.md",
-  "CLAUDE.md",
-  "PRODUCT.md",
-  "README.md",
-  ".claude/",
-  ".gitignore",
-];
+const HIDDEN = /\b(claude|llm|gpt|copilot|ai[- ]?(tone|generated|flavou?red)|agent instructions|prompt)\b/i;
 
 /** How far back to read. Older than this is history, not news. */
 const LIMIT = 150;
@@ -104,30 +105,24 @@ async function walk(): Promise<Day[]> {
 
     const [iso, subject] = lines[0].split(FIELD);
     if (!iso || !subject) continue;
+    if (HIDDEN.test(subject)) continue;
 
     // `A\tpath`, `M\tpath`, or `R100\told\tnew`: the path a rename produced is
-    // the last field either way, and a rename is a move rather than an
-    // addition however new the path looks.
-    const changes = lines.slice(1).map((line) => {
-      const fields = line.split("\t");
-      return { status: fields[0][0], path: fields[fields.length - 1] };
-    });
-    if (changes.length === 0) continue;
-    if (changes.every((c) => INVISIBLE.some((prefix) => c.path.startsWith(prefix)))) continue;
-
+    // the last field either way. A rename is a move however new the path looks,
+    // so the commit that put every chapter under `/learn/` added nothing and
+    // does not appear here.
     const chapters: Chapter[] = [];
-    const snippets: string[] = [];
-    for (const { status, path } of changes) {
-      // A deleted chapter has no page to link to and is not news that a reader
-      // can act on; the commit subject is where a removal gets explained.
-      if (status === "D") continue;
-      const id = chapterOf(path);
-      if (id) chapters.push({ id, added: status === "A" });
-      const slug = snippetOf(path);
-      if (slug) snippets.push(slug);
+    for (const line of lines.slice(1)) {
+      const fields = line.split("\t");
+      if (fields[0][0] !== "A") continue;
+      const id = chapterOf(fields[fields.length - 1]);
+      if (id) chapters.push({ id, added: true });
     }
 
-    const entry: Entry = { iso, subject, chapters, snippets };
+    // Nothing a reader can open is nothing to announce.
+    if (chapters.length === 0) continue;
+
+    const entry: Entry = { iso, subject, chapters };
 
     const date = iso.slice(0, 10);
     const bucket = days.get(date);
@@ -149,12 +144,3 @@ function chapterOf(path: string): string | null {
   return dot === -1 ? rest : rest.slice(0, dot);
 }
 
-/** `snippets/14-os/pipes.zig` to `14-os.pipes`, or null. */
-function snippetOf(path: string): string | null {
-  const match = /^snippets\/([^/]+)\/([^/]+)\.zig$/.exec(path);
-  if (!match) return null;
-  // `_`-prefixed files are shared modules rather than snippets, the same rule
-  // `build.zig` applies when it scans the directory.
-  if (match[2].startsWith("_")) return null;
-  return `${match[1]}.${match[2]}`;
-}
