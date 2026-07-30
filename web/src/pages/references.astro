@@ -1,0 +1,255 @@
+---
+/**
+ * Every source outside this site that a chapter points a reader at.
+ *
+ * The inline mentions stay where they are: a link is most useful at the moment
+ * the prose admits it needs one, and stripping them out to a list would cost
+ * the context that makes them worth following. This page is the other view of
+ * the same set, for a reader who remembers that the guide named a Unicode
+ * library but not which chapter it was in.
+ *
+ * `cite` is a chapter id resolved against the content collection, and an
+ * unknown one throws, so a renamed or deleted chapter fails `astro build`
+ * rather than shipping a dead link. Same contract as `paths.astro` and
+ * `Playground.astro`.
+ *
+ * Nothing here is a recommendation the guide has not already made in prose. If
+ * a link appears on this page it is because a chapter needed it; the list is
+ * derived from the writing, not curated separately, and that is what keeps it
+ * from drifting into a directory of everything.
+ *
+ * Like `/paths/` and `/learn/`, this is a view of the guide rather than a stop
+ * in it: it carries no pager and `readingOrder()` emits nothing for it. The
+ * sidebar link is marked `nav-extra` so the browser gate, which treats every
+ * other `.sidebar a` as a chapter that must carry a pager, knows the
+ * difference.
+ */
+import Base from "../layouts/Base.astro";
+import { getCollection } from "astro:content";
+import { guideHref, pageHref } from "../nav";
+
+const docs = await getCollection("docs");
+const byId = new Map(docs.map((doc) => [doc.id, doc]));
+
+interface Source {
+  name: string;
+  href: string;
+  /** What it is, and why a reader here would want it. */
+  note: string;
+  /** Chapter id that links to it, or null for the toolchain itself. */
+  cite: string | null;
+}
+
+interface Group {
+  title: string;
+  blurb: string;
+  sources: Source[];
+}
+
+const GROUPS: Group[] = [
+  {
+    title: "The language itself",
+    blurb:
+      "Every claim on this site is checked against the compiler below, on the " +
+      "nightly build. When a chapter and the standard library disagree, the " +
+      "standard library is right and the chapter is a bug.",
+    sources: [
+      {
+        name: "ziglang.org",
+        href: "https://ziglang.org",
+        note: "The language home page, the official documentation, and the release notes.",
+        cite: null,
+      },
+      {
+        name: "Download a master build",
+        href: "https://ziglang.org/download/",
+        note:
+          "This guide tracks master, not a tagged release. The nightly tarballs are here.",
+        cite: "getting-started/installation",
+      },
+      {
+        name: "The Zig source, on Codeberg",
+        href: "https://codeberg.org/ziglang/zig",
+        note:
+          "Where the standard library actually lives. Chapters cite it by file " +
+          "and line (std/mem.zig, std/Io/Writer.zig) so you can read the " +
+          "implementation behind a claim rather than take it on trust.",
+        cite: null,
+      },
+    ],
+  },
+  {
+    title: "Where the standard library stops",
+    blurb:
+      "Two libraries the guide names because std deliberately does not cover " +
+      "the ground and says so. Both are dependencies rather than part of the " +
+      "language, so neither is verified by this site's nightly build: they " +
+      "track the compiler on their own schedule.",
+    sources: [
+      {
+        name: "zg",
+        href: "https://codeberg.org/atman/zg",
+        note:
+          "Unicode text processing by Sam Atman: grapheme clusters, display " +
+          "width, case folding, normalization. std has none of these, and the " +
+          "tables are large enough that it is right not to. Split into modules " +
+          "so a program only pays for the ones it uses.",
+        cite: "standard-library/unicode-recipes",
+      },
+      {
+        name: "zig-string",
+        href: "https://github.com/JakubSzark/zig-string",
+        note:
+          "A UTF-8 aware String type by Jakub Szark, MIT licensed, for when you " +
+          "want the shape of a string class rather than a slice of bytes and a " +
+          "set of free functions.",
+        cite: "standard-library/string-recipes",
+      },
+      {
+        name: "mecha",
+        href: "https://github.com/Hejsil/mecha",
+        note:
+          "A parser-combinator library by Jimmi Holst Christensen. The build " +
+          "system chapter uses it as its worked example of declaring and " +
+          "fetching a real dependency.",
+        cite: "build-system/dependencies",
+      },
+    ],
+  },
+  {
+    title: "Tools",
+    blurb: "Not required to follow the guide, worth having anyway.",
+    sources: [
+      {
+        name: "ZLS, the Zig Language Server",
+        href: "https://github.com/zigtools/zls",
+        note:
+          "Completion, go-to-definition and inline errors in any editor that " +
+          "speaks LSP. Build it from source against the same compiler you use.",
+        cite: "getting-started/installation",
+      },
+    ],
+  },
+  {
+    title: "Worth reading",
+    blurb: "Writing by other people that a chapter sends you to.",
+    sources: [
+      {
+        name: "Everyone should know SIMD, by Mitchell Hashimoto",
+        href: "https://mitchellh.com/writing/everyone-should-know-simd",
+        note:
+          "The argument for why vector code is worth learning at all, which the " +
+          "SIMD recipe leans on rather than repeating.",
+        cite: "how-to/simd-scan",
+      },
+    ],
+  },
+];
+
+const groups = GROUPS.map((group) => ({
+  ...group,
+  sources: group.sources.map((source) => {
+    if (source.cite === null) return { ...source, chapter: null };
+    const doc = byId.get(source.cite);
+    if (!doc) {
+      throw new Error(
+        `references.astro cites unknown chapter "${source.cite}" for ${source.name}. ` +
+          `Update the id or drop the source.`,
+      );
+    }
+    return { ...source, chapter: doc };
+  }),
+}));
+
+const count = groups.reduce((n, group) => n + group.sources.length, 0);
+
+const description =
+  "Every source outside this site that a chapter of the Zig guide links to: " +
+  "the compiler and its standard library, the libraries that cover what std " +
+  "leaves out, and the tools worth having.";
+
+const schema = {
+  "@type": "CollectionPage",
+  name: "References",
+  description,
+};
+---
+
+<Base
+  title="References"
+  seoTitle="Zig References: Libraries, Tools and Sources"
+  description={description}
+  crumbs={[{ label: "References" }]}
+  schema={schema}
+>
+  <article>
+    <h1>References</h1>
+    <p class="section-intro">
+      {count} sources outside this site, each one already linked from the chapter
+      that needed it. Nothing here is a recommendation the guide has not made in
+      prose, which is what keeps the list from turning into a directory.
+    </p>
+
+    {
+      groups.map((group) => (
+        <section class="path">
+          <h2>{group.title}</h2>
+          <p>{group.blurb}</p>
+          <ul class="ref-list">
+            {group.sources.map((source) => (
+              <li>
+                <a href={source.href} rel="noopener external">
+                  {source.name}
+                </a>
+                <p>{source.note}</p>
+                {source.chapter && (
+                  <p class="ref-cite">
+                    Linked from{" "}
+                    <a href={pageHref(source.chapter.id)}>{source.chapter.data.title}</a>
+                    <span>{source.chapter.data.section}</span>
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+
+    <p>
+      The guide itself starts at <a href={guideHref}>the section list</a>.
+    </p>
+  </article>
+</Base>
+
+<style>
+  .ref-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .ref-list > li {
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--border);
+  }
+
+  .ref-list > li > a {
+    font-weight: 600;
+  }
+
+  .ref-list p {
+    margin: 0.35rem 0 0;
+  }
+
+  .ref-cite {
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .ref-cite span::before {
+    content: " · ";
+  }
+</style>

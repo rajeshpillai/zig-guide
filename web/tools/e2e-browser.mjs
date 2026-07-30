@@ -87,7 +87,14 @@ page.on("console", (m) => {
 });
 
 await page.goto(`${BASE}${PREFIX}/`, { waitUntil: "networkidle" });
-const chapters = await page.$$eval(".sidebar a", (as) => as.map((a) => a.getAttribute("href")));
+// Every sidebar link is a chapter and gets walked as one: it must carry a
+// pager, and following `next` from the first must reach all of them. The one
+// exception is marked `nav-extra` (References), which is a view of the guide
+// rather than a stop in it, like `/paths/`. It is checked below with the other
+// non-chapter pages instead.
+const chapters = await page.$$eval(".sidebar a:not(.nav-extra)", (as) =>
+  as.map((a) => a.getAttribute("href")),
+);
 if (chapters.length === 0) {
   console.error("No chapters found in the sidebar — is the site built?");
   process.exit(2);
@@ -286,6 +293,7 @@ for (const href of [
   `${PREFIX}/`,
   `${PREFIX}/learn/`,
   `${PREFIX}/paths/`,
+  `${PREFIX}/references/`,
   `${PREFIX}/whats-new/`,
   `${PREFIX}/privacy/`,
 ]) {

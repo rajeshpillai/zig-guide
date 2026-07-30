@@ -38,6 +38,12 @@ export const GET: APIRoute = async ({ site }) => {
   add(guideHref, everything);
   // Not a chapter and not in the sidebar, so nothing else would list it.
   add(`${base}paths/`, await datesFor("src/pages/paths.astro").then((d) => d?.modified));
+  // In the sidebar but not a chapter: it carries no pager, so the walk that
+  // collects the chapters does not reach it either.
+  add(
+    `${base}references/`,
+    await datesFor("src/pages/references.astro").then((d) => d?.modified),
+  );
   // What's new lists every published change, so it is as new as the newest of
   // them rather than as new as its own source file.
   add(`${base}whats-new/`, everything);

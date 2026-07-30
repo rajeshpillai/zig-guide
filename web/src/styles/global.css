@@ -720,6 +720,27 @@ pre {
   padding-left: 0;
 }
 
+/* The foot of the chapter list, at every width. Unlike .nav-aside this has no
+   counterpart in the topbar, so hiding it on desktop would hide it entirely. */
+.nav-refs {
+  margin-top: 1.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.nav-refs a {
+  color: var(--accent);
+  padding-left: 0;
+}
+
+/* On a phone both blocks show. One rule between them is enough. */
+.nav-refs + .nav-aside {
+  margin-top: 0.4rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
 main {
   min-width: 0;
   /* Long identifiers and URLs in prose must not widen the page. */

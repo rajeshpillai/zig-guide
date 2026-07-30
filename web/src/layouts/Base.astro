@@ -427,6 +427,22 @@ const openSlug =
           ))
         }
 
+        {
+          /* Every source the guide sends a reader outside the site for. Not a
+             chapter: it carries no pager and `readingOrder()` emits no stop for
+             it, the same as `/paths/`. `nav-extra` is what tells the browser
+             gate that, since the gate treats every other `.sidebar a` as a
+             chapter it must be able to walk.
+
+             Its own block rather than `.nav-aside`, which is the phone-only
+             fallback for a link the topbar carries on desktop and so is
+             `display: none` at the first breakpoint. This one belongs at the
+             foot of the chapter list at every width. */
+        }
+        <p class="nav-refs">
+          <a class="nav-extra" href={`${base}references/`}>References</a>
+        </p>
+
         <p class="nav-aside">
           <a href={pageHref("getting-started/coming-from-older-zig")}>On an older Zig?</a>
         </p>
