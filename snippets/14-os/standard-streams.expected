@@ -1,0 +1,6 @@
+written second, straight to the fd
+written first, into a buffer
+
+stdout is a tty: false
+stderr is a tty: false
+this line went to stdout

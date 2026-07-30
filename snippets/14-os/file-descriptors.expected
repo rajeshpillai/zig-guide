@@ -1,0 +1,9 @@
+File.Handle = i32
+a File is 8 bytes
+
+stdin  0
+stdout 1
+stderr 2
+
+written through a hand-built File
+same handle: true

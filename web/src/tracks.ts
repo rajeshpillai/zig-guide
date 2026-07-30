@@ -40,10 +40,12 @@ export const TRACKS: Track[] = [
   {
     title: "Systems",
     blurb: "Zig against the world outside the process: networks, builds, C, wasm, and pixels.",
-    // Networking first, and after Foundations rather than inside it: the
+    // The OS section first: a socket is a file descriptor, and Networking
+    // opens by explaining what a handle is on its way to what an address is.
+    // Networking next, and after Foundations rather than inside it: the
     // concurrency chapter needs `std.Io` and the protocol chapters lean on
     // the readers and writers taught in the Standard Library.
-    sections: ["networking", "build-system", "working-with-c", "webassembly", "graphics"],
+    sections: ["os", "networking", "build-system", "working-with-c", "webassembly", "graphics"],
   },
   {
     title: "Cookbook",

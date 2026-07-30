@@ -1,0 +1,6 @@
+child stdout: hello from the child
+child term:   exited with code 0
+
+failing child: exited with code 3
+succeeded:     false
+exit code:     3

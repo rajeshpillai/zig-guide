@@ -1,0 +1,10 @@
+inherited variables: 0
+PATH: null
+
+after two puts: 2
+ZIG_GUIDE: live
+contains EDITOR: true
+after removing it: null
+
+"HOME" valid: true
+"A=B" valid: false

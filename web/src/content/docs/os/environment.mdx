@@ -1,0 +1,82 @@
+---
+title: The Environment
+description: A string-to-string map the parent process chose, handed over at startup.
+section: Operating System
+order: 30
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The environment is a list of `KEY=value` strings that the parent process
+decided on and the kernel copied into your address space at startup. It is not
+a system-wide setting, it is not shared, and nothing you do to it after startup
+reaches any other running process.
+
+<Playground name="14-os.environment" />
+
+## It arrives already parsed
+
+```zig
+pub fn main(init: std.process.Init) !void {
+    const env = init.environ_map;
+    const path = env.get("PATH");
+}
+```
+
+`init.environ_map` is a `*std.process.Environ.Map` that the startup code
+populated from the raw block before `main` was called, allocated with the same
+`gpa` on `init`. You do not free it and you do not build it.
+
+The count is 0 in the playground above. That is not a stub standing in for the
+real thing: a wasm module in a browser tab has no parent process to inherit an
+environment from, so the honest answer is that there are none. Reading `PATH`
+there returns `null`, which is exactly what a program should be prepared for on
+any platform. A variable you did not set is a variable that may not be there.
+
+## Your copy is yours
+
+```zig
+try env.put("ZIG_GUIDE", "live");
+```
+
+That changes this program's map and nothing else. It does not modify the shell
+that launched you, and on its own it does not even modify what a child of yours
+will see: a child inherits a copy of the block that existed when it was
+spawned, and you choose which block that is by passing `environ_map` to
+[spawn](/learn/os/spawning/). Leave it null and the child gets the parent's.
+
+The direction that surprises people is the one that does not work. There is no
+call that lets a program change its parent's environment, which is why every
+tool that wants to alter your shell prints something for the shell to evaluate
+instead:
+
+```
+eval "$(direnv hook bash)"
+```
+
+That is not a workaround for a missing API. It is the only way, because the
+environment was copied at fork time and the copies were never connected.
+
+## Keys have two rules
+
+A name may not be empty, and may not contain `=` or a NUL byte. The map will
+tell you:
+
+```zig
+std.process.Environ.Map.validateKeyForPut("A=B") // false
+```
+
+The separator is not escapable. A block is a flat list of `KEY=value` strings
+split on the first `=`, so a key containing one could be written but never read
+back as what you meant. Everything after that first byte is value, including
+newlines, spaces and further `=` signs, which is why `PATH` works and why a
+value never needs quoting at this level. The quoting you write in a shell is
+the shell's, and it is gone by the time the string reaches you.
+
+## Case, and the platform that disagrees
+
+Names are case-sensitive on POSIX and case-insensitive on Windows, where the
+block is UTF-16 and `Path` and `PATH` are the same variable. `Environ.Map`
+matches the platform it was built for. Code that reads one spelling and writes
+another is fine on Windows and quietly broken everywhere else, so pick the
+conventional upper-case spelling and use it in both places.

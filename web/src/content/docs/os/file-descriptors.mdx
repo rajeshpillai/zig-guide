@@ -1,0 +1,85 @@
+---
+title: A File Descriptor Is a Number
+description: Everything the operating system hands you to read or write is an integer.
+section: Operating System
+order: 10
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Open a file, accept a connection, create a pipe. Each one gives you back a
+small non-negative integer, and that integer is the whole of what you hold.
+There is no object on your side. The kernel keeps a table per process, the
+number is an index into it, and every later call names the thing you opened by
+passing the number back.
+
+Press Run.
+
+<Playground name="14-os.file-descriptors" />
+
+## What a `File` is
+
+```zig
+handle: Handle,
+flags: Flags,
+
+pub const Handle = std.posix.fd_t;
+```
+
+That is the entire declaration of `std.Io.File` in the standard library, minus
+its methods. A descriptor and one bit saying whether it was opened
+non-blocking. `fd_t` is `i32` on every POSIX target and on WASI; on Windows it
+is a `HANDLE`, which is why the type is named rather than written out.
+
+Because the struct holds nothing else, building one out of a raw number is not
+a trick and needs no cast:
+
+```zig
+const by_hand: std.Io.File = .{ .handle = 1, .flags = .{ .nonblocking = false } };
+```
+
+That value and `std.Io.File.stdout()` are the same eight bytes, and writing
+through either sends bytes to the same place.
+
+## The three you are given
+
+A process starts with descriptors 0, 1 and 2 already open, and nothing in your
+program opened them. The shell, or the parent process, arranged them before
+your first instruction ran:
+
+| Number | Name | Convention |
+| --- | --- | --- |
+| 0 | standard input | where the program reads from |
+| 1 | standard output | where its results go |
+| 2 | standard error | where its diagnostics go |
+
+The numbering is convention with one exception: it is convention that the
+kernel and every program agree on, so it is as binding as a rule. `zig build`,
+your shell's `2>&1`, and the redirect a CI system applies to your test run all
+assume it.
+
+Nothing else about the numbers is promised. The next descriptor you open takes
+the lowest free number, which is 3 in a fresh process and something else the
+moment anything has been opened or closed. Code that hardcodes 4 works until
+the day a library opens a log file before your function runs.
+
+## The sandbox keeps the numbering
+
+This chapter runs in your browser, which has no kernel, no descriptor table
+and no processes. The numbers still come out 0, 1 and 2, because WASI copied
+the interface: a module is handed descriptors by its host, refers to them by
+number, and reads and writes through calls that take that number as their
+first argument.
+
+Which is the useful thing to notice about descriptors. The number is not an
+implementation detail of Linux that leaked into the API. It is the API, thin
+enough that a wasm runtime in a browser tab can implement it and a program
+written against a kernel cannot tell.
+
+## Where they come from next
+
+The rest of this section is descriptors doing the four things worth doing to
+them: writing to the ones you were given, passing modified copies to a child,
+holding one end of a pipe, and closing one to say you are finished. Sockets in
+[Network Programming](/learn/networking/what-is-a-socket/) are the same
+integers again, with a different call to create them.

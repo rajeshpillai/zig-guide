@@ -115,6 +115,26 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "A hash map that deletes without leaving a tombstone loses every key that probed past the hole.",
     ],
   },
+  os: {
+    seoTitle: "Zig and the Operating System: Descriptors, Processes, Signals",
+    description:
+      "Talking to the operating system from Zig: file descriptors, the standard " +
+      "streams, the environment, spawning a child process, pipes, signal " +
+      "handlers, and what exit does to your defers.",
+    lede:
+      "The interface every program has whether it asked for one or not: three " +
+      "descriptors it did not open, an environment it inherited, and a status " +
+      "code it owes its parent. Four of these chapters run in your browser, " +
+      "because WASI kept the descriptor numbering even though there is no " +
+      "operating system underneath.",
+    takeaways: [
+      "A file descriptor is an integer and nothing more. A `File` built by hand out of the number 1 writes to standard output exactly as the one `stdout()` returns does.",
+      "Buffering belongs to your writer, not to the descriptor. Two writers on the same descriptor can deliver their bytes in the order you did not write them.",
+      "There is no `std.posix.pipe` any more. The portable way to hold one end of a pipe is to spawn a process on the other, and the way to end the conversation is to close your end.",
+      "A signal handler runs between two arbitrary instructions of whatever you were doing. Set an atomic flag and return; anything that allocates or takes a lock can deadlock the program that was holding it.",
+      "`std.process.exit` runs no `defer` and drains no buffer. Bytes still in a writer when it is called are simply lost.",
+    ],
+  },
   networking: {
     seoTitle: "Network Programming in Zig",
     description:

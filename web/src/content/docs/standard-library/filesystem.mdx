@@ -55,3 +55,8 @@ Every other snippet on this site executes in your browser. This one cannot:
 WASI programs can only touch directories the host explicitly preopens, and the
 playground grants none. CI still compiles it, so if the filesystem API changes
 again this page turns the build red. It just cannot be executed here.
+
+What an open file leaves you holding is a number.
+[A File Descriptor Is a Number](/learn/os/file-descriptors/) is that side of
+it, and it does run in the browser, because the descriptors a WASI program
+starts with are handed to it rather than opened.

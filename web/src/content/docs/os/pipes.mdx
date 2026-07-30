@@ -1,0 +1,81 @@
+---
+title: Pipes Are the Child's Streams
+description: A pipe is a descriptor at each end and an end-of-file in the middle.
+section: Operating System
+order: 50
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A pipe is a one-way buffer in the kernel with a descriptor at each end. Write
+into one, read out of the other. It carries bytes and nothing else: no message
+boundaries, no types, and no way to ask how much is coming.
+
+<Playground
+  name="14-os.pipes"
+  note="Built and run natively by CI. The pipe is created by spawning a process, which a WASI sandbox cannot do."
+/>
+
+## There is no `std.posix.pipe`
+
+Look for one and you will not find it. `pipe2` exists inside the `Io`
+implementations, `std.Io.Threaded` and `std.Io.Uring`, where it is an
+implementation detail of how they schedule work. What the standard library
+offers you is the useful case: ask for a pipe on a child's stream, and get the
+other end back as an `Io.File`.
+
+```zig
+var child = try std.process.spawn(io, .{
+    .argv = &.{ self, "child" },
+    .stdin = .pipe,
+    .stdout = .pipe,
+});
+```
+
+That is the shell's `|` written out. `.pipe` on a stream means do not give the
+child mine, make a new one, and hand me the far end. `child.stdin` and
+`child.stdout` are then ordinary files, and everything you know about readers
+and writers applies to them unchanged.
+
+The descriptors are new numbers past the three the process started with.
+Nothing promises which numbers, so the snippet checks that they are greater
+than 2 rather than that they are 4 and 5. They would be different under a
+different `Io` implementation, and asserting on them is how a test starts
+failing on a machine that opened one more file at startup.
+
+## Closing is the message
+
+```zig
+try to_child.interface.flush();
+child.stdin.?.close(io);
+child.stdin = null;
+```
+
+The child is reading until end of file. End of file on a pipe means every write
+end has been closed, and the parent is holding one. A parent that writes,
+does not close, and then waits for output waits forever: the child is blocked
+in a read that cannot return, and the parent is blocked in a read of a child
+that will never write. Both are healthy. Neither will move.
+
+This is the classic pipe deadlock, and it has a second form worth knowing.
+Pipes hold a fixed amount, 64 KB on Linux by default. A parent that writes more
+than that before reading anything fills the buffer and blocks in its own write,
+while the child fills its output pipe and blocks in its. `std.process.run`
+avoids both by draining and waiting in the right order, which is a good reason
+to reach for it whenever the output fits in memory.
+
+Setting `child.stdin = null` after closing is not ceremony. `wait` closes the
+streams it still holds, and a descriptor closed twice is a bug that finds you
+much later, when the number has been reissued to a file you care about.
+
+## `SIGPIPE`, the other direction
+
+Write to a pipe whose read end is gone and the kernel sends `SIGPIPE`, whose
+default disposition is to kill you. That default is what makes `head` work:
+`producer | head -3` ends the producer once `head` stops reading, without
+anyone writing code to arrange it.
+
+It is also why a long-running server ignores the signal and handles the
+`error.BrokenPipe` from the write instead. A client that disconnects mid-reply
+should end one connection, not the process serving all the others.
+[Signals](/learn/os/signals/) is the next chapter.
