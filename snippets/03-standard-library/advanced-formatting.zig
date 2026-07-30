@@ -20,28 +20,28 @@ const Colour = enum { red, green, blue };
 
 test "{f} calls a custom format method" {
     var buf: [64]u8 = undefined;
-    const text = try std.fmt.bufPrint(&buf, "{f}", .{Point{ .x = 1, .y = 2 }});
+    const text = try std.mem.print(&buf, "{f}", .{Point{ .x = 1, .y = 2 }});
     try expect(std.mem.eql(u8, text, "(1, 2)"));
 }
 
 test "{t} prints an enum tag name" {
     var buf: [64]u8 = undefined;
-    const text = try std.fmt.bufPrint(&buf, "{t}", .{Colour.green});
+    const text = try std.mem.print(&buf, "{t}", .{Colour.green});
     try expect(std.mem.eql(u8, text, "green"));
 }
 
 test "{any} falls back to a structural dump" {
     var buf: [128]u8 = undefined;
-    const text = try std.fmt.bufPrint(&buf, "{any}", .{[_]u8{ 1, 2, 3 }});
+    const text = try std.mem.print(&buf, "{any}", .{[_]u8{ 1, 2, 3 }});
     // Exact spelling is not contractual, but it contains the elements.
-    try expect(std.mem.indexOf(u8, text, "1") != null);
+    try expect(std.mem.find(u8, text, "1") != null);
 }
 
 test "format strings are checked at compile time" {
     // Passing the wrong number of arguments, or a specifier the type does
     // not support, is a compile error, not a runtime surprise.
     var buf: [32]u8 = undefined;
-    const ok = try std.fmt.bufPrint(&buf, "{d} {s}", .{ 1, "two" });
+    const ok = try std.mem.print(&buf, "{d} {s}", .{ 1, "two" });
     try expect(std.mem.eql(u8, ok, "1 two"));
 }
 

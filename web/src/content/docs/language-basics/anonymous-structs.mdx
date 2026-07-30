@@ -34,7 +34,7 @@ because each element has its own type. Walk them with
 ## This is what format arguments are
 
 ```zig
-std.fmt.bufPrint(&buf, "{s}={d}", .{ "x", 42 });
+std.mem.print(&buf, "{s}={d}", .{ "x", 42 });
 ```
 
 That second argument is just a tuple. There is no varargs mechanism in Zig:

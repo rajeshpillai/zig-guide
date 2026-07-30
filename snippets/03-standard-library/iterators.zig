@@ -50,8 +50,14 @@ test "tokenize on any of several separators" {
     try expect(std.mem.eql(u8, it.next().?, "three"));
 }
 
-test "window and chunk a slice" {
-    var windows = std.mem.window(u8, "abcd", 2, 1); // overlapping
+test "window a slice, overlapping or not" {
+    // advance < size overlaps.
+    var windows = std.mem.window(u8, "abcd", 2, 1);
     try expect(std.mem.eql(u8, windows.next().?, "ab"));
     try expect(std.mem.eql(u8, windows.next().?, "bc"));
+
+    // advance == size gives non-overlapping blocks. There is no std.mem.chunk.
+    var blocks = std.mem.window(u8, "abcd", 2, 2);
+    try expect(std.mem.eql(u8, blocks.next().?, "ab"));
+    try expect(std.mem.eql(u8, blocks.next().?, "cd"));
 }

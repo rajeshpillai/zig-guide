@@ -36,6 +36,9 @@ links to.
 | Custom `format` | four parameters, used by `{}` | one writer parameter, used by `{f}` |
 | Enum reflection | `info.fields[i].name` | `info.field_names[i]` |
 | `addExecutable` | source file directly | `root_module` |
+| Search in `std.mem` | `indexOf`, `indexOfScalar` | `find`, `findScalar` |
+| Format into memory | `std.fmt.bufPrint`, `allocPrint` | `std.mem.print`, `Allocator.print` |
+| Leak-checking allocator | `GeneralPurposeAllocator`, then `DebugAllocator` | `std.heap.SafeAllocator` |
 
 ---
 
@@ -237,6 +240,43 @@ const exe = b.addExecutable(.{
 ```
 
 → [Zig Build](/learn/build-system/zig-build/)
+
+---
+
+## Renames that still compile
+
+Everything above fails loudly. This group does not. The old names are still
+present as aliases marked `Deprecated` in the standard library source, so code
+written against them builds and runs exactly as it did. That makes them the
+quietest way for a tutorial to go out of date, including this one.
+
+```zig
+// before
+const at = std.mem.indexOf(u8, line, ": ");
+const text = try std.fmt.bufPrint(&buf, "{d}", .{n});
+const owned = try std.fmt.allocPrint(gpa, "{d}", .{n});
+var debug: std.heap.DebugAllocator(.{}) = .init;
+var seen: std.StaticBitSet(64) = .empty;
+```
+
+```zig
+// now
+const at = std.mem.find(u8, line, ": ");
+const text = try std.mem.print(&buf, "{d}", .{n});
+const owned = try gpa.print("{d}", .{n});
+var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
+var seen: std.bit_set.Static(64) = .empty;
+```
+
+The whole `indexOf` family moved to `find`. `Allocator.print` is the allocating
+formatter. `SafeAllocator` also changed shape: it takes its backing allocator as
+an argument, and `deinit()` returns a leak count rather than `.ok` or `.leak`.
+
+Every snippet on this site is checked against the list of names the standard
+library marks deprecated, on the same run that compiles it. That check is the
+only reason this section exists.
+
+→ [Strings](/learn/standard-library/strings/) · [Formatting](/learn/standard-library/formatting/) · [Allocators](/learn/standard-library/allocators/)
 
 ---
 

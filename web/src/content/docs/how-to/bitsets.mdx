@@ -1,6 +1,6 @@
 ---
 title: "Recipe: Set Operations on the Cheap"
-description: StaticBitSet turns membership, intersection, and union into single instructions.
+description: A static bit set turns membership, intersection, and union into single instructions.
 section: How-To
 order: 99
 ---
@@ -20,7 +20,7 @@ bitwise operations.
 
 ## The plan
 
-1. Pick the universe size at compile time: `std.StaticBitSet(24)` for hours
+1. Pick the universe size at compile time: `std.bit_set.Static(24)` for hours
    of a day. At 24 bits the whole set is a single `u24`; no allocator
    exists anywhere in this recipe.
 2. Start from the `empty` constant and `set` the members.
@@ -38,7 +38,7 @@ declaration constants instead, used with the `.empty` enum-literal-style
 syntax:
 
 ```zig
-var hours: std.StaticBitSet(24) = .empty;
+var hours: std.bit_set.Static(24) = .empty;
 ```
 
 The same pattern (`.empty` replacing `init` functions) applies across the
@@ -48,9 +48,9 @@ standard library's containers, so it is worth internalizing once.
 
 The intersection in the snippet compiles to an `and` instruction on a u24.
 `count()` is a popcount. Iteration visits set bits directly rather than
-scanning buckets. And because `StaticBitSet` picks its representation from
+scanning buckets. And because `bit_set.Static` picks its representation from
 the size (a single integer up to pointer width, an array of words beyond
-it), `std.StaticBitSet(365)` for days of a year works identically, just
+it), `std.bit_set.Static(365)` for days of a year works identically, just
 across several words.
 
 The trade is that members must be small integers you can enumerate at
@@ -59,7 +59,7 @@ compile time. The moment keys are strings or unbounded, you are back to
 
 ## Variations
 
-- **Runtime-sized universes:** `std.DynamicBitSet` takes an allocator and a
+- **Runtime-sized universes:** `std.bit_set.DynamicManaged` takes an allocator and a
   length chosen at runtime.
 - **Difference and complement:** `differenceWith` answers "free for ana but
   not raj"; `complement()` flips the whole set.

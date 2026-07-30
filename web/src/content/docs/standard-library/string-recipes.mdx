@@ -1,0 +1,97 @@
+---
+title: String Recipes
+description: Padding, runtime concatenation, and the std.mem and std.ascii calls the Strings chapter left out.
+section: Standard Library
+order: 35
+---
+
+import Playground from "../../../components/Playground.astro";
+
+<Playground name="03-standard-library.string-recipes" />
+
+## Padding is a spec, not a function
+
+There is no `lpad`, no `rjust`, no `String.padStart`. You pad by giving `{s}` a
+width, and the grammar is the one [Formatting](/learn/standard-library/formatting/)
+sets out: `{[fill][align][width]}`. What changes for a string is the default and
+what the width is counted in.
+
+Right is the default for every type, so `{s:8}` puts the spaces *before* the
+text. That surprises people arriving from languages where strings left-align and
+numbers right-align. Say which one you want:
+
+```zig
+"{s:8}"     // "     zig"
+"{s:<8}"    // "zig     "
+"{s:^8}"    // "  zig   "
+"{s:.>8}"   // ".....zig"
+```
+
+Width is a minimum. A value wider than the field is printed whole and pushes the
+column out; formatting never truncates for you.
+
+## The width can be a value
+
+`[1]` reads the width from an argument instead of the format string, which is
+what you need when the column is as wide as the longest row, or as wide as the
+terminal:
+
+```zig
+try std.mem.print(&buf, "{s:.>[1]}", .{ "zig", width });
+```
+
+## Padding counts bytes
+
+`Writer.alignBuffer` computes `width - buffer.len`, and `len` is a byte count.
+Nothing decodes the value first, and the standard library says so in its own
+docs: alignment "is not Unicode-aware; appropriate only when used with raw bytes
+or ASCII."
+
+So `{s:>8}` on `"héllo"` emits eight bytes and seven columns, while the same
+spec on `"world"` emits eight of both. A table of names lines up until one of
+them has an accent in it. Counting what a reader would call a character is a
+separate problem, and [Unicode Recipes](/learn/standard-library/unicode-recipes/)
+is where it lives.
+
+## Joining at runtime
+
+`++` is a compile-time operator. When the pieces are only known while the
+program runs, `std.mem.concat` is the equivalent and it takes an allocator.
+`joinZ` puts a separator between the parts and a null terminator on the end, for
+handing the result to a C API.
+
+When you would rather size the buffer yourself, `std.fmt.count` runs the
+formatter against a writer that discards and returns the exact length. That
+turns "allocate and hope" into one allocation of the right size.
+
+## Replacing without an allocator
+
+`std.mem.replaceOwned` is the convenient form and it allocates. The pair
+underneath it does not: `replacementSize` tells you how big the result will be,
+and `replace` fills memory you already have. `replace` also returns how many
+substitutions it made, which the owned version throws away.
+
+## Ignoring case, carefully
+
+`std.ascii` has the whole family: `startsWithIgnoreCase`, `endsWithIgnoreCase`,
+`findIgnoreCase`, and `orderIgnoreCase` for sorting without allocating a
+lowercased copy first.
+
+`findIgnoreCase` is worth naming, because it is not a rename. There used to be
+an `indexOfIgnoreCase` and it was removed outright, so code written against the
+old name fails to compile rather than quietly working. That is the opposite of
+what happened to the `std.mem` search family, where the old names survive as
+aliases.
+
+All of it stops at byte 127, on purpose.
+
+## When you want a String type
+
+`std.mem` and `std.ascii` give you bytes and a set of functions over them, and
+nothing that behaves like a string class. If that shape is what you are after,
+[zig-string](https://github.com/JakubSzark/zig-string) is a UTF-8 aware `String`
+with the methods you would expect, MIT licensed and still maintained.
+
+It is a dependency rather than part of std, which matters here specifically:
+every snippet on this site is compiled and run against Zig master nightly, and
+an external library tracks the compiler on its own schedule.

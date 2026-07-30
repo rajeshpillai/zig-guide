@@ -21,6 +21,9 @@ ranges. `array[2..]` slices to the end.
 Because a slice borrows, its lifetime is tied to whatever it points at. A slice
 of a local array must not outlive that array; Zig will not catch this for you.
 
+Reversing, rotating, shifting and removing an element are in
+[Slice Recipes](/learn/language-basics/slice-recipes/).
+
 ## `[]const T` vs `[]T`
 
 Take `[]const T` in function parameters unless you intend to mutate. It

@@ -89,7 +89,7 @@ pub fn main(init: std.process.Init) !void {
         try out.print("lanes:  none, scalar fallback\n", .{});
 
     // Scan the "msg" string: where does its content stop being plain bytes?
-    const value_start = std.mem.indexOf(u8, doc, "\"msg\": \"").? + "\"msg\": \"".len;
+    const value_start = std.mem.find(u8, doc, "\"msg\": \"").? + "\"msg\": \"".len;
     const scalar_hit = findSpecialScalar(doc, value_start);
     const simd_hit = findSpecialSimd(doc, value_start);
     try out.print("scalar: {?d}\n", .{scalar_hit});

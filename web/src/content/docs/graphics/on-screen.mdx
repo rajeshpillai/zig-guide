@@ -100,7 +100,7 @@ does.
 
 **The shell protocol is not in the library.** `xdg-shell` ships as XML that
 `wayland-scanner` turns into a header plus glue at build time. That is a normal
-`addSystemCommand` step with `addOutputFileArg`, so the generated files can live
+`addSystemCommand` step with `addOutputFileArg2`, so the generated files can live
 in the Zig cache with nothing checked in.
 
 **There are no window decorations.** A compositor *may* offer to draw them via

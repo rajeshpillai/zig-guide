@@ -58,7 +58,7 @@ pub fn main(init: std.process.Init) !void {
     defer body.deinit();
 
     const ok = try client.fetch(.{
-        .location = .{ .url = try std.fmt.bufPrint(
+        .location = .{ .url = try std.mem.print(
             &url_buf,
             "http://127.0.0.1:{d}/hello",
             .{port},
@@ -70,7 +70,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Second request reuses the pooled keep-alive connection.
     const missing = try client.fetch(.{
-        .location = .{ .url = try std.fmt.bufPrint(
+        .location = .{ .url = try std.mem.print(
             &url_buf,
             "http://127.0.0.1:{d}/nope",
             .{port},

@@ -22,7 +22,7 @@ pick:
 | --- | --- | --- |
 | `ArenaAllocator` | `deinit()`, all at once | Request handlers, compilers, anything phase-shaped |
 | `FixedBufferAllocator` | never (bump pointer) | Embedded, hot loops, no-heap contexts |
-| `DebugAllocator` | per-`free`, with leak detection | Development builds |
+| `SafeAllocator` | per-`free`, with leak detection | Development builds |
 | `std.testing.allocator` | per-`free`, fails the test on leak | Tests |
 
 The arena is the one to reach for more often than you would think. If your
@@ -60,17 +60,34 @@ how you keep a string whose original is about to disappear, the fix for the
 dangling-key problem the Hash Maps chapter warns about. `realloc` may return a
 new pointer, so always reassign: `slice = try allocator.realloc(slice, n)`.
 
-## DebugAllocator was GeneralPurposeAllocator
+## `SafeAllocator` was `DebugAllocator` was `GeneralPurposeAllocator`
 
-If you arrived from an older tutorial looking for
-`std.heap.GeneralPurposeAllocator`, it is now `std.heap.DebugAllocator`. The
-rename states its job: a development allocator that tracks every allocation so
-`deinit()` can return `.leak` when something was not freed. In a release build
-you would swap it for `std.heap.smp_allocator` or the arena. Initialize it with
-`.init` and read the leak result on the way out:
+The leak-checking allocator has been renamed twice. If you arrived from an older
+tutorial looking for `std.heap.GeneralPurposeAllocator`, it became
+`std.heap.DebugAllocator`, and on current master it is `std.heap.SafeAllocator`.
+Both older names still resolve.
+
+The second rename changed the shape, not just the spelling:
 
 ```zig
+// DebugAllocator: comptime config, backing allocator implied,
+// deinit() returns .ok or .leak
 var debug: std.heap.DebugAllocator(.{}) = .init;
 defer std.debug.assert(debug.deinit() == .ok);
 const allocator = debug.allocator();
 ```
+
+```zig
+// SafeAllocator: a plain struct, backing allocator passed in,
+// deinit() returns how many allocations leaked
+var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
+defer std.debug.assert(safe.deinit() == 0);
+const allocator = safe.allocator();
+```
+
+The word "safe" rather than "debug" is the claim being made. It panics on a
+double free, on a free through the wrong allocator, and on most writes after
+free, which is worth having outside a development build. You pay for it in code
+size: swapping the five data-structure programs on this site over added about
+14 KB to each `.wasm`. When you do not want the bookkeeping, use
+`std.heap.smp_allocator` or an arena.

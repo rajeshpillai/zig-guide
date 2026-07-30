@@ -68,13 +68,14 @@ test "resize in place, or realloc to move" {
     try expect(slice.len == 8);
 }
 
-test "DebugAllocator catches leaks in a real program" {
+test "SafeAllocator catches leaks in a real program" {
     // In a program you own the allocator; this is what std.testing.allocator
-    // wraps for you. Formerly GeneralPurposeAllocator; renamed to say what it
-    // is for. `deinit` returns .leak if anything was not freed.
-    var debug: std.heap.DebugAllocator(.{}) = .init;
-    defer std.debug.assert(debug.deinit() == .ok);
-    const allocator = debug.allocator();
+    // wraps for you. It has been renamed twice: GeneralPurposeAllocator, then
+    // DebugAllocator, now SafeAllocator. It takes the allocator it draws pages
+    // from, and `deinit` returns how many allocations were never freed.
+    var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
+    defer std.debug.assert(safe.deinit() == 0);
+    const allocator = safe.allocator();
 
     const data = try allocator.alloc(u8, 16);
     allocator.free(data); // omit this and deinit reports .leak

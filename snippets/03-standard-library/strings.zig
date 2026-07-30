@@ -13,10 +13,10 @@ test "compare content, not pointers" {
 }
 
 test "search" {
-    // indexOf returns the byte offset of the first match, or null.
-    try expect(std.mem.indexOf(u8, "hello world", "world").? == 6);
-    try expect(std.mem.indexOf(u8, "hello world", "moon") == null);
-    try expect(std.mem.lastIndexOfScalar(u8, "a.b.c", '.').? == 3);
+    // find returns the byte offset of the first match, or null.
+    try expect(std.mem.find(u8, "hello world", "world").? == 6);
+    try expect(std.mem.find(u8, "hello world", "moon") == null);
+    try expect(std.mem.findScalarLast(u8, "a.b.c", '.').? == 3);
     try expect(std.mem.count(u8, "banana", "an") == 2);
 }
 

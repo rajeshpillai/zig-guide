@@ -56,5 +56,6 @@ character by CI, so determinism is not optional here.
   scale; `std.sort.heap` a bounded heap, or `std.mem.sort` a partial
   selection, once profiling says so.
 - **Unicode:** `std.ascii.lowerString` is ASCII-only by design. Real
-  case-folding needs a Unicode library; the standard library deliberately
+  case-folding needs a Unicode library, and
+  [Unicode Recipes](/learn/standard-library/unicode-recipes/) names one; the standard library deliberately
   does not guess.

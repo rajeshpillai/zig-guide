@@ -11,11 +11,12 @@ import Playground from "../../../components/Playground.astro";
 
 ## A set that fits in registers
 
-`std.StaticBitSet(N)` stores membership for integers `0..N` as bits, inline,
-no allocator. Under the hood it is a single integer when `N` is small enough
-and an array of words otherwise, but the API is the same either way: `set`,
-`unset`, `isSet`, `count`. When the size is only known at run time, reach for
-`std.DynamicBitSet`, which does take an allocator.
+`std.bit_set.Static(N)` (`std.StaticBitSet` in older code) stores membership for
+integers `0..N` as bits, inline, no allocator. Under the hood it is a single
+integer when `N` is small enough and an array of words otherwise, but the API is
+the same either way: `set`, `unset`, `isSet`, `count`. When the size is only
+known at run time, reach for `std.bit_set.DynamicManaged`, which does take an
+allocator.
 
 Union and intersection are single instructions on the backing words, so
 `unionWith` and `intersectWith` are cheap. `findFirstSet` and the ascending

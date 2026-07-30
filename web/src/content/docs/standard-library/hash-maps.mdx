@@ -15,7 +15,7 @@ import Playground from "../../../components/Playground.astro";
 | --- | --- |
 | `AutoHashMapUnmanaged(K, V)` | keys with derivable hashing (integers, enums, simple structs) |
 | `StringHashMapUnmanaged(V)` | `[]const u8` keys |
-| `ArrayHashMapUnmanaged(K, V)` | when you need stable insertion order |
+| `std.array_hash_map.Auto(K, V)` | when you need stable insertion order |
 
 Like `ArrayList`, these are unmanaged: `.empty` to create, allocator passed to
 each method that allocates.

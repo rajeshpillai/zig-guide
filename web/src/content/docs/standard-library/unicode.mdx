@@ -30,7 +30,11 @@ For input you do not control (network data, file contents), run
 ## Slicing can cut a character in half
 
 `s[0..2]` on `"héllo"` produces one valid byte followed by half of `é`. Byte
-indices from `indexOf` are always safe cut points when the needle itself is
-valid UTF-8, but arbitrary arithmetic on indices is not. If you truncate
-strings for display, iterate codepoint slices and stop at the last full
-character.
+indices from `std.mem.find` (`indexOf` in older code) are always safe cut points
+when the needle itself is valid UTF-8, but arbitrary arithmetic on indices is
+not. If you truncate strings for display, iterate codepoint slices and stop at
+the last full character.
+
+[Unicode Recipes](/learn/standard-library/unicode-recipes/) writes that function
+out, and covers finding the character that contains a given byte, which std has
+no helper for.

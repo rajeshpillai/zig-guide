@@ -118,9 +118,9 @@ pub fn main(init: std.process.Init) !void {
     // A leak-checking allocator, because a container that hands out memory is
     // exactly where a leak comes from. `deinit` reports `.leak` if anything
     // this program allocated was not freed.
-    var debug: std.heap.DebugAllocator(.{}) = .init;
-    defer std.debug.assert(debug.deinit() == .ok);
-    const allocator = debug.allocator();
+    var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
+    defer std.debug.assert(safe.deinit() == 0);
+    const allocator = safe.allocator();
 
     var list = List.init(allocator);
     defer list.deinit();

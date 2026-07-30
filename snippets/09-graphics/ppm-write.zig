@@ -28,7 +28,7 @@ fn drawScene() void {
 /// them, at which point the header and the data disagree and the image tears
 /// diagonally, with no error reported anywhere.
 fn encodeP6(out: []u8) ![]const u8 {
-    const header = try std.fmt.bufPrint(out, "P6\n{d} {d}\n255\n", .{
+    const header = try std.mem.print(out, "P6\n{d} {d}\n255\n", .{
         canvas.width, canvas.height,
     });
 

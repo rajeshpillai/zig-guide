@@ -69,5 +69,5 @@ test "serialise" {
         .{},
         &out.writer,
     );
-    try expect(std.mem.indexOf(u8, out.written(), "\"port\":99") != null);
+    try expect(std.mem.find(u8, out.written(), "\"port\":99") != null);
 }

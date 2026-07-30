@@ -67,7 +67,7 @@ pub fn main(init: std.process.Init) !void {
     defer file.close(io);
 
     var header_buf: [32]u8 = undefined;
-    const header = try std.fmt.bufPrint(&header_buf, "P6\n{d} {d}\n255\n", .{ width, height });
+    const header = try std.mem.print(&header_buf, "P6\n{d} {d}\n255\n", .{ width, height });
 
     try file.writeStreamingAll(io, header);
     try file.writeStreamingAll(io, &pixels);

@@ -1,0 +1,69 @@
+---
+title: Array Recipes
+description: Grids, comptime lookup tables, and getting an array back out of a slice.
+section: Language
+order: 41
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Three things people reach for once arrays stop being toy examples: a grid, a
+table computed at compile time, and a fixed-size array taken back out of a
+slice. All three are language mechanics. None of them needs an allocator.
+
+<Playground name="02-language.array-recipes" />
+
+## A grid is an array of arrays
+
+`[3][3]u8` is nine bytes in one contiguous block. Both lengths are part of the
+type, `grid.len` is the row count and `grid[0].len` is the column count, and
+`@sizeOf` proves there is no pointer hiding anywhere. Index rows first, then
+columns.
+
+This is not the same type as `[][]u8`, a slice of slices, which is a list of
+pointers to rows that may live anywhere. The nested array is one allocation-free
+block; the slice of slices is however many the code that built it made.
+
+## The outer loop hands you a copy
+
+Arrays are values, which the [Arrays](/learn/language-basics/arrays/) chapter
+states. In a nested loop it stops being an abstract rule: `for (grid) |row|`
+copies each row, so writing through `row` changes nothing at all and the
+compiler has no reason to complain.
+
+`for (&grid) |*row|` iterates pointers, and then `for (row) |*cell|` reaches the
+elements. Both levels have to be pointers before a write lands.
+
+## Or one flat array
+
+`[width * height]T` with `y * width + x` is the other shape. The type stops
+carrying the geometry, so the stride becomes yours to keep right, and in exchange
+the dimensions no longer have to be two separate compile-time constants.
+
+Pick the nested array when the shape is fixed and small. Pick the flat one when
+the width is computed, when you want to hand the whole thing to something that
+takes a `[]T`, or when the rows are large enough that copying one by accident
+would matter.
+
+## Tables built at compile time
+
+Declare `undefined` storage, fill it in a loop, and `break :blk` the finished
+array out of the block. Run that inside `comptime` and the result is a constant
+baked into the binary, with no initialization code at startup.
+
+The claim is checkable: use one of the table's entries as an array length. Array
+lengths must be known at compile time, so if it compiles, the value came out of
+comptime. That is a proof rather than a promise.
+
+## From slice back to array
+
+`slice[0..N].*` copies out a real `[N]T`, where `N` has to be known at compile
+time. The length moves back into the type, which is what a function expecting
+`*const [4]u8` wants.
+
+It is a copy. Writing to the result leaves the original slice untouched.
+
+Concatenating at runtime is a `std.mem.concat` away and lives in
+[String Recipes](/learn/standard-library/string-recipes/); the operations that
+work on slices in place are in
+[Slice Recipes](/learn/language-basics/slice-recipes/).

@@ -70,7 +70,7 @@ get that wrong, so leave them out if the file has to travel.
 ## Format the header from the constants
 
 ```zig
-const header = try std.fmt.bufPrint(out, "P6\n{d} {d}\n255\n", .{ width, height });
+const header = try std.mem.print(out, "P6\n{d} {d}\n255\n", .{ width, height });
 ```
 
 The header comes from the same `width` and `height` that size the buffer.

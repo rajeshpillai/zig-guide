@@ -6,7 +6,7 @@ const expect = std.testing.expect;
 
 test "static bit set" {
     // 64 bits, stored inline. No allocator anywhere.
-    var seen: std.StaticBitSet(64) = .empty;
+    var seen: std.bit_set.Static(64) = .empty;
 
     seen.set(3);
     seen.set(40);
@@ -22,8 +22,8 @@ test "static bit set" {
 }
 
 test "set algebra" {
-    var a: std.StaticBitSet(16) = .empty;
-    var b: std.StaticBitSet(16) = .empty;
+    var a: std.bit_set.Static(16) = .empty;
+    var b: std.bit_set.Static(16) = .empty;
     a.set(1);
     a.set(2);
     b.set(2);
@@ -37,7 +37,7 @@ test "set algebra" {
 }
 
 test "ranges" {
-    var mask: std.StaticBitSet(32) = .empty;
+    var mask: std.bit_set.Static(32) = .empty;
     mask.setRangeValue(.{ .start = 8, .end = 16 }, true);
     try expect(mask.count() == 8);
     try expect(mask.findFirstSet().? == 8);

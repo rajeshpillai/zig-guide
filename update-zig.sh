@@ -99,6 +99,10 @@ rm -rf .zig-cache
 step "Verifying every snippet against ${NEW}"
 if zig build verify; then
   printf '\n%sAll snippets compile and run on Zig %s.%s\n' "$GREEN" "$NEW" "$RESET"
+  # Silence is not the same as proof. This is the one script whose job is to
+  # report what the new compiler changed, and a rename that still compiles is
+  # the finding it exists to surface.
+  info "no snippet or chapter names a std symbol ${NEW} marks deprecated"
   info "publish with ./gh-deploy.sh, or just let the nightly CI do it"
   exit 0
 fi
@@ -113,6 +117,11 @@ cat <<'EOS'
          one was — that note is the most valuable part for a reader arriving
          from a stale tutorial.
       3. Re-run ./update-zig.sh (or `zig build verify`) until it is silent.
+
+    A "deprecated" error is not a compile failure. The old name still works and
+    nothing else on this site would ever have told you, which is why those are
+    worth a paragraph of prose rather than just a swap. Run
+    `zig build deprecations` on its own to see only those.
 
     Nothing is published while this fails, so the live site keeps serving the
     last verified version.

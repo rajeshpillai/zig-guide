@@ -3,7 +3,7 @@
 
 const std = @import("std");
 
-const Hours = std.StaticBitSet(24);
+const Hours = std.bit_set.Static(24);
 
 fn setHours(set: *Hours, hours: []const u5) void {
     for (hours) |h| set.set(h);

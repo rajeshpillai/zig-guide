@@ -17,6 +17,29 @@ Content comparison is `std.mem.eql(u8, a, b)`. Everything else you would
 expect from a string class is a free function in `std.mem` that works on any
 slice type, which is why each call names the element type first.
 
+## `indexOf` is now `find`
+
+The search functions were renamed during the 0.17 development series:
+
+```zig
+// older tutorials
+std.mem.indexOf(u8, haystack, needle);
+std.mem.lastIndexOfScalar(u8, path, '.');
+
+// current master
+std.mem.find(u8, haystack, needle);
+std.mem.findScalarLast(u8, path, '.');
+```
+
+The whole family moved the same way: `indexOfScalar` to `findScalar`,
+`indexOfAny` to `findAny`, `indexOfPos` to `findPos`, `lastIndexOf` to
+`findLast`, `indexOfNone` to `findNone`.
+
+The old names are still there, as one-line aliases marked `Deprecated` in
+`std/mem.zig`. Code written against them compiles and behaves identically, which
+is exactly why this is worth a section: nothing fails, so a guide can teach the
+old spelling for another year and never find out.
+
 ## split or tokenize
 
 The two look interchangeable until the input has consecutive delimiters:
@@ -43,3 +66,7 @@ take an allocator and you own the result.
 `std.ascii` stops at byte 127. Case mapping beyond that needs Unicode tables
 the standard library does not ship; see the Unicode chapter for what it does
 give you.
+
+Case-insensitive search, padding a column, joining at runtime and replacing
+without an allocator are in
+[String Recipes](/learn/standard-library/string-recipes/).

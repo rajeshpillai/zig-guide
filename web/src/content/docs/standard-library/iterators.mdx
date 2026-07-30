@@ -34,11 +34,14 @@ The split/tokenize distinction is the one to remember: parsing CSV wants
 `split` (an empty field is meaningful); splitting on whitespace wants
 `tokenize` (runs of spaces should not produce empty tokens).
 
-## Windows and chunks
+## Windows
 
-`std.mem.window(T, s, size, advance)` yields overlapping views;
-`std.mem.chunk` yields non-overlapping ones. Both are useful for n-gram and
-block processing without copying.
+`std.mem.window(T, s, size, advance)` yields views into the original bytes with
+no copying, which is what n-gram and block processing want. Overlap is up to
+you: `advance` smaller than `size` overlaps, `advance` equal to `size` does not.
+
+There is no `std.mem.chunk` on master. Non-overlapping blocks are
+`window(T, s, n, n)`.
 
 ## No lazy adapter chains
 

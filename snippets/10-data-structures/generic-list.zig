@@ -81,9 +81,9 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    var debug: std.heap.DebugAllocator(.{}) = .init;
-    defer std.debug.assert(debug.deinit() == .ok);
-    const allocator = debug.allocator();
+    var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
+    defer std.debug.assert(safe.deinit() == 0);
+    const allocator = safe.allocator();
 
     var numbers = List(i32).init(allocator);
     defer numbers.deinit();

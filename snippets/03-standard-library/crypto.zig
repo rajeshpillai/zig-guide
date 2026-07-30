@@ -10,7 +10,7 @@ test "sha256" {
 
     // The well-known SHA-256 of "abc".
     var hex: [64]u8 = undefined;
-    const text = try std.fmt.bufPrint(&hex, "{x}", .{digest});
+    const text = try std.mem.print(&hex, "{x}", .{digest});
     try expect(std.mem.startsWith(u8, text, "ba7816bf"));
 }
 

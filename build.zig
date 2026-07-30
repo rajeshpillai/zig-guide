@@ -11,6 +11,7 @@
 const std = @import("std");
 
 const snippets_root = "snippets";
+const docs_root = "web/src/content/docs";
 const wasm_out_dir = "../web/public/wasm";
 
 pub fn build(b: *std.Build) void {
@@ -20,7 +21,7 @@ pub fn build(b: *std.Build) void {
     // (1.4 MB vs ~46 KB). Master lowercased these enum tags; the `-Doptimize=`
     // CLI still accepts the old ReleaseSmall/Debug spellings.
     const optimize = b.option(
-        std.builtin.OptimizeMode,
+        std.lang.Optimize,
         "optimize",
         "Optimization mode for snippets (default: small)",
     ) orelse .small;
@@ -48,11 +49,42 @@ pub fn build(b: *std.Build) void {
 
     const verify_step = b.step("verify", "Compile and run every snippet (CI gate)");
     const manifest_step = b.step("manifest", "Emit snippets.json for the web build");
+    const deprecations_step = b.step(
+        "deprecations",
+        "Fail on any std symbol the installed compiler marks deprecated",
+    );
 
     var snippets: std.ArrayList(Snippet) = .empty;
     collect(b, snippets_root, &snippets) catch |err| {
         std.debug.panic("failed to scan {s}: {t}", .{ snippets_root, err });
     };
+
+    // A rename that leaves the old name behind as a working alias is invisible
+    // to every other gate here: the snippet compiles, the test passes, the
+    // nightly stays green, and the guide teaches a name upstream has moved on
+    // from. This step reads the deprecation list out of the std source that
+    // shipped with the compiler in use, so there is nothing to maintain.
+    {
+        const check = b.addSystemCommand(&.{ "node", "tools/check-deprecations.mjs" });
+        check.addArg(b.graph.zig_exe);
+        // The std source is an input the build cache cannot see. Naming the
+        // compiler version on the command line is what re-runs this after a
+        // toolchain bump, which is exactly when a rename shows up.
+        check.addArg(b.fmt("{f}", .{@import("builtin").zig_version}));
+        // Every scanned file as a tracked file argument, for the same reason
+        // the `.expected` files are: editing one has to invalidate the run.
+        for (snippets.items) |snippet| check.addFileArg(b.path(snippet.path));
+        var docs: std.ArrayList([]const u8) = .empty;
+        collectDocs(b, docs_root, &docs) catch |err| {
+            std.debug.panic("failed to scan {s}: {t}", .{ docs_root, err });
+        };
+        for (docs.items) |doc| check.addFileArg(b.path(doc));
+        check.addFileArg(b.path("build.zig"));
+        check.expectExitCode(0);
+
+        deprecations_step.dependOn(&check.step);
+        verify_step.dependOn(&check.step);
+    }
 
     for (snippets.items) |snippet| {
         const module = b.createModule(.{
@@ -105,7 +137,7 @@ pub fn build(b: *std.Build) void {
             // than silently ignored. Nothing to ship to the browser, so the
             // site renders this snippet without a Run button.
             const run = b.addSystemCommand(&.{ "node", "tools/run-native.mjs" });
-            run.addArtifactArg(compile);
+            run.addArtifactArg2(compile, .{});
             run.expectExitCode(0);
 
             // Tracked as a file argument for the same reason as below:
@@ -162,7 +194,7 @@ pub fn build(b: *std.Build) void {
             }),
         });
         const run = b.addSystemCommand(&.{ "node", "tools/run-native.mjs" });
-        run.addArtifactArg(example);
+        run.addArtifactArg2(example, .{});
         run.expectExitCode(0);
         verify_step.dependOn(&run.step);
     }
@@ -261,7 +293,7 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
         const source = try build_root.readFileAlloc(io, rel, b.allocator, .limited(1 << 20));
 
         const stem = entry.basename[0 .. entry.basename.len - ".zig".len];
-        const chapter = std.fs.path.dirname(entry.path) orelse ".";
+        const chapter = std.Io.Dir.path.dirname(entry.path) orelse ".";
 
         // A sibling `.expected` file, if the author supplied one.
         const expected_rel = b.fmt("{s}/{s}.expected", .{ root, replaceExt(b, entry.path) });
@@ -269,18 +301,18 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
 
         const link_libs = parseDirectiveList(b, source, "//! link:");
         const c_includes = parseDirectiveList(b, source, "//! cinclude:");
-        const norun = std.mem.indexOf(u8, source, "//! norun") != null;
-        const simd = std.mem.indexOf(u8, source, "//! simd") != null;
+        const norun = std.mem.find(u8, source, "//! norun") != null;
+        const simd = std.mem.find(u8, source, "//! simd") != null;
         // A C-linked snippet is inherently a host build; treat it as native
         // even without an explicit `//! native` line.
-        const native = std.mem.indexOf(u8, source, "//! native") != null or
+        const native = std.mem.find(u8, source, "//! native") != null or
             link_libs.len > 0 or c_includes.len > 0;
 
         try out.append(b.allocator, .{
             .name = b.fmt("{s}.{s}", .{ chapter, stem }),
             .path = rel,
             .chapter = b.dupe(chapter),
-            .kind = if (std.mem.indexOf(u8, source, "pub fn main") != null) .exe else .@"test",
+            .kind = if (std.mem.find(u8, source, "pub fn main") != null) .exe else .@"test",
             .expected = expected,
             // `//! norun` and native builds are both unshippable to the browser.
             .runnable = !norun and !native,
@@ -296,6 +328,36 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
     std.mem.sort(Snippet, out.items, {}, struct {
         fn lessThan(_: void, a: Snippet, c: Snippet) bool {
             return std.mem.order(u8, a.name, c.name) == .lt;
+        }
+    }.lessThan);
+}
+
+/// Walk `root` for chapter pages, so the deprecation check can hold prose to
+/// the same standard as code. A chapter that names an old symbol without
+/// naming the current one is stale in exactly the way a snippet would be.
+fn collectDocs(b: *std.Build, root: []const u8, out: *std.ArrayList([]const u8)) !void {
+    const io = b.graph.io;
+    const build_root = b.root.root_dir.handle;
+
+    // Same reason as `collect`: a directory listing is a side effect the
+    // configuration cache cannot track, so a new chapter would go unscanned.
+    b.graph.poisonCache();
+
+    var dir = try build_root.openDir(io, root, .{ .iterate = true });
+    defer dir.close(io);
+
+    var walker = try dir.walk(b.allocator);
+    defer walker.deinit();
+
+    while (try walker.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.basename, ".mdx")) continue;
+        try out.append(b.allocator, b.pathJoin(&.{ root, entry.path }));
+    }
+
+    std.mem.sort([]const u8, out.items, {}, struct {
+        fn lessThan(_: void, a: []const u8, c: []const u8) bool {
+            return std.mem.order(u8, a, c) == .lt;
         }
     }.lessThan);
 }

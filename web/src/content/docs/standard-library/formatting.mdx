@@ -13,11 +13,11 @@ import Playground from "../../../components/Playground.astro";
 
 | Function | Writes to |
 | --- | --- |
-| `bufPrint` | a buffer you supply (no allocation) |
-| `allocPrint` | fresh memory (caller frees) |
+| `std.mem.print` | a buffer you supply (no allocation) |
+| `allocator.print` | fresh memory (caller frees) |
 | `writer.print` | any writer |
 
-`bufPrint` returns a slice of the part it filled, and fails with
+`std.mem.print` returns a slice of the part it filled, and fails with
 `error.NoSpaceLeft` rather than truncating.
 
 ## Specifiers
@@ -43,7 +43,37 @@ The form is `{[fill][align][width]}`, with `<` `^` `>` for alignment:
 "{d:.2}"    // "3.14"
 ```
 
+Right is the default for every type, strings included, which catches people out:
+`{s:8}` puts the padding before the text, not after. Lining up a column of
+strings has three more rules to it, and they are in
+[String Recipes](/learn/standard-library/string-recipes/).
+
 Escape a literal brace by doubling it: `{{` and `}}`.
+
+## `bufPrint` and `allocPrint` moved
+
+If you have written any Zig before, you know the first two rows of that table as
+`std.fmt.bufPrint` and `std.fmt.allocPrint`:
+
+```zig
+// older tutorials
+const text = try std.fmt.bufPrint(&buf, "{d}", .{42});
+const owned = try std.fmt.allocPrint(gpa, "{d}", .{42});
+
+// current master
+const text = try std.mem.print(&buf, "{d}", .{42});
+const owned = try gpa.print("{d}", .{42});
+```
+
+Both old names still resolve, and the error sets are the same ones:
+`std.fmt.BufPrintError` is now defined as `std.mem.PrintError`.
+
+The buffer version moved to `std.mem` because filling a slice is a slice
+operation. The allocating version became `Allocator.print`, a method sitting
+next to `alloc` and `dupe`. Neither new name says "print into a buffer" the way
+`bufPrint` did, and `gpa.print` does not look like it allocates, so read the
+receiver rather than the verb: `std.mem` means you supplied the memory, an
+allocator means you own the result and have to free it.
 
 ## Checked at compile time
 

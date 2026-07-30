@@ -30,6 +30,6 @@ test "this is how format arguments work" {
     // `.{ a, b }` in a print call is just a tuple; the format string is
     // checked against it at compile time.
     var buf: [32]u8 = undefined;
-    const text = try std.fmt.bufPrint(&buf, "{s}={d}", .{ "x", 42 });
+    const text = try std.mem.print(&buf, "{s}={d}", .{ "x", 42 });
     try expect(std.mem.eql(u8, text, "x=42"));
 }
