@@ -352,6 +352,10 @@ const THEME_PAGES = [
   `${PREFIX}/`,
   `${PREFIX}/learn/language-basics/optionals/`,
   `${PREFIX}/learn/networking/`,
+  // Carries a compile-only playground, so it is the only one of these that
+  // measures `.pg-note` and `.pg-try`. Both sit on small muted text, which is
+  // exactly where a palette edit stops being legible first.
+  `${PREFIX}/learn/os/signals/`,
 ];
 
 let contrastChecks = 0;

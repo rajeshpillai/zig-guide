@@ -64,6 +64,7 @@ detail that lets a producer decide as it goes.
 <Playground
   name="03-standard-library.queue-worker"
   note="Built and run natively by CI. The producer has to make progress while the consumer waits, which is io.concurrent, and single-threaded wasm has none to give."
+  tryLocally="zig run queue-worker.zig"
 />
 
 With a capacity of two and five elements to send, the producer blocks partway

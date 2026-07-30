@@ -10,6 +10,7 @@ import Playground from "../../../components/Playground.astro";
 <Playground
   name="03-standard-library.threads"
   note="Built and run natively by CI. wasm32-wasi is single-threaded, so std.Thread.spawn does not compile for it at all."
+  tryLocally="zig run threads.zig"
 />
 
 ## Spawn and join

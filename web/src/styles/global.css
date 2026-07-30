@@ -1223,6 +1223,27 @@ zig-playground pre:not(.pg-output) {
   color: var(--muted);
 }
 
+/* The counterpart to `.pg-note`: that says why the sandbox cannot run this
+   snippet, this says what to type instead. Same tokens as the note, so the
+   pair reads as one band rather than two competing greys. */
+.pg-try {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.5rem var(--gutter);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.pg-try code {
+  font-size: 0.75rem;
+  color: var(--text);
+}
+
 .pg-toolbar {
   display: flex;
   align-items: center;

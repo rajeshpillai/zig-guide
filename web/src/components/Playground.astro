@@ -25,9 +25,16 @@ interface Props {
   name: string;
   /** Why a `//! norun` snippet can't execute here. Ignored for runnable ones. */
   note?: string;
+  /**
+   * Shell command that runs this snippet on the reader's own machine, for the
+   * ones the browser sandbox cannot execute. Omit it when no single command
+   * works: the three C-linking snippets `@import("c")`, which only exists
+   * because build.zig translates the header, so `zig run` alone would fail.
+   */
+  tryLocally?: string;
 }
 
-const { name, note } = Astro.props;
+const { name, note, tryLocally } = Astro.props;
 
 // Manifest lookup and the `//!` header strip live in `src/snippets.ts`, which
 // the plain-markdown routes read too: both have to show a reader and an agent
@@ -53,6 +60,12 @@ const shown = await snippetSource(entry);
         </span>
       </div>
       <Code code={shown} lang="zig" themes={CODE_THEMES} defaultColor={false} />
+      {tryLocally && (
+        <p class="pg-try">
+          <span class="pg-try-label">Run it yourself:</span>
+          <code>{tryLocally}</code>
+        </p>
+      )}
     </div>
   )
 }

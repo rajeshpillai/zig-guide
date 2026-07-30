@@ -30,6 +30,7 @@ critical section. Atomics do the same job without a lock.
 <Playground
   name="06-cookbook.work-index"
   note="Built and run natively by CI. wasm32-wasi is single-threaded, so std.Thread.spawn does not compile for it at all."
+  tryLocally="zig run work-index.zig"
 />
 
 ## Why fetchAdd cannot double-serve a job
