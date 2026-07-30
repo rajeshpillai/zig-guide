@@ -317,9 +317,12 @@ const openSlug =
       </span>
       {/* Next to the version because it answers the question the version
           raises: this build is current, and here is what changed to make it
-          so. The dot is drawn by CSS and pulses a few times rather than
-          forever, so it reads as a notification and not as a banner. */}
-      <a class="topbar-link topbar-new" href={`${base}whats-new/`}>What's new</a>
+          so. The dot sends two rings outward a few times and then rests, so it
+          reads as a notification and not as a banner. All CSS: the span is the
+          dot, and its two pseudo-elements are the rings. */}
+      <a class="topbar-link topbar-new" href={`${base}whats-new/`}>
+        What's new<span class="ping" aria-hidden="true"></span>
+      </a>
       <a class="topbar-link" href={pageHref("getting-started/coming-from-older-zig")}>
         On an older Zig?
       </a>
