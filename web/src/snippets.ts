@@ -7,6 +7,7 @@
  * rather than being written twice and drifting by one edit.
  */
 import { readFile } from "node:fs/promises";
+import { statSync } from "node:fs";
 import { resolve } from "node:path";
 
 export interface SnippetEntry {
@@ -25,17 +26,46 @@ export interface SnippetEntry {
 // compiled.
 const webRoot = process.cwd();
 
-let manifest: Promise<SnippetEntry[]> | null = null;
+const manifestPath = resolve(webRoot, "public/wasm/snippets.json");
 
+let manifest: Promise<SnippetEntry[]> | null = null;
+let manifestStamp = -1;
+
+/**
+ * Cached, but keyed on the file's mtime rather than the process lifetime.
+ *
+ * `astro build` reads this once per page, so it has to be cached: 174 pages
+ * re-parsing the manifest is work for nothing. But `dev-start.sh` runs a
+ * watcher that reruns `zig build` while `astro dev` owns the foreground, so
+ * during a dev session the manifest is regenerated under a process that never
+ * restarts. Caching for the process lifetime meant a snippet added mid-session
+ * was invisible until you noticed and restarted the server, and the error it
+ * produced ("Unknown snippet", followed by every name except the new one)
+ * pointed at the page rather than at the staleness.
+ *
+ * One `stat` per lookup is cheap next to the `readFile` it replaces.
+ */
 export function snippetManifest(): Promise<SnippetEntry[]> {
-  manifest ??= readFile(resolve(webRoot, "public/wasm/snippets.json"), "utf8")
-    .then((text) => JSON.parse(text) as SnippetEntry[])
-    .catch(() => {
-      throw new Error(
-        "web/public/wasm/snippets.json is missing. Run `zig build` at the repo " +
-          "root before building the site.",
-      );
-    });
+  let stamp = manifestStamp;
+  try {
+    stamp = statSync(manifestPath).mtimeMs;
+  } catch {
+    // Missing or unreadable: fall through so the read below owns the error
+    // message, which names the command that produces the file.
+    stamp = -1;
+  }
+
+  if (manifest === null || stamp !== manifestStamp) {
+    manifestStamp = stamp;
+    manifest = readFile(manifestPath, "utf8")
+      .then((text) => JSON.parse(text) as SnippetEntry[])
+      .catch(() => {
+        throw new Error(
+          "web/public/wasm/snippets.json is missing. Run `zig build` at the repo " +
+            "root before building the site.",
+        );
+      });
+  }
   return manifest;
 }
 
