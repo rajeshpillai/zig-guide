@@ -7,22 +7,48 @@ order: 1
 
 import Playground from "../../../components/Playground.astro";
 
-Here is a complete Zig program. Press **Run**; it executes in your browser as
-WebAssembly.
-
-<Playground name="01-getting-started.hello-world" />
-
-## Why does `main` take a parameter?
-
-If you have seen Zig before, you probably expect `pub fn main() !void`. That
-still compiles:
+Here is the shortest Zig program that prints something. It is also close to
+what every older Zig tutorial opens with, and it still compiles on current
+master:
 
 <Playground
   name="01-getting-started.older-main"
-  note="The older shape. Compiled by CI against master every night to prove the claim above, but not executed here."
+  note="Compiled by CI against master every night, but not executed here. Save it as hello.zig and run it yourself with: zig run hello.zig"
 />
 
-On current Zig master there is also a form that takes an argument:
+Two independent things are worth pulling apart in those four lines: the call
+that prints, and the signature of `main`. Changing one does not force the
+other.
+
+A Run button on this site means the browser sandbox can execute that snippet.
+It says nothing about which shape to prefer.
+
+## When to reach for `std.debug.print`
+
+`std.debug.print` needs no setup and returns `void`, so there is nothing to
+thread through and nothing to handle. It is for lines you intend to delete:
+checking that a loop runs, dumping a struct while you build a feature. Reach
+for it freely while working.
+
+It is not for a program's output, and the reason shows up the first time you
+use a shell. stdout carries what another program would read if you piped this
+one; stderr carries what the person running it reads. The greeting above goes
+to **stderr**, so redirecting the program into a file leaves the file empty.
+Check it: `zig run hello.zig > out.txt` prints the greeting to your terminal
+and writes zero bytes to `out.txt`. The
+[standard streams](/learn/os/standard-streams/) chapter puts both side by side.
+
+There is a second reason. `std.debug.print` ends in `catch return`: if the
+write fails, the output is gone and the program never finds out. That is the
+right trade for a temporary line and the wrong one for anything you ship.
+
+So: `std.debug.print` while you are working, and a writer you were handed for
+what the program is actually for. The rest of this page is the second kind.
+
+## Why does `main` take a parameter?
+
+The program above uses `pub fn main() !void`. On current Zig master there is
+also a form that takes an argument:
 
 ```zig
 pub fn main(init: std.process.Init) !void
@@ -32,16 +58,22 @@ pub fn main(init: std.process.Init) !void
 Writing to a file, opening a socket, reading the clock: each of those takes an
 `Io` as an argument, so code cannot block or start a thread unless a caller
 handed it one. There is no global `stdout` to reach for. You are handed the
-capability to write, and the program above passes it straight through to
-`writeStreamingAll`.
+capability to write.
 
-Who does the handing is then the caller's choice, which is where the threaded
+Here is the same greeting on stdout, through the `Io` that `main` received.
+Press **Run**; it executes in your browser as WebAssembly.
+
+<Playground name="01-getting-started.hello-world" />
+
+Who hands `main` its `Io` is the caller's choice, which is where the threaded
 and event-loop implementations come in. That is
-[the `Io` interface](/learn/standard-library/io-interface/), a later chapter;
-here it is enough that `main` was given one.
+[the `Io` interface](/learn/standard-library/io-interface/), a later chapter.
 
-(If you already know Zig's `Allocator`, this is the same move applied to I/O:
-the caller supplies the mechanism, and nothing happens behind your back.)
+If you have met Zig's `Allocator`, this is the same move applied to I/O: the
+caller supplies the mechanism, and nothing happens behind your back. If you
+have not, do not worry about it here.
+[Allocators](/learn/standard-library/allocators/) come later, and nothing on
+this page depends on them.
 
 ## Buffering, and the `flush` you must not forget
 
@@ -57,11 +89,3 @@ memory, which means no hidden allocation.
 The tradeoff is that **nothing is written until you `flush`**. Delete the
 `try out.flush()` line above, press Run, and you will get no output at all. Try
 it: click **Edit**, remove the line, and Run again.
-
-<aside>
-
-**A note on `std.debug.print`**: it writes to stderr, is unbuffered, and needs
-no `Io`. That makes it convenient for quick debugging, but it is deliberately
-not the tool for program output.
-
-</aside>
