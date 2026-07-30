@@ -10,17 +10,18 @@ structural ones lives in [CLAUDE.md](CLAUDE.md).
    Projects track exists with one occupant.
 2. **Memory and the Machine** (Foundations). Cheapest, no new CI surface, and
    it fixes the steepest cliff in the guide as it stands.
-3. **Talking to the Operating System** (Systems). Half of it runs in the
-   browser (see below), and it owns the two things Terminal Programming needs.
-4. **Terminal Programming** (Systems).
+3. **Terminal Programming** (Systems).
 
-Three and four swapped from the order these were first written down, and the
-reason is a dependency rather than a preference: raw mode is `termios` on file
-descriptor 0, and resize handling is a `SIGWINCH` handler. Both are one
-sentence if the OS section is already there to link to, and both are a detour
-inside a chapter about drawing a screen if it is not.
+**Done, 2026-07-30: the Operating System section**, seven chapters at the front
+of the Systems track. It moved ahead of Terminal Programming and was built
+first, because raw mode is `termios` on file descriptor 0 and resize handling
+is a `SIGWINCH` handler: both are a link now, and both would have been a detour
+inside a chapter about drawing a screen. Four of the seven run in the browser,
+against a stub that said "mostly `//! native`". The section is headed
+"Operating System" in the sidebar rather than "Talking to the Operating
+System", which is the voice of the lede and too long for a chapter list.
 
-One and two are independent of everything else and could swap on appetite. The
+One and two are independent of each other and could swap on appetite. The
 half-day `std.Io.Writer` vtable spike belongs to the Redis section but unblocks
 the buffering chapter listed at the bottom, so it is worth doing first whatever
 order the rest lands in.
@@ -90,78 +91,7 @@ arenas, and why they change your design.
 Chapter six is the payoff: after writing the vtable yourself, the allocator
 parameter stops being Zig trivia.
 
-## 3. Talking to the Operating System
-
-Its own section at the **front of the Systems track**, before Networking. A
-socket is a file descriptor, and `networking/what-is-a-socket.mdx` currently has
-to explain what a handle is on its way to explaining what an address is. Section
-directory `os`, so `/learn/os/`; snippets in `snippets/14-os/`.
-
-**Half of it runs in the browser, and the note that said otherwise was wrong.**
-The old entry here read "mostly `//! native`, so it costs more CI surface".
-Measured against 0.17.0-dev.1454, four of the seven chapters are
-browser-runnable. Under both runners `std.Io.File.stdout().handle` is 1,
-`stderr` is 2, `stdin` is 0, and a `File` built by hand out of the raw number
-writes to standard output exactly as the one from `stdout()` does. WASI kept the
-numbering, so the chapter claiming a descriptor is only a number can prove it
-inside a sandbox with no operating system under it, which is a better
-demonstration than a native run would be.
-
-Seven chapters:
-
-1. **A file descriptor is a number** (browser). Print the three handles, then
-   build `.{ .handle = 1, .flags = .{ .nonblocking = false } }` by hand and
-   write through it. Takes an `.expected`.
-2. **The three standard streams** (browser). Which stream a diagnostic belongs
-   on, why a green run prints nothing at all (the discipline
-   [tools/run-wasi.mjs](tools/run-wasi.mjs) documents), and `isTty`, which is
-   false in the sandbox and false in a pipe, which is the whole point of asking.
-   Links to `getting-started/buffered-stdout.mdx` instead of teaching `flush`
-   twice.
-3. **The environment** (browser). Build a `std.process.Environ.Map`, put and get
-   and count, and the validation rules on keys. The real block arrives on
-   `init.minimal`; the page says so and the snippet stays deterministic, which
-   is the same split `standard-library/command-line.mdx` already makes for argv.
-4. **Spawning a process** (native). `std.process.run`, `Term`, and what a child
-   reports when it fails. Spawn *this* binary again through
-   `std.process.executablePath` with a flag argument rather than shelling out to
-   `/bin/echo`, so the snippet depends on no system binary. It is also the only
-   chapter where a nonzero exit code can be shown at all: `build.zig` puts
-   `expectExitCode(0)` on every snippet, so the child fails and the parent
-   prints the code and exits clean.
-5. **Pipes are the child's streams** (native). `.stdout = .pipe`, read
-   `child.stdout.?` as an `Io.File`, then `wait`. Carries an API delta worth the
-   page on its own: there is no `std.posix.pipe` any more, `pipe2` lives inside
-   `Io.Threaded` and `Io.Uring`, and the portable way to hold one end of a pipe
-   is to spawn something on the other.
-6. **Signals, and why you cannot allocate in a handler** (native). Two drifts
-   here, and both are compile errors rather than surprises: `posix.sigaction`
-   returns `void` now instead of an error union, and a handler takes
-   `std.posix.SIG`, not `c_int`, so every handler a reader finds online fails to
-   build. Set an atomic flag, `raise(.USR1)`, observe it, then say what a
-   handler may touch and what to do with the rest.
-7. **Exiting** (browser). `std.process.exit` does not run your `defer`s, which
-   the snippet shows by printing on either side of one; `cleanExit` and when
-   skipping teardown is the correct call; `abort` against `exit`. Status stays 0
-   so the gate stays green, and the interesting codes are prose.
-
-Chapters 1, 4, 5 and 6 exist as compiled and run spikes against
-0.17.0-dev.1454+5faa79730, so the API shapes above are checked rather than
-remembered.
-
-Cut, and say so on the page rather than quietly: `mmap` and page protection
-(they belong with Memory and the Machine, which owns allocators), users and
-permissions, daemonising, and `std.process.replace` beyond a paragraph in
-chapter 4.
-
-CI cost is three more native snippets on top of the eighteen already there, all
-deterministic, all sub-second, and no new tooling. Wiring a new section is a
-`TRACKS` entry (Systems, first), a `SECTIONS` entry in
-[web/src/seo.ts](web/src/seo.ts) with a lede and takeaways, `order` values
-inside the section only, and back-links from `networking/what-is-a-socket.mdx`
-and `standard-library/filesystem.mdx`.
-
-## 4. Terminal Programming
+## 3. Terminal Programming
 
 Source material is `/home/rajesh/lab/c/classic-snake/tutorial`, a 15-lesson
 ncurses course ending in a capstone rebuild of `snake.c`. Same move as the
