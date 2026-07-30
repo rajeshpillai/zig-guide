@@ -943,6 +943,77 @@ main th {
   color: var(--muted);
 }
 
+/* ---------- what's new ---------- */
+
+.release {
+  margin-top: 2.25rem;
+}
+
+/* The date is the heading, so it carries the weight of one rather than
+   sitting above the list as a label. */
+.release > h2 {
+  font-size: 1.05rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.release-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+}
+
+.release-subject {
+  margin: 0;
+}
+
+.release-touched {
+  margin: 0.3rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.release-chapter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+/* A chapter that has since been renamed or removed. Named, not linked. */
+.release-gone {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.release-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.release-meta {
+  color: var(--muted);
+}
+
+.release-foot {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+
 /* ---------- previous / next ---------- */
 
 .pager {
@@ -1201,10 +1272,6 @@ zig-playground pre:not(.pg-output) {
     display: inline;
   }
 
-  .topbar-link {
-    display: inline;
-  }
-
   .nav-aside {
     display: none;
   }
@@ -1237,6 +1304,18 @@ zig-playground pre:not(.pg-output) {
 
   .status-credit {
     margin-left: auto;
+  }
+}
+
+/* The topbar links, at the width they actually fit.
+   Measured on the rendered page rather than guessed: the row needs 635px to
+   hold the search box, the version, both links and the theme toggle, and it
+   was revealed at 560px, so "On an older Zig?" hung 28px off the right edge of
+   the viewport with nothing to scroll it into view. Both links are in the
+   footer as well, which is what a narrow screen gets instead. */
+@media (min-width: 640px) {
+  .topbar-link {
+    display: inline;
   }
 }
 

@@ -282,7 +282,13 @@ for (const href of chapters) {
 // The pages outside the chapter list still have to carry correct metadata.
 // `/learn/` is one of them: it is the chapter list rather than a chapter, so
 // like `/paths/` it is a view of the guide and not a stop in the pager.
-for (const href of [`${PREFIX}/`, `${PREFIX}/learn/`, `${PREFIX}/paths/`, `${PREFIX}/privacy/`]) {
+for (const href of [
+  `${PREFIX}/`,
+  `${PREFIX}/learn/`,
+  `${PREFIX}/paths/`,
+  `${PREFIX}/whats-new/`,
+  `${PREFIX}/privacy/`,
+]) {
   const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
   if (!res?.ok()) {
     failures.push(`${href} -> HTTP ${res?.status() ?? "no response"}`);
@@ -290,8 +296,9 @@ for (const href of [`${PREFIX}/`, `${PREFIX}/learn/`, `${PREFIX}/paths/`, `${PRE
   }
   await checkHead(href);
 
-  // These three are the only pages whose links are not also a chapter's links,
-  // and the reading paths are entirely links, so collect them here too.
+  // These are the only pages whose links are not also a chapter's links, and
+  // two of them (reading paths, what's new) are almost entirely links, so
+  // collect them here too.
   for (const link of await page.$$eval("main a[href^='/']", (as) =>
     as.map((a) => a.getAttribute("href")),
   )) {

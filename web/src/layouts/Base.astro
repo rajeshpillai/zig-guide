@@ -1,6 +1,5 @@
 ---
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { buildInfo } from "../build-info";
 import { ADSENSE_CLIENT } from "../adsense";
 import { ANALYTICS_ID } from "../analytics";
 import { navTracks, pageHref } from "../nav";
@@ -42,17 +41,7 @@ const sectionList = trackList.flatMap((track) => track.sections);
 
 // Emitted by `zig build`; states the compiler that actually verified the
 // snippets rather than a version hardcoded here.
-let zigVersion = "master";
-let snippetCount = 0;
-try {
-  const info = JSON.parse(
-    await readFile(resolve(process.cwd(), "public/wasm/build-info.json"), "utf8"),
-  );
-  zigVersion = info.zigVersion;
-  snippetCount = info.snippetCount;
-} catch {
-  // Site can still build before `zig build` has run; the footer degrades.
-}
+const { zigVersion, snippetCount } = await buildInfo();
 
 const current = Astro.url.pathname;
 const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
@@ -326,6 +315,10 @@ const openSlug =
       <span class="version" title="Every snippet in this guide is compiled and run against this exact compiler, in CI and in your browser">
         ✓ Zig {zigVersion}
       </span>
+      {/* Next to the version because it answers the question the version
+          raises: this build is current, and here is what changed to make it
+          so. */}
+      <a class="topbar-link" href={`${base}whats-new/`}>What's new</a>
       <a class="topbar-link" href={pageHref("getting-started/coming-from-older-zig")}>
         On an older Zig?
       </a>
@@ -512,6 +505,7 @@ const openSlug =
         {/* Not in the sidebar: that is the list of chapters, and this is a view
             of it rather than a stop in it. Here it is on every page instead. */}
         <a href={`${base}paths/`}>Reading paths</a>
+        <a href={`${base}whats-new/`}>What's new</a>
         <a href={`${base}privacy/`}>Privacy</a>
       </span>
     </footer>

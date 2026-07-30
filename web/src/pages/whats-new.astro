@@ -1,0 +1,144 @@
+---
+/**
+ * What's new: what was published, day by day, from the repository's history.
+ *
+ * A guide whose whole claim is that it is not stale needs somewhere a reader
+ * can check that claim without taking it on trust. The version badge in the
+ * header says which compiler verified the snippets; this page says what moved
+ * and when, including the nights where the only change was a snippet that had
+ * to be rewritten because Zig master moved under it.
+ *
+ * Derived, never hand-maintained: `changelog.ts` reads `git log`, and a chapter
+ * named in a commit is resolved against the content collection here. A chapter
+ * that has since been renamed or deleted is shown as plain text rather than as
+ * a link, because history is full of paths that no longer resolve and a dead
+ * link on this page would be a worse lie than a missing one.
+ *
+ * Outside the sidebar and the pager, on the same terms as `/paths/`: a view of
+ * the guide rather than a stop in it.
+ */
+import Base from "../layouts/Base.astro";
+import { getCollection } from "astro:content";
+import { changelog } from "../changelog";
+import { buildInfo } from "../build-info";
+import { pageHref, guideHref } from "../nav";
+
+const days = await changelog();
+const { zigVersion, snippetCount } = await buildInfo();
+
+const docs = await getCollection("docs");
+const byId = new Map(docs.map((doc) => [doc.id, doc]));
+
+/**
+ * Chapters listed per entry before the rest become a count. One commit moved
+ * every chapter in the guide under `/learn/`, and naming all 145 of them turns
+ * the page into a wall that hides the entries either side of it.
+ */
+const SHOWN = 6;
+
+const readable = (date: string) =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
+const description =
+  "Every change published to this Zig guide, day by day: new chapters, " +
+  "rewritten ones, and the snippets that had to change when Zig master moved.";
+
+const schema = {
+  "@type": "CollectionPage",
+  name: "What's new",
+  description,
+};
+---
+
+<Base
+  title="What's new"
+  seoTitle="What's New in the Zig Guide"
+  description={description}
+  crumbs={[{ label: "What's new" }]}
+  schema={schema}
+>
+  <article>
+    <h1>What's new</h1>
+    <p class="section-intro">
+      Everything below was published. This page is generated from the
+      repository's history at build time, so it lists what actually shipped
+      rather than what someone remembered to write down. The guide currently
+      serves <strong>Zig {zigVersion}</strong>, and all {snippetCount} snippets
+      were compiled and run against that build before this page existed.
+    </p>
+
+    {
+      days.length === 0 ? (
+        <p>
+          This build has no history to read: it was made from a shallow clone or
+          from a source tarball with no <code>.git</code> directory. The site
+          itself is unaffected, and a full checkout restores the list.
+        </p>
+      ) : (
+        days.map((day) => (
+          <section class="release">
+            <h2>
+              <time datetime={day.date}>{readable(day.date)}</time>
+            </h2>
+            <ul class="release-list">
+              {day.entries.map((entry) => (
+                <li>
+                  <p class="release-subject">{entry.subject}</p>
+                  {entry.chapters.length > 0 && (
+                    <p class="release-touched">
+                      {/* New chapters first, so they are the ones that survive
+                          the cap on a commit that touched a whole section. */}
+                      {[...entry.chapters]
+                        .sort((a, b) => Number(b.added) - Number(a.added))
+                        .slice(0, SHOWN)
+                        .map(({ id, added }) => {
+                          const doc = byId.get(id);
+                          return (
+                            <span class="release-chapter">
+                              {doc ? (
+                                <a href={pageHref(id)}>{doc.data.title}</a>
+                              ) : (
+                                <span class="release-gone">{id}</span>
+                              )}
+                              {added && <span class="release-badge">new</span>}
+                            </span>
+                          );
+                        })}
+                      {entry.chapters.length > SHOWN && (
+                        <span class="release-meta">
+                          and {entry.chapters.length - SHOWN} more
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {entry.chapters.length === 0 && entry.snippets.length > 0 && (
+                    <p class="release-touched">
+                      <span class="release-meta">
+                        {entry.snippets.length === 1
+                          ? "1 snippet recompiled and rerun"
+                          : `${entry.snippets.length} snippets recompiled and rerun`}
+                      </span>
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      )
+    }
+
+    <p class="release-foot">
+      Older changes are in the repository's history. The nightly build runs at
+      06:00 UTC against Zig master, so a day with no entry here is a day the
+      compiler changed nothing this guide depends on. The same list, for a feed
+      reader, is at <a href={`${import.meta.env.BASE_URL}rss.xml`}>rss.xml</a>,
+      and the guide itself starts at <a href={guideHref}>the section list</a>.
+    </p>
+  </article>
+</Base>
