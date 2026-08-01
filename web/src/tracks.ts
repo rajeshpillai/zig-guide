@@ -73,7 +73,10 @@ export const TRACKS: Track[] = [
     // written yourself in 1975. The order is the one a from-scratch C course
     // takes, which is why `cat` comes before `wc` and `make` comes last: each
     // tool is allowed to assume the ones before it.
-    sections: ["unix-tools"],
+    // One section per phase of the sequence this follows. Phases land as they
+    // are written rather than all at once, and a section listed here with no
+    // chapters yet simply does not appear.
+    sections: ["unix-tools", "tiny-lang"],
   },
   {
     title: "Projects",

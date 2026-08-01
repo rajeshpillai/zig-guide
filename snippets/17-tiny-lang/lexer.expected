@@ -1,0 +1,25 @@
+23 tokens
+
+line 1  kw_let       "let"
+line 1  identifier   "total"
+line 1  assign       "="
+line 1  number       "0"  value 0
+line 1  semi         ";"
+line 2  kw_while     "while"
+line 2  lparen       "("
+line 2  identifier   "total"
+line 2  lt           "<"
+line 2  number       "10"  value 10
+line 2  rparen       ")"
+line 2  lbrace       "{"
+line 3  identifier   "total"
+line 3  assign       "="
+line 3  identifier   "total"
+line 3  plus         "+"
+line 3  number       "3"  value 3
+line 3  semi         ";"
+line 4  rbrace       "}"
+line 5  kw_print     "print"
+line 5  identifier   "total"
+line 5  semi         ";"
+line 5  eof          ""

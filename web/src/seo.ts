@@ -85,6 +85,25 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "`make` is a topological sort over a graph of file timestamps. Everything else about it is syntax.",
     ],
   },
+  "tiny-lang": {
+    seoTitle: "Write a Programming Language in Zig",
+    description:
+      "Build a small language from nothing: a lexer, a recursive descent " +
+      "parser, a tree-walking interpreter, call frames, a bytecode compiler " +
+      "and the virtual machine that runs it. Every stage runs in the page.",
+    lede:
+      "A language with variables, arithmetic, conditionals and loops, built one " +
+      "stage at a time. Each chapter takes the output of the last: characters " +
+      "become tokens, tokens become a tree, the tree is walked, and then the " +
+      "same tree is compiled to bytecode for a stack machine. None of it needs " +
+      "a kernel, so all of it runs here.",
+    takeaways: [
+      "A lexer is one pass with one character of lookahead. Whitespace disappears there, which is why no later stage has to think about it.",
+      "Operator precedence is not a table the parser consults. It is the shape of the call chain: one function per level, each calling the tighter one.",
+      "A tree-walking interpreter is a switch on the node kind that calls itself. That is the entire idea, and everything else is bookkeeping about names.",
+      "Compiling and interpreting differ in when the walk happens, not in what it computes. The same tree produces the same answer either way.",
+    ],
+  },
   "getting-started": {
     seoTitle: "Getting Started with Zig",
     description:

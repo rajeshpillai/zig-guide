@@ -1,0 +1,83 @@
+---
+title: A Lexer
+description: Characters in, tokens out, with one character of lookahead and no backtracking.
+section: Tiny Language
+order: 1
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A compiler is not one program that understands your source. It is a short
+pipeline of programs, each of which takes the output of the last and knows
+almost nothing about the others. This section builds that pipeline, and the
+first stage is the one that turns characters into words.
+
+Source code arrives as bytes. `let total = 0;` is fourteen of them, and nothing
+in there says that `let` is a keyword or that `total` is one name rather than
+five letters. Deciding that is **lexing**, and doing it as a separate pass is
+the decision that makes everything downstream tractable: the parser never sees
+a space, never counts a digit, and never wonders whether `letter` starts with
+the keyword `let`.
+
+## The program
+
+<Playground name="17-tiny-lang.lexer" />
+
+## What just happened
+
+**Whitespace vanished, and that is the point.** The parser in the next chapter
+will never handle a space, a tab, or a newline, because they are consumed here
+and produce no token. Every stage after this one is simpler for it. The line
+number survives, though, attached to each token, because an error message
+without a line number is nearly useless and this is the only stage that still
+knows.
+
+**`total` came out as one token, not five.** The scan is greedy: once a letter
+starts a word, it keeps taking letters and digits until it meets something
+else. That single rule is why `total3` is one identifier and why `3total` is a
+number followed by an identifier, which the parser will reject as it should.
+
+**Keywords are identifiers that lost a lookup.** The scanner does not try to
+match `let` up front. It scans the whole word and then checks the table, which
+is the only order that works: matching `let` eagerly would lex `letter` as
+`let` followed by `ter`. Every language with keywords does it this way.
+
+**`=` and `==` are why lookahead exists.** After consuming `=`, the scanner
+peeks at the next character before deciding which token it made. One character
+is enough for this language, and one character is enough for most. When a
+language needs more, that is a real design cost, and it is why `>>` in old C++
+generic syntax was such a famous problem.
+
+**Nothing was allocated.** Every token's `text` is a slice pointing back into
+the source, so the tokens are meaningless once the source goes away, and
+producing them copied nothing. That is the same borrowing decision as
+[sort](/learn/unix-tools/sort/), and it is worth noticing that a compiler makes
+it too.
+
+## Check yourself
+
+The lexer never rejects `let let = 3;` or `4 5 6`. Should it?
+
+No, and the split is deliberate. A lexer's job is to say what the *words* are,
+not whether the sentence makes sense. Both of those inputs are perfectly valid
+token streams, and both are errors, and it is the parser that will say so. Two
+stages with a clean boundary beat one stage that does both jobs and cannot
+explain which one failed.
+
+## If you have written C
+
+The C version of this is a `switch` on the current character inside a `while`,
+with an `enum` of token types and a struct holding a pointer, a length and a
+line number, which is exactly what is above. The differences are small and
+worth naming.
+
+C's token would hold `char *start; int len;` as two fields you keep in step by
+hand. A Zig slice is those two fields with the language enforcing that they
+travel together.
+
+And C's keyword lookup is usually a chain of `strcmp` calls. The version here
+uses a comptime `inline for` over a table, so the comparisons are generated but
+the table is written once. Neither is a hash, and neither needs to be at five
+keywords.
+
+Next: a parser, which takes this flat list and finds the structure in it.
