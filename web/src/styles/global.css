@@ -136,13 +136,13 @@ pre {
 /* Not the official Zig site: an amber pill next to the wordmark, linking to
    ziglang.org. Full statement is also in the footer for touch (no hover). */
 .unofficial {
-  /* Revealed at 400px, not here. `.brand-wrap` is allowed to shrink
-     (min-width: 0) but this pill cannot, so below the width where it fits it
-     spilled out of the shrunken box and the search box, later in the DOM and
-     carrying a background, painted straight over it. Measured: the wordmark
-     and this pill need 395px together. The full statement is in the footer of
-     every page, and the pill's own explanation is a `title`, which a touch
-     reader could never see anyway. */
+  /* Revealed at 580px, not here; see the breakpoint block for the measured
+     widths. `.brand-wrap` is allowed to shrink (min-width: 0) but this pill
+     cannot, so below the width where it fits it spilled out of the shrunken
+     box and the search box, later in the DOM and carrying a background,
+     painted straight over it. Hiding it costs a narrow reader nothing they
+     could use: the full statement is in the footer of every page, and this
+     pill's own explanation is a `title`, which a touch reader never sees. */
   display: none;
   flex: none;
   font-size: 0.6rem;
@@ -1406,7 +1406,7 @@ zig-playground pre:not(.pg-output) {
    ellipsized, with each badge forced on in turn:
 
      wordmark alone                388px
-     + "Chapters" beside it        -> revealed at 460
+     + "Chapters" beside it        -> revealed at 480
      + "Unofficial"                578px  -> revealed at 580
      + "but fully verified"        690px  -> revealed at 700
      + the version pill           1040px  -> revealed at 1040
@@ -1417,7 +1417,7 @@ zig-playground pre:not(.pg-output) {
    overlapped at 415, and even that was only the width where the boxes stopped
    colliding, which is not the same question as whether the name still reads. */
 
-@media (min-width: 460px) {
+@media (min-width: 480px) {
   .nav-label {
     position: static;
     width: auto;

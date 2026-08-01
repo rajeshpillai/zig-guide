@@ -460,6 +460,80 @@ if (walked !== pagers.size) {
  * that drops a colour below AA is invisible on the page to anyone who is not
  * already struggling to read it, so nothing else here would catch it.
  */
+/**
+ * The topbar at every width it changes shape at.
+ *
+ * This bug has now shipped twice. The badges beside the wordmark cannot shrink
+ * and `.brand-wrap` can, so once a badge is revealed below the width it needs,
+ * it spills out of the shrunken box and the search box paints over it. The
+ * first fix moved one element from 560 to 640px and the row still overlapped
+ * at 700. Nothing here would have noticed either time: the pages build, every
+ * link resolves, the contrast pass reads colours rather than geometry, and a
+ * screenshot at one width looks perfectly reasonable.
+ *
+ * Each width gets its own page load. Resizing one page and re-measuring is far
+ * cheaper and gives different answers: Chromium does not reflow the flex row
+ * the way it does on a fresh layout, so a resize sweep reported the wordmark
+ * whole at 460 (it is ellipsized) and clipped at 388 (it is not). Both
+ * readings were wrong in opposite directions, which is worse than no check.
+ *
+ * The wordmark rule is the one that matters most and is the easiest to lose:
+ * every badge up there is restated in the footer, but the site's own name
+ * ellipsized to "Zi..." reads as a broken page.
+ */
+const HEADER_WIDTHS = [
+  320, 360, 390, 430, 470, 480, 570, 580, 690, 700, 860, 1030, 1040, 1130,
+  1140, 1280, 1440,
+];
+let headerWidths = 0;
+{
+  for (const width of HEADER_WIDTHS) {
+    const page2 = await browser.newPage({ viewport: { width, height: 800 } });
+    await page2.goto(`${BASE}${PREFIX}/learn/language-basics/pointers/`, {
+      waitUntil: "domcontentloaded",
+    });
+    const seen = await page2.evaluate(() => {
+      const boxes = [...document.querySelectorAll(".topbar > *, .brand-wrap > *")]
+        .filter((e) => getComputedStyle(e).display !== "none")
+        .filter((e) => !e.classList.contains("brand-wrap"))
+        .map((e) => ({ name: (e.className || e.tagName).toString().split(" ")[0], ...e.getBoundingClientRect().toJSON() }))
+        .filter((b) => b.width > 0)
+        .sort((a, b) => a.left - b.left);
+
+      let collision = null;
+      for (let i = 1; i < boxes.length; i++) {
+        if (boxes[i].left < boxes[i - 1].right - 0.5) {
+          collision = `${boxes[i - 1].name} overlaps ${boxes[i].name}`;
+        }
+      }
+
+      const brand = document.querySelector(".brand");
+      // Own computed display, not visibility: the nav panel holding the
+      // fallback copy is closed on a phone, which is not the same as absent.
+      const shown = (sel) => {
+        const el = document.querySelector(sel);
+        return el !== null && getComputedStyle(el).display !== "none";
+      };
+      return {
+        collision,
+        truncated: brand.scrollWidth > brand.clientWidth + 1,
+        migrationReachable: shown(".topbar-link") || shown(".nav-aside"),
+      };
+    });
+
+    headerWidths++;
+    if (seen.collision) failures.push(`topbar at ${width}px: ${seen.collision}`);
+    // 388px is where the wordmark first fits at all; below that it has to clip.
+    if (seen.truncated && width >= 388) {
+      failures.push(`topbar at ${width}px: the wordmark is ellipsized`);
+    }
+    if (!seen.migrationReachable) {
+      failures.push(`topbar at ${width}px: "On an older Zig?" is on no surface`);
+    }
+    await page2.close();
+  }
+}
+
 const THEME_PAGES = [
   `${PREFIX}/`,
   `${PREFIX}/learn/language-basics/optionals/`,
@@ -796,6 +870,7 @@ console.log(
     `compile-only: ${compileOnly}  expected failures: ${expectedFailures}  ` +
     `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
+    `header widths: ${headerWidths}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
     `llms.txt: ${machine.llms}  .md: ${machine.mdPages}  feed: ${machine.feedItems}  ` +
