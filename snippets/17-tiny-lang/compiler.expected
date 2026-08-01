@@ -1,0 +1,26 @@
+an expression
+000  push          1
+001  push          2
+002  push          3
+003  mul          
+004  add          
+005  print        
+006  halt         
+
+a loop
+000  push          0
+001  store         0    ; total
+002  load          0    ; total
+003  push          10
+004  lt           
+005  jmp_if_false  11
+006  load          0    ; total
+007  push          3
+008  add          
+009  store         0    ; total
+010  jmp           2
+011  load          0    ; total
+012  print        
+013  halt         
+
+1 slots: 0=total 

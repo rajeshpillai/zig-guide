@@ -1,0 +1,109 @@
+---
+title: A Virtual Machine
+description: Fetch, decode, execute. A loop over an array, with no tree in sight.
+section: Tiny Language
+order: 6
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The compiler produced an array of instructions. This chapter runs it, and the
+program that does so is the smallest one in the section.
+
+There is an instruction pointer, an index into the array. Read the instruction
+it points at, move it forward, do what the instruction says, repeat. That loop
+is called **fetch, decode, execute**, and it is what a physical processor does
+too, which is why this one is called a virtual machine rather than an
+interpreter.
+
+Everything the machine needs is a stack and a table of slots. Instructions
+never name their operands: they take them from the top of the stack and put the
+result back.
+
+## The program
+
+<Playground name="17-tiny-lang.vm" />
+
+## What just happened
+
+**The answers match the tree-walking interpreter exactly.** 55 and 1 for the
+sum of squares, the same arithmetic results. That is the point worth stopping
+on: compiling and interpreting are not two computations. They are the same
+computation with the decisions made at different times. Anything else would
+mean one of them has a bug.
+
+**A jump is an assignment.** `ip = instr.arg`, and that is the entire
+implementation of `while`, `if` and `else`. All the structure the parser
+carefully found is gone: the tree became a flat array where control flow is
+arithmetic on an index. This is what "lowering" means, and it is why a
+disassembly is hard to read and fast to run.
+
+**Operand order is the bug waiting in this loop.** The right operand was pushed
+last, so it must be popped first. Get it backwards and `+` and `*` still look
+correct, because they commute, while `-` and `/` are silently wrong. A test
+suite of `2 + 3` would pass.
+
+**45 instructions for a four-line program.** The count is printed so the cost is
+visible rather than assumed. Each one is a switch dispatch, which is the price
+of a bytecode VM: real ones use computed goto or a JIT precisely because this
+switch runs billions of times.
+
+**There is no tree, and no names.** The `globals` array is indexed by number.
+Nothing in the running program knows a variable was ever called `total`, which
+is why a stripped binary gives you a stack trace full of addresses and why
+debug information is a separate thing you choose to keep.
+
+## The state of this language
+
+Two back ends, one language, and they are not equally complete. The tree-walker
+runs functions and recursion; the compiler and this VM do not, because
+compiling a call means designing a calling convention, and that is a chapter
+rather than a paragraph. The compiler chapter says the same thing, and the
+`fn` cases in both fall through an `else` that does nothing.
+
+Being explicit about that is better than a language that appears to support
+functions and silently drops them. If you want to carry this further, the
+calling convention is the next thing to design: where arguments live, how a
+frame is addressed relative to a base pointer, and who restores the instruction
+pointer on return. The frames chapter already did all of that at run time, so
+you know what the answers have to be.
+
+## Check yourself
+
+The VM checks for stack overflow and underflow on every push and pop. A real
+one usually does not. Why is that safe?
+
+Because the compiler is the one producing the bytecode, and it only emits
+sequences that balance. `add` is only ever emitted after two operands, so a
+correct compiler cannot produce an `add` that underflows. Real VMs move the
+check to the moment bytecode is *loaded*, verifying it once rather than on
+every instruction, which is exactly what the JVM's bytecode verifier does and
+why it exists. The checks are here because they are cheap at this size and
+because a hand-written bad chunk should say so rather than read memory it does
+not own.
+
+## If you have written C
+
+The dispatch loop is `while (1) switch (*ip++)`, and the standard trick to make
+it faster is computed goto, a GCC extension where each instruction ends by
+jumping directly to the next handler instead of returning to the top of the
+switch. It helps because the branch predictor gets one indirect jump per
+opcode rather than one shared one, and it is the single most common
+optimisation in real interpreters.
+
+The stack in C would be `long stack[64]; int top;`, which is what it is here.
+The difference is that pushing past the end in C reads and writes past the
+array with no complaint, and this chapter's whole subject is a loop that runs
+millions of times, so a bug there corrupts something far away and much later.
+
+## Where to go next
+
+That is the pipeline: characters to tokens, tokens to a tree, the tree walked
+or lowered to instructions, and the instructions run. Every compiler and every
+interpreter you use is this, with more cases.
+
+If you want the machine underneath rather than the language on top,
+[Groundwork](/learn/systems-from-scratch/) covers what a byte, an address and a
+stack frame actually are. If you would rather keep building tools,
+[the Unix toolbox](/learn/unix-tools/) is seven more programs in the same
+spirit.

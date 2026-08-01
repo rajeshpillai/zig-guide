@@ -1,0 +1,108 @@
+---
+title: A Bytecode Compiler
+description: The same tree, walked once at compile time instead of once per execution.
+section: Tiny Language
+order: 5
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The interpreter walks the tree every time the program runs. Inside a loop, it
+walks the same subtree on every iteration: chasing the same indices, switching
+on the same node kinds, comparing the same variable names against the same
+strings. None of that work depends on the values, so none of it needs to happen
+more than once.
+
+A compiler is what you get from taking that seriously. Walk the tree **once**,
+and instead of computing an answer, write down the steps. The steps are
+**bytecode**, and running the program becomes a loop over a flat array rather
+than a walk over a tree.
+
+Nothing about the answer changes. This is the same computation, with the
+decisions moved earlier.
+
+## The program
+
+<Playground name="17-tiny-lang.compiler" />
+
+## What just happened
+
+**`1 + 2 * 3` became push, push, push, mul, add.** Operands first, then the
+operator. That is post-order traversal, and it is the entire translation from a
+tree to a **stack machine**: by the time `mul` runs, its two inputs are the top
+two things on the stack, because emitting the children put them there. No
+instruction ever names its operands.
+
+**Variables became numbers.** `load 0` with a comment saying `total`, and the
+comment is only there for you. This is the fix the
+[interpreter chapter](/learn/tiny-lang/interpreter/) promised when it admitted
+that a linear search over names runs on every variable read. The search still
+happens, once per mention, here at compile time. At run time a variable is an
+array index.
+
+That is most of what "compiled languages are faster" means, and it is not
+magic: the same work, done at a time when it can be done once.
+
+**The forward jump was patched.** When `jmp_if_false` is emitted, the address
+to jump to is not known, because the body it needs to skip has not been emitted
+yet. So a placeholder goes in, its position is remembered, and the real target
+is written once the length is known. That is **backpatching**, and it is what
+lets a compiler emit code in one pass over the tree instead of two.
+
+Look at the loop: `jmp_if_false 11` was patched, and `jmp 2` was not. The
+backward jump needed no patch, because a loop's start is already behind you
+when you emit the jump to it. Forward jumps need patching; backward ones do
+not.
+
+**The slot table is not in the program.** It is printed at the end so you can
+read the disassembly, but the bytecode holds only numbers. After compiling,
+the names are debug information: useful in a stack trace, unnecessary to run.
+
+## What this compiler does not do
+
+It ignores `fn`, `return` and calls. The `else` prong in `compile` skips them
+silently, so a program using functions compiles to bytecode that quietly leaves
+them out.
+
+That is a real limitation rather than an omission from the writing. Compiling
+functions means designing a **calling convention**: where arguments go, how a
+frame is addressed, how the return address is stored, whose job it is to clean
+up. Every one of those is a decision with alternatives, and it is a chapter of
+its own rather than a paragraph in this one. The tree-walker in
+[Functions and Frames](/learn/tiny-lang/functions/) runs them today, and that
+is the honest state of this language: two back ends, one of which is more
+complete than the other.
+
+## Check yourself
+
+The compiler emits `store` for both `let x = 1;` and `x = 1;`, resolving both
+to the same slot. What does that mean for a variable declared inside a `while`
+body?
+
+There is only one of it. Slots are allocated per *name*, for the whole program,
+so a `let` inside a loop reuses the same slot on every iteration, and a `let`
+with the same name in two different functions would collide. Real compilers
+give each scope its own range of slots and free them when the scope ends, which
+is what makes locals cheap and is the same bookkeeping the frames chapter did
+at run time. This one has a single flat namespace, which is exactly enough for
+a language with no functions.
+
+## If you have written C
+
+C compiles to machine code rather than bytecode, but the middle of the pipeline
+is the same shape, and the disassembly above would be recognisable to anyone
+who has read compiler output. A real back end differs in two ways worth naming.
+
+It has **registers**, so a value can stay in one across several operations
+instead of being pushed and popped. Deciding which values live in which
+registers is register allocation, and it is where a large part of a real
+compiler's complexity lives. A stack machine skips the problem entirely, which
+is why bytecode VMs are stack machines and why they are slower.
+
+And it optimises, which is possible because the bytecode is now a data
+structure you can rewrite. `push 1, push 2, add` can become `push 3` before
+anything runs. This compiler does none of that, and the fact that it could is
+the reason compiling and interpreting diverge in speed rather than only in
+timing.
+
+Next: the virtual machine, which runs what this just wrote.
