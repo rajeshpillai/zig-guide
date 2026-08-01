@@ -1,0 +1,29 @@
+with an index on id
+
+SELECT name FROM people WHERE id = 3
+  plan: index lookup
+  rows: carol
+  examined 1 of 8
+
+SELECT name FROM people WHERE role = engineer
+  plan: table scan
+  rows: alice, carol, frank
+  examined 8 of 8
+
+SELECT role FROM people WHERE name = grace
+  plan: table scan
+  rows: manager
+  examined 8 of 8
+
+with no index at all
+
+SELECT name FROM people WHERE id = 3
+  plan: table scan
+  rows: carol
+  examined 8 of 8
+
+rejected
+  SELECT name FROM people                        Incomplete
+  SELECT name FROM people WHERE id 3             Unexpected
+  DELETE FROM people WHERE id = 3                Unexpected
+  SELECT name FROM people WHERE id = 3 AND role = x Unexpected
