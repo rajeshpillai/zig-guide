@@ -15,6 +15,7 @@ pub const Kind = enum {
     lbrace,
     rbrace,
     semi,
+    comma,
     assign,
     eq,
     lt,
@@ -23,6 +24,8 @@ pub const Kind = enum {
     kw_if,
     kw_else,
     kw_while,
+    kw_fn,
+    kw_return,
     eof,
     invalid,
 };
@@ -45,6 +48,8 @@ fn keyword(word: []const u8) ?Kind {
         .{ "if", Kind.kw_if },
         .{ "else", Kind.kw_else },
         .{ "while", Kind.kw_while },
+        .{ "fn", Kind.kw_fn },
+        .{ "return", Kind.kw_return },
     };
     inline for (table) |entry| {
         if (std.mem.eql(u8, word, entry[0])) return entry[1];
@@ -107,6 +112,7 @@ pub fn tokenize(source: []const u8, out: []Token) ![]Token {
                 '{' => .lbrace,
                 '}' => .rbrace,
                 ';' => .semi,
+                ',' => .comma,
                 '<' => .lt,
                 '=' => blk: {
                     if (i < source.len and source[i] == '=') {

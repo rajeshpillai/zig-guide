@@ -15,6 +15,9 @@ pub const Kind = enum {
     @"if",
     @"while",
     block,
+    fn_decl,
+    call,
+    ret,
 };
 
 /// Children are a linked list rather than a slice, so the whole tree lives in
@@ -126,7 +129,22 @@ pub const Parser = struct {
             },
             .identifier => {
                 p.pos += 1;
-                return p.add(.{ .kind = .variable, .name = token.text });
+                // One token of lookahead decides between a name and a call.
+                // This is the only place the expression grammar needs it.
+                if (p.peek() != .lparen) {
+                    return p.add(.{ .kind = .variable, .name = token.text });
+                }
+                p.pos += 1;
+                const node = try p.add(.{ .kind = .call, .name = token.text });
+                var last: ?u32 = null;
+                while (p.peek() != .rparen) {
+                    const arg = try p.expression();
+                    if (last) |l| p.nodes[l].next = arg else p.nodes[node].first = arg;
+                    last = arg;
+                    if (!p.accept(.comma)) break;
+                }
+                _ = try p.expect(.rparen);
+                return node;
             },
             // Parentheses need no precedence rule of their own. They re-enter
             // at the loosest level, which is what "override the grouping" means.
@@ -160,6 +178,27 @@ pub const Parser = struct {
             const then = try p.block();
             const other: ?u32 = if (p.accept(.kw_else)) try p.block() else null;
             return p.add(.{ .kind = .@"if", .a = cond, .b = then, .c = other });
+        }
+        if (p.accept(.kw_fn)) {
+            const name = try p.expect(.identifier);
+            _ = try p.expect(.lparen);
+            const node = try p.add(.{ .kind = .fn_decl, .name = name.text });
+            var last: ?u32 = null;
+            while (p.peek() == .identifier) {
+                const param = try p.expect(.identifier);
+                const child = try p.add(.{ .kind = .variable, .name = param.text });
+                if (last) |l| p.nodes[l].next = child else p.nodes[node].first = child;
+                last = child;
+                if (!p.accept(.comma)) break;
+            }
+            _ = try p.expect(.rparen);
+            p.nodes[node].b = try p.block();
+            return node;
+        }
+        if (p.accept(.kw_return)) {
+            const value: ?u32 = if (p.peek() == .semi) null else try p.expression();
+            _ = try p.expect(.semi);
+            return p.add(.{ .kind = .ret, .a = value });
         }
         if (p.accept(.kw_while)) {
             _ = try p.expect(.lparen);
@@ -252,6 +291,36 @@ pub fn show(nodes: []const Node, index: u32, out: *std.Io.Writer) !void {
             try out.writeAll("(while ");
             try show(nodes, node.a.?, out);
             try out.writeAll(" ");
+            try show(nodes, node.b.?, out);
+            try out.writeAll(")");
+        },
+        .call => {
+            try out.print("(call {s}", .{node.name});
+            var arg = node.first;
+            while (arg) |a| : (arg = nodes[a].next) {
+                try out.writeAll(" ");
+                try show(nodes, a, out);
+            }
+            try out.writeAll(")");
+        },
+        .ret => {
+            try out.writeAll("(return");
+            if (node.a) |value| {
+                try out.writeAll(" ");
+                try show(nodes, value, out);
+            }
+            try out.writeAll(")");
+        },
+        .fn_decl => {
+            try out.print("(fn {s} (", .{node.name});
+            var param = node.first;
+            var first = true;
+            while (param) |pa| : (param = nodes[pa].next) {
+                if (!first) try out.writeAll(" ");
+                try out.print("{s}", .{nodes[pa].name});
+                first = false;
+            }
+            try out.writeAll(") ");
             try show(nodes, node.b.?, out);
             try out.writeAll(")");
         },

@@ -77,7 +77,7 @@ travel together.
 
 And C's keyword lookup is usually a chain of `strcmp` calls. The version here
 uses a comptime `inline for` over a table, so the comparisons are generated but
-the table is written once. Neither is a hash, and neither needs to be at five
+the table is written once. Neither is a hash, and neither needs to be at seven
 keywords.
 
 Next: a parser, which takes this flat list and finds the structure in it.

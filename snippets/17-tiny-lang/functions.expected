@@ -1,0 +1,12 @@
+recursion
+120
+55
+
+shadowing
+2
+100
+
+limits
+recursion with no base case -> StackOverflow
+calling something undeclared -> UnknownFunction
+too few arguments -> WrongArgCount
