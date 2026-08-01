@@ -1,0 +1,86 @@
+---
+title: A Scripting Engine
+description: The language knows nothing about documents. The host is what connects them.
+section: The Browser
+order: 5
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The most common misconception about JavaScript in a browser is that the DOM is
+part of the language. It is not, and nothing in the JavaScript specification
+mentions `document`, `window`, `fetch` or an element.
+
+What the specification defines is a language: values, functions, objects,
+control flow. What a browser does is **embed** that language and then install
+a set of names into its global scope. Those names are **host objects**, and
+they are the entire connection between a script and a page.
+
+Node has a different set. A game engine embedding a scripting language has a
+third. The language is the same in all of them.
+
+## The program
+
+<Playground name="21-browser.script" />
+
+## What just happened
+
+**The host walked the document and defined three ordinary variables.**
+`paragraphs` is 3 because a tree walk counted three `<p>` elements. To the
+evaluator it is a name with an integer behind it, indistinguishable from one
+the script declared itself.
+
+**The script has no syntax for documents, and needs none.** `print paragraphs +
+images` is arithmetic. Nothing in the grammar knows what an image is, and
+adding a new capability to the page means the host defining another name, not
+the language growing a feature.
+
+**A name the host never defined is an ordinary undefined variable.** Asking for
+`stylesheets` produced `UndefinedVariable`, the same error a typo in a local
+name would produce. There is no separate category of "DOM error", which is why
+`document.foo is not a function` and `myTypo is not defined` come from the same
+machinery in a real browser.
+
+**The evaluator here is deliberately tiny.** It handles names, integers, `+`
+and `print`, and that is all it needs to show the seam. The real language is
+the one built in [the Tiny Language section](/learn/tiny-lang/lexer/), with a
+lexer, a parser, a tree-walking interpreter and a bytecode VM. In a browser the
+two are separate libraries linked together, which is exactly the relationship
+being demonstrated: V8 does not contain a DOM, and Chrome supplies one.
+
+## What a real binding adds
+
+**Writing, not just reading.** A script that can only observe the page is a
+curiosity. `element.textContent = "x"` changes the tree, which invalidates the
+boxes, which means layout runs again and then painting runs again. That is the
+whole cost model of a dynamic page, and it is why the
+[layout chapter's](/learn/browser/layout/) two passes matter so much: they are
+the thing being repeated.
+
+**Objects rather than flat names.** `document.querySelectorAll("p").length`
+instead of `paragraphs`. That needs the language to have objects and the host
+to expose functions on them, which is more plumbing and the same idea.
+
+**Events.** Nothing above ever runs twice. A real engine keeps the environment
+alive and calls back into it when something happens, so the script's variables
+outlive the script, and now the host has a lifetime problem: a listener holding
+a reference to a removed element keeps it alive. That is the most common memory
+leak on the web, and it exists because the seam has objects on both sides of
+it.
+
+## Check yourself
+
+If the language has no idea what an element is, how does a script get a *type
+error* when it calls a method on the wrong thing?
+
+Because host objects are ordinary objects as far as the language is concerned,
+so calling a missing method on one fails the same way calling a missing method
+on any object fails. The engine does not know that `document` is special; it
+knows that the thing named `document` has no property called `queryselectorAll`
+and that calling `undefined` is an error.
+
+This is why the error messages are usually so unhelpful about what you actually
+did wrong. The engine reporting them has no concept of a document to explain.
+
+Next: [the whole pipeline](/learn/browser/browser/), with every stage in one
+program.

@@ -1,0 +1,12 @@
+what the host put in scope
+  paragraphs  3
+  headings    1
+  images      2
+
+what the script printed
+  3
+  5
+  6
+
+asking for something not in scope
+  UndefinedVariable
