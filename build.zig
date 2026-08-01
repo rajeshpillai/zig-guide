@@ -95,7 +95,11 @@ pub fn build(b: *std.Build) void {
                 simd_target
             else
                 target,
-            .optimize = optimize,
+            // `//! fails` is the one snippet-level override of the site-wide
+            // mode. `.small` has no safety checks in it, so a snippet whose
+            // job is to trip one would quietly succeed at reading memory it
+            // does not own.
+            .optimize = if (snippet.fails) .safe else optimize,
             // A `//! link:`/`//! cinclude:` snippet needs libc plus the named
             // system libraries. wasm32-wasi cannot resolve those, so these are
             // always host builds (see `native` below).
@@ -163,13 +167,19 @@ pub fn build(b: *std.Build) void {
             // `--no-warnings` keeps Node's WASI ExperimentalWarning off stderr,
             // which the Run step would otherwise treat as a failure.
             const run = b.addSystemCommand(&.{ "node", "--no-warnings", "tools/run-wasi.mjs" });
+            if (snippet.fails) run.addArg("--expect-failure");
             run.addFileArg(compile.getEmittedBin());
+            // Still 0: the runner translates "failed with the expected
+            // message" into success, so this step means the same thing for
+            // every snippet and the gate has one contract rather than two.
             run.expectExitCode(0);
 
             // Passed as a *file argument* rather than compared via
             // `expectStdOutEqual`, so the build system tracks it as an input
             // and editing it actually invalidates the cache.
-            if (snippet.expected) |expected_path| {
+            if (snippet.fails) {
+                run.addFileArg(b.path(snippet.expected_error.?));
+            } else if (snippet.expected) |expected_path| {
                 run.addFileArg(b.path(expected_path));
             }
 
@@ -231,6 +241,24 @@ const Snippet = struct {
     kind: Kind,
     /// Optional sibling `.expected` file holding exact stdout.
     expected: ?[]const u8,
+    /// Sibling `.expected-error` file, present only for `//! fails` snippets:
+    /// text that must appear in stderr when the snippet does what it is there
+    /// to demonstrate.
+    expected_error: ?[]const u8,
+    /// True for snippets marked `//! fails`: built with safety checks on
+    /// (`.safe` rather than the site-wide `.small`) and required to fail with
+    /// the message in its `.expected-error` file.
+    ///
+    /// This exists because the guide ships ReleaseSmall, where the safety
+    /// checks are compiled out, so a chapter teaching what Zig does on an
+    /// out-of-bounds read had nothing to point at: the artifact on the page
+    /// would have read past the end and carried on. Marking the snippet gets
+    /// the check back, keeps CI running it (asserting the failure, not
+    /// tolerating it), and lets the reader press Run and watch it happen.
+    ///
+    /// Use this sparingly. `.safe` costs about 1.1 MB against 45 KB, paid by
+    /// anyone who presses Run on that snippet.
+    fails: bool,
     /// False for snippets marked `//! norun`: still compiled (so the API gate
     /// still applies) but never executed, because they need capabilities the
     /// browser sandbox lacks — a real filesystem, sockets.
@@ -264,6 +292,22 @@ const Snippet = struct {
 
     const Kind = enum { exe, @"test" };
 };
+
+/// True when `marker` starts a line of `source`.
+///
+/// Substring search over the whole file was enough right up until a snippet's
+/// header explained which marker it uses and why, at which point mentioning
+/// `//! norun` in that sentence turned the snippet off: it stopped being run by
+/// CI and lost its Run button, and every gate stayed green because a snippet
+/// that is not run cannot fail. Anchoring to a line start costs nothing and
+/// makes the markers safe to write about in the files they control.
+fn hasMarker(source: []const u8, marker: []const u8) bool {
+    var lines = std.mem.splitScalar(u8, source, '\n');
+    while (lines.next()) |line| {
+        if (std.mem.startsWith(u8, line, marker)) return true;
+    }
+    return false;
+}
 
 /// Walk `root` and classify every `.zig` file found.
 fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void {
@@ -299,13 +343,29 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
         const expected_rel = b.fmt("{s}/{s}.expected", .{ root, replaceExt(b, entry.path) });
         const expected: ?[]const u8 = if (fileExists(b, expected_rel)) expected_rel else null;
 
+        // A `//! fails` snippet without its expectation would be a snippet
+        // nobody checks: the runner would have nothing to match and would have
+        // to accept any failure, including the compile-shaped ones a rewrite
+        // introduces by accident.
+        const fails = hasMarker(source, "//! fails");
+        const expected_error_rel =
+            b.fmt("{s}/{s}.expected-error", .{ root, replaceExt(b, entry.path) });
+        const expected_error: ?[]const u8 =
+            if (fileExists(b, expected_error_rel)) expected_error_rel else null;
+        if (fails and expected_error == null) {
+            std.debug.panic(
+                "{s} is marked `//! fails` but has no sibling {s} naming the message it must fail with",
+                .{ rel, expected_error_rel },
+            );
+        }
+
         const link_libs = parseDirectiveList(b, source, "//! link:");
         const c_includes = parseDirectiveList(b, source, "//! cinclude:");
-        const norun = std.mem.find(u8, source, "//! norun") != null;
-        const simd = std.mem.find(u8, source, "//! simd") != null;
+        const norun = hasMarker(source, "//! norun");
+        const simd = hasMarker(source, "//! simd");
         // A C-linked snippet is inherently a host build; treat it as native
         // even without an explicit `//! native` line.
-        const native = std.mem.find(u8, source, "//! native") != null or
+        const native = hasMarker(source, "//! native") or
             link_libs.len > 0 or c_includes.len > 0;
 
         try out.append(b.allocator, .{
@@ -314,6 +374,8 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
             .chapter = b.dupe(chapter),
             .kind = if (std.mem.find(u8, source, "pub fn main") != null) .exe else .@"test",
             .expected = expected,
+            .expected_error = expected_error,
+            .fails = fails,
             // `//! norun` and native builds are both unshippable to the browser.
             .runnable = !norun and !native,
             .norun = norun,
@@ -370,8 +432,8 @@ fn writeManifest(b: *std.Build, snippets: []const Snippet) std.Build.LazyPath {
     w.writeAll("[\n") catch @panic("OOM");
     for (snippets, 0..) |s, i| {
         w.print(
-            \\  {{"name":"{s}","chapter":"{s}","kind":"{t}","source":"{s}","wasm":"{s}.wasm","runnable":{}}}
-        , .{ s.name, s.chapter, s.kind, s.path, s.name, s.runnable }) catch @panic("OOM");
+            \\  {{"name":"{s}","chapter":"{s}","kind":"{t}","source":"{s}","wasm":"{s}.wasm","runnable":{},"expectFail":{}}}
+        , .{ s.name, s.chapter, s.kind, s.path, s.name, s.runnable, s.fails }) catch @panic("OOM");
         w.writeAll(if (i + 1 == snippets.len) "\n" else ",\n") catch @panic("OOM");
     }
     w.writeAll("]\n") catch @panic("OOM");

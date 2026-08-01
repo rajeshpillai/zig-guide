@@ -65,6 +65,7 @@ const canCompile = existsSync(new URL("../../public/compiler/zig.wasm", import.m
       data-kind={entry.kind}
       data-name={entry.name}
       data-can-compile={String(canCompile)}
+      data-expect-fail={String(entry.expectFail === true)}
     >
       <Code code={shown} lang="zig" themes={CODE_THEMES} defaultColor={false} />
     </zig-playground>

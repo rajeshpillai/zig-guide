@@ -1,11 +1,12 @@
 //! title: Reading Past the End
-//! norun
+//! fails
 //! What `slice[4]` does in a build with safety checks turned on.
 //!
-//! `//! norun` because it deliberately fails: CI compiles it to prove the code
-//! is still valid Zig, and does not execute it. It cannot be a Run button on
-//! the page either, since the wasm shipped to readers is a size-optimised
-//! build with the check compiled out.
+//! `//! fails` rather than `//! norun`: this is built `.safe` instead of the
+//! site-wide `.small`, so the bounds check is present, and CI runs it and
+//! requires it to stop with the message in `past-the-end.expected-error`. The
+//! reader gets a Run button and watches it happen, and the message the chapter
+//! quotes is checked every night rather than remembered.
 
 const std = @import("std");
 
@@ -16,8 +17,8 @@ pub fn main(init: std.process.Init) !void {
     const slice: []const u32 = &row;
 
     // `index` is a `var` whose value the compiler cannot fold, so this is not
-    // rejected at compile time. In Debug or ReleaseSafe the check runs and the
-    // program stops here with "index out of bounds: index 4, len 4".
+    // rejected at compile time. The check that stops it runs while the program
+    // is running, which is the whole point: the compiler cannot know.
     var index: usize = 4;
     _ = &index;
 

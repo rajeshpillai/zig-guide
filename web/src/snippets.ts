@@ -19,6 +19,13 @@ export interface SnippetEntry {
   wasm: string;
   /** False when the snippet needs capabilities the browser sandbox lacks. */
   runnable: boolean;
+  /**
+   * True for `//! fails` snippets: built with safety checks on and required by
+   * CI to stop with a specific message. Running one is supposed to end
+   * non-zero, so the browser gate has to expect the opposite of what it
+   * expects everywhere else.
+   */
+  expectFail: boolean;
 }
 
 // Anchored to the Astro project root (`web/`) rather than `import.meta.url`,

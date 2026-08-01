@@ -107,6 +107,7 @@ const pagers = new Map();
 /** Chapter URL to the `.md` twin its head advertises. */
 const markdownLinks = new Map();
 let playgrounds = 0;
+let expectedFailures = 0;
 let compileOnly = 0;
 
 /**
@@ -279,8 +280,22 @@ for (const href of chapters) {
     );
 
     const status = (await block.locator(".pg-status").textContent()).trim();
-    if (!status.startsWith("exit 0")) {
-      const output = (await block.locator(".pg-output").textContent()).trim();
+    const output = (await block.locator(".pg-output").textContent()).trim();
+
+    // A `//! fails` snippet is on the page because it stops. Asserting exit 0
+    // for it would be asserting that the demonstration no longer demonstrates
+    // anything, and CI already pins the exact message it must stop with.
+    if ((await block.getAttribute("data-expect-fail")) === "true") {
+      expectedFailures++;
+      if (status.startsWith("exit 0")) {
+        failures.push(`${href} [${name}] was supposed to fail and exited 0\n${output}`);
+      }
+      // A trap with nothing written is not a demonstration. The reader has to
+      // see why it stopped, and CI pins the wording separately.
+      if (output.length === 0) {
+        failures.push(`${href} [${name}] failed without printing anything`);
+      }
+    } else if (!status.startsWith("exit 0")) {
       failures.push(`${href} [${name}] ${status}\n${output}`);
     }
   }
@@ -778,7 +793,8 @@ hosted?.server.close();
 
 console.log(
   `pages: ${chapters.length}  playgrounds: ${playgrounds}  ` +
-    `compile-only: ${compileOnly}  edit path: ${editPath}  ` +
+    `compile-only: ${compileOnly}  expected failures: ${expectedFailures}  ` +
+    `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
