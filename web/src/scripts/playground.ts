@@ -32,6 +32,15 @@ class ZigPlayground extends HTMLElement {
     return `${import.meta.env.BASE_URL}wasm/${this.dataset.wasm}`;
   }
 
+  /**
+   * Whether this deployment can compile edited source. Decided by
+   * `Playground.astro` at build time; see the comment there for why the page
+   * has to know before the reader starts typing.
+   */
+  get #canCompile(): boolean {
+    return this.dataset.canCompile === "true";
+  }
+
   get #source(): string {
     return this.#editor?.getSource() ?? this.querySelector("pre")?.textContent ?? "";
   }
@@ -87,12 +96,27 @@ class ZigPlayground extends HTMLElement {
   }
 
   async #run() {
+    // Compare against the original rather than merely checking whether the
+    // editor is open, so reverting an edit goes back to the prebuilt,
+    // CI-verified artifact instead of recompiling identical source.
+    const edited = this.#source.trim() !== this.#original.trim();
+
+    // Say so before pretending to start. Letting this fall through to a fetch
+    // showed the reader a spinner, then a 404, then a message naming a build
+    // script, for something the page already knew at build time.
+    if (edited && !this.#canCompile) {
+      this.#show(
+        "Running edited code needs a Zig compiler in the browser, which this " +
+          "site does not carry yet. The unedited snippet still runs here.",
+        false,
+      );
+      this.#status.textContent = "not run";
+      this.#offerExternalRun();
+      return;
+    }
+
     this.#setBusy(true, "running…");
     try {
-      // Compare against the original rather than merely checking whether the
-      // editor is open, so reverting an edit goes back to the prebuilt,
-      // CI-verified artifact instead of recompiling identical source.
-      const edited = this.#source.trim() !== this.#original.trim();
       const url = edited
         ? await (await loadCompiler()).compile(this.#source, this.#kind())
         : this.#wasmUrl;
@@ -169,7 +193,9 @@ class ZigPlayground extends HTMLElement {
       this.#editButton.disabled = true;
       this.#editButton.textContent = "Editing";
       this.#revertButton.hidden = false;
-      this.#status.textContent = "editable — Run will recompile";
+      this.#status.textContent = this.#canCompile
+        ? "editable, and Run will recompile"
+        : "editable, but Run cannot compile edits here";
     } finally {
       this.#setBusy(false);
     }

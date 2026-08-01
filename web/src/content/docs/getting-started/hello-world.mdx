@@ -87,6 +87,13 @@ Since Zig 0.15 (the release nicknamed *"writergate"*), writers are buffered and
 the buffer is part of the **interface**, not the implementation. You supply the
 memory, which means no hidden allocation.
 
-The tradeoff is that **nothing is written until you `flush`**. Delete the
-`try out.flush()` line above, press Run, and you will get no output at all. Try
-it: click **Edit**, remove the line, and Run again.
+The tradeoff is that **nothing is written until you `flush`**. Remove the
+`try out.flush()` line and the program produces no output at all: the greeting
+is formatted, copied into `buf`, and then thrown away when the program exits.
+It is the first thing to check when a program that clearly should print
+something prints nothing.
+
+The **Edit** button opens the snippet, and **Copy** takes the source. Running
+an edited version needs a Zig compiler in the browser, which this site does not
+carry yet, so the toolbar will say so and offer to hand your version to an
+external playground. Every unedited snippet runs here.

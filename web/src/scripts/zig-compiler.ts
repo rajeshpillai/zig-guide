@@ -42,10 +42,13 @@ const STDLIB_URL = `${base}compiler/lib.tar`;
 async function fetchRequired(url: string, what: string): Promise<ArrayBuffer> {
   const res = await fetch(url);
   if (!res.ok) {
+    // Reader-facing: this text lands in the output pane of the playground.
+    // The recipe for producing the artifacts is in this module's header
+    // comment, where the person who can act on it will look. Keep the leading
+    // phrase, which is what `playground.ts` matches to offer a way out.
     throw new Error(
-      `The in-browser Zig compiler is not available (${what} missing at ${url}, ` +
-        `HTTP ${res.status}). Run tools/build-browser-compiler.sh to produce it. ` +
-        `Unedited snippets still run from their prebuilt wasm.`,
+      `The in-browser Zig compiler is not available (${what} missing, ` +
+        `HTTP ${res.status}). The unedited snippet still runs here.`,
     );
   }
   return res.arrayBuffer();

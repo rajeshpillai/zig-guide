@@ -6,6 +6,7 @@
  * the manifest `zig build` emitted, so a page can never reference a snippet
  * that wasn't compiled and verified.
  */
+import { existsSync } from "node:fs";
 import { Code } from "astro:components";
 import { findSnippet, snippetSource } from "../snippets";
 
@@ -41,6 +42,20 @@ const { name, note, tryLocally } = Astro.props;
 // the same text.
 const entry = await findSnippet(name);
 const shown = await snippetSource(entry);
+
+/**
+ * Whether this deployment carries the in-browser compiler, decided here rather
+ * than discovered by the reader.
+ *
+ * `zig.wasm` cannot currently be built for `wasm32-wasi`, so most deployments
+ * do not have it. Without this flag the page advertises "Run will recompile"
+ * on entering the editor, lets the reader write code, and only then fails with
+ * a 404 and a message naming a build script they do not have. Reading it at
+ * build time costs one `existsSync` and lets the toolbar say what will happen
+ * before anything is typed. Resolved against this file rather than the working
+ * directory, which differs between `astro dev` and `astro build`.
+ */
+const canCompile = existsSync(new URL("../../public/compiler/zig.wasm", import.meta.url));
 ---
 
 {
@@ -49,6 +64,7 @@ const shown = await snippetSource(entry);
       data-wasm={entry.wasm}
       data-kind={entry.kind}
       data-name={entry.name}
+      data-can-compile={String(canCompile)}
     >
       <Code code={shown} lang="zig" themes={CODE_THEMES} defaultColor={false} />
     </zig-playground>
