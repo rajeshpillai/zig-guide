@@ -1,12 +1,11 @@
 //! title: The One That Depends on the Build
-//! norun
-//! Plain `+` on values that overflow: a crash in Debug, undefined in ReleaseSmall.
+//! fails
+//! Plain `+` on values that overflow, in a build that still has the check.
 //!
-//! `//! norun` and deliberately without a `.expected` file. In a safety build
-//! this panics, and in a release build the result is undefined, so there is no
-//! correct output for CI to assert. Pinning whatever this compiler happens to
-//! produce today would be asserting undefined behaviour, which is the one
-//! thing this chapter is telling readers not to do.
+//! Built `.safe`, where what happens here is defined: the check runs and the
+//! program stops. That is why this can carry an expected message at all. In
+//! the `.small` build the rest of the site ships, there is no check and no
+//! promise about the result, so there would be nothing correct to assert.
 
 const std = @import("std");
 
@@ -18,9 +17,9 @@ pub fn main(init: std.process.Init) !void {
     _ = &a;
     _ = &b;
 
-    // In Debug and ReleaseSafe: stops here with "integer overflow".
-    // In ReleaseFast and ReleaseSmall: no check, and no promise about the
-    // value. Not "wraps". Undefined.
+    // 300 does not fit in a u8. In this build the check runs and stops here.
+    // In ReleaseFast or ReleaseSmall there is no check, and the value you
+    // would get is not defined. Not "wraps". Undefined.
     const sum = a + b;
 
     std.debug.print("sum: {d}\n", .{sum});

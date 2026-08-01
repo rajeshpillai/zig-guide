@@ -69,22 +69,40 @@ what you mean and the build mode stops being part of the answer.
 
 ## The one that does depend on the build
 
-<Playground
-  name="15-groundwork.the-one-that-depends"
-  note="No Run button and no expected output: in a safety build it stops, and in a release build the result is undefined, so there is nothing correct for CI to assert."
-  tryLocally="zig run the-one-that-depends.zig"
-/>
+This is the same program as the last four lines above, using plain `+`. It is
+the one snippet on this page built ReleaseSafe rather than ReleaseSmall, so the
+check is still in it. Press **Run**.
 
-Plain `+` on values that do not fit is a crash in Debug and ReleaseSafe, and
-undefined in ReleaseFast and ReleaseSmall. Note what is deliberately not
-claimed there: not that it wraps. It might wrap on your machine today. Writing
-code that depends on that is exactly the broken promise described above, and
-`+%` is right there and costs nothing.
+<Playground name="15-groundwork.the-one-that-depends" />
 
-This snippet also has no expected output on purpose. Every other program in
-this guide is checked against its output on every build. This one cannot be,
-because asserting what undefined behaviour produces would be teaching you to
-rely on it.
+```
+panic: integer overflow
+```
+
+Now read that back against the four operators that did not care. Each of them
+answered the question in the source, so each behaves the same in all four
+modes. This one asked the build mode to answer it, and got a different answer
+depending on which build you are in:
+
+| Build | `a + b` where the sum does not fit |
+| --- | --- |
+| Debug | stops, with the message above |
+| ReleaseSafe | stops, with the message above |
+| ReleaseFast | undefined |
+| ReleaseSmall | undefined |
+
+Note what the last two rows do **not** say. Not "wraps". It might wrap on your
+machine today, and writing code that depends on that is exactly the broken
+promise described at the top of this page. `+%` is right there and costs
+nothing.
+
+There is a reason this page can show you the panic and cannot show you the
+other half. In a safety build the behaviour is defined, so our build runs this
+program on every change and requires it to stop with that exact message. In a
+release build there is no defined answer, so there would be nothing correct to
+check it against. A guide that printed whatever its compiler happened to
+produce that day, and called it the result, would be teaching you to rely on
+the thing this chapter exists to warn you about.
 
 ## Check yourself
 
