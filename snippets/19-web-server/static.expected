@@ -1,0 +1,9 @@
+ok       /                            -> /index.html        text/html; charset=utf-8
+ok       /index.html                  -> /index.html        text/html; charset=utf-8
+ok       /style.css?v=3               -> /style.css         text/css
+ok       /a%20file.txt                -> /a file.txt        text/plain; charset=utf-8
+refused  /../etc/passwd               -> Traversal
+refused  /static/../../etc/passwd     -> Traversal
+refused  /%2e%2e/%2e%2e/etc/passwd    -> Traversal
+refused  /safe.txt%00.png             -> Traversal
+refused  /bad%zz                      -> BadEncoding

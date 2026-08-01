@@ -1,0 +1,82 @@
+---
+title: Routing and Query Strings
+description: Everything after the question mark, and the dispatch table that ignores it.
+section: Web Server
+order: 4
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A request target is two things joined by a `?`. Before it is a path, which
+decides *what runs*. After it is a query string, which is input to whatever
+that is. The two are parsed differently and used differently, and treating them
+as one string is the source of a surprising number of bugs.
+
+Routing is the first half, and it is smaller than its reputation: a comparison
+against a table. Everything a framework adds is compression of the table, not a
+different decision.
+
+## The program
+
+<Playground name="19-web-server.routes" />
+
+## What just happened
+
+**`hello+world` became `hello world`, and `%26` became a literal `&`.** Both
+matter. In a query string `+` means a space, a rule that exists only there and
+not in the path, which is why the decoder is a separate function rather than a
+flag. And `%26` decoded *after* the split on `&`, so a value containing an
+ampersand stayed one value instead of becoming two parameters. Decode after
+splitting on the structural characters, which is the opposite of the ordering
+in the last chapter and for the same reason: you decode at the point where the
+result is data rather than structure.
+
+**`empty=` and `flag` are different.** One is a parameter with an empty value,
+the other has no `=` at all. HTML forms send both, and a parser that collapses
+them cannot distinguish "the user cleared this field" from "this field was
+never submitted".
+
+**`q` appeared twice and the last one won.** Real servers disagree about this:
+some take the first, some take the last, some build a list. The disagreement is
+itself an attack. When a caching proxy takes the first `user` and the origin
+server takes the last, one request means two different things to two systems,
+and that gap is where parameter-pollution bugs live. Whatever you choose, be
+able to say what it is.
+
+**Routing ignored the query.** `GET /search?q=x` matched the `/search` route,
+because the path is what decides the handler and the query is its input. And
+`GET /submit` was a 404 while `POST /submit` matched, because the method is
+part of the route, not a detail checked later.
+
+## Check yourself
+
+The routing table is a linear scan over three entries. At what point does that
+become the wrong shape?
+
+Later than you would think, and the reason to change it is usually not speed.
+A few dozen exact-match routes scanned linearly are nothing next to the syscall
+that delivered the request. What forces a different structure is *patterns*:
+once a route is `/users/:id/posts/:post` the comparison is no longer `eql`, and
+matching a hundred patterns against every request means either compiling them
+into a tree that walks the path once, or accepting a hundred partial matches
+per request. That tree is what a real router is, and it exists because of
+patterns rather than because of scale.
+
+## If you have written C
+
+The parsing is the same and the memory is the difference. The C version either
+decodes in place, which works because a decoded string is never longer than its
+encoded form, or allocates for each value and then owns freeing them.
+
+Decoding in place is the tempting one and it destroys the original target,
+which you may still want for logging. It also has to be done after splitting,
+since writing a decoded `&` into the buffer before the split would create a
+parameter boundary that was never sent. That is the same ordering point as
+above, made sharper by the fact that C makes the mistake physically possible.
+
+The other C-shaped trap is that `strtok` on `&` collapses runs, so `a=1&&b=2`
+loses the empty parameter, and `a=1&` loses the trailing one. Whether that
+matters depends on whether anything downstream counts parameters, which is
+exactly the sort of coupling that is invisible until it breaks.
+
+Next: form bodies, which are the same encoding arriving by a different route.

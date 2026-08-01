@@ -1,0 +1,22 @@
+/search?q=hello+world&page=2
+  q = "hello world"
+  page = "2"
+/search?q=a%26b&empty=&flag
+  q = "a&b"
+  empty = ""
+  flag = ""
+/search?q=first&q=second
+  q = "first"
+  q = "second"
+/
+  (no parameters)
+
+last value wins
+  q -> "second"
+
+routing
+  GET   /              -> handler 0
+  GET   /search?q=x    -> handler 1
+  POST  /submit        -> handler 2
+  GET   /submit        -> 404
+  GET   /missing       -> 404
