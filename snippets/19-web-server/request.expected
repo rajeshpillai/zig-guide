@@ -1,0 +1,18 @@
+method  POST
+target  /submit?id=7
+version HTTP/1.1
+
+  Host: example.com
+  content-type: application/x-www-form-urlencoded
+  Content-Length: 13
+
+lookup "Content-Type" -> application/x-www-form-urlencoded
+lookup "Missing"      -> absent
+
+body (13 bytes) name=ada&ok=1
+Content-Length says 13, and it agrees: true
+
+rejected: Malformed
+rejected: Malformed
+rejected: Malformed
+rejected: Malformed

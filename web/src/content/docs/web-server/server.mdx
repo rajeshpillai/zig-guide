@@ -1,0 +1,115 @@
+---
+title: An HTTP Server
+description: The parser from the last chapter, with a socket in front of it.
+section: Web Server
+order: 2
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The parser takes bytes and returns a request. A server is that, plus somewhere
+for the bytes to come from and somewhere for the answer to go. There is less
+new code here than you might expect, which is the point of having built the
+parser first.
+
+## The program
+
+This one has no Run button. It binds a listening socket, which the browser
+sandbox has no notion of, so it is built for the host and executed there
+instead: our build runs it on every change, serving two real requests over a
+real port and checking what the client received. The absence of a Run button
+costs verification nothing.
+
+<Playground
+  name="19-web-server.server"
+  note="Binds a real socket, so it is built and run on the host by CI rather than in your browser. The output below is what CI checks on every build."
+  tryLocally="zig run server.zig"
+/>
+
+```
+--- GET /
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 15
+Connection: close
+<h1>hello</h1>
+
+--- GET /nope
+HTTP/1.1 404 Not Found
+Content-Type: text/plain
+Content-Length: 10
+Connection: close
+not found
+```
+
+## What just happened
+
+**The server reads until it sees a blank line.** Not a fixed number of bytes,
+and not one line: a loop that keeps taking lines until the accumulated bytes
+contain `\r\n\r\n`. This is the framing rule from the last chapter arriving
+where it actually bites, because now the bytes are trickling in from a socket
+and there is no way to know how many are coming.
+
+**`Content-Length` on the response is not politeness.** Without it the client
+has no idea the body ended, so it waits, and the request appears to hang. The
+alternative is to close the connection and let end-of-stream mark the end,
+which is what `Connection: close` announces and what the client here relies on.
+Those two mechanisms are the only ways HTTP/1.1 has to end a body, and chunked
+encoding is the third that exists because neither works for a response whose
+length is not known when the headers are sent.
+
+**The routing is one `eql`.** `/` gets HTML, everything else gets a 404. That
+is genuinely all routing is at this level: a comparison against the target, and
+everything a framework adds sits on top of this.
+
+**The status line carries a number and a phrase.** The number is for programs
+and the phrase is for people, and nothing reads the phrase. You can send
+`HTTP/1.1 200 Fine` and every client will accept it.
+
+**One connection per `serve` call, then it returns.** A real server wraps this
+in a loop and hands each connection to a thread or an event loop, and the
+[many clients](/learn/networking/many-clients/) chapter covers the shapes that
+take. What happens *per connection* is unchanged, which is why this is worth
+isolating.
+
+## Check yourself
+
+The server never checks the method. `POST /` gets the same HTML as `GET /`.
+Beyond being wrong, why does that matter?
+
+Because `GET` is defined to be safe and idempotent, and things you do not
+control rely on it. Browsers prefetch links, proxies cache responses, and
+crawlers follow every URL they find. A server that performs an action on `GET`
+will have that action performed by a caching proxy, a browser's link preview,
+and eventually a search engine. The classic version of this is an admin panel
+with `GET /delete?id=5` links that a crawler dutifully visited.
+
+Checking the method is one comparison, and the reason it matters is entirely
+about what the rest of the world assumes.
+
+## If you have written C
+
+`socket`, `bind`, `listen`, `accept` in a loop, and `read`/`write` on the
+returned descriptor. That is the same sequence here, with the difference that
+a failed call is an error in the return type rather than `-1` plus `errno`.
+
+Two C-specific hazards this sidesteps. The read into a fixed buffer has to
+leave room for a terminator if the result is going to be treated as a string,
+and forgetting that is the off-by-one from the
+[strings chapter](/learn/terminal/strings/) on a buffer holding attacker-
+controlled bytes. And `write` can be partial on a socket just as on a pipe, so
+the C version needs its own loop around it; `writeAll` is that loop.
+
+The one thing the C version makes obvious that this hides is that a socket is
+just a file descriptor. `read` and `write` work on it because they work on
+everything, which is the point [file descriptors](/learn/os/file-descriptors/)
+makes at length.
+
+## Where this section goes next
+
+What is here is the protocol and the socket. What a real server adds, in
+roughly the order it becomes necessary: serving files from disk with a path
+traversal guard, routing with query strings and percent-decoding, form bodies,
+cookies and sessions, and a template engine so the HTML stops living inside
+string literals. Each is a chapter, and each is mostly parsing, which means
+most of them will run in the page.

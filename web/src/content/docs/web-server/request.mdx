@@ -1,0 +1,96 @@
+---
+title: Parsing an HTTP Request
+description: A request line, some headers, a blank line. The blank line is the hard part.
+section: Web Server
+order: 1
+---
+
+import Playground from "../../../components/Playground.astro";
+
+An HTTP request is text, and small enough to read out loud:
+
+```
+POST /submit?id=7 HTTP/1.1
+Host: example.com
+Content-Length: 13
+
+name=ada&ok=1
+```
+
+A request line, some headers, a blank line, and a body. That is the whole
+format, and you can implement it without a library.
+
+The part that is genuinely awkward is the blank line, because it is doing a job
+that looks trivial and is not. HTTP sends **no length up front**. A server
+reading from a socket has no idea how many bytes belong to this request, so it
+cannot ask for them. It has to read until it sees the header section end, and
+only then can `Content-Length` tell it how much body follows.
+
+That is the framing problem from the [networking](/learn/networking/framing/)
+section, and HTTP's answer is a delimiter: `\r\n\r\n`.
+
+## The program
+
+<Playground name="19-web-server.request" />
+
+## What just happened
+
+**The parse is a split, then a split, then a loop.** Find the blank line to
+separate head from body, split the head on `\r\n`, take the first line as the
+request line, and treat the rest as `name: value`. No state machine and no
+buffering, because the whole request is already in memory.
+
+**`Content-Type` was found when it was sent as `content-type`.** Header names
+are case-insensitive, and this is not a detail you can defer. `curl` sends
+`Host`, HTTP/2 clients lower-case everything, and a hand-written client sends
+whatever its author typed. A parser comparing exactly works perfectly against
+the client you tested with.
+
+**Whitespace is trimmed after the colon and not before it.** `Host: example.com`
+and `Host:example.com` are both fine; `Host : example.com` is malformed. Being
+lenient there sounds harmless and is not: when two systems in a chain disagree
+about which requests are valid, one of them can be persuaded to see a request
+the other did not, which is how request smuggling works. Strict parsing is a
+security property, not fussiness.
+
+**Nothing was copied.** Every field is a slice of the original bytes. The
+request is a view over the buffer the socket filled, so parsing allocates
+nothing and the whole thing is valid exactly as long as that buffer is.
+
+**Four malformed requests were rejected.** A missing blank line, too many parts
+in the request line, a header with no colon, and a truncated request. Each is
+an error rather than a guess.
+
+## Check yourself
+
+The parser takes `[]const u8` and never mentions a socket. Why does that
+matter more than it looks?
+
+Because it means this page can run it. The same property is what lets the
+parser be unit-tested without a network, fuzzed with a corpus of malformed
+requests, and reused by a client to parse *responses*, which have the same
+shape. A parser that reads from a socket can be tested only by starting a
+server.
+
+This is the rule [CLAUDE.md](https://github.com/rajeshpillai/zig-guide) states
+for all the protocol code in this guide, and it is the reason most of the
+networking chapters run in a browser. The next chapter puts a socket in front
+of this one, and the parser does not change.
+
+## If you have written C
+
+The C version is `strstr` for the blank line and `strtok` for the rest, and
+both of those choices cost you something.
+
+`strtok` writes `\0` over each delimiter, destroying the buffer as it reads.
+For a request that is often acceptable, since you are done with it. It also
+collapses runs of delimiters, which means an empty header line, the very thing
+marking the end of the headers, disappears. Parsers built on `strtok` usually
+find the blank line separately for this reason.
+
+And every field ends up as a `char *` into the buffer with no length, so
+"header value" and "the rest of the request from here on" are the same type.
+That is the class of bug that reads a request body as a header value.
+
+Next: [the server](/learn/web-server/server/), which is this parser with a
+socket in front of it.

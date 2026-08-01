@@ -85,7 +85,7 @@ export const TRACKS: Track[] = [
     // One section per phase of the sequence this follows. Phases land as they
     // are written rather than all at once, and a section listed here with no
     // chapters yet simply does not appear.
-    sections: ["terminal", "unix-tools", "tiny-lang"],
+    sections: ["terminal", "unix-tools", "tiny-lang", "web-server"],
   },
   {
     title: "Projects",

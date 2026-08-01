@@ -1,0 +1,14 @@
+--- GET /
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 15
+Connection: close
+<h1>hello</h1>
+
+--- GET /nope
+HTTP/1.1 404 Not Found
+Content-Type: text/plain
+Content-Length: 10
+Connection: close
+not found
+

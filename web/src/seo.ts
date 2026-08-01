@@ -105,6 +105,26 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "`make` is a topological sort over a graph of file timestamps. Everything else about it is syntax.",
     ],
   },
+  "web-server": {
+    seoTitle: "Build an HTTP Server in Zig, from the Bytes Up",
+    description:
+      "Parse an HTTP request by hand, format a response, and serve it over a " +
+      "real socket. The protocol is text, the framing is a blank line, and " +
+      "none of it needs a framework.",
+    lede:
+      "HTTP is a text protocol simple enough to implement in an afternoon and " +
+      "strict enough that the details matter. These chapters parse a request " +
+      "into a method, a target and headers, then put a socket in front of the " +
+      "parser and answer a real client. The parsing runs in this page; the " +
+      "server binds a port, so it runs on the build machine instead, and CI " +
+      "checks what the client received.",
+    takeaways: [
+      "HTTP declares no length up front, so a server reads until it sees a blank line. That single rule is the whole framing problem.",
+      "Header names are case-insensitive. Comparing them exactly works against your own client and fails against somebody else's proxy.",
+      "A response without Content-Length leaves the client waiting, because nothing else tells it the body ended.",
+      "The parser never needs a socket. Taking bytes and returning a request is what lets the same code be tested, fuzzed, and run on a page with no network at all.",
+    ],
+  },
   "tiny-lang": {
     seoTitle: "Write a Programming Language in Zig",
     description:
