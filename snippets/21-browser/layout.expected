@@ -1,0 +1,16 @@
+viewport is 400 wide
+
+document x=0     y=0     w=400   h=140
+  div      x=10    y=10    w=380   h=120
+    h1       x=10    y=10    w=380   h=40
+      #text    x=10    y=10    w=380   h=20
+    div      x=20    y=60    w=360   h=40
+      p        x=20    y=60    w=360   h=20
+        #text    x=20    y=60    w=360   h=20
+      p        x=20    y=80    w=360   h=20
+        #text    x=20    y=80    w=360   h=20
+    p        x=10    y=110   w=380   h=20
+      #text    x=10    y=110   w=380   h=20
+
+widths were decided before any child was measured;
+heights could not be known until every child was placed.
