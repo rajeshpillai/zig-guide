@@ -62,7 +62,8 @@ a filename and a content type of its own that the encoding has nowhere to put.
 The practical consequence is that a server supporting uploads has two body
 parsers, not one, and the multipart one has to handle a boundary appearing
 inside the data, sections arriving split across reads, and a filename that must
-never be trusted as a path. Every one of those has its own history.
+never be trusted as a path. Every one of those has its own history, and
+[File Uploads](/learn/web-server/multipart/) is the chapter that builds it.
 
 ## If you have written C
 

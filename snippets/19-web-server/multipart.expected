@@ -1,0 +1,25 @@
+boundary announced by the client: ----zig42
+
+2 parts
+
+name         title
+filename     (none, so it is a field)
+content-type (unset)
+data         10 bytes: "My holiday"
+
+name         photo
+filename     ../../etc/passwd
+  as sent    ../../etc/passwd
+  safe form  passwd
+content-type image/png
+data         9 bytes: "PNG
+data"
+
+the photo is 9 bytes, and "PNG\r\ndata" is 9
+
+filenames a client might send
+  holiday.png              -> holiday.png
+  ../../etc/passwd         -> passwd
+  C:\Users\me\photo.png    -> photo.png
+  ..                       -> (refused)
+                           -> (refused)

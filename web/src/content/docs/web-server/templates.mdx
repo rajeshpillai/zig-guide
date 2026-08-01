@@ -88,6 +88,7 @@ render a page without executing what they typed.
 
 That is a small web server, and the parts of it that are not here are mostly
 scale rather than concept: keep-alive, chunked bodies, compression, TLS, and
-concurrency, which [many clients](/learn/networking/many-clients/) covers. The
-one genuinely missing concept is file uploads, whose `multipart/form-data`
-parser is its own chapter for the reasons the forms page gives.
+concurrency, which [many clients](/learn/networking/many-clients/) covers. File
+uploads have their own chapter, [File Uploads](/learn/web-server/multipart/),
+because `multipart/form-data` is a second body format rather than a variation
+on the first.
