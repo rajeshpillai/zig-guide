@@ -315,6 +315,95 @@ for (const href of [
 }
 
 /**
+ * The Edit button, which nothing above touches: the loop over every playground
+ * presses Run on unedited source, so the entire editing path could break and
+ * this gate would stay green. It renders correctly and only fails once a
+ * reader types, which is the worst kind of regression to ship.
+ *
+ * Deliberately written to pass in both worlds. `zig.wasm` cannot currently be
+ * built for `wasm32-wasi`, so `data-can-compile` is false everywhere today and
+ * the contract is "say so plainly and offer a way out". If the compiler ever
+ * lands, the flag flips and the same check asserts that an edit actually
+ * compiles and runs. Neither branch is allowed to silently do nothing.
+ *
+ * One page is enough. This is the mechanism, not the content, and loading
+ * CodeMirror on all 133 playgrounds would cost minutes to learn nothing.
+ */
+const EDIT_PAGE = `${PREFIX}/learn/getting-started/hello-world/`;
+let editPath = "not run";
+{
+  await page.goto(BASE + EDIT_PAGE, { waitUntil: "networkidle" });
+  const block = page.locator("zig-playground").first();
+  const canCompile = (await block.getAttribute("data-can-compile")) === "true";
+
+  await block.locator("button.pg-edit").click();
+  await page.waitForFunction(() => document.querySelector(".cm-content") !== null, null, {
+    timeout: 30000,
+  });
+
+  // Entering the editor has to state what Run will do, before anything is
+  // typed. Promising a recompile that cannot happen is the bug this replaced.
+  const opened = (await block.locator(".pg-status").textContent()).trim();
+  const promises = /Run will recompile/.test(opened);
+  if (promises !== canCompile) {
+    failures.push(
+      `${EDIT_PAGE} editor status ${JSON.stringify(opened)} does not match ` +
+        `data-can-compile=${canCompile}`,
+    );
+  }
+
+  await block.locator(".cm-content").click();
+  await page.keyboard.type("// edited by the gate\n");
+  await block.locator("button.pg-run").click();
+  await page.waitForFunction(
+    () =>
+      !document
+        .querySelector("zig-playground .pg-status")
+        .textContent.includes("ing…"),
+    null,
+    { timeout: 60000 },
+  );
+
+  const status = (await block.locator(".pg-status").textContent()).trim();
+  const output = (await block.locator(".pg-output").textContent()).trim();
+
+  if (canCompile) {
+    if (!status.startsWith("exit 0")) {
+      failures.push(`${EDIT_PAGE} edited source did not compile and run: ${status}\n${output}`);
+    }
+  } else {
+    // No stack trace, no HTTP status, and no build script the reader does not
+    // have: the message is the only thing they get, so it has to read as an
+    // explanation rather than an error.
+    if (!/needs a Zig compiler in the browser/.test(output)) {
+      failures.push(`${EDIT_PAGE} edited source gave no plain explanation: ${output}`);
+    }
+    if ((await block.locator(".pg-escape").count()) === 0) {
+      failures.push(`${EDIT_PAGE} edited source offered no way to run it elsewhere`);
+    }
+  }
+
+  // Revert has to restore the CI-verified artifact, not merely the text. This
+  // is the path most at risk from any change to how edits are detected.
+  await block.locator("button.pg-revert").click();
+  await block.locator("button.pg-run").click();
+  await page.waitForFunction(
+    () =>
+      !document
+        .querySelector("zig-playground .pg-status")
+        .textContent.includes("ing…"),
+    null,
+    { timeout: 30000 },
+  );
+  const reverted = (await block.locator(".pg-status").textContent()).trim();
+  if (!reverted.startsWith("exit 0")) {
+    failures.push(`${EDIT_PAGE} Revert then Run did not run the verified wasm: ${reverted}`);
+  }
+
+  editPath = canCompile ? "compiles" : "explains";
+}
+
+/**
  * The pager and the sidebar are generated from one ordering, and this is what
  * proves they stayed that way: every page carries a link, each "next" is
  * answered by the matching "previous", and following "next" from the first
@@ -689,7 +778,8 @@ hosted?.server.close();
 
 console.log(
   `pages: ${chapters.length}  playgrounds: ${playgrounds}  ` +
-    `compile-only: ${compileOnly}  pager chain: ${walked}  contrast: ${contrastChecks}  ` +
+    `compile-only: ${compileOnly}  edit path: ${editPath}  ` +
+    `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
     `llms.txt: ${machine.llms}  .md: ${machine.mdPages}  feed: ${machine.feedItems}  ` +
