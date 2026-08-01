@@ -1,0 +1,8 @@
+precedence
+  1 + 2 * 3;     (+ 1 (* 2 3))
+  (1 + 2) * 3;   (* (+ 1 2) 3)
+  1 - 2 - 3;     (- (- 1 2) 3)
+  0 - -4;        (- 0 (neg 4))
+
+the program, as a tree (14 nodes)
+  (block (let total 0) (while (< total 10) (block (set total (+ total 3)))) (print total))
