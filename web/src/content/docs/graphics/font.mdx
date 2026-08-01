@@ -1,0 +1,71 @@
+---
+title: Bitmap Text
+description: A glyph is a small rectangle of bits, and drawing text is copying them.
+section: Graphics
+order: 133
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Every chapter so far has drawn shapes described by maths: a line from an
+equation, a circle from a radius. Text is not like that. There is no formula
+for the letter `G`, so the shape has to be stored, and the oldest way to store
+it is the simplest one that works.
+
+A glyph is a small rectangle of bits. One bit per pixel, on or off. Drawing a
+character means walking those bits and setting a pixel wherever there is a one.
+
+## The program
+
+<Playground name="09-graphics.font" />
+
+## What just happened
+
+**Each glyph is seven bytes.** Five bits used per row, seven rows, written in
+binary so the shape is visible in the source. Look at `Z` in the code and you
+can read the letter off the ones.
+
+**The zeroes were skipped, not drawn.** That single `if` is what makes text
+composable: a glyph has no background of its own, so it draws *over* whatever
+is already there. Filling the zeroes with a background colour would put every
+character in an opaque box, which is what happens when you get this wrong and
+is immediately obvious.
+
+**The pen advanced by a fixed amount.** Six columns per character, always. That
+is a **monospaced** font, and it is why terminal output lines up. A
+proportional font stores an advance width per glyph, and that one change is
+most of the difference between this and a text engine, because now the width of
+a string is a sum rather than a multiplication.
+
+**The whole font is 49 bytes.** Seven glyphs at seven bytes each. That is why
+this technique survived on machines with kilobytes of memory, and why it is
+still what a bootloader or an embedded display uses.
+
+## Check yourself
+
+The glyphs here are 5x7. What has to change to draw them at twice the size?
+
+Nothing about the data, and one line of the drawing loop: write a 2x2 block of
+pixels instead of one. That works, and it is why doubled bitmap text has visibly
+chunky edges: the information for the in-between pixels was never there.
+
+Getting a *good* larger size means storing the glyph as outlines, curves
+described by control points, and rasterising them at the requested size. That
+is what TrueType is, and it is also why fonts need **hinting**: at small sizes
+the outline rarely lines up with the pixel grid, so the shapes need nudging to
+avoid a stem landing half in one column and half in the next.
+
+## If you have written C
+
+The font table is `static const unsigned char font[][7]`, indexed by character,
+and the classic version indexes it directly with `c - 32` to skip the control
+characters. That is fast and is an out-of-bounds read the moment a byte above
+127 arrives, which on any non-ASCII input is immediately. The version above
+uses a switch that returns null for anything it does not know.
+
+The other traditional detail is that fonts were stored column-major as often as
+row-major, because some displays wanted vertical strips of eight pixels, which
+is exactly one byte. That is not a style preference: it is the shape the
+hardware read.
+
+Next: sprites, which are the same copy with more than one bit per pixel.

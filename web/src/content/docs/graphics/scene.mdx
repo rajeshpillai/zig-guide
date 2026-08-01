@@ -1,0 +1,82 @@
+---
+title: A Scene Graph
+description: Position a thing once, relative to its parent, and moving the parent moves everything.
+section: Graphics
+order: 135
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Drawing one sprite means knowing where it goes. Drawing fifty that belong
+together means knowing where all of them go, and keeping those fifty numbers
+correct as the group moves is the problem a scene graph solves.
+
+The idea is to stop storing where things are. Store where each thing is
+**relative to its parent**, and compute the rest. An arm is at "shoulder plus
+two", permanently, and the shoulder is free to go anywhere.
+
+## The program
+
+<Playground name="09-graphics.scene" />
+
+## What just happened
+
+**One line changed and four shapes moved.** `nodes[0].x` went from 4 to 26.
+Nothing else in the array was touched, and the head and both arms followed,
+because none of them ever knew where they were on the canvas.
+
+**The transform is an addition.** Each node draws at parent plus its own
+offset, and passes that total down. One add per level, accumulated on the way
+down the tree, which is the same downward walk as the
+[layout engine](/learn/browser/layout/) and for the same reason: a child's
+position depends on its parent and not the reverse.
+
+**Order in the array is not order in the tree.** The nodes are stored flat and
+linked by index. Sibling order decides painting order, which is the painter's
+algorithm again: later siblings cover earlier ones.
+
+## What a real one carries
+
+Two integers only allow moving. A real scene graph stores a **matrix** per
+node, usually 3x3 for 2D, so a node can rotate and scale too, and composing
+parent with child becomes a matrix multiply rather than an add.
+
+That change buys the thing that makes scene graphs worth the machinery: a
+rotation applied to the parent rotates every child *around the parent's
+origin*, without any child knowing it happened. Rotating a robot's shoulder
+sweeps the whole arm, and nothing in the arm mentions rotation.
+
+The structure of the walk does not change at all. Accumulate down, draw at each
+node, recurse.
+
+## Check yourself
+
+The walk recomputes every position on every frame. Is that wasteful?
+
+Usually not, and the alternative is worse than it looks. Caching each node's
+world position means invalidating the cache for an entire subtree whenever a
+parent moves, and in an animated scene most parents move most frames, so the
+cache is invalidated about as often as it is used.
+
+Engines that do cache it are usually solving a different problem: they need the
+world position for something other than drawing, like hit testing or physics,
+where recomputing on demand would mean walking from the root for every query.
+The cache is worth it when reads outnumber writes, which is the same question
+as [indexing a database](/learn/storage/indexes/).
+
+## If you have written C
+
+The tree is `struct Node { int x, y; struct Node *first, *next; }` and the walk
+is the same recursion. Two familiar hazards apply.
+
+Deep recursion on a deeply nested scene overflows the stack, and a scene graph
+built from a file can be arbitrarily deep, including cyclic if the file is
+malformed. A production loader checks depth and rejects cycles, or the walk is
+rewritten with an explicit stack.
+
+And the flat array used here has the usual advantage over pointers: the whole
+scene is one allocation, freeing it is one call, and the walk touches
+contiguous memory. That last part matters more than it sounds when the walk
+happens sixty times a second.
+
+Next: a chart, which is a scene where the positions come from data.
