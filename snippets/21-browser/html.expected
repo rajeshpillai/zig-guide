@@ -1,0 +1,12 @@
+<document>
+  <h1 class=title>
+    "Hello"
+  <p>
+    "First paragraph"
+  <p>
+    "Second, and the first was never closed"
+  <div id=main>
+    <img src=cat.png>
+    "text after a void element"
+
+10 nodes, and every one of the four mistakes above was recovered from

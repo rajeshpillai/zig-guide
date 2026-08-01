@@ -143,6 +143,25 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "An index does not make the data smaller. It adds a second structure you now have to keep in step with the first.",
     ],
   },
+  browser: {
+    seoTitle: "Build a Browser in Zig: Parse HTML, Match CSS, Lay Out, Render",
+    description:
+      "The pipeline behind every page: an HTML parser that cannot fail, a CSS " +
+      "parser and selector matcher, a layout engine that turns a tree into " +
+      "boxes, and a renderer that turns boxes into pixels.",
+    lede:
+      "A browser is four programs in a row, and each one is understandable on " +
+      "its own. Bytes become a tree, a stylesheet decides what each node looks " +
+      "like, the tree becomes rectangles with positions, and the rectangles " +
+      "become pixels. The scripting engine at the end is the language built " +
+      "earlier in this track, pointed at a document.",
+    takeaways: [
+      "HTML has no parse errors by design. Every malformed document has a defined tree, because the browsers that shipped first had to render the web that already existed.",
+      "A void element is complete on its own. Treating `<br>` as an unclosed tag swallows the rest of the page.",
+      "Layout is two passes, not one: widths flow down from the parent, heights add up from the children.",
+      "The cascade is a sort. Specificity, then order, and the last rule standing wins.",
+    ],
+  },
   "tiny-lang": {
     seoTitle: "Write a Programming Language in Zig",
     description:
