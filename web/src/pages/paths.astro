@@ -68,7 +68,9 @@ const PATHS: Path[] = [
       "standard-library/allocators",
       "standard-library/arraylist",
     ],
-    then: "Then Data Structures, which makes you answer who frees what.",
+    then:
+      "Then Data Structures, which makes you answer who frees what, or the " +
+      "From Scratch track, which makes you build the tools you have been using.",
   },
   {
     title: "Coming from C",
@@ -121,6 +123,31 @@ const PATHS: Path[] = [
     then: "Then Concurrency, which is the other thing your old runtime was doing for you.",
   },
   {
+    title: "Build it from scratch",
+    who:
+      "You learn a thing by writing it. This is the spine of the From Scratch " +
+      "track: the primitives a shell needs, the tools you use every day, a " +
+      "language, and a web server. Each one is a complete program, and the " +
+      "track has more of each if a stage grabs you.",
+    chapters: [
+      "terminal/strings",
+      "terminal/tokenize",
+      "terminal/repl",
+      "unix-tools/cat",
+      "unix-tools/wc",
+      "unix-tools/sort",
+      "unix-tools/make",
+      "tiny-lang/lexer",
+      "tiny-lang/parser",
+      "tiny-lang/interpreter",
+      "web-server/request",
+      "web-server/server",
+    ],
+    then:
+      "Then the chapters each section skips here: grep and printf, the bytecode " +
+      "compiler and its VM, and the rest of the web server.",
+  },
+  {
     title: "I want to ship something this week",
     who:
       "You will read the language later. This is the shortest route to a " +
@@ -159,8 +186,14 @@ const PATHS: Path[] = [
       "networking/many-clients",
       "networking/network-errors",
       "how-to/databases/redis-resp",
+      // Where the framing rules above turn into a protocol somebody else's
+      // client already speaks.
+      "web-server/request",
+      "web-server/server",
+      "web-server/routes",
+      "web-server/static",
     ],
-    then: "Then UDP and HTTP, or the PostgreSQL wire protocol for a bigger one.",
+    then: "Then form bodies, sessions and templates, or the PostgreSQL wire protocol for a bigger one.",
   },
   {
     title: "Upgrading from an older Zig",
@@ -197,7 +230,8 @@ const paths = PATHS.map((path) => ({
 const description =
   "Short routes through the Zig guide for people who arrived with a goal: new " +
   "to systems programming, coming from C, coming from a garbage-collected " +
-  "language, shipping something this week, or upgrading from an older Zig.";
+  "language, building the tools from scratch, writing a network service, " +
+  "shipping something this week, or upgrading from an older Zig.";
 
 const schema = {
   "@type": "CollectionPage",
