@@ -125,6 +125,24 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "The parser never needs a socket. Taking bytes and returning a request is what lets the same code be tested, fuzzed, and run on a page with no network at all.",
     ],
   },
+  storage: {
+    seoTitle: "Build a Database in Zig: Logs, Locks and Indexes",
+    description:
+      "How storage engines actually work: an append-only record log, the lost " +
+      "update two writers cause, indexes that turn a scan into a lookup, and a " +
+      "write-ahead log that survives a crash.",
+    lede:
+      "Every database is a file, plus the rules that keep it honest when two " +
+      "things touch it at once and when the power goes out. These chapters " +
+      "build those rules from nothing: append-only records, a lock, an index, " +
+      "and a log written before the change it describes.",
+    takeaways: [
+      "An append-only file cannot delete. Removal is a record you add, which is why every log-structured store has tombstones.",
+      "Read, modify, write is three steps, and the gap between the first and the third is where the other writer gets in.",
+      "A race gives a different answer every run. That is what makes it expensive to find, not what makes it rare.",
+      "An index does not make the data smaller. It adds a second structure you now have to keep in step with the first.",
+    ],
+  },
   "tiny-lang": {
     seoTitle: "Write a Programming Language in Zig",
     description:

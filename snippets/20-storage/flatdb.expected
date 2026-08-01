@@ -1,0 +1,14 @@
+the log, 83 bytes:
+put|alice|engineer
+put|bob|designer
+put|alice|architect
+del|bob|
+put|carol|a\pb\nc
+
+alice  -> "architect"
+bob    -> (absent)
+carol  -> "a|b
+c"
+dave   -> (absent)
+
+5 records written, 2 keys live, and the file only ever grew

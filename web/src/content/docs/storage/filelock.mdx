@@ -1,0 +1,99 @@
+---
+title: Two Writers, One File
+description: What a lost update looks like, and the lock that prevents it.
+section: Data and Storage
+order: 2
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Incrementing a counter in a file is three operations, not one. Read the value,
+add one, write it back. Between the read and the write there is a gap, and for
+the length of that gap the value on disk is stale and somebody else may be
+reading it.
+
+Two writers, each doing 200 increments, should leave 400. They will not.
+
+## The program
+
+No Run button: this needs real threads and a real filesystem, so it is built
+for the host and executed there. It also has no pinned output, which is unusual
+here and is the point of the chapter.
+
+<Playground
+  name="20-storage.filelock"
+  note="Needs real threads and a real filesystem, so CI builds and runs it on the host. Its output deliberately differs on every run, so unlike every other snippet here it has no expected output to check."
+  tryLocally="zig run filelock.zig"
+/>
+
+A run on the machine that built this page:
+
+```
+two threads, 200 increments each
+
+without a lock: 183, expected 400
+  updates lost: true
+
+with a lock:    400, expected 400
+  updates lost: false
+```
+
+## What just happened
+
+**Over half the increments vanished.** Not a crash, not an error, no log line.
+The file contains a number that is simply too small, and nothing in the system
+noticed. Every one of those lost updates was a thread reading 91, another
+thread reading 91, and both writing 92.
+
+**Run it again and you get a different number.** This is the property that
+makes races expensive. A bug that reproduces is a bug you can bisect; this one
+is a different value every time, disappears under a debugger because the
+timing changes, and is worst on the machine with the most cores, which is
+production. It is also why this snippet has no expected output: pinning one
+number would make our nightly fail on an unchanged tree, and that would be the
+build lying rather than the code.
+
+**The lock made it exact.** Not "more accurate": 400, every time. Making the
+read-modify-write indivisible is the whole fix, and the reason it works is that
+the gap stops existing rather than getting smaller.
+
+**The lock here is in-process.** A `std.Io.Mutex` coordinates threads in one
+program and knows nothing about a second copy of the program. For that you need
+the operating system to hold the lock, which is `flock` on the file itself, and
+the same three-line fix applies at a level where every process can see it.
+
+## Check yourself
+
+Would making the write atomic fix this, for example by writing to a temporary
+file and renaming it over the original?
+
+No, and the reason is worth being precise about. An atomic rename means no
+reader ever sees a half-written file, which is a real and different problem
+solved. It does nothing about this one, because both threads still read 91
+before either writes. The lost update happens between the read and the write,
+and no amount of care in the write closes a gap that opened earlier.
+
+Atomicity of the write and exclusivity across the read-modify-write are two
+separate properties, and a store needs both. Confusing them is how systems end
+up with careful `rename` dances and corrupted counters.
+
+## If you have written C
+
+`flock(fd, LOCK_EX)` or `fcntl` with a write lock, and the two differ in ways
+that matter: `flock` locks the open file description, so it is inherited across
+`fork` and released when the last descriptor closes, while `fcntl` locks are
+per-process and are released when *any* descriptor for the file is closed, even
+one you opened separately. That second behaviour has surprised a lot of people.
+
+Both are **advisory** on Linux by default, meaning they only work if every
+writer asks. A process that ignores the lock and writes anyway is not stopped.
+That is not a flaw so much as a contract: file locking coordinates cooperating
+programs, and there is no mode that protects a file from a program determined
+to ignore you.
+
+The other C-specific hazard is that `read` and `write` on the same descriptor
+share a file offset. Two threads using one `fd` interleave their positions, so
+the fix in C is usually `pread`/`pwrite`, which take an offset and leave the
+shared one alone.
+
+Next: an index, so that reading one key stops meaning reading the whole file.
