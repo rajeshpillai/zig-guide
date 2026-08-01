@@ -67,11 +67,10 @@ them out.
 That is a real limitation rather than an omission from the writing. Compiling
 functions means designing a **calling convention**: where arguments go, how a
 frame is addressed, how the return address is stored, whose job it is to clean
-up. Every one of those is a decision with alternatives, and it is a chapter of
-its own rather than a paragraph in this one. The tree-walker in
-[Functions and Frames](/learn/tiny-lang/functions/) runs them today, and that
-is the honest state of this language: two back ends, one of which is more
-complete than the other.
+up. Every one of those is a decision with alternatives, which is why it gets
+[its own chapter](/learn/tiny-lang/calls/) rather than a paragraph in this one.
+Read this compiler first: it is the same one, without the part that makes
+calls work.
 
 ## Check yourself
 

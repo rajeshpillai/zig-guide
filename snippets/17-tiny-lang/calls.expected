@@ -1,0 +1,16 @@
+30 instructions, 2 functions
+  square takes 1, entry at 1
+  fact takes 1, entry at 8
+
+square's body
+  001  load_local  0
+  002  load_local  0
+  003  mul         0
+  004  ret         0
+  005  push        0
+
+output
+49
+120
+
+63 instructions executed

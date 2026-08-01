@@ -55,18 +55,15 @@ debug information is a separate thing you choose to keep.
 
 ## The state of this language
 
-Two back ends, one language, and they are not equally complete. The tree-walker
-runs functions and recursion; the compiler and this VM do not, because
-compiling a call means designing a calling convention, and that is a chapter
-rather than a paragraph. The compiler chapter says the same thing, and the
-`fn` cases in both fall through an `else` that does nothing.
+This VM has no `call` and no `ret`, so a program using functions compiles to
+bytecode that silently leaves them out. That is deliberate for one more
+chapter: a calling convention is four separate decisions (where arguments live,
+how a frame is addressed, who restores the instruction pointer, who cleans up
+the arguments) and each has alternatives worth seeing.
 
-Being explicit about that is better than a language that appears to support
-functions and silently drops them. If you want to carry this further, the
-calling convention is the next thing to design: where arguments live, how a
-frame is addressed relative to a base pointer, and who restores the instruction
-pointer on return. The frames chapter already did all of that at run time, so
-you know what the answers have to be.
+[A Calling Convention](/learn/tiny-lang/calls/) makes those decisions and runs
+`fact(5)` through compiled bytecode. Read this VM first: it is the same
+dispatch loop with two fewer opcodes.
 
 ## Check yourself
 
