@@ -1,0 +1,8 @@
+log is 528 bytes, 32 records, 16 distinct keys
+
+scan for key03: read 528 bytes
+index for key03: offset 307, read 16 bytes
+  both say "second": true
+
+the index costs 16 entries and one update per write
+and it is derived: delete it and `build` reconstructs it

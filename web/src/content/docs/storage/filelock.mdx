@@ -96,4 +96,4 @@ share a file offset. Two threads using one `fd` interleave their positions, so
 the fix in C is usually `pread`/`pwrite`, which take an offset and leave the
 shared one alone.
 
-Next: an index, so that reading one key stops meaning reading the whole file.
+Next: [an index](/learn/storage/indexes/), so that reading one key stops meaning reading the whole file.

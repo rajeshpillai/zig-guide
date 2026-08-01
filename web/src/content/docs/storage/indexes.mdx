@@ -1,0 +1,94 @@
+---
+title: An Index Over the Log
+description: A second structure, derived from the first, that you now have to keep in step.
+section: Data and Storage
+order: 3
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Reading one key from the append-only store reads the whole file. It has to:
+the newest record for a key could be the last record written, so a scan cannot
+stop early without risking a stale answer.
+
+An index fixes that, and the way it is usually described (it makes lookups
+fast) hides what it actually is. An index is a **second data structure**, built
+from the first, holding no data of its own. It maps a key to *where* the record
+is, and everything interesting about indexes follows from those two facts.
+
+## The program
+
+<Playground name="20-storage.index" />
+
+## What just happened
+
+**528 bytes read became 16.** Same answer, and the index went straight to
+offset 307. That offset is in the back half of the file, which is the case the
+demo is constructed to show: every key was written twice, so the newest record
+for `key03` is nowhere near the first one, and a scan cannot know it is done
+until it reaches the end.
+
+**The index holds offsets, not values.** 16 entries for 32 records. It is not a
+cache and not a copy: it answers "where", and the log still answers "what".
+That is why an index over a terabyte of records can fit in memory.
+
+**It can be rebuilt from the log.** `build` walks the file once and reconstructs
+the whole thing. The index is **derived data**, and the log is the truth, which
+has three consequences worth stating plainly: a corrupt index is an
+inconvenience rather than data loss, an index can be dropped to reclaim space,
+and adding a new index to an existing database means a full scan once.
+
+**Tombstones are indexed too.** Skipping delete records would leave the index
+pointing at an older live record, and a deleted key would read back as present.
+The comment says so because it is exactly the kind of shortcut that looks like
+an optimisation.
+
+## What it costs
+
+Every write now does two things. The record is appended and the index is
+updated, and if the index is on disk, that is a second write for every one you
+asked for. That is **write amplification**, and it is why a table with six
+indexes is slow to insert into: you asked for one write and bought seven.
+
+This is the trade at the heart of every storage engine. Reads get faster in
+proportion to how much you index; writes get slower in the same proportion.
+There is no configuration that avoids it, only a choice about which side to pay
+on.
+
+## Check yourself
+
+This index is a linear scan over 16 entries, which is not obviously better than
+scanning the log. When does it start to matter, and what replaces it?
+
+It already matters, because the entries are in memory and the log is on disk,
+and that difference is several orders of magnitude before the algorithms are
+compared at all. What replaces the linear scan depends on the question: a hash
+map if you only ever look up one exact key, and a **B-tree** if you also need
+ranges, ordering, or "the next 50 keys after this one", because a hash map
+scatters neighbouring keys and a B-tree keeps them adjacent.
+
+That is why relational databases index with B-trees almost exclusively:
+`WHERE id = 7` is served fine by either, and `ORDER BY id LIMIT 50` is only
+served by one. The structure itself is in
+[the data structures section](/learn/data-structures/bst/), which builds a
+search tree and then shows the sorted-input case that ruins it.
+
+## If you have written C
+
+The index in memory is a hash table you wrote or one you borrowed. The
+interesting part is what happens when it stops fitting, and the answer is that
+it goes on disk, at which point every design decision changes.
+
+An on-disk index is read a block at a time, because the disk has no smaller
+unit, so the structure has to be shaped around the block size: that is
+precisely why B-trees have a high branching factor and binary trees are not
+used on disk. A binary tree with a million keys is 20 levels and 20 reads; a
+B-tree with 200 keys per block is three.
+
+The other thing C makes you confront is that the offsets are only valid for the
+file they came from. Store the index in its own file and you have two files
+that must agree, which means a crash between writing one and the other leaves
+them inconsistent. Fixing that is the next chapter.
+
+Next: a write-ahead log, which is how two files that must agree survive losing
+power between them.
