@@ -1,0 +1,10 @@
+"hello" is a *const [5:0]u8
+greeting.len       = 5
+the array occupies = 6 bytes
+
+greeting[0] = 104, which prints as 'h'
+
+std.mem.eql(a, b) = true
+
+"héllo".len = 6 bytes
+codepoints  = 5

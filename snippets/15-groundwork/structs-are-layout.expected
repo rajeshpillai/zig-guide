@@ -1,0 +1,9 @@
+the fields hold 6 bytes of data
+but @sizeOf(Row) = 12
+
+flag  starts at byte 0
+count starts at byte 4
+tag   starts at byte 8
+
+same fields, largest first: 8 bytes
+Zig's own layout for them:  8 bytes

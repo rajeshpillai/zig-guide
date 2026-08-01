@@ -46,15 +46,16 @@ export const SECTIONS: Record<string, SectionMeta> = {
     description:
       "Learn what a systems programmer knows, starting from nothing: bytes and " +
       "types, integer sizes and overflow, addresses, the stack, who owns memory, " +
-      "bounds and build modes, errors as values, and the system call boundary. " +
-      "Every idea has one complete program you can run in the page.",
+      "bounds and build modes, strings as bytes, struct layout and padding, " +
+      "errors as values, and the system call boundary. Every idea has one " +
+      "complete program you can run in the page.",
     lede:
       "Systems programming taught from zero, with Zig as the vehicle instead of " +
       "C. Each chapter asks one question, answers it in plain terms, and then " +
       "hands you a complete program that proves the answer. If you have written " +
       "C before, the last part of each page says how the same idea is spelled " +
-      "there. If you have not, nothing here needs it. Nine chapters, ending " +
-      "where Getting Started begins.",
+      "there. If you have not, nothing here needs it. The order is the one a C " +
+      "course takes, ending where Getting Started begins.",
     takeaways: [
       "A type is not a property of the bytes. It is an agreement about how to read them, and the same four bytes can be read two ways without converting anything.",
       "`u8` and `u32` are not styles of writing a number. They are different amounts of memory, and the difference is a million bytes when you have a million of them.",
