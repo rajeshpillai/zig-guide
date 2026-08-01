@@ -1,0 +1,9 @@
+build order:
+  main.o
+  util.o
+  app
+
+what actually needs rebuilding:
+  main.o  rebuild
+  util.o  up to date
+  app     up to date

@@ -1,0 +1,13 @@
+--- grep "the"
+1:the quick brown fox
+2:jumps over the lazy dog
+3:the end
+exit 0
+
+--- grep "fox"
+1:the quick brown fox
+exit 0
+
+--- grep "cat"
+exit 1
+

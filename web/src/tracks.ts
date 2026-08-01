@@ -65,6 +65,17 @@ export const TRACKS: Track[] = [
     sections: ["how-to"],
   },
   {
+    title: "From Scratch",
+    blurb: "Rebuild the tools you use every day, one program at a time, using nothing you did not write.",
+    // A separate track rather than more Cookbook, because the pedagogy is
+    // different. A recipe answers "how do I do X in Zig". These answer "what
+    // is X, actually", and the answer is a complete program you could have
+    // written yourself in 1975. The order is the one a from-scratch C course
+    // takes, which is why `cat` comes before `wc` and `make` comes last: each
+    // tool is allowed to assume the ones before it.
+    sections: ["unix-tools"],
+  },
+  {
     title: "Projects",
     blurb: "One library at a time, designed in the open, one decision per chapter.",
     sections: ["orm"],

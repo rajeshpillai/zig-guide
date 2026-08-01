@@ -1,0 +1,13 @@
+--- field 1
+alice:30:london -> "alice"
+bob:25:paris -> "bob"
+carol::berlin -> "carol"
+dave -> "dave"
+
+--- field 2
+alice:30:london -> "30"
+bob:25:paris -> "25"
+carol::berlin -> ""
+dave -> (no such field)
+
+"carol::berlin" has 3 fields

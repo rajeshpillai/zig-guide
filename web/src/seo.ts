@@ -64,6 +64,27 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "Undefined behaviour is not a crash and not a garbage value. It is a promise you made to the compiler, which is why breaking it can change code somewhere else.",
     ],
   },
+  "unix-tools": {
+    seoTitle: "Build the Unix Tools in Zig: cat, wc, grep, sort, cut, printf, make",
+    description:
+      "Rebuild the standard Unix toolbox in Zig, one complete program per " +
+      "chapter: cat, wc, grep, sort, cut, printf and make. Each one runs in " +
+      "the page, and each explains the technique it exists to teach.",
+    lede:
+      "Seven tools you use every day, rebuilt from nothing. Each chapter is one " +
+      "complete program and one technique: streaming reads, a state machine, " +
+      "searching, owning the lines you sorted, splitting on a delimiter, turning " +
+      "a number into text, and deciding what needs rebuilding. The tools are " +
+      "small enough to hold in your head and old enough that their design is " +
+      "the lesson.",
+    takeaways: [
+      "`cat` is a loop around a fixed buffer. The buffer size is a decision about memory, not about correctness, which is why it can copy a file larger than memory.",
+      "`wc` counts words by counting transitions into a word, not words. That is a state machine, and it is why leading spaces and double spaces cost nothing.",
+      "Sorting lines means owning them. The moment the sorted output has to outlive the buffer it was read into, you have to answer who allocates.",
+      "`printf` builds its digits backwards, because the only way to get the last digit of a number is to divide, and division hands them to you in reverse.",
+      "`make` is a topological sort over a graph of file timestamps. Everything else about it is syntax.",
+    ],
+  },
   "getting-started": {
     seoTitle: "Getting Started with Zig",
     description:
