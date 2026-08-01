@@ -61,8 +61,9 @@ first; the playground invites verification, not spectacle.
   Cookbook.
 - **Groundwork** (`systems-from-scratch/`): systems concepts from zero, one
   question and one complete runnable program per chapter. Fixed page shape:
-  the question, the idea in plain terms, the program, what just happened, one
-  edit to try, and an optional "if you have written C" aside.
+  the question, the idea in plain terms, the program, what just happened, a
+  "check yourself" question the page then answers, and an optional "if you
+  have written C" aside.
 - **Cookbook**: problem-first recipes (problem, plan, runnable solution,
   walkthrough, variations).
 - **Playground**: a `<zig-playground>` custom element per snippet; runs the
