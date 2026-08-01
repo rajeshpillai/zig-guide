@@ -1,0 +1,16 @@
+--- session that quits
+> help
+echo <text> | help | quit
+> echo hello there
+hello there
+> 
+> nonsense
+unknown command: nonsense
+> quit
+(bye)
+
+--- session that hits end of input
+> echo still here
+still here
+> 
+(end of input)

@@ -1,0 +1,88 @@
+---
+title: String Primitives
+description: strlen, compare, copy and trim, written out. The off-by-one lives here.
+section: Survive the Terminal
+order: 1
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Nothing else in this track can be built until text can be measured, compared,
+copied and trimmed. Those four operations are the floor, and writing them out
+once is worth more than reading about them, because three of the four contain a
+mistake that is famous for a reason.
+
+## The program
+
+<Playground name="18-terminal.strings" />
+
+## What just happened
+
+**`strLen` walks, and `.len` does not.** Both printed 5. One of them counted
+bytes until it found a zero; the other read a number that was already there.
+The difference costs nothing on a five-byte greeting and everything in a loop:
+
+```c
+for (int i = 0; i < strlen(s); i++)   /* walks the string on every iteration */
+```
+
+That is an O(n) job written as O(n²), it is one of the most common performance
+bugs in C, and it cannot be written at all with a slice, because there is no
+call to accidentally repeat.
+
+**`strEq` checks the length first.** Comparing contents when the lengths differ
+is wasted work, and more importantly the loop that forgets to would read past
+the end of the shorter one. `"cat"` against `"cats"` is false in one
+comparison.
+
+**The copy refused rather than truncating.** Six bytes of room took `"hello"`;
+five bytes did not. The check is `src.len + 1 > dest.len`, and that `+ 1` is
+the entire lesson of this chapter. A 5-byte string needs 6 bytes, because the
+terminator is a byte too. The version that checks `src.len > dest.len` looks
+right, compiles, passes a test with short strings, and writes exactly one byte
+past the end of the buffer.
+
+That single byte is the classic C buffer overflow. Not a wild pointer or a
+malicious input: an off-by-one in a bounds check that somebody read twice and
+approved.
+
+**Trimming returned a view.** `"  padded  "` became `"padded"` with nothing
+copied and nothing allocated. The obvious implementation moves the bytes to the
+front, and it is pure waste: the answer was already there, and all that was
+needed was to point at less of it.
+
+## Check yourself
+
+`strTrim` takes `[]const u8` and returns `[]const u8`. Could it take a
+null-terminated C string and return one?
+
+Not without either copying or writing. Trimming the front is fine, since you
+can just point further in. Trimming the back means the string has to end
+earlier, and a C string ends where its zero is, so you would have to write a
+zero over the first trailing space, modifying the caller's data. That is
+exactly what `strtok` does and why it is so unpleasant to use. A slice can
+describe a shorter piece of the same bytes without touching them, which is the
+whole reason the terminator stopped being necessary.
+
+## If you have written C
+
+You have written all four of these, and probably more than once:
+
+```c
+size_t str_len(const char *s) { size_t i = 0; while (s[i]) i++; return i; }
+int    str_eq(const char *a, const char *b) { return strcmp(a, b) == 0; }
+void   str_copy(char *d, const char *s) { while ((*d++ = *s++)); }   /* no bounds at all */
+```
+
+The third one is `strcpy`, and it has no idea how big the destination is. That
+is not an implementation flaw, it is the signature: the information is not
+there to check. `strncpy` was the fix and introduced its own trap, since it
+does not terminate the result when the source is too long, so the safe version
+of the safe version is `strlcpy`, which is not in the C standard.
+
+Three attempts at one function, and the reason all three are awkward is that a
+`char *` is a pointer with no length. Everything above takes a slice, so the
+length is not a separate argument anybody can pass wrongly.
+
+Next: [tokenizing a command line](/learn/terminal/tokenize/), which is the
+first thing a shell has to do.

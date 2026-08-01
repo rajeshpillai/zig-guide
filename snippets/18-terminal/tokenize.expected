@@ -1,0 +1,15 @@
+"ls -la /tmp"
+  3 args: [ls] [-la] [/tmp]
+"  spaced   out   "
+  2 args: [spaced] [out]
+"single"
+  1 args: [single]
+""
+  0 args:
+"   "
+  0 args:
+
+command: grep
+  argv[1] = -n
+  argv[2] = main
+  argv[3] = build.zig

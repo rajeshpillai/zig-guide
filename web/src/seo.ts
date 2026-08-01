@@ -65,6 +65,25 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "Undefined behaviour is not a crash and not a garbage value. It is a promise you made to the compiler, which is why breaking it can change code somewhere else.",
     ],
   },
+  terminal: {
+    seoTitle: "Survive the Terminal: String and Shell Primitives in Zig",
+    description:
+      "Build the primitives a shell needs before it can exist: string length, " +
+      "comparison, copying and trimming written out by hand, a command-line " +
+      "tokenizer, and the read-eval-print loop itself.",
+    lede:
+      "Before a shell can run a command it has to measure a string, compare " +
+      "one, copy one without running off the end, split a line into arguments, " +
+      "and loop until the user or the input stops. Three chapters, each one " +
+      "primitive built rather than imported. The parts that need a real kernel, " +
+      "fork, exec and pipes, are in the operating system section already.",
+    takeaways: [
+      "`strlen` is a walk, every time you call it. That cost is the whole argument for a slice that already knows its length.",
+      "A buffer for a 5-byte string needs 6 bytes. The version of the bounds check that forgets the terminator passes a casual test and writes one byte past the end.",
+      "Trimming returns a view, not a copy. Moving bytes to remove spaces is work you never needed to do.",
+      "A REPL has two exits, not one. A loop that only watches for `quit` spins forever the first time someone presses Ctrl-D.",
+    ],
+  },
   "unix-tools": {
     seoTitle: "Build the Unix Tools in Zig: cat, wc, grep, sort, cut, printf, make",
     description:

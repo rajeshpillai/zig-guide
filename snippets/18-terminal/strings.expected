@@ -1,0 +1,15 @@
+strLen("hello")   = 5
+greeting.len      = 5   (already known, no walk)
+
+strEq("cat","cat") = true
+strEq("cat","cot") = false
+strEq("cat","cats")= false
+
+copied "hello" into 6 bytes, terminator at index 5
+copying "hello" into 5 bytes -> refused
+
+trim("  padded  ") -> "padded"
+trim("\tboth\n") -> "both"
+trim("none") -> "none"
+trim("   ") -> ""
+trim("") -> ""
