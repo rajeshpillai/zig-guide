@@ -1,0 +1,24 @@
+the log:
+330499048|set|a|one
+333644801|set|b|two
+332334072|set|a|uno
+484967616|set|c|three
+
+clean shutdown
+  4 records applied, 0 trailing bytes discarded
+  a -> uno
+  b -> two
+  c -> three
+
+crash during the last write
+  3 records applied, 14 trailing bytes discarded
+  a -> uno
+  b -> two
+  c -> (absent)
+
+a byte corrupted in the second record
+  1 records applied, 62 trailing bytes discarded
+  a -> one
+  b -> (absent)
+  c -> (absent)
+

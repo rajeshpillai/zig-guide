@@ -1,0 +1,104 @@
+---
+title: A Write-Ahead Log
+description: Write down what you are about to do, then do it. Recovery is replaying the note.
+section: Data and Storage
+order: 4
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The last chapter ended on a problem it could not solve: two files that have to
+agree, and a crash between writing one and the other. That is the general
+shape, and it has nothing to do with files specifically. It is any change that
+is not a single indivisible act.
+
+The answer is old, simple, and used by every database, every journalling
+filesystem, and most message queues. **Write down what you are about to do,
+then do it.** If the power goes out before you finish, the note is still there
+when you come back, and you do the thing again.
+
+That note is a **write-ahead log**, and the whole of recovery is reading it.
+
+## The program
+
+<Playground name="20-storage.kvstore" />
+
+## What just happened
+
+**A clean shutdown replayed all four records.** Nothing surprising, and it is
+worth noticing what it means: the in-memory store was rebuilt from the log
+alone. The log is the database; the hash map is a cache of it that happens to
+be fast.
+
+**The crash lost the record that was mid-write, and nothing else.** Truncating
+the log to simulate a power failure left a final line with no newline, replay
+stopped there, and the first three records were fine. `c` is absent, which is
+correct: that write never completed, so it never happened.
+
+This is the property that makes a WAL work. A partially written record at the
+**end** of an append-only file is always detectable, because a record is
+complete only once its terminator has been written. Nothing before it can be
+affected, because nothing before it was touched.
+
+**The corrupted byte was caught by the checksum, and replay stopped.** The
+newline framing cannot see this: the record has its terminator, it is just
+wrong. Only the checksum notices.
+
+And look at what stopping cost: records three and four were perfectly readable
+and were refused anyway. That is deliberate. A log is a **sequence**, and a
+record after a damaged one may depend on the one that was lost. Applying the
+readable remainder gives you a store that never existed at any point in time,
+which is worse than a store that is missing the tail, because you cannot tell
+by looking.
+
+## What this program cannot show you
+
+`fsync`. Writing to a file puts the bytes in the operating system's page cache,
+where they will reach the disk when it gets around to it. If the power fails in
+between, the write is gone, and the log will happily tell you on recovery that
+it never happened.
+
+`fsync` is the call that says "actually put it on the platter, and do not
+return until you have". A WAL without it is a WAL that protects you from your
+process dying and not from the machine dying. It is also expensive, which is
+why databases have a durability setting, and why the fast one is fast.
+
+The reason this page cannot demonstrate it is that there is no disk here. That
+is worth saying rather than quietly omitting: the mechanism above is complete
+and the guarantee is not.
+
+## Check yourself
+
+The log grows forever. Every `set` appends, even to a key written a thousand
+times. What stops a real system from filling the disk?
+
+A **checkpoint**. Periodically the current state is written out in full, and
+every log record older than that point is no longer needed and can be deleted.
+Recovery then means loading the last checkpoint and replaying only what came
+after it, which also makes startup fast: without checkpoints a database that
+has been running for a year replays a year of history every time it starts.
+
+This is the same idea as the tombstones from the first chapter arriving at a
+different scale. An append-only structure needs a periodic process to reclaim
+what is dead, and in an LSM tree that process is called compaction.
+
+## If you have written C
+
+`write` then `fsync`, and the two hazards are ordering and lying.
+
+Ordering: the log write must reach the disk **before** the change it describes.
+Not at the same time, before. If the database file is updated first and the
+machine dies, the log has no record of a change that has already happened, and
+recovery cannot undo it. That is why it is called write-*ahead*, and getting it
+backwards produces a system that is correct in every test and wrong exactly
+once.
+
+Lying: `fsync` has historically returned success without the data being durable
+on several combinations of filesystem, controller and drive with write caching
+enabled. PostgreSQL has a well-known write-up of discovering that error
+handling on a failed `fsync` also differed by kernel version, in ways that
+could lose data silently. The lesson is not to distrust `fsync`, it is that
+durability is a property of the whole stack rather than of one call.
+
+Next: a query engine, which is the first thing here that has to decide *how* to
+answer rather than what.
