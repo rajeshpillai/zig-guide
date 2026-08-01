@@ -33,21 +33,30 @@ export interface Track {
 
 export const TRACKS: Track[] = [
   {
-    title: "Groundwork",
-    blurb: "What the machine is doing, from zero. No C and no prior systems work assumed.",
-    // First, and separate from Foundations, because it answers a different
-    // question. Foundations teaches the language: what `*T` means and what the
-    // compiler will not let you do with it. This teaches the machine the
-    // language is describing: that an address is a number, that a type is an
-    // agreement about how to read bytes, that a size is a choice with a cost.
-    // A reader who already knows that skips the track entirely, which is why
-    // it is a track and not a rewrite of Language Basics.
-    sections: ["systems-from-scratch"],
-  },
-  {
     title: "Foundations",
     blurb: "The language and the library it ships with. Start here.",
     sections: ["getting-started", "language-basics", "standard-library", "data-structures"],
+  },
+  {
+    title: "Groundwork",
+    blurb: "What the machine is doing, from zero. No C and no prior systems work assumed.",
+    // After Foundations rather than before it, which is a claim about the
+    // common reader rather than about difficulty. Most people arriving here can
+    // already program and want Zig; sending them through nine chapters on what
+    // a byte is before they have compiled anything is the wrong first
+    // impression, and they can reach this track the moment they want it.
+    //
+    // Separate from Foundations because it answers a different question.
+    // Foundations teaches the language: what `*T` means and what the compiler
+    // will not let you do with it. This teaches the machine the language is
+    // describing: that an address is a number, that a type is an agreement
+    // about how to read bytes, that a size is a choice with a cost.
+    //
+    // The reader who needs it first is served by `/paths/`, whose "New to
+    // systems programming" route puts these chapters ahead of Getting Started.
+    // A reading path is a curated route and is allowed to disagree with the
+    // sidebar; that is the whole reason it exists.
+    sections: ["systems-from-scratch"],
   },
   {
     title: "Systems",

@@ -55,7 +55,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "hands you a complete program that proves the answer. If you have written " +
       "C before, the last part of each page says how the same idea is spelled " +
       "there. If you have not, nothing here needs it. The order is the one a C " +
-      "course takes, ending where Getting Started begins.",
+      "course takes. Nothing earlier in the guide is a prerequisite, so read it " +
+      "whenever the machine underneath starts mattering, including first.",
     takeaways: [
       "A type is not a property of the bytes. It is an agreement about how to read them, and the same four bytes can be read two ways without converting anything.",
       "`u8` and `u32` are not styles of writing a number. They are different amounts of memory, and the difference is a million bytes when you have a million of them.",
