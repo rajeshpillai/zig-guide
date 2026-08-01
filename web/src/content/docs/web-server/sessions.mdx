@@ -1,0 +1,96 @@
+---
+title: Cookies and Sessions
+description: A cookie is a string the client stores and hands back. Everything else is policy.
+section: Web Server
+order: 6
+---
+
+import Playground from "../../../components/Playground.astro";
+
+HTTP has no memory. Each request arrives with no idea that another one came
+before it, which is the property that lets a server be restarted, replicated
+and load-balanced without anybody noticing.
+
+A cookie is the smallest possible patch over that. The server sends
+`Set-Cookie: session=abc`, and the client sends `Cookie: session=abc` on every
+subsequent request. That is the entire mechanism, and it is worth being clear
+that the server is trusting a string the client stores and can edit.
+
+Which is why a session cookie holds an **identifier**, not information. Put
+`user=admin` in a cookie and you have built an authentication system whose
+security depends on the client not typing.
+
+## The program
+
+<Playground name="19-web-server.sessions" />
+
+## What just happened
+
+**Parsing is a split on `;` and then on `=`.** No percent-decoding, because
+cookies are not encoded, which is why a value cannot contain a semicolon or a
+space. That constraint is why session ids are hex: it sidesteps the question
+rather than answering it.
+
+**`novalue` was skipped.** An item with no `=` is not a cookie, and the parser
+drops it rather than inventing an empty value.
+
+**The second line kept its inner spaces.** `  spaced = value ` produced a name
+of `spaced ` and a value of ` value`, spaces included, because whitespace is
+trimmed around each *pair* and not inside it. That is what the specification
+says, browsers never send it, and being strict here is deliberate: a parser
+that trims inside the pair accepts things a stricter one downstream will not,
+and disagreement between two parsers on the same bytes is the shape of a
+security bug that has appeared in this section twice already.
+
+**The session id came from a seeded generator, and the page says so.** A fixed
+seed is what makes this output identical on every build, and it is exactly what
+a real server must never do: predictable ids mean anyone can compute a valid
+session. `std.crypto.random` is the one to reach for. Sixteen bytes is 128
+bits, which is the point at which guessing stops being a strategy rather than a
+number chosen for looking large.
+
+**The attributes are the security, not the cookie.** Each one closes something
+specific:
+
+- `HttpOnly` stops JavaScript reading it, so a cross-site scripting bug cannot
+  steal the session
+- `Secure` stops it travelling over plain HTTP, where anything on the path can
+  read it
+- `SameSite=Lax` stops it being sent on cross-site POSTs, which is most of
+  cross-site request forgery
+- `Max-Age` gives the thing an end, so a stolen cookie stops working
+
+A cookie without them is not a weaker session, it is a session with several
+well-known ways to take it.
+
+## Check yourself
+
+The server stores the id and looks up the session in its own memory. What
+breaks when you run a second copy of the server behind a load balancer?
+
+Every request that lands on the other machine has a session id it has never
+seen, so the user is logged out at random. That is why session storage becomes
+shared (Redis, a database) the moment there is more than one process, and why
+the alternative exists: put the data in the cookie itself and sign it, so any
+server can verify it without shared state. That is what a signed cookie or a
+JWT is, and it trades the lookup for a new problem, which is that you cannot
+revoke something you are not storing.
+
+## If you have written C
+
+The parsing is `strtok` on `"; "` and it has the same two flaws as everywhere
+else in this section: it destroys the header, and it collapses runs of
+delimiters, so `a=1;;b=2` quietly loses nothing here but would elsewhere.
+
+The part C makes genuinely harder is the random. `rand()` is a linear
+congruential generator seeded with `srand(time(NULL))`, which means the id is
+computable by anyone who knows roughly when the session started, and that has
+been a real vulnerability in real products more than once. The correct source
+is `/dev/urandom` or `getrandom()`, and the reason people reach for `rand()`
+anyway is that it is one call and needs no error handling.
+
+`std.crypto.random` is the same one call, and it is the cryptographic one by
+default, which is the useful direction for a default to point.
+
+Next: [a template engine](/learn/web-server/templates/), so the HTML stops
+living in string literals.

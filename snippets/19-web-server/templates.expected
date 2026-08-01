@@ -1,0 +1,6 @@
+<h1>Guest book</h1>
+<p>from &lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;</p>
+<p>Tom &amp; Jerry &quot;quoted&quot;</p>
+<div><em>welcome</em></div>
+<p>[missing:absent]</p>
+<p>{{unclosed

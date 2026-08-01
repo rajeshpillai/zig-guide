@@ -1,0 +1,17 @@
+"name=Ada+Lovelace&role=engineer"
+  name = "Ada Lovelace"
+  role = "engineer"
+"note=100%25+done&tags=a%26b"
+  note = "100% done"
+  tags = "a&b"
+"consent=on&newsletter="
+  consent = "on"
+  newsletter = ""
+""
+  (no fields)
+
+Content-Length, with a ceiling of 1 MB
+  13         -> read 13 bytes
+  (absent)   -> read 0 bytes
+  99999999   -> TooLarge
+  twelve     -> Malformed
