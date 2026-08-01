@@ -1,0 +1,7 @@
+the slice has 4 elements
+a slice is 8 bytes: a pointer and a length
+
+element 2 is 30
+element 4: OutOfBounds
+
+safety checks in this build: false

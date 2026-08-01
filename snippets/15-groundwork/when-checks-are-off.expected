@@ -1,0 +1,7 @@
+build mode: small
+safety checks present: false
+
+a +% b            = 44
+std.math.add      = Overflow
+@addWithOverflow  = 44, overflowed: 1
+a +| b            = 255

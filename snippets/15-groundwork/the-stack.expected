@@ -1,0 +1,8 @@
+main and outer used different addresses:  true
+outer and inner used different addresses: true
+deeper calls got higher addresses here:   true
+
+the second call to outer reused the same address: true
+
+so a pointer to outer's local, kept after it returned,
+would now be pointing at the second call's data.

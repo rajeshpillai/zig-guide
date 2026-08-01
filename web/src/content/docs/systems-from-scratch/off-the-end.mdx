@@ -1,0 +1,116 @@
+---
+title: Off the End
+description: A length is a value, and the difference between languages is who is made to check it.
+section: Systems from Scratch
+order: 6
+---
+
+import Playground from "../../../components/Playground.astro";
+
+An array of four numbers occupies a stretch of memory, and the stretch ends.
+What is at the address just past it? Something. Another variable, part of a
+frame, the machinery of the program itself. Memory does not run out at the end
+of your array; your claim on it does.
+
+So what should `row[4]` do?
+
+There are only three possible answers and every language picks one. Read
+whatever happens to be there and carry on. Stop the program. Or refuse to be
+asked, by making the caller check first. The third is the only one that is
+free, so that is where to start.
+
+## The program
+
+<Playground name="15-groundwork.off-the-end" />
+
+## What just happened
+
+**The slice knew where it ended.** A slice is a pointer and a length travelling
+together as one value, so a function receiving one cannot be ignorant of the
+size. This is the single most useful thing Zig does with memory, and it is why
+`[]const u32` rather than a bare pointer is the normal way to pass a sequence
+around. The pointer alone would have told the function where the data starts
+and nothing about where to stop.
+
+**The slice printed as 8 bytes.** Four for the pointer and four for the length,
+on this 32-bit WebAssembly build. Compile it for your own machine and it prints
+16, for the same reason a pointer there is 8 bytes rather than 4.
+
+**The checked read returned an error instead of a number.** `at` compares the
+index against `.len` and returns `error.OutOfBounds` when it does not fit.
+Nothing was read. The caller was told, in the return type, that the answer might
+not exist, and had to deal with both cases before it could use the result. One
+comparison bought that.
+
+**And then the last line said `safety checks in this build: false`.**
+
+## About that last line
+
+This is the honest part, and it is worth more to you than a tidier page would
+be.
+
+When you write `slice[i]` directly, Zig inserts that same comparison for you,
+and on failure the program stops with a message naming the index and the
+length. That check exists in Debug and ReleaseSafe builds. It does not exist in
+ReleaseFast or ReleaseSmall, where it is compiled out for speed and size.
+
+The wasm you just ran is a ReleaseSmall build, because that is what gets
+shipped to a reader's browser. So on this page, `slice[4]` would not stop the
+program. It would read four bytes that are not yours and hand them over as a
+number.
+
+Here is the program that does it. There is no Run button, for two reasons that
+are both real: it deliberately fails, so our build compiles it but
+does not execute it, and the build we ship here has the check removed anyway.
+
+<Playground
+  name="15-groundwork.past-the-end"
+  note="Deliberately fails, so CI compiles it without running it. Run it yourself in a Debug build to see the check fire."
+  tryLocally="zig run past-the-end.zig"
+/>
+
+Run that locally with `zig run`, which builds in Debug, and the program stops
+with `index out of bounds: index 4, len 4` and the line number. That is the
+behaviour to have in your head as normal, and the one you get by default the
+entire time you are developing.
+
+The general rule behind this, what each build mode turns off and what you are
+promising when you choose one, is
+[When the Checks Are Off](/learn/systems-from-scratch/when-checks-are-off/).
+
+## Check yourself
+
+The program checks `index >= numbers.len`. Why not `index > numbers.len`?
+
+Because the indexes of four elements are 0, 1, 2 and 3. Index 4 is the first
+one past the end, so it has to be rejected. Off-by-one at exactly this boundary
+is common enough to have a name, the fencepost error, and it is the reason to
+prefer `for (slice) |item|` over an index and a counter whenever you do not
+actually need the number.
+
+## If you have written C
+
+This is the difference that shows up first and matters most.
+
+```c
+int row[4] = {10, 20, 30, 40};
+int x = row[4];        /* reads something. no error, no warning, no crash */
+```
+
+C's array does not carry a length, so a function receiving `int *row` cannot
+check anything; the length has to be passed alongside and kept correct by hand.
+Reading past the end is undefined behaviour, which in practice means it usually
+works, sometimes returns nonsense, and occasionally corrupts something that
+fails much later somewhere unrelated.
+
+Zig's equivalents are the slice, which carries the length so it cannot get out
+of step with the data, and the safety check, which turns "usually works" into a
+message with a line number. Both are what make this material learnable: you
+find out at the moment you make the mistake rather than an hour later.
+
+The C-shaped pointer, the one without a length, still exists in Zig for talking
+to C, and it is spelled differently on purpose:
+[many-item pointers](/learn/language-basics/many-item-pointers/).
+
+Next: [When the Checks Are Off](/learn/systems-from-scratch/when-checks-are-off/),
+which is the promise you make when you turn a check off.

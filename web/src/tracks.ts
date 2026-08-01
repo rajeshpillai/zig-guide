@@ -33,6 +33,18 @@ export interface Track {
 
 export const TRACKS: Track[] = [
   {
+    title: "Groundwork",
+    blurb: "What the machine is doing, from zero. No C and no prior systems work assumed.",
+    // First, and separate from Foundations, because it answers a different
+    // question. Foundations teaches the language: what `*T` means and what the
+    // compiler will not let you do with it. This teaches the machine the
+    // language is describing: that an address is a number, that a type is an
+    // agreement about how to read bytes, that a size is a choice with a cost.
+    // A reader who already knows that skips the track entirely, which is why
+    // it is a track and not a rewrite of Language Basics.
+    sections: ["systems-from-scratch"],
+  },
+  {
     title: "Foundations",
     blurb: "The language and the library it ships with. Start here.",
     sections: ["getting-started", "language-basics", "standard-library", "data-structures"],

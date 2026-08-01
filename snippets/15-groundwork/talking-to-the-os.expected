@@ -1,0 +1,7 @@
+stdin  is descriptor 0
+stdout is descriptor 1
+stderr is descriptor 2
+
+this line went to stdout: the program's output
+
+returning from main reports success to whoever ran us

@@ -18,7 +18,7 @@ the in-browser playgrounds and cookbook practicality support it.
 
 ## Audience
 
-Two first-class readers, weighted equally:
+Three first-class readers, weighted equally:
 
 1. **Experienced developers new to Zig.** Fluent in C, C++, Rust, Go, or
    JavaScript; want to learn Zig properly with current APIs.
@@ -26,8 +26,21 @@ Two first-class readers, weighted equally:
    from outdated guides, and need the current shape of the language. For them,
    the "what changed and why" deltas (e.g. the coming-from-older-zig page) are
    the most valuable content.
+3. **Programmers new to systems programming.** Can write code in a managed
+   language and have never met a pointer, a fixed-width integer, or an
+   allocator. They are served by the Groundwork track, which teaches the
+   machine rather than the language, assumes no C, and reaches the rest of the
+   guide rather than replacing it. Added 2026-08-01, reversing the earlier
+   "not written for programming beginners" line.
 
-Not written for programming beginners; general programming literacy is assumed.
+The three are not sequential tiers; a reader picks the track that matches what
+they already know. An experienced reader should never have to walk through
+Groundwork to reach Foundations, and a Groundwork reader should never hit a
+chapter that assumes C without saying so.
+
+Still assumed of everyone: they can already program in **some** language. This
+guide does not teach a first programming language, only a first systems
+language.
 
 ## Platform
 
@@ -43,8 +56,13 @@ first; the playground invites verification, not spectacle.
 
 ## Surfaces
 
-- **Chapters** (`web/src/content/docs/<section>/*.mdx`): Getting Started,
-  Language Basics, Standard Library, Build System, Working with C, Cookbook.
+- **Chapters** (`web/src/content/docs/<section>/*.mdx`): Groundwork, Getting
+  Started, Language Basics, Standard Library, Build System, Working with C,
+  Cookbook.
+- **Groundwork** (`systems-from-scratch/`): systems concepts from zero, one
+  question and one complete runnable program per chapter. Fixed page shape:
+  the question, the idea in plain terms, the program, what just happened, one
+  edit to try, and an optional "if you have written C" aside.
 - **Cookbook**: problem-first recipes (problem, plan, runnable solution,
   walkthrough, variations).
 - **Playground**: a `<zig-playground>` custom element per snippet; runs the
@@ -67,7 +85,9 @@ new-work flow; do not treat the current CSS as brand.
 
 ## Non-goals
 
-- Teaching general programming.
+- Teaching a first programming language. Variables, functions, loops and
+  conditionals are assumed. Systems concepts (bytes, sizes, addresses,
+  ownership, undefined behaviour) are not, and Groundwork teaches them.
 - Tracking stable Zig releases; the guide tracks master on purpose.
 - A second, unverified code path (inline code fences that CI does not run are
   allowed only on the two pages that state their own unverifiability).

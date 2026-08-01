@@ -1,0 +1,9 @@
+u8  counts 0 to 255
+i8  counts -128 to 127
+u32 counts 0 to 4294967295
+
+255 +% 1 = 0
+255 + 1 = Overflow
+
+a million u8  = 1000000 bytes
+a million u32 = 4000000 bytes

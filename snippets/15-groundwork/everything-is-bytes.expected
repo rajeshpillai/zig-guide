@@ -1,0 +1,10 @@
+'A' is the number 65
+
+a u8 takes 1 byte
+a u32 takes 4 bytes
+a Point takes 2 bytes
+
+the u32 1, byte by byte: 1 0 0 0
+
+read as a number: 1094861636
+read as letters:  DCBA

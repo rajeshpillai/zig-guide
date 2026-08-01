@@ -1,0 +1,6 @@
+8080   -> port 8080
+http   -> InvalidCharacter: not a number
+99999  -> Overflow: too large for a u16
+80     -> ReservedPort: below 1024, needs privileges
+
+falling back: 8080

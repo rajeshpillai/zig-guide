@@ -1,0 +1,6 @@
+hello, stack
+hello, heap
+allocations never freed: 0
+
+hello, forgotten
+allocations never freed: 1

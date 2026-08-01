@@ -41,6 +41,28 @@ export interface SectionMeta {
 }
 
 export const SECTIONS: Record<string, SectionMeta> = {
+  "systems-from-scratch": {
+    seoTitle: "Systems Programming from Scratch, in Zig",
+    description:
+      "Learn what a systems programmer knows, starting from nothing: bytes and " +
+      "types, integer sizes and overflow, addresses, the stack, who owns memory, " +
+      "bounds and build modes, errors as values, and the system call boundary. " +
+      "Every idea has one complete program you can run in the page.",
+    lede:
+      "Systems programming taught from zero, with Zig as the vehicle instead of " +
+      "C. Each chapter asks one question, answers it in plain terms, and then " +
+      "hands you a complete program that proves the answer. If you have written " +
+      "C before, the last part of each page says how the same idea is spelled " +
+      "there. If you have not, nothing here needs it. Nine chapters, ending " +
+      "where Getting Started begins.",
+    takeaways: [
+      "A type is not a property of the bytes. It is an agreement about how to read them, and the same four bytes can be read two ways without converting anything.",
+      "`u8` and `u32` are not styles of writing a number. They are different amounts of memory, and the difference is a million bytes when you have a million of them.",
+      "An address is an ordinary number. `@intFromPtr` does no work; it shows you the number the pointer was already holding.",
+      "A call's locals are handed back when it returns, and the next call gets the same bytes. That reuse is the dangling pointer, and nothing about the pointer changed.",
+      "Undefined behaviour is not a crash and not a garbage value. It is a promise you made to the compiler, which is why breaking it can change code somewhere else.",
+    ],
+  },
   "getting-started": {
     seoTitle: "Getting Started with Zig",
     description:

@@ -1,0 +1,102 @@
+---
+title: The Stack
+description: Where locals live, and why a pointer to one stops being safe the moment the call returns.
+section: Systems from Scratch
+order: 4
+---
+
+import Playground from "../../../components/Playground.astro";
+
+The last chapter said every value has an address. This one answers the obvious
+follow-up: who decides which address, and for how long?
+
+For a local variable, the machine does, and the answer is startlingly cheap. It
+keeps one number: where the used part of memory currently ends. Calling a
+function moves that mark along to make room for the call's locals, and
+returning moves it back. That is the whole mechanism. Making room costs one
+addition, and giving it back costs one subtraction, which is why calling a
+function is not something you have to budget for.
+
+The region a call gets is its **frame**, and the run of frames is the **stack**.
+Think of a stack of plates only in one respect: the one you put down last is
+the one you pick up first. A call cannot return before the calls it made have
+returned, so frames are always given back in the reverse of the order they were
+taken.
+
+The consequence is the part that matters, and it is the source of an entire
+family of bugs: **when the call returns, that memory is not yours any more.**
+It was not erased. It was not marked. The mark simply moved back, and the next
+call to happen will be handed the same bytes.
+
+## The program
+
+<Playground name="15-groundwork.the-stack" />
+
+## What just happened
+
+**Three calls were live at once and none of them shared an address.** `main`
+called `outer`, which called `inner`, and each had a local sitting somewhere of
+its own. Nothing coordinated that. Each call just moved the mark along by the
+size of what it needed.
+
+**The direction printed here is not a rule.** On this target the frames run
+upward. On most machines you will use they run downward, which is why you will
+read "the stack grows down" everywhere. It is a detail of the target, the
+program cannot observe it without going looking, and nothing above depends on
+the answer. It is in the output because the honest thing to print is what
+actually happened rather than what the textbook says.
+
+**The second call to `outer` landed on the same address as the first.** This is
+the line to remember. The first call finished, the mark went back, and the next
+call to need that much room was handed exactly the same bytes. The old values
+were still sitting there right up until they were overwritten.
+
+So if `outer` had returned a pointer to its local, that pointer would still
+look perfectly fine. It would point at real, readable memory. It would just be
+memory that now belongs to somebody else, and reading it would give you a
+number that used to mean something. Writing through it would corrupt whatever
+call is using that frame now.
+
+This is called a **dangling pointer**, and notice that nothing about the
+pointer changed. The pointer is a number, and the number is still
+valid. What changed is who the memory belongs to, and a number cannot carry
+that.
+
+## Check yourself
+
+If `outer` had a second local, say `var other: u32 = 9;` declared next to
+`value`, would `other` be at a higher or lower address than `value`?
+
+Neither answer is wrong to guess, because the answer is that **you cannot rely
+on it**. The compiler lays out a frame however it likes, and may not give a
+local an address at all if it can keep the value in a register. That is why the
+program above writes `_ = &value;` next to each one: taking the address forces
+the value into memory so there is something to print. Without that line, an
+optimising build would be entitled to make the whole question meaningless.
+
+## If you have written C
+
+Identical machinery, and the same bug is available:
+
+```c
+int *broken(void) {
+    int x = 42;
+    return &x;      /* returns a pointer into a frame that is about to end */
+}
+```
+
+C compilers usually warn about that exact shape. Neither language stops you
+from doing it in a less obvious way, for example by storing the address in a
+struct field and returning the struct. Zig will not catch it either, and it is
+one of the few places where Zig's answer is "be careful" rather than a check.
+The [Pointers](/learn/language-basics/pointers/) chapter says so directly: a
+slice of a local array must not outlive that array, and the compiler will not
+tell you.
+
+What Zig gives you instead is [`defer`](/learn/language-basics/defer/) and the
+ownership conventions in the next chapter, which between them make the question
+"who owns this and how long does it live" something you answer once, in a
+signature, rather than in every caller.
+
+Next: [Who Owns This Memory](/learn/systems-from-scratch/who-owns-this-memory/),
+which is about the memory that has to outlive the call.
