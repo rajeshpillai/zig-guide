@@ -246,7 +246,10 @@ const openSlug =
         <svg class="nav-close" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="currentColor">
           <path d="M2.34 3.76 3.76 2.34 8 6.59l4.24-4.25 1.42 1.42L9.41 8l4.25 4.24-1.42 1.42L8 9.41l-4.24 4.25-1.42-1.42L6.59 8 2.34 3.76Z"></path>
         </svg>
-        Chapters
+        {/* Wrapped so the narrowest phones can drop the word and keep the
+            accessible name. The hamburger is unambiguous on its own; the
+            wordmark beside it is not, and it was being ellipsized to "Zi...". */}
+        <span class="nav-label">Chapters</span>
       </label>
 
       {/* Wide screens only; below 860px the drawer button above is the control.

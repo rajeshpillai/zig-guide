@@ -136,6 +136,14 @@ pre {
 /* Not the official Zig site: an amber pill next to the wordmark, linking to
    ziglang.org. Full statement is also in the footer for touch (no hover). */
 .unofficial {
+  /* Revealed at 400px, not here. `.brand-wrap` is allowed to shrink
+     (min-width: 0) but this pill cannot, so below the width where it fits it
+     spilled out of the shrunken box and the search box, later in the DOM and
+     carrying a background, painted straight over it. Measured: the wordmark
+     and this pill need 395px together. The full statement is in the footer of
+     every page, and the pill's own explanation is a `title`, which a touch
+     reader could never see anyway. */
+  display: none;
   flex: none;
   font-size: 0.6rem;
   font-weight: 700;
@@ -309,7 +317,11 @@ pre {
   margin-left: auto; /* sit at the right end of the topbar */
   padding: 0 0.55rem;
   height: 2.1rem;
-  width: min(9.5rem, 38vw);
+  /* Mobile-first, like the rest of this file: 38vw is what the box is worth
+     once there is room for the wordmark beside it, and on a 390px phone that
+     was the difference between "Zig Guide Live" and "Zig Guide...". It still
+     grows to a real field on focus, below. */
+  width: min(7rem, 30vw);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -443,6 +455,20 @@ pre {
 .nav-toggle,
 .rail-toggle {
   /* Off-screen rather than `display: none` so it stays keyboard-focusable. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Off-screen rather than `display: none`, so the control keeps its accessible
+   name while the row gets the ~55px back. Revealed at 420px with the rest of
+   the topbar's extras. */
+.nav-label {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1366,22 +1392,48 @@ zig-playground pre:not(.pg-output) {
 
 /* ---------- wider screens ---------- */
 
-/* Enough room for the topbar to carry the migration link itself. */
+/* The topbar's extras each appear at the width they actually fit in, which is
+   not one width.
+
+   They used to share the 560px breakpoint, and the row overlapped itself at
+   560 and 700px, with the search box painting over the badges beside the
+   wordmark. The rule now is that **the wordmark stays whole**: every badge
+   here is supplementary and restated in the footer or the status bar, while
+   "Zig Guide Live" is the site's name and its link home, and an ellipsized
+   wordmark reads as a broken page rather than a narrow one.
+
+   Measured on the rendered page by widening until `.brand` stops being
+   ellipsized, with each badge forced on in turn:
+
+     wordmark alone                388px
+     + "Chapters" beside it        -> revealed at 460
+     + "Unofficial"                578px  -> revealed at 580
+     + "but fully verified"        690px  -> revealed at 700
+     + the version pill           1040px  -> revealed at 1040
+     + "On an older Zig?"         1132px  -> revealed at 1140
+
+   Take these off the page, never off the stylesheet. Reasoning about the
+   widths from the rules gave 395px for the first one, the built page still
+   overlapped at 415, and even that was only the width where the boxes stopped
+   colliding, which is not the same question as whether the name still reads. */
+
+@media (min-width: 460px) {
+  .nav-label {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    clip-path: none;
+  }
+
+  .search {
+    width: min(9.5rem, 38vw);
+  }
+}
+
 @media (min-width: 560px) {
   :root {
     --gutter: 1.5rem;
-  }
-
-  .version {
-    display: inline;
-  }
-
-  .verified {
-    display: inline;
-  }
-
-  .nav-aside {
-    display: none;
   }
 
   zig-playground,
@@ -1421,9 +1473,37 @@ zig-playground pre:not(.pg-output) {
    was revealed at 560px, so "On an older Zig?" hung 28px off the right edge of
    the viewport with nothing to scroll it into view. Both links are in the
    footer as well, which is what a narrow screen gets instead. */
-@media (min-width: 640px) {
+@media (min-width: 580px) {
+  .unofficial {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  .verified {
+    display: inline;
+  }
+}
+
+@media (min-width: 1040px) {
+  .version {
+    display: inline;
+  }
+}
+
+/* The link used to sit at 640px, which was itself a fix for the same bug at
+   560px, and was still too narrow. Moving it here also closes a gap it left
+   behind: between 560 and 640 it was hidden in the topbar and hidden in the
+   nav panel at the same time, so it existed on no surface at all.
+   `.nav-aside` is the nav panel's copy of this one link, so it has to stay
+   until the topbar takes over. */
+@media (min-width: 1140px) {
   .topbar-link {
     display: inline;
+  }
+
+  .nav-aside {
+    display: none;
   }
 }
 
