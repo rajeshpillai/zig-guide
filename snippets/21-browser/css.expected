@@ -1,0 +1,14 @@
+5 rules
+  order 0  specificity 0,0,1  p
+  order 1  specificity 0,1,0  .warning
+  order 2  specificity 0,1,1  p.warning
+  order 3  specificity 1,0,0  #urgent
+  order 4  specificity 0,0,1  p
+
+what each element gets
+  <p class=warning id=urgent>
+    color   crimson
+    margin  8
+  <p class=- id=->
+    color   black
+    margin  4

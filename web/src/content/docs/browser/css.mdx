@@ -1,0 +1,104 @@
+---
+title: A Stylesheet and the Cascade
+description: Matching is easy. Deciding which match wins is what cascading means.
+section: The Browser
+order: 2
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A stylesheet is a list of rules, and a rule is a selector plus some
+declarations. Parsing it is the least interesting parser in this guide: split
+on `{`, split on `;`, split on `:`.
+
+The interesting part is that **several rules match the same element and say
+different things**, and something has to decide. That decision is what the C in
+CSS stands for, and it is the only genuinely subtle thing about the language.
+
+## The rule
+
+Two comparisons, in order.
+
+1. **Specificity.** How precisely does the selector describe the element?
+2. **Source order.** If specificity ties, the later rule wins.
+
+That is the whole cascade, and everything people say about CSS being
+unpredictable comes from misremembering the first one.
+
+## The program
+
+<Playground name="21-browser.css" />
+
+## What just happened
+
+**`<p class="warning" id="urgent">` got `color: crimson`.** Four rules matched
+it, saying black, orange, red and crimson. `#urgent` won because an id beats
+any number of classes, and that is specificity doing its job.
+
+**The same element got `margin: 8`, from `p.warning`.** Only two rules mention
+margin: `p` at specificity 0,0,1 and `p.warning` at 0,1,1. The class component
+decides it.
+
+**The plain `<p>` got `margin: 4`, from the last rule.** Two rules with the
+identical selector `p` both set margin. Specificity ties, so source order
+breaks it, and the later one wins. This is the mechanism behind every "just put
+your overrides at the bottom" instruction anybody has ever given you.
+
+**Specificity is three numbers, not one.** The output shows them separately:
+`0,1,1` for `p.warning`, `1,0,0` for `#urgent`. They are compared left to
+right, like version numbers, so any id beats any number of classes.
+
+## Check yourself
+
+You will often see specificity described as a single score: 100 for an id, 10
+for a class, 1 for a tag, add them up. Where does that break?
+
+At eleven classes. `.a.b.c.d.e.f.g.h.i.j.k` scores 110 under that scheme, which
+beats an id's 100, and in a real browser it does not: the comparison is
+component by component, so `1,0,0` beats `0,11,0` no matter how large the
+middle number gets.
+
+The weighting is a teaching shortcut that happens to give the right answer for
+every realistic stylesheet, which is why it survives. It is worth knowing it is
+a shortcut, because the moment you build something that *computes* specificity,
+using one number is a bug rather than a simplification. The implementation
+above uses a struct with three fields for that reason.
+
+## What this one leaves out
+
+**Inheritance.** Some properties, `color` among them, are inherited by children
+that do not set them, and others, `margin` among them, are not. That list is
+per-property and defined by the spec, and the next chapter needs it, because a
+paragraph inside a styled div takes its colour from somewhere.
+
+**Combinators.** `div p` matches a `p` with a `div` ancestor, and `div > p`
+requires it to be the parent. Both need the tree rather than the node, which
+makes matching a walk upwards rather than a test in isolation, and is why
+selector matching in real engines runs right-to-left: start from the element
+you have and walk up, rather than finding every `div` and searching down.
+
+**`!important`**, which sits above specificity entirely, and the reason it
+exists at all is user stylesheets: a reader who needs larger text has to be
+able to overrule the page.
+
+## If you have written C
+
+The parsing is `strtok` on braces and semicolons and holds no surprises. The
+part worth thinking about is the matching, because it is the hot loop of a
+browser.
+
+Naively, styling a document is every rule against every element, which is
+rules times nodes and is far too slow for a real stylesheet against a real
+page. Engines instead index the rules by their rightmost component into
+hash maps keyed on tag, class and id, so an element only ever tests the handful
+of rules that could possibly match it. That is why the shape of your selectors
+affects performance at all, and why a selector ending in `*` is the one that
+costs.
+
+The other C-specific concern is that every string here points into the
+stylesheet source, so the source must outlive the parsed rules. That is the
+same borrowing decision as everywhere else in this track, and in a browser it
+is why a stylesheet's bytes are kept alive for as long as the page is.
+
+Next: layout, which turns this tree of styled nodes into rectangles with
+positions.
