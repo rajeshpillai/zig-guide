@@ -12,11 +12,18 @@ out-of-bounds indexing, integer overflow, invalid casts, unwrapping a null
 optional, and more. When a check fails the program panics with a clear message
 instead of quietly reading whatever came next in memory.
 
-<Playground
-  name="02-language.runtime-safety"
-  note="Deliberately panics. Compiled by CI to prove it is still valid, but not executed."
-  tryLocally="zig run runtime-safety.zig"
-/>
+Press **Run**. It reads index 5 of a three-element array:
+
+<Playground name="02-language.runtime-safety" />
+
+```
+panic: index out of bounds: index 5, len 3
+```
+
+The message names the index it was given and the length it was allowed. The
+`std.debug.print` on the next line never runs, and no memory outside the array
+was ever read. In C the same three lines produce a number, and which number
+depends on what happened to be sitting after the array.
 
 ## Safety depends on the build mode
 
@@ -42,8 +49,12 @@ otherwise `ReleaseFast` build.
 
 <aside>
 
-The snippets on this site build as `ReleaseSmall`, so safety checks are off.
-That is why this example is marked as not runnable rather than simply showing
-you the panic.
+Snippets on this site build as `ReleaseSmall`, where the checks are off, so the
+one above is the exception: it is built `ReleaseSafe` on purpose, because a
+chapter about a check firing should be able to show one. Our build runs it on
+every change and requires it to stop with exactly the message quoted above, so
+that message is checked nightly rather than remembered. It costs about 1.1 MB
+against the 79 KB a snippet here typically weighs, which is what the checks and
+the machinery to describe them cost, and it downloads only when you press Run.
 
 </aside>

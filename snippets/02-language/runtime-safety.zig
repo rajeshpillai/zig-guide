@@ -1,6 +1,10 @@
 //! title: Runtime Safety
-//! norun
+//! fails
 //! Safety checks are on in Debug and ReleaseSafe, off in ReleaseFast/Small.
+//!
+//! Built `.safe` rather than the site-wide `.small`, so the check this chapter
+//! is about is actually in the artifact the reader runs. CI runs it and
+//! requires the message in `runtime-safety.expected-error`.
 
 const std = @import("std");
 
@@ -17,5 +21,5 @@ pub fn main(init: std.process.Init) !void {
     std.debug.print("never printed: {d}\n", .{value});
 }
 
-// This snippet is marked `//! norun` because it deliberately panics: CI
-// compiles it to prove the code is still valid, but does not execute it.
+// Deliberately panics, which is the point: CI runs it and requires it to stop
+// with exactly the message this chapter quotes.
