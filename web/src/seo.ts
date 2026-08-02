@@ -38,6 +38,16 @@ export interface SectionMeta {
    * something they arrived believing. Three to five, or leave it out.
    */
   takeaways?: string[];
+  /**
+   * A caveat about the section's programs, stated above the chapter list.
+   *
+   * Separate from `lede` because it is not a description of what the section
+   * covers: it is a limit on how the code should be read. A section whose
+   * snippets are cut down to make an idea visible needs to say so once, in the
+   * place a reader decides what the section is for, rather than hedge in every
+   * chapter and end up saying it nowhere with any weight.
+   */
+  note?: string;
 }
 
 export const SECTIONS: Record<string, SectionMeta> = {
@@ -364,7 +374,15 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "contrast as lookup tables, blur and Sobel edges as convolution kernels, " +
       "grayscale and sepia as colour matrices, auto-levels from a histogram, " +
       "median filters for noise, and the half-pixel bug that shifts a resized " +
-      "image. Everything before the last chapter runs in your browser.",
+      "image. Wrap the buffer in a canvas to draw into part of it, map a texture " +
+      "across a triangle, and move a shape with an affine matrix. Everything " +
+      "before the last chapter runs in your browser.",
+    note:
+      "Every program in this section is cut down to the smallest thing that " +
+      "makes one idea visible. They fix their own buffer sizes, leave out the " +
+      "error handling and the fast paths a real renderer needs, and print ASCII " +
+      "rather than pixels so the result can be checked by eye. Read them for the " +
+      "arithmetic and the reasoning behind it, not as code to lift into a project.",
     takeaways: [
       "A framebuffer is an array of bytes. Every chapter here is arithmetic on that array, with no library underneath.",
       "Rasterizing decides which pixels a shape covers. Antialiasing decides how much of each, which is why it costs more.",

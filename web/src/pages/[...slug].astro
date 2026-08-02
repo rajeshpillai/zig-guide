@@ -168,6 +168,7 @@ const schema = entry
       <article>
         <h1>{group.title}</h1>
         {meta && <p class="section-intro">{meta.lede}</p>}
+        {meta?.note && <p class="section-note" set:html={inlineCode(meta.note)} />}
         <p class="section-lede">{indexCount} chapters.</p>
         <ul class="section-index">
           {group.members.map((chapter) => (
@@ -182,6 +183,11 @@ const schema = entry
       <article>
         <h1>{section.title}</h1>
         {meta && <p class="section-intro">{meta.lede}</p>}
+        {
+          /* A limit on how to read the code, so it sits with the description of
+             what the section is rather than down among the conclusions. */
+          meta?.note && <p class="section-note" set:html={inlineCode(meta.note)} />
+        }
         {
           /* Conclusions before the chapter list, so a reader deciding whether
              to spend an evening in this section can see what it buys them. */

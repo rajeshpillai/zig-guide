@@ -954,6 +954,18 @@ main th {
   max-width: 62ch;
 }
 
+/* A caveat about the section's code, not a second lede. Quieter than the intro
+   above it and marked by a rule rather than a box, so it reads as an aside on
+   what was just said instead of competing with the takeaways card below. */
+.section-note {
+  max-width: 62ch;
+  margin-top: 1.25rem;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--border);
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 /* Sits under the intro paragraph, so it reads as a caption on the list that
    follows rather than as the page's opening line. */
 .section-lede {
