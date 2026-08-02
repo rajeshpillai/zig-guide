@@ -485,10 +485,39 @@ const HEADER_WIDTHS = [
   320, 360, 390, 430, 470, 480, 570, 580, 690, 700, 860, 1030, 1040, 1130,
   1140, 1280, 1440,
 ];
+/**
+ * Every width is measured twice: once as the machine renders it, and once with
+ * every string in the row widened by letter-spacing.
+ *
+ * The first pass alone is not a check, it is a check of one font. `system-ui`
+ * is whatever fontconfig hands the browser, and the same wordmark is 136px in
+ * Noto Sans and 146px in DejaVu Sans. The widths above were measured on a
+ * machine with the first and every one of them had exactly zero slack, so CI,
+ * whose system-ui is the second, rendered "Zig Guide Li..." at four of them and
+ * the pass here went green on the machine they were taken on. A check that only
+ * agrees with the machine it was calibrated on is the failure mode this whole
+ * block exists to close.
+ *
+ * 0.75px per character is the stand-in: it is deterministic, it needs no font
+ * to be installed, and across the wordmark it is worth ~12px, more than the
+ * 10px between the narrowest and widest system-ui in the wild. It is a proxy
+ * for headroom rather than a real font, which is the point. Passing means the
+ * row survives a system font wider than the one that rendered it.
+ */
+const HEADER_SPACINGS = [0, 0.75];
 let headerWidths = 0;
-{
+for (const spacing of HEADER_SPACINGS) {
   for (const width of HEADER_WIDTHS) {
     const page2 = await browser.newPage({ viewport: { width, height: 800 } });
+    if (spacing) {
+      await page2.addInitScript((ls) => {
+        document.addEventListener("DOMContentLoaded", () => {
+          const s = document.createElement("style");
+          s.textContent = `.topbar, .topbar * { letter-spacing: ${ls}px !important; }`;
+          document.head.appendChild(s);
+        });
+      }, spacing);
+    }
     await page2.goto(`${BASE}${PREFIX}/learn/language-basics/pointers/`, {
       waitUntil: "domcontentloaded",
     });
@@ -514,21 +543,33 @@ let headerWidths = 0;
         const el = document.querySelector(sel);
         return el !== null && getComputedStyle(el).display !== "none";
       };
+      const bar = document.querySelector(".topbar");
+      const last = boxes[boxes.length - 1];
       return {
         collision,
         truncated: brand.scrollWidth > brand.clientWidth + 1,
+        // Where the overflow goes once the wordmark stops absorbing it. The
+        // row shrinking the search box is the intended degradation; the row
+        // pushing its last control past the viewport is not, and it is
+        // invisible in a screenshot because the body clips it.
+        spill: Math.round(last.right - bar.getBoundingClientRect().right),
         migrationReachable: shown(".topbar-link") || shown(".nav-aside"),
       };
     });
 
     headerWidths++;
-    if (seen.collision) failures.push(`topbar at ${width}px: ${seen.collision}`);
-    // 388px is where the wordmark first fits at all; below that it has to clip.
-    if (seen.truncated && width >= 388) {
-      failures.push(`topbar at ${width}px: the wordmark is ellipsized`);
+    const at = `topbar at ${width}px${spacing ? ` (+${spacing}px letter-spacing)` : ""}`;
+    if (seen.collision) failures.push(`${at}: ${seen.collision}`);
+    // No width exemption. There used to be one below 388px, where the wordmark
+    // was said not to fit at all, but 388 was itself a measurement of one font.
+    // The brand no longer shrinks at any width, so the rule is simply that the
+    // site's name is never rendered as "Zig Guide Li...".
+    if (seen.truncated) failures.push(`${at}: the wordmark is ellipsized`);
+    if (seen.spill > 1) {
+      failures.push(`${at}: the row spills ${seen.spill}px past the viewport`);
     }
     if (!seen.migrationReachable) {
-      failures.push(`topbar at ${width}px: "On an older Zig?" is on no surface`);
+      failures.push(`${at}: "On an older Zig?" is on no surface`);
     }
     await page2.close();
   }

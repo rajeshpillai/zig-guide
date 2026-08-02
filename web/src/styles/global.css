@@ -110,39 +110,46 @@ pre {
 }
 
 /* Brand plus its "Unofficial" tag, kept together at the left of the topbar.
-   The auto margin lives here so the badge travels with the wordmark. */
+   The auto margin lives here so the badge travels with the wordmark.
+
+   No `min-width: 0` here, deliberately. That let the wrap shrink while every
+   child inside it stayed rigid, so the children spilled out of their own box
+   and the search box, later in the DOM and carrying a background, painted over
+   them. Leaving the automatic minimum in place makes the wrap as wide as the
+   wordmark and whichever badges are currently shown, which is what pushes the
+   shrinking onto the search box below. */
 .brand-wrap {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-right: auto;
-  min-width: 0;
 }
 
 .brand {
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
-  /* One line, always — the long version badge used to squeeze this into a
+  /* One line, always: the long version badge used to squeeze this into a
      three-line stack on a phone. */
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  /* Let flexbox shrink the brand (ellipsis) rather than overflow the topbar
-     once the search box shares the row on a narrow phone. */
-  min-width: 0;
+  /* The wordmark is never what gives. It used to shrink (min-width: 0) and
+     ellipsize, which made every breakpoint below depend on how wide the
+     reader's system font happens to draw "Zig Guide Live". It is not a
+     constant: the same string is 136px in Noto Sans and 146px in DejaVu Sans,
+     and the widths here were measured against the narrower one, so CI (whose
+     system-ui is DejaVu) rendered "Zig Guide Li..." at four of them. Pinning
+     the brand moves the shrinking to the search box, which is elastic by
+     design, and the row now degrades in the one direction that is safe. */
+  flex: none;
 }
 
 /* Not the official Zig site: an amber pill next to the wordmark, linking to
    ziglang.org. Full statement is also in the footer for touch (no hover). */
 .unofficial {
-  /* Revealed at 580px, not here; see the breakpoint block for the measured
-     widths. `.brand-wrap` is allowed to shrink (min-width: 0) but this pill
-     cannot, so below the width where it fits it spilled out of the shrunken
-     box and the search box, later in the DOM and carrying a background,
-     painted straight over it. Hiding it costs a narrow reader nothing they
-     could use: the full statement is in the footer of every page, and this
-     pill's own explanation is a `title`, which a touch reader never sees. */
+  /* Revealed at 580px, not here; see the breakpoint block for the widths.
+     Hiding it below that costs a narrow reader nothing they could use: the
+     full statement is in the footer of every page, and this pill's own
+     explanation is a `title`, which a touch reader never sees. */
   display: none;
   flex: none;
   font-size: 0.6rem;
@@ -322,12 +329,41 @@ pre {
      was the difference between "Zig Guide Live" and "Zig Guide...". It still
      grows to a real field on focus, below. */
   width: min(7rem, 30vw);
+  /* This box is the one that gives. Its automatic minimum size is the width of
+     the icon and the key hint, which is a floor high enough that the row
+     overflowed the viewport rather than shrink it; zero lets the width above
+     act as a preference instead of a demand. Everything else in the row is a
+     fixed-size control or the wordmark, so if this does not absorb a wider
+     system font, nothing does. */
+  min-width: 0;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 999px;
   transition:
     width 0.15s ease,
     border-color 0.15s ease;
+}
+
+/* Advertises a physical key, so it earns its ~23px only where there is likely
+   to be one. Below the width the "Chapters" label appears at, it was the last
+   thing left to clip inside a search box already squeezed to an icon. */
+@media (max-width: 479px) {
+  .search-hint {
+    display: none;
+  }
+}
+
+/* The one time the wordmark may yield: while someone is actually typing in the
+   search box. `.brand` is pinned (see above) so the field can no longer widen
+   itself on a narrow phone by ellipsizing the name, which is right at rest and
+   wrong mid-search, when the field is the only thing the reader is looking at.
+   `:has()` because `.brand-wrap` precedes `.search` in the DOM and no sibling
+   combinator reaches backwards. */
+.topbar:has(.search:focus-within) .brand {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .search:focus-within {
@@ -1415,7 +1451,21 @@ zig-playground pre:not(.pg-output) {
    Take these off the page, never off the stylesheet. Reasoning about the
    widths from the rules gave 395px for the first one, the built page still
    overlapped at 415, and even that was only the width where the boxes stopped
-   colliding, which is not the same question as whether the name still reads. */
+   colliding, which is not the same question as whether the name still reads.
+
+   What the numbers above cannot tell you is which font they were taken in.
+   Every one of them was the exact width at which the wordmark stopped being
+   ellipsized, so every one had zero slack, and they were measured on a machine
+   whose `system-ui` is Noto Sans. CI's is DejaVu Sans, which draws the same
+   wordmark 10px wider, and it ellipsized at four of the five. A measurement
+   taken on the page is still only a measurement of one machine.
+
+   So these widths no longer carry the rule on their own. `.brand` is pinned
+   and `.search` is the elastic one, which keeps the wordmark whole in any font
+   and turns these back into what they should always have been: the widths at
+   which a badge is worth the room, not the widths at which it just fits. The
+   browser gate re-measures the whole row with the text widened, so a number
+   here that is too tight for someone else's font fails the build. */
 
 @media (min-width: 480px) {
   .nav-label {
