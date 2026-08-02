@@ -1,0 +1,126 @@
+---
+title: Texture Mapping
+description: The triangle already interpolates. Point it at a second image and it interpolates coordinates into that instead of colours.
+section: Graphics
+order: 138
+---
+
+import Playground from "../../../components/Playground.astro";
+
+[Rasterizing triangles](/learn/graphics/triangles/) ended with three barycentric
+weights and the observation that they interpolate anything you attach to the
+corners. That chapter attached colours. Attach a pair of coordinates into
+another image instead and the triangle is textured, and not one line of the
+rasteriser changes to make it happen.
+
+## The program
+
+<Playground name="09-graphics.texture" />
+
+## What just happened
+
+**The interpolation is the same three weights.** `w0`, `w1` and `w2` are
+computed exactly as they were for Gouraud shading. The only edit is what they
+are multiplied by:
+
+```zig
+const u = w0 * a.u + w1 * b.u + w2 * c.u;
+const v = w0 * a.v + w1 * b.v + w2 * c.v;
+```
+
+**Coordinates run 0 to 1, not 0 to 8.** The texture is 8 pixels square and
+nothing outside `sample` mentions that. Normalized coordinates mean the same
+four corners address a 16 pixel texture, or a 4096 pixel one, without the
+geometry knowing which it got.
+
+**Going past 1 is a decision, not an error.** The right-hand square asks for
+coordinates up to 2. Wrapping turns that into the image twice in each
+direction. Clamping would have stretched the edge texels into a smear. Both are
+reasonable and the sampler has to be told which.
+
+**The trapezoid has a seam.** Look along its diagonal. A four-cornered shape is
+drawn as two triangles, each gets its own affine interpolation, and when the
+shape is not a parallelogram those two maps do not agree along the edge they
+share.
+
+## The seam is not a bug in the rasteriser
+
+It is the honest result of what an affine map can represent. A triangle's three
+corners fix a linear relationship between position and texture coordinate
+exactly, with nothing left over. Four corners are one constraint too many, so
+splitting into two triangles solves two separate problems and the answers meet
+at the diagonal without matching.
+
+Draw a parallelogram instead and the seam disappears, because there a single
+affine map does satisfy all four corners and the two triangles agree by
+construction.
+
+This is the same defect as perspective in 3D, seen in 2D where it is easier to
+look at. A wall receding into the distance is a trapezoid on the screen, texture
+coordinates vary non-linearly across it, and interpolating them linearly is
+what produced the wobbling floors in games of the mid nineties. The fix is to
+interpolate `u/z` and `v/z` along with `1/z` and divide at each pixel, which is
+what "perspective correct" means and why it cost more than the hardware of the
+day wanted to spend.
+
+## Why a texture is not a canvas
+
+`Texture` here is its own type, with `pixels`, `width` and `height` and no
+`stride`. That is a deliberate difference from
+[the canvas](/learn/graphics/sub-canvas/), and it says something true: nothing
+in this program samples a rectangle out of the middle of a larger image, so
+there is no second width to carry.
+
+It buys a real guarantee. `Texture` has no `set`, and its pixels are
+`[]const u32`, so the direction of travel is in the type rather than in a
+comment. Passing the destination where the source belongs does not compile.
+
+The alternative, one type used for both ends, is what olive.c does, and it is
+not wrong: it makes a rendered canvas immediately usable as a texture, which is
+how render-to-texture works and how a compositor treats a window. The cost is
+that nothing stops you writing through a handle you meant only to read.
+
+## Check yourself
+
+The sampler floors the scaled coordinate to pick a texel. What happens at
+exactly `u = 1.0` with wrapping turned off?
+
+`u * 8` is `8`, flooring gives `8`, and the texture's last valid index is `7`.
+The clamp catches it and returns texel 7, which is why the branch reads
+`@min(w - 1, tx)` and not `@min(w, tx)`.
+
+No pixel in this program actually reaches it. `u` is exactly 1 only where the
+weight of the `u = 0` corner is exactly 0, which is the line through the other
+two corners, and for the left square that line is `x = 26`. Pixel centres sit
+at half-integers, so they miss it by half a pixel every time.
+
+That is worth knowing rather than reassuring. The guard is never exercised by
+the picture above, so nothing here would notice if it were wrong, and the
+snippet you are looking at ships as `ReleaseSmall` with the bounds check
+compiled out. Move one vertex to a half-integer and the read goes off the end
+of the texture: a caught panic in a safety build, and a pixel of whatever
+follows it in memory in this one.
+
+## If you have written C
+
+The rasteriser is the shape you would write in C, with one difference worth
+naming: `@mod` rather than `%`.
+
+C's `%` keeps the sign of the dividend, so `-1 % 8` is `-1`, and a texture
+coordinate that drifts slightly negative indexes backwards out of the array.
+The symptom is a single wrong row or column along one edge, which is easy to
+mistake for an off-by-one in the geometry.
+
+Zig does not let you write that by accident, and not because it picks the other
+answer. `%` on signed integers is a compile error:
+
+```
+error: remainder division with 'i32' and 'i32': signed integers
+and floats must use @rem or @mod
+```
+
+`@rem(-1, 8)` is `-1`, matching C. `@mod(-1, 8)` is `7`, taking the sign of the
+divisor, which is the wrapping a sampler wants. Both exist, neither is the
+default, and the operator that would have quietly chosen for you is gone.
+
+Next: moving the shape rather than the pixels inside it.
