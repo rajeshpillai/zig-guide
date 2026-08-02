@@ -131,6 +131,27 @@ const GROUPS: Group[] = [
     ],
   },
   {
+    title: "Prior art",
+    blurb:
+      "Code by other people that a chapter arrives at the design of. Named " +
+      "because a reader who recognises the shape deserves to know where it " +
+      "came from, and one who does not deserves somewhere better to read it.",
+    sources: [
+      {
+        name: "olive.c",
+        href: "https://github.com/tsoding/olive.c",
+        note:
+          "A dependency-free 2D graphics library in C by Alexey Kutepov, MIT " +
+          "licensed, rendering into a plain pixel buffer with no display " +
+          "server and no libc. Its Olivec_Canvas is the pixels, width, height " +
+          "and stride struct the canvas chapter builds field for field, and " +
+          "olivec_subcanvas is the same constructor. Worth reading as a single " +
+          "header that stays legible while covering triangles, text and sprites.",
+        cite: "graphics/sub-canvas",
+      },
+    ],
+  },
+  {
     title: "Worth reading",
     blurb: "Writing by other people that a chapter sends you to.",
     sources: [

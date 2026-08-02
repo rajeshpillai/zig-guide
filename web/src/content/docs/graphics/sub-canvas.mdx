@@ -1,0 +1,112 @@
+---
+title: A Canvas Is a View
+description: Four fields instead of a slice, and every routine draws inside a region without knowing it is one.
+section: Graphics
+order: 137
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Every drawing routine in this section so far has assumed it owns the whole
+buffer. `y * width + x` says so: there is one width, it is a constant, and the
+pixel at the end of a row is followed by the pixel at the start of the next.
+
+That assumption breaks the first time you want to draw into part of the screen.
+A panel inside a window, a cell inside a chart, a widget inside a toolbar: the
+region has its own origin and its own edges, and the buffer underneath it does
+not. You can pass an offset and a clip rectangle to every routine and add them
+in every routine, or you can change what a routine is given.
+
+## The program
+
+<Playground name="09-graphics.sub-canvas" />
+
+## What just happened
+
+**The bar is 40 pixels wide inside a panel 26 wide.** It stops at the panel's
+edge. The panel beside it is untouched, and neither `rect` nor the caller
+mentions the panel's position to make that happen.
+
+**Three canvases, one buffer, one stride.** The table at the end is the whole
+idea in four rows. `width` differs for each region. `stride` is 60 for all of
+them, including the one nested two levels deep, because all of them address the
+same memory and that memory has not changed shape.
+
+**The child does not know where it is.** `Canvas` has no `x` and no `y`. A
+sub-canvas is its pixels, its size, and the distance between its rows, and that
+is genuinely all a drawing routine needs. There is no parent coordinate to
+forget to add, because there is no parent coordinate.
+
+**Dumping the right panel copied nothing.** The second picture is the same
+memory as the first, read through different bounds.
+
+## Stride is what width cannot say
+
+For a canvas over a whole buffer, stride and width are the same number, which
+is why the distinction can stay hidden for an entire section. They come apart
+the moment a canvas is a region: the pixel below `(x, y)` is one full buffer
+row further on, and the region's own width has nothing to do with how far that
+is.
+
+So the addressing splits in two. `width` and `height` bound what the region
+*is*. `stride` says how its rows are *spaced*. Use `width` for both and every
+row after the first lands progressively further left, which draws a picture
+that shears diagonally across the screen, and it looks like a bug in whatever
+you were drawing rather than in the addressing.
+
+## A rectangle is not a slice
+
+This is where Zig asks a question C does not.
+
+`sub` has to hand back a `[]u32`, and no `[]u32` describes exactly these
+pixels. A rectangle inside a wider buffer is not contiguous. The slice returned
+runs from the region's first pixel to the last pixel of its bottom row, so it
+spans the region, and the gap at the end of each row belongs to the parent:
+
+```zig
+const span = if (ch == 0) 0 else (ch - 1) * self.stride + cw;
+```
+
+That length is a bound on the buffer, not a description of the region. It is
+worth being exact about what it buys, because it is easy to assume it buys
+more. Indexing past the end of the framebuffer is caught. Writing into the
+panel next door is not, because those pixels are inside the slice.
+
+What keeps the panels apart is the clip in `set`, comparing against the
+region's own `width` and `height`. Two different guarantees, from two different
+mechanisms, and only one of them is the language's. Reach past `set` and index
+`pixels` directly and you keep the bounds check and lose the containment.
+
+## Check yourself
+
+If the slice contains pixels the region does not own, what stops `fill` from
+painting them?
+
+`fill` goes through `set`, and `set` rejects any `x` that is at least `width`.
+Those gap pixels sit at the end of a row, so reaching one means asking for an
+`x` past the region's right edge, which is exactly the case `set` refuses. The
+pixels are reachable through the slice and unreachable through the API, which
+is the arrangement the clip exists to produce.
+
+Note which line is doing the work. Not the slice bound, and not the type: one
+comparison in `set`, written by hand. That is the part to check when a widget
+paints over its neighbour.
+
+## If you have written C
+
+This struct is `Olivec_Canvas` from
+[olive.c](https://github.com/tsoding/olive.c), Alexey Kutepov's dependency-free
+2D graphics library, field for field, and `sub` is `olivec_subcanvas`. The C
+version carries a bare `uint32_t *` with no length, so the bounds check
+discussed above does not exist at all and the clip is the only thing standing
+between a widget and the rest of the window. A wrong comparison there writes
+into another widget's pixels, silently, and the symptom is a smear in a part of
+the screen whose code is correct.
+
+The same shape turns up well outside graphics libraries. A GUI toolkit hands a
+widget a region to paint and a stride it does not own. A compositor hands a
+client a buffer with a stride the client did not choose, usually rounded up for
+alignment, which is the common case where stride is larger than width for a
+canvas that is not a sub-canvas of anything.
+
+Next: the same buffer, handed to a display server rather than to a file.
