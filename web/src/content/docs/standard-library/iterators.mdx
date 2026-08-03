@@ -20,6 +20,26 @@ while (it.next()) |value| { ... }
 Writing your own is a struct with state and a `next`. That is the whole
 mechanism.
 
+```zig
+const Countdown = struct {
+    n: u32,
+    fn next(self: *Countdown) ?u32 {
+        if (self.n == 0) return null;
+        self.n -= 1;
+        return self.n + 1;
+    }
+};
+```
+
+Nothing registers it, nothing implements anything, and `while (c.next()) |v|`
+works because the shapes line up. The convention is the interface, and the
+compiler checks it the moment you use it.
+
+Two things follow from iterators being ordinary structs. They have to be `var`,
+because `next` mutates the state, and passing one to a function means passing a
+pointer if the function should advance it. Iterating the same iterator twice
+means constructing it twice, since it has been consumed.
+
 ## Splitting text
 
 | Function | Behaviour |
@@ -34,6 +54,15 @@ The split/tokenize distinction is the one to remember: parsing CSV wants
 `split` (an empty field is meaningful); splitting on whitespace wants
 `tokenize` (runs of spaces should not produce empty tokens).
 
+All of them yield slices of the original string. Nothing is copied and nothing
+is allocated, so splitting a megabyte of text costs no memory and the pieces
+stay valid as long as the original does. The flip side is the usual one: if the
+source is freed, every piece you kept is dangling.
+
+`peek()` looks at the next value without consuming it, and `rest()` gives you
+everything not yet returned, which is what you want when a header is parsed
+field by field and the remainder is a body. `reset()` starts over.
+
 ## Windows
 
 `std.mem.window(T, s, size, advance)` yields views into the original bytes with
@@ -43,7 +72,23 @@ you: `advance` smaller than `size` overlaps, `advance` equal to `size` does not.
 There is no `std.mem.chunk` on master. Non-overlapping blocks are
 `window(T, s, n, n)`.
 
+The final window is short when the length does not divide evenly, rather than
+being padded or dropped, so code that assumes every window is full size needs to
+check.
+
 ## No lazy adapter chains
 
 There is no `.map().filter().take()`. Write the loop: it is usually shorter
 than the chain, and there is nothing hidden about its cost.
+
+The reason it is absent rather than missing is that Zig has no closures. A
+`map` would have to take a function pointer plus a context struct, which is
+three lines of ceremony to express what one line of loop body says directly. The
+languages where chains read well are the ones where a lambda captures its
+environment for free.
+
+What you lose is real: a chain of transformations over a large collection can be
+expressed once and read in one pass, whereas nested loops accumulate
+intermediate arrays if written carelessly. The Zig answer is to write the one
+loop that does all the steps per element, which is also what the chain compiles
+to in those other languages.

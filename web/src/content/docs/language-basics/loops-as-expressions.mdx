@@ -33,3 +33,74 @@ return result;
 
 Same behaviour, but now `result` is mutable, lives longer than it needs to, and
 nothing forces you to initialise it correctly.
+
+## What `else` means on a loop
+
+It is not the `else` of an `if`. It runs when the loop ends *normally*: the
+`for` ran out of elements, or the `while` condition became false. A `break`
+skips it. That is the entire rule, and it is what makes the construct safe for
+searches. There are exactly two ways out of the loop, and each one produces a
+value.
+
+The third test in the snippet pins that down with a `break` written so it can
+never fire:
+
+```zig
+const result = while (i < 3) : (i += 1) {
+    if (i == 99) break @as(u32, 1);
+} else @as(u32, 2);
+```
+
+`i` never reaches 99, the condition goes false, and `result` is 2.
+
+## What the missing `else` actually looks like
+
+The failure is worth seeing, because the error does not mention `else` at all.
+A loop with no `else` has nothing to evaluate to when it ends normally, so its
+type is `void`:
+
+```
+error: expected type '?usize', found 'void'
+```
+
+pointing at the whole `for` expression. Read it as "this loop does not always
+produce a value". Adding the `else` is the fix.
+
+The one loop that needs no `else` is one that cannot end normally. `while
+(true)` has no condition to go false, so the only way out is `break`, and the
+compiler knows it:
+
+```zig
+const v = while (true) : (i += 1) {
+    if (i == 3) break i;
+};
+```
+
+That compiles, and `v` is `usize`. Add an `else` there and it is dead code.
+
+## Both arms must agree on a type
+
+The `break` value and the `else` value are two arms of one expression, so they
+have to reach a single type. In the search above they are `usize` and `null`,
+which unify as `?usize`, and that is the function's return type.
+
+When the arms are bare integer literals they are comptime-known and coerce to
+whatever the surrounding code wants. When there is nothing to coerce toward, you
+have to say. That is why the test writes `@as(u32, 1)` and `@as(u32, 2)` rather
+than `1` and `2`: `const result = ...` gives the literals no target type to take
+their size and signedness from.
+
+If the arms genuinely disagree, the error names both types and points at the
+`break`. That check is the reason a search cannot accidentally return an index
+on one path and a boolean on another.
+
+## When to reach for it
+
+The pattern earns its keep when the loop answers exactly one question: find this,
+count until that, decide whether any element qualifies. The value comes out where
+it is decided, and the compiler holds you to covering both outcomes.
+
+It stops helping when a loop has five `break` sites carrying five different
+meanings. Nothing prevents that, and the result is harder to follow than an
+explicit variable, because the reader now has to find every `break` to know what
+the expression can be. One or two exits is the shape this is for.

@@ -310,6 +310,9 @@ for (const href of [
   `${PREFIX}/paths/`,
   `${PREFIX}/references/`,
   `${PREFIX}/whats-new/`,
+  `${PREFIX}/about/`,
+  `${PREFIX}/verification/`,
+  `${PREFIX}/contact/`,
   `${PREFIX}/privacy/`,
 ]) {
   const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded" });

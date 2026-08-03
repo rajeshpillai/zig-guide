@@ -9,6 +9,10 @@ import Playground from "../../../components/Playground.astro";
 
 <Playground name="02-language.while-loops" />
 
+`while` takes a condition and runs the body until it goes false. There is no
+C-style `for (init; cond; step)` in Zig; `while` with a continue expression is
+that loop, and `for` is reserved for walking something that has elements.
+
 ## The continue expression
 
 ```zig
@@ -19,6 +23,69 @@ The `: (i += 1)` part runs after **every** iteration, including ones cut short
 by `continue`. That is precisely why it exists rather than just putting the
 increment at the end of the body: with `continue` in the mix, the two are not
 equivalent, and the bug that results is easy to miss.
+
+Concretely, this terminates:
+
+```zig
+while (i < 10) : (i += 1) {
+    if (skip(i)) continue;
+    work(i);
+}
+```
+
+and this does not:
+
+```zig
+while (i < 10) {
+    if (skip(i)) continue;   // i never advances
+    work(i);
+    i += 1;
+}
+```
+
+Both look like the same loop. The second hangs the first time `skip` returns
+true. Putting the step in the continue expression makes it structurally
+impossible for a `continue` to skip it.
+
+The continue expression can hold more than one statement if it needs to, written
+as a block: `: ({ i += 1; n += 1; })`.
+
+## Looping until something runs out
+
+A condition that is an optional binds its payload, and the loop ends when the
+optional is null. This is how nearly every iterator in the standard library is
+consumed:
+
+```zig
+while (it.next()) |item| {
+    // item is the payload, not the optional
+}
+```
+
+There is no separate "is there another one" call and no sentinel value to
+compare against. The same shape works with a continue expression, so a counted
+walk over an iterator is one line:
+
+```zig
+while (it.next()) |_| : (n += 1) {}
+```
+
+The capture syntax is the same one `if` uses; it is covered on its own in
+[payload captures](/learn/language-basics/payload-captures/).
+
+A condition that is an error union works the same way, with the error going to
+an `else` capture:
+
+```zig
+while (stream.next()) |chunk| {
+    consume(chunk);
+} else |err| {
+    return err;
+}
+```
+
+The loop body runs on each success, and the `else` runs once with whatever error
+ended it.
 
 ## Loops that produce values
 
@@ -32,4 +99,21 @@ const found = while (i < 10) : (i += 1) {
 ```
 
 This is the search-with-fallback pattern as a single expression, with no
-sentinel variable and no way to forget the not-found case.
+sentinel variable and no way to forget the not-found case. The rules for it,
+including what the compiler says when the `else` is missing, are in
+[loops as expressions](/learn/language-basics/loops-as-expressions/).
+
+## Infinite loops
+
+`while (true)` is the idiomatic infinite loop, and the compiler knows it cannot
+end normally. Used as an expression it needs no `else`, because `break` is the
+only way out. That is the loop to reach for when the exit condition is decided
+in the middle of the body rather than at the top, which is common for anything
+reading input until it sees a terminator.
+
+## Naming the loop
+
+A `while` can carry a label, so `break :outer` and `continue :outer` work on it
+exactly as they do on `for`. See
+[labelled loops](/learn/language-basics/labelled-loops/), which also covers the
+one surprise: a labelled `continue` still runs that loop's continue expression.

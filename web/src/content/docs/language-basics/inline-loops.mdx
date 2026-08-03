@@ -27,6 +27,12 @@ inline for (tuple) |value| {
 This is how `std.debug.print` walks its arguments, and how serialisation code
 walks a struct's fields.
 
+The `if` in that body is not a runtime branch. Each unrolled copy has a
+comptime-known `@TypeOf(value)`, so the condition folds to true or false while
+compiling and only the surviving branch is generated. A twelve-way `if` chain
+over types costs nothing at runtime, because eleven of the arms do not exist in
+the output.
+
 ## The loop variable becomes comptime-known
 
 Inside `inline for (0..4) |i|`, `i` is a comptime value, so it can be used
@@ -37,9 +43,47 @@ names):
 const arr: [i]u8 = undefined;   // only valid because i is comptime
 ```
 
+That is what makes reflection work. `@typeInfo(T).@"struct".field_names` is a
+comptime array of strings, and walking it with `inline for` gives you each name
+as a comptime string, which `@field(value, name)` can then use to read the
+field. A normal `for` gives you a runtime string, and there is no runtime field
+lookup to hand it to.
+
+```zig
+inline for (@typeInfo(@TypeOf(value)).@"struct".field_names) |name| {
+    try writer.print("{s}={any}\n", .{ name, @field(value, name) });
+}
+```
+
+Nine tenths of the generic code in the standard library is that shape.
+
+If you have seen `info.fields[i].name` in older Zig code, that is the shape this
+replaced. `Type.Struct` now carries parallel arrays (`field_names`,
+`field_types`, `field_attrs`) rather than one array of field structs, so a loop
+that only needs names does not touch the rest.
+
+## `inline while` and `inline else`
+
+The same idea appears on `while`, where the condition has to be comptime-known
+so the compiler can decide how many copies to make, and on `switch`, where
+`inline else` generates one arm per remaining case with the tag available as a
+comptime value. Reach for those in the same situations: when the body needs to
+know something the runtime version would have erased.
+
 ## Use it deliberately
 
 Unrolling multiplies generated code by the iteration count. For a 3-element
 tuple that is free; for `inline for (0..10000)` it is a compile-time and
 binary-size disaster. Reach for `inline` when you need comptime-ness, not as a
 performance reflex.
+
+The performance reflex is wrong for a second reason: the optimiser already
+unrolls loops it thinks are worth unrolling, using cost information about the
+target that you do not have. Writing `inline` to make a loop fast overrides a
+decision that was probably better than yours, and does it in a way that shows up
+as compile time rather than as a benchmark.
+
+The honest test is whether the body would still compile without `inline`. If it
+would, you probably do not need it. If it would not, because the body uses the
+loop variable where a comptime value is required, then `inline` is not an
+optimisation at all and there was never a choice to make.

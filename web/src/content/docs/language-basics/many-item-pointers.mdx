@@ -19,6 +19,12 @@ item, many items, and "maybe nothing". Zig splits them apart:
 | `[]T` | many `T`, count known (a [slice](/learn/language-basics/slices/)) |
 | `?*T` | one `T`, or nothing |
 
+The split is not decoration. In C, reading a function signature that takes a
+`char *` tells you nothing about whether it may index, how far, or whether null
+is acceptable, so every one of those questions is answered by a comment or by
+convention. Here the type answers all three, and the compiler enforces the
+answer.
+
 ## What `[*]T` gives up
 
 A many-item pointer supports indexing and pointer arithmetic, but has no `.len`
@@ -34,6 +40,53 @@ const slice: []u8 = many[0..count];
 That single step buys back bounds checks, `for` iteration, and `.len`. Prefer
 slices everywhere except the boundary where a length genuinely is not available.
 
+Slicing a `[*]T` is the one operation where you are asserting something the
+compiler cannot check. `many[0..count]` produces a slice of exactly `count`
+elements whether or not that many exist, and nothing fires if you were wrong.
+The moment after that line, everything is checked again. The point is that the
+unchecked assertion is one visible line rather than spread across every access.
+
 Correspondingly, `*T` deliberately does *not* support indexing: `ptr[1]` on a
 single-item pointer is a compile error, catching a class of C bug at the type
 level.
+
+## Sentinel-terminated many-item pointers
+
+`[*:0]T` is the one many-item pointer that does know where it ends, because the
+end is marked in the data rather than carried alongside. That is exactly a C
+string, and it is the type `@cImport` gives you for `char *` parameters that are
+documented as null-terminated.
+
+`std.mem.span` walks to the sentinel and hands back a slice, so the unsafe type
+survives for one line at the boundary:
+
+```zig
+const name: []const u8 = std.mem.span(c_str);
+```
+
+[Sentinel termination](/learn/language-basics/sentinel-termination/) covers the
+family in full.
+
+## Where they actually come from
+
+You rarely write `[*]T` in ordinary Zig. It arrives:
+
+- **From C.** Every array parameter in a C header is a pointer, so `@cImport`
+  produces `[*c]T`, the C pointer type, which converts to `[*]T` or `?[*]T` once
+  you decide what the header actually meant.
+- **From an allocator's internals.** The code implementing a data structure has
+  a block of memory and a count that it maintains itself. `ArrayList` holds
+  something of this shape and hands out slices.
+- **From hardware or a mapped region**, where an address is known and the length
+  comes from somewhere else entirely.
+
+All three are boundaries. The pattern that keeps a program safe is to convert at
+the boundary and never let the raw pointer travel further into the code than the
+function that received it.
+
+## `allowzero` and the null case
+
+`[*]T` cannot be null, exactly like `*T`. Use `?[*]T` when the C side may hand
+back nothing, and the optional costs no space because the null address is the
+tag. `allowzero` is a separate modifier for the rare targets where address zero
+is legitimately mapped, and if you have not needed it, you do not.

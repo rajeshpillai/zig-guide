@@ -41,3 +41,46 @@ still live in `std.time`, no `Io` required, because they are pure math.
 `std.time.epoch` breaks a Unix timestamp into year, month, day, and
 time-of-day without allocating or consulting a locale. Note the day index is
 zero-based: day 1 is the second of the month.
+
+Using the named constants rather than writing `1_000_000_000` is worth the
+habit. `ns_per_s` reads as what it is, and an expression like
+`5 * std.time.ns_per_min` cannot be off by a factor of a thousand in a way
+review would miss.
+
+## Measuring how long something took
+
+```zig
+const start = try std.Io.Clock.Timestamp.now(io, .awake);
+doWork();
+const elapsed = start.durationTo(try std.Io.Clock.Timestamp.now(io, .awake));
+```
+
+`.awake` for this, always. The whole reason the two clocks are separate is that
+`.real` can be moved by NTP or by an administrator between your two readings,
+and a benchmark that occasionally reports a negative duration is worse than no
+benchmark.
+
+For a one-off measurement that is fine. For anything you intend to draw a
+conclusion from, one reading is noise: run the work enough times that the total
+is comfortably larger than the clock's resolution, and report the total divided
+by the count.
+
+## Timezones and formatting
+
+`std.time.epoch` gives you UTC. There is no timezone database in the standard
+library and no locale-aware date formatting, for the same reason there is no
+Unicode case folding: the tables change several times a year and do not belong
+frozen inside every binary.
+
+So the practical advice is the boring one that is right anyway. Store and
+transmit `.real` timestamps as integers, in UTC. Convert to local time and to a
+human-readable string at the edge, with a library, only where a person will read
+it. A program that keeps UTC internally has no daylight-saving bugs to have.
+
+## Waiting
+
+Sleeping goes through the `Io` instance too, which is what makes it cancellable
+and what lets the same code work under threads and under an evented runtime. A
+raw sleep that blocks the thread is the thing the interface exists to avoid; see
+[cancellation](/learn/standard-library/cancellation/) for what a timeout that
+can be interrupted looks like.

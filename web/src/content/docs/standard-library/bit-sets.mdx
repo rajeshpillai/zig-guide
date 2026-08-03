@@ -39,3 +39,52 @@ lookup tables that must cover the whole enum, like a duration per traffic
 light state. `EnumMap` is the partial version for when absence is meaningful.
 All three are backed by the same bit-set machinery, so they are compact and
 allocation-free.
+
+The totality of `EnumArray` is the property worth reaching for. Adding a tag to
+the enum turns every `EnumArray` initialiser into a compile error naming the
+missing case, which is the same guarantee an exhaustive `switch` gives and for
+the same reason. A `HashMap` keyed by the enum would have compiled and returned
+null at runtime.
+
+## What this replaces
+
+The pattern these types displace is a `[]bool` or an array of booleans, and the
+difference is a factor of eight in memory plus the ability to do set operations
+in one instruction instead of a loop.
+
+Concretely: tracking which of 256 opcodes are implemented costs 32 bytes as a
+bit set and 256 bytes as an array of `bool`. At that size neither matters. At
+sixty-four thousand flags, one fits in a cache line's worth of words and the
+other does not fit in L1 at all, and "is any of these set" goes from a scan to
+a handful of `or`s.
+
+The other thing it replaces is the hand-rolled `flags: u32` with named
+constants and manual `&` and `|`. That works and is what C does, but the bit
+positions live in comments, nothing stops you testing the wrong one, and
+printing the set means writing a formatter. `EnumSet` gives the same layout with
+names the compiler checks.
+
+## Iterating
+
+`iterator()` yields the indices that are set, in ascending order, skipping runs
+of zeroes a word at a time rather than testing every index. For a sparse set
+over a large range that is the difference between the loop being proportional to
+the number of members and proportional to the size of the universe.
+
+`findFirstSet` returns the lowest member, which is what a free-list allocator
+wants: the bit set is the map of what is available and the first set bit is the
+block to hand out. `toggleAll`, `unionWith`, `intersectWith` and
+`differenceWith` complete the set algebra.
+
+## Sizing
+
+`std.bit_set.Static(N)` picks its own representation: a single integer when `N`
+fits in one, an array of words when it does not. That means the type is
+copyable, has no pointers inside, and can live in a struct field or be returned
+by value, which is why it is the default choice.
+
+`DynamicManaged` is for when `N` is decided at run time, and it takes an
+allocator and needs a `deinit`. The question to ask before reaching for it is
+whether an upper bound is genuinely unknown, because a static set sized to a
+generous maximum is usually both simpler and smaller than a heap allocation and
+a pointer.

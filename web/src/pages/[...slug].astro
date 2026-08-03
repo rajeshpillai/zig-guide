@@ -169,6 +169,19 @@ const schema = entry
         <h1>{group.title}</h1>
         {meta && <p class="section-intro">{meta.lede}</p>}
         {meta?.note && <p class="section-note" set:html={inlineCode(meta.note)} />}
+        {
+          /* Same treatment as a section index below. A group index is the page
+             a reader lands on from a search for the topic, so leaving it as a
+             lede and a list of links makes the one page that has to sell the
+             group the thinnest page in it. */
+          meta?.takeaways && (
+            <ol class="takeaways">
+              {meta.takeaways.map((point) => (
+                <li set:html={inlineCode(point)} />
+              ))}
+            </ol>
+          )
+        }
         <p class="section-lede">{indexCount} chapters.</p>
         <ul class="section-index">
           {group.members.map((chapter) => (

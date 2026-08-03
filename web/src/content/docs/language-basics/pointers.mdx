@@ -12,6 +12,27 @@ with `.*`, a postfix operator, so it chains left to right like field access.
 
 <Playground name="02-language.pointers" />
 
+## Exactly one
+
+"Exactly one" is the part that does the work. A `*T` is not a cursor into a
+sequence, and there is no pointer arithmetic on it: `p + 1` does not compile.
+Anything that walks memory needs a type that says how much memory there is.
+
+That splits into three, and picking the right one is most of what pointer types
+are for in Zig:
+
+| Type | Means |
+| --- | --- |
+| `*T` | one `T`, and only one |
+| `[*]T` | many `T`, count unknown, arithmetic allowed |
+| `[]T` | many `T`, count carried alongside |
+
+`[]T` is the one to reach for. It is a pointer and a length together, so
+indexing it can be bounds-checked, and the length cannot be forgotten because it
+is part of the value. `[*]T` exists for the C boundary, where the count lives
+somewhere else or in a sentinel. See [slices](/learn/language-basics/slices/)
+and [many-item pointers](/learn/language-basics/many-item-pointers/).
+
 ## Never null
 
 There is no null `*T`. If a pointer may be absent, its type says so: `?*T`.
@@ -20,6 +41,12 @@ optional without unwrapping it first.
 
 The representation costs nothing. Zig uses the null address as the `null` tag,
 so `?*T` is the same size as `*T`. You get the safety without the wrapper.
+
+The practical effect is that "did I check this for null" stops being a question
+about the code and becomes a question about the type. A function taking `*T`
+cannot be handed nothing. A function taking `?*T` cannot use it without saying
+what happens when it is null. The middle case, where both are spelled the same
+way and one of them is a bug, does not exist.
 
 ## Constness travels with the pointer
 
@@ -31,3 +58,39 @@ the pointer variable itself can be reassigned:
 var p: *const u8 = &a;   // p can point elsewhere; p.* cannot be written
 const q: *u8 = &b;       // q always points at b; q.* can be written
 ```
+
+Two different questions, two different places to write `const`. The one on the
+left of the colon is about the variable. The one inside the type is about what
+you may do through it.
+
+Const is one-way. A `*T` coerces to a `*const T` freely, because giving up the
+right to write is always safe. The reverse needs `@constCast`, and doing it to
+memory that really is constant is undefined behaviour rather than a check that
+fires.
+
+## Alignment is part of the type
+
+A pointer carries the alignment the compiler can rely on, written `*align(n) T`
+when it differs from the natural one. Usually this is invisible: `&x` produces a
+correctly aligned pointer and nothing needs saying. It becomes visible when you
+cast a byte buffer to something wider, because `[]u8` promises nothing about
+alignment and `*u32` requires four bytes of it.
+
+`@alignCast` is how you assert the alignment you know you have. In a safety
+build it is checked and panics if you were wrong. In ReleaseFast it is taken on
+trust, and being wrong is a misaligned load, which on some targets is a crash
+and on others is slow and silently correct.
+
+## Getting the number out
+
+`@intFromPtr` gives you the address as a `usize` and `@ptrFromInt` goes back.
+Both exist for the cases that genuinely need an integer: talking to hardware,
+tagging pointers, printing an address while debugging. Neither is a general way
+to move between types, and a round trip through an integer discards everything
+the compiler knew about what was there.
+
+The address of a local is only meaningful while that local exists. Returning
+`&x` from a function whose frame is about to disappear is a dangling pointer,
+and nothing in the type system catches it. That is the one classic pointer bug
+Zig does not remove, and it gets its own treatment in
+[the stack](/learn/systems-from-scratch/the-stack/).

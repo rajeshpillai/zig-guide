@@ -54,6 +54,47 @@ C strings are `[*c]const u8` and null-terminated. Zig string literals are
 already null-terminated, so passing one to C needs no conversion. Coming back,
 `std.mem.span(ptr)` recovers a slice by scanning for the terminator.
 
+## What you are getting out of this
+
+The comparison worth making is with every other language's answer to the same
+problem. Python has ctypes and cffi and a generator; Rust has bindgen; Go has
+cgo with its own dialect of comments. All of them are a separate tool that reads
+the header and emits code in a third file, which then has to be regenerated and
+committed and kept in step.
+
+Zig parses the header during compilation. There is no generated file, nothing to
+regenerate, and no way for a binding to drift from the header it was made from,
+because it is remade on every build. Update the C library and a changed
+signature is a compile error the same day.
+
+That property is what lets this guide's X11 chapter link against the real
+system Xlib in CI. Nothing runs, but the header is parsed and the calls are
+type-checked, so a change in libX11 turns the build red rather than going
+unnoticed until someone reads the page.
+
+## Error handling across the boundary
+
+C reports failure by return value and by a global `errno`, and neither survives
+translation into anything meaningful. So the wrapper you write around a C
+library is also where its conventions become Zig errors:
+
+```zig
+pub fn open(path: [:0]const u8) !Handle {
+    const h = c.thing_open(path.ptr);
+    if (h == null) return error.OpenFailed;
+    return .{ .ptr = h.? };
+}
+```
+
+Doing that once per function is dull and it is the whole job. What you get is
+that the rest of the program uses `try`, and no caller can forget to check a
+return code, because there is no return code to forget.
+
+Ownership is the other half. C libraries have their own rules about who frees
+what, and the wrapper is where those become `defer` and `errdefer` in the Zig
+caller's scope. A handle type with a `deinit` method is usually the right shape,
+so the pairing is visible.
+
 ## Why this page has no Run button
 
 Unlike every other chapter here, this one shows no runnable snippet: `@cImport`

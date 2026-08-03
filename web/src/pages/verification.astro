@@ -1,0 +1,227 @@
+---
+/**
+ * The mechanism behind the claim every other page makes in one line.
+ *
+ * Every number on this page is derived from the manifest `zig build` emitted,
+ * not written into the prose, for the same reason the footer version is: a
+ * hand-maintained count of how many snippets are verified would be the one
+ * figure on the site that nothing checks.
+ */
+import Base from "../layouts/Base.astro";
+import { buildInfo } from "../build-info";
+import { snippetManifest } from "../snippets";
+import { pageHref } from "../nav";
+
+const base = import.meta.env.BASE_URL;
+const { zigVersion } = await buildInfo();
+
+const snippets = await snippetManifest();
+const total = snippets.length;
+const executables = snippets.filter((s) => s.kind === "exe").length;
+const tests = snippets.filter((s) => s.kind === "test").length;
+const inBrowser = snippets.filter((s) => s.runnable).length;
+const hostOnly = total - inBrowser;
+const mustFail = snippets.filter((s) => s.expectFail).length;
+---
+
+<Base
+  title="How this guide is verified"
+  seoTitle="How Every Zig Snippet Here Is Verified Against Master"
+  description="Every snippet is compiled, run, and diffed against a recorded output before the site can build, then re-checked nightly against a fresh Zig master. Here is the exact mechanism."
+  crumbs={[{ label: "Verification" }]}
+  {/* `WebPage`, not `TechArticle`, and the distinction is load-bearing: the
+      browser gate treats a `TechArticle` node as "this is a chapter" and then
+      requires the git dates and the plain-Markdown twin that every chapter
+      carries. This page is about the guide rather than in it, on the same
+      footing as `/about/` and `/privacy/`. */}
+  schema={{
+    "@type": "WebPage",
+    name: "How this guide is verified",
+    author: { "@type": "Person", name: "Rajesh Pillai" },
+  }}
+>
+  <article>
+    <h1>How this guide is verified</h1>
+
+    <p class="lede">
+      Every page here claims its code works. This is the machinery behind that
+      claim, stated precisely enough that you can check it yourself: all {total}{" "}
+      snippets are compiled and run against Zig {zigVersion}, and the site
+      cannot be published if any one of them fails.
+    </p>
+
+    <h2>What "verified" means</h2>
+    <p>
+      Three separate things, and it is worth being exact about which is which,
+      because most documentation that claims to be tested only does the first.
+    </p>
+    <ol>
+      <li>
+        <strong>It compiles.</strong> Against the compiler named in the footer,
+        which is built from master rather than pulled from a release.
+      </li>
+      <li>
+        <strong>It runs.</strong> The binary is executed, not just built. A
+        snippet that compiles and then panics on line one is a failure here.
+      </li>
+      <li>
+        <strong>Its output is what the chapter says.</strong> Most snippets have
+        a sibling file recording their exact expected stdout, byte for byte. If
+        a compiler change makes a program print something different while still
+        compiling and running, that is a failure too, and it is the case a
+        smoke test would miss.
+      </li>
+    </ol>
+
+    <h2>One artifact, no second copy</h2>
+    <p>
+      The snippets are ordinary <code>.zig</code> files in the repository. The
+      page you are reading does not contain a copy of the code that someone
+      pasted in: it reads the file from disk when the site is built. So the
+      listing in a chapter and the file the compiler checked are the same
+      bytes, and they cannot drift apart, because there is nothing to drift.
+    </p>
+    <p>
+      The Run button works the same way. Compiling a snippet produces a{" "}
+      <code>.wasm</code> file, that file is what the verification step executes,
+      and that same file is what your browser downloads. There is no second
+      build for the web and no server compiling anything on demand. Pressing
+      Run reproduces the check, in your browser, on your machine.
+    </p>
+
+    <h2>What the build works out on its own</h2>
+    <p>
+      Nothing about a snippet is configured in a list somewhere. The build scans
+      the snippet directory and classifies each file by reading it, which means
+      adding a snippet cannot forget to register it and deleting one cannot
+      leave a stale entry behind.
+    </p>
+    <ul>
+      <li>
+        A file containing <code>pub fn main</code> is built as a program and its
+        output captured. {executables} of the {total} are programs.
+      </li>
+      <li>
+        Anything else is built as a test binary and run under the test runner,
+        so its <code>expect</code> calls are real assertions. That is the other
+        {" "}{tests}.
+      </li>
+      <li>
+        A sibling <code>.expected</code> file turns on the exact-output
+        comparison. Adding one is the whole of the work.
+      </li>
+      <li>
+        A file whose name starts with an underscore is a helper module that
+        other snippets import, not a snippet of its own.
+      </li>
+    </ul>
+
+    <h2>The {hostOnly} that cannot run in a browser</h2>
+    <p>
+      A browser tab has no sockets, no filesystem, no threads under the
+      WebAssembly System Interface, and no window to draw into. Snippets that
+      need any of those are marked, built for your machine's own architecture
+      instead of for wasm, and run there during verification. On the page they
+      appear as ordinary highlighted code with a note saying why there is no Run
+      button and, where one command will do it, the command to run it yourself.
+    </p>
+    <p>
+      A few go one step further and are compiled and linked but never executed:
+      the X11 chapter links against the real Xlib, and a build that opened a
+      window and waited for a keypress would hang the check forever. Compiling
+      and linking still catches the thing that actually breaks, which is the
+      library's interface changing underneath the chapter.
+    </p>
+    <p>
+      This is why the protocol chapters in the networking section still have Run
+      buttons: the codec, the command parser and the connection handler take
+      bytes and return bytes rather than reading a socket directly, so they can
+      be verified and run anywhere. Only the chapters that are genuinely about
+      the socket need a real one.
+    </p>
+
+    <h2>The {mustFail} that are required to fail</h2>
+    <p>
+      Some chapters teach a runtime safety check by triggering it: an
+      out-of-bounds read, an integer overflow. For those, the snippet is built
+      with safety checks on and the verification is inverted. The build asserts
+      that the program <em>stops</em>, and that it stops with the exact message
+      recorded in a sibling file. If the snippet exits successfully, or fails
+      with different wording, the build is red.
+    </p>
+    <p>
+      That means a panic message quoted in a chapter is checked every night
+      rather than remembered from whenever it was written. It is used sparingly,
+      and only where the check firing is the lesson rather than an aside, because
+      a safety build costs roughly fourteen times the download of a normal one.
+    </p>
+    <p>
+      There is a rule about what may never be marked this way: a snippet whose
+      interesting behaviour is undefined. Overflow qualifies, because a safety
+      build promises a panic and there is a correct message to pin. Reading past
+      the end of an array in a release build does not, because there is no
+      correct answer, and a recorded expectation would be asserting undefined
+      behaviour. Where that distinction matters, the chapter states both halves
+      and only demonstrates the defined one.
+    </p>
+
+    <h2>What happens every night</h2>
+    <p>
+      At 06:00 UTC a fresh Zig is built from master and the whole chain runs
+      against it: verify every snippet, build the site, then drive the built
+      site in a real headless browser. The site republishes only if all of it
+      passed.
+    </p>
+    <p>
+      The nightly is the part that matters. A check that runs when someone edits
+      a page proves the page was right when it was touched. This one proves it
+      is right today, on a compiler that did not exist when the chapter was
+      written. When Zig changes something, this is what turns red, and the fix
+      is to teach the new shape and record what the old one was.
+    </p>
+
+    <h2>The browser check</h2>
+    <p>
+      The last gate loads the built site in headless Chromium and behaves like a
+      reader. It presses Run on every playground and checks the output. It
+      follows every internal link on every page and fails on any that does not
+      resolve. It walks the whole guide by its "next" arrows and requires that
+      every chapter is reached, that every "next" is answered by a matching
+      "previous", and that exactly two pages are missing one, which is the pair
+      at the ends.
+    </p>
+    <p>
+      It also measures things that are invisible on the page and so would break
+      silently: text contrast against its actual composited background in both
+      light and dark themes, against the WCAG AA thresholds; that every page has
+      a title, a description, one heading, one valid structured-data block and a
+      canonical URL naming itself; and that every page is listed in the sitemap
+      and every sitemap entry resolves.
+    </p>
+
+    <h2>What none of this checks</h2>
+    <p>
+      The prose. A chapter can compile, run, print exactly what it should, and
+      still explain it badly or be out of date about something the compiler has
+      no opinion on. Corrections are welcome and the fastest route is the{" "}
+      <a href={`${base}contact/`}>issue tracker</a>.
+    </p>
+    <p>
+      Two pages are deliberately outside the gate, and both say so where you
+      read them. The chapter on importing C headers needs real system headers
+      and a libc that a browser sandbox does not have. The chapter on{" "}
+      <a href={pageHref("getting-started/coming-from-older-zig")}
+        >coming from an older Zig</a> shows "before" examples that are supposed
+      not to compile, which is the entire point of them.
+    </p>
+
+    <p>
+      The build that does all of this is in the open, at{" "}
+      <a
+        href="https://github.com/rajeshpillai/zig-guide"
+        target="_blank"
+        rel="noopener noreferrer">github.com/rajeshpillai/zig-guide</a>. See
+      also <a href={`${base}about/`}>about this guide</a>.
+    </p>
+  </article>
+</Base>

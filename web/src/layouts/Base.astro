@@ -315,9 +315,17 @@ const openSlug =
         <div class="search-results" id="search-results" role="listbox" aria-label="Search results" hidden></div>
       </div>
 
-      <span class="version" title="Every snippet in this guide is compiled and run against this exact compiler, in CI and in your browser">
+      {/* A link rather than a label: the badge makes a claim on every page,
+          and the page that substantiates it is one click from wherever the
+          reader doubted it. It is also what gives `/verification/` an inbound
+          link from every page rather than from the footer alone. */}
+      <a
+        class="version"
+        href={`${base}verification/`}
+        title="Every snippet in this guide is compiled and run against this exact compiler, in CI and in your browser"
+      >
         ✓ Zig {zigVersion}
-      </span>
+      </a>
       {/* Next to the version because it answers the question the version
           raises: this build is current, and here is what changed to make it
           so. The dot sends two rings outward a few times and then rests, so it
@@ -529,6 +537,9 @@ const openSlug =
             of it rather than a stop in it. Here it is on every page instead. */}
         <a href={`${base}paths/`}>Reading paths</a>
         <a href={`${base}whats-new/`}>What's new</a>
+        <a href={`${base}verification/`}>How it's verified</a>
+        <a href={`${base}about/`}>About</a>
+        <a href={`${base}contact/`}>Contact</a>
         <a href={`${base}privacy/`}>Privacy</a>
       </span>
     </footer>

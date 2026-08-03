@@ -49,8 +49,48 @@ match your compiler version reasonably closely. Build it from source against
 your Zig if you are on master; a ZLS built for an older release will report
 spurious errors on current syntax.
 
+## Why master, and what it costs you
+
+Zig has not had a 1.0 release, and the language is still changing in ways that
+break code. Writing against a tagged release means the examples are stable and
+wrong within a year; writing against master means they are correct today and may
+need a fix tomorrow. This guide takes the second trade and pays for it with a
+nightly build that recompiles and reruns every snippet against a fresh compiler.
+
+What that means for you as a reader: if something here does not compile on your
+machine, check `zig version` first. A mismatch of a few weeks is usually
+harmless, a mismatch across a tagged release usually is not.
+
+If you would rather be on a release, that is a reasonable choice for shipping
+software, and [coming from an older Zig](/learn/getting-started/coming-from-older-zig/)
+lists what differs so you can read this guide anyway.
+
+## Keeping it current
+
+Master moves daily. Updating weekly is a habit worth having, because the changes
+arrive in small pieces that are each easy to absorb, whereas six months of them
+arriving at once is a project.
+
+```bash
+zvm install master && zvm use master
+```
+
+When an update does break your code, the error message is usually the whole
+explanation: a renamed function, a new parameter, a moved namespace. The
+[what's new](/whats-new/) page records the changes that affected this guide,
+which is a reasonable proxy for the ones likely to affect you.
+
 ## Nothing else required
 
 Zig is a single binary. It ships its own C compiler, cross-compiles to every
 supported target out of the box, and needs no separate build tool (`zig build`
 is part of it). There is no toolchain to assemble.
+
+There is also no package manager to install, no formatter to configure
+(`zig fmt` is built in and has no options to argue about), and no separate
+debugger integration to set up beyond pointing your existing debugger at the
+binary. The download is the environment.
+
+Disk space is the one thing to be aware of: the tarball is several hundred
+megabytes, mostly libc sources and headers for every supported target. That is
+the price of the cross-compilation story, and it is paid once.

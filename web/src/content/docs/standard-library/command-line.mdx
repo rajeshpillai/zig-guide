@@ -54,3 +54,47 @@ The reverse direction, running a subprocess, is `std.process.Child`. Like
 everything that touches the outside world it takes an `Io`, and it lets you
 wire up the child's stdin, stdout, and stderr or capture its output. It needs a
 real OS process, so it is not something the browser sandbox can demonstrate.
+
+## Conventions worth following
+
+There is no parser in `std`, so the conventions are yours to honour, and users
+expect them:
+
+- `-v` is a short flag, `--verbose` is its long form, and both should work.
+- `--output=file` and `--output file` are both common. Accepting only one
+  annoys somebody.
+- Combined short flags, `-abc` meaning `-a -b -c`, are expected of anything
+  resembling a Unix tool.
+- `--` ends the options. Everything after it is a positional argument even if it
+  starts with a dash, which is the only way to name a file called `-r`.
+- `-` on its own conventionally means standard input, not a file.
+
+None of this is hard, and all of it is easy to leave out. Deciding up front
+which of these you support is better than discovering the gap from a bug report.
+
+## Failing well
+
+A command-line program's error handling is its user interface. Three rules cover
+most of it.
+
+Write errors to stderr, not stdout. Anything that might be piped into another
+program has to keep its output stream clean, and a diagnostic mixed into the
+data is a bug in a shell pipeline that will be hard to find.
+
+Exit non-zero on failure. Returning an error from `main` does that for you and
+prints the error name plus a return trace in a debug build. When you want a
+specific status, `std.process.exit(2)` sets one, and the convention is 0 for
+success, 1 for a normal failure, 2 for a usage error.
+
+Say what was wrong and what to do about it. "invalid argument" is a worse
+message than "unknown option --outpt (did you mean --output?)", and the
+difference is a few lines in the loop that already knows which token failed.
+
+## Arguments are untrusted input
+
+Everything on the command line came from outside the program. A number is a
+`parseInt` that can fail, a path may not exist, a count may be enormous. The
+place to check is where the value enters, converting into a type that carries
+the constraint, so that the rest of the program is dealing with a `u16` port
+rather than a string somebody typed. See
+[parsing and encoding](/learn/standard-library/parsing-and-encoding/).

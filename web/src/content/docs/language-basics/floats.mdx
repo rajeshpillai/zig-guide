@@ -25,6 +25,15 @@ This is deliberate. Implicit int-to-float conversion silently loses precision
 for large integers, and float-to-int silently truncates; both are common enough
 sources of bugs to be worth two extra words.
 
+`@intFromFloat` truncates rather than rounds, and the result has to be
+representable. Converting a value outside the target's range, or a NaN, is
+illegal behaviour and is caught in a safety build. When the input is not already
+known to be in range, clamp or check first: `std.math.lossyCast` does the
+saturating version if that is what you want.
+
+Between float types, `@floatCast` narrows and widening is implicit, since it
+cannot lose anything.
+
 ## `comptime_float` is `f128`, not magic
 
 This one catches people, and it caught an earlier draft of this page. Unlike
@@ -43,8 +52,35 @@ Floating point is still floating point. Compare with a tolerance:
 std.math.approxEqAbs(f64, a, b, 1e-12)
 ```
 
+`approxEqAbs` takes an absolute tolerance and is right when you know the
+magnitude of the numbers. `approxEqRel` takes a relative one and is right when
+you do not, because an absolute tolerance of `1e-12` is meaninglessly strict for
+values around a billion and meaninglessly loose for values around `1e-15`.
+
 ## NaN and infinity
 
 `std.math.nan(f32)` and `std.math.inf(f32)` construct them; `isNan` and `isInf`
 test for them. Remember `nan != nan`. That is exactly why `approxEqAbs`
 exists and why `==` on floats deserves suspicion.
+
+NaN failing every comparison is the property that breaks things quietly. `a < b`
+and `a >= b` are both false when either is NaN, so a sort with a NaN in it does
+not merely order it oddly, it violates the ordering the algorithm assumes.
+Filter NaNs out before sorting rather than hoping the comparator copes.
+
+Division by zero follows IEEE rather than trapping: `1.0 / 0.0` is infinity and
+`0.0 / 0.0` is NaN. Integer division by zero is a different thing entirely, and
+that one is illegal behaviour.
+
+## Which width to use
+
+`f64` unless you have a reason. `f32` halves the memory and is what graphics and
+audio pipelines expect, at roughly seven decimal digits of precision, which runs
+out faster than people expect once values are accumulated in a loop. `f16` is
+for storage and for machine learning weights, not for arithmetic. `f80` and
+`f128` exist for the cases that genuinely need them and are software-emulated on
+most targets, so they are slow.
+
+The precision question that actually matters is usually not the width. Money in
+floats is wrong at any width, because 0.1 is not representable in binary at all.
+Use an integer count of the smallest unit.

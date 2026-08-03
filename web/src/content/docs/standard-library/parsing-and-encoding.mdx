@@ -17,8 +17,23 @@ type is the bound: `parseInt(u8, "300", 10)` is `error.Overflow` because 300
 does not fit. Passing base `0` reads the prefix the way a Zig literal would:
 `0x`, `0o`, `0b`, or decimal, underscores allowed.
 
+The two errors are worth distinguishing when reporting to a user.
+`error.InvalidCharacter` means the text was not a number at all;
+`error.Overflow` means it was a number and the type is too small. A config
+parser that says "port must be a number" for `70000` is unhelpful, and the
+error already told you which it was.
+
+The target type doing the bounds checking is the useful part. There is no
+separate range validation to write and no chance of it disagreeing with the
+field it feeds, because the field's type *is* the range. Parsing into `u16` for
+a port number rejects 70000 without a line of code.
+
 `parseFloat` accepts the usual decimal and scientific forms plus `inf` and
 `nan`.
+
+Both parse the *whole* string, so trailing whitespace or a stray newline is an
+error rather than being ignored. Trim first with `std.mem.trim` when the input
+comes from a file or a terminal, which is nearly always.
 
 ## Hex
 
@@ -26,6 +41,17 @@ does not fit. Passing base `0` reads the prefix the way a Zig literal would:
 length is known from the input at compile time. That means no allocator and
 no failure path. `hexToBytes` goes the other way into a caller-provided
 buffer.
+
+It takes a case argument, `.lower` or `.upper`, so there is no ambiguity about
+what a digest will look like. Decoding accepts either.
+
+Because the return is an array rather than a slice, remember to take a reference
+when passing it somewhere that wants `[]const u8`: `&std.fmt.bytesToHex(d,
+.lower)` where the value is a temporary needs a `const` binding first, since
+there is nothing to point at otherwise.
+
+For formatting bytes inline rather than converting them, `{x}` on a byte slice
+does the same job directly inside a `print`.
 
 ## base64: pick the alphabet for the destination
 
@@ -40,3 +66,16 @@ the input might not be valid base64. Size the destination with
 | `standard` | `A-Za-z0-9+/` | MIME, email, data URIs |
 | `url_safe` | `A-Za-z0-9-_` | URLs, file names, tokens |
 | `*_no_pad` | above, no `=` | fixed-width IDs |
+
+Sizing is the step people skip, and it does not fail loudly if you guess. On
+the encoding side, `Encoder.calcSize(n)` gives the exact output length, which is
+4 bytes for every 3 input bytes, rounded up and padded. On the decoding side,
+`calcSizeForSlice` inspects the padding to give the exact answer, and
+`calcSizeUpperBound` gives a safe over-estimate when you want to allocate before
+looking. Both return an error for input that cannot be valid base64 at all.
+
+`encodeWriter` writes straight to a `std.Io.Writer`, so encoding a large payload
+into a response needs no intermediate buffer.
+
+Base64 is not encryption and not compression. It makes arbitrary bytes safe to
+put in a text field, and it costs a third more space to do it.

@@ -46,3 +46,62 @@ C's `void *ptr` becomes `*anyopaque`, and C's `void f(void)` returns Zig's
 For handles you control, prefer a distinct
 [`opaque {}`](/learn/language-basics/opaque/) type over `*anyopaque`: it keeps
 different handle kinds from being interchangeable.
+
+## What C guarantees, and what it does not
+
+C does not specify the size of its integer types. It specifies minimum ranges
+and an ordering, and the actual widths are the platform's business, recorded in
+a document called the ABI. That is why the table below has three answers rather
+than one:
+
+| C type | 64-bit Linux/macOS | 64-bit Windows | wasm32 |
+| --- | --- | --- | --- |
+| `int` | 4 | 4 | 4 |
+| `long` | 8 | **4** | **4** |
+| `long long` | 8 | 8 | 8 |
+| `size_t` | 8 | 8 | **4** |
+| pointer | 8 | 8 | **4** |
+
+`long` is the one that catches people, because the two most common desktop
+platforms disagree about it. `c_long` gets this right on every target Zig
+supports, which is the entire reason it exists.
+
+`c_char` has a second problem on top of the width: whether it is signed is also
+platform-defined, and it differs between x86 and ARM Linux. Zig models that too,
+which is why `c_char` is its own type rather than an alias for `i8` or `u8`.
+
+## Keep them at the boundary
+
+Convert at the edge and use fixed-width types inside:
+
+```zig
+export fn process(count: c_int) callconv(.c) void {
+    const n: u32 = @intCast(count);   // now in Zig's world
+    ...
+}
+```
+
+Threading `c_int` through your whole program spreads a target-dependent
+assumption everywhere.
+
+The conversion is also where the validation belongs. A `c_int` from C can be
+negative, and if your code treats it as a count, that is the line to reject it
+on. `@intCast` panics in a safety build when the value does not fit, which is
+better than proceeding, but an explicit check producing an error is better
+still at a boundary where the value came from outside.
+
+## `anyopaque`
+
+`anyopaque` is Zig's `void` in the C sense: the pointee type of `void*`. So
+C's `void *ptr` becomes `*anyopaque`, and C's `void f(void)` returns Zig's
+`void`. The two meanings of C's `void` are separated.
+
+That separation is worth noticing as an example of the general pattern here.
+C reuses one keyword for "nothing" and for "something whose type I am not
+telling you", and code has to work out which from context. Zig gives them
+different names, and the ambiguity disappears at the point of translation rather
+than being carried into your program.
+
+Similarly, C's `void*` is both "a pointer to unknown data" and the generic
+pointer everything converts to. In Zig, `*anyopaque` is the first, and the
+converting is done with `@ptrCast`, visibly, where you can see it.

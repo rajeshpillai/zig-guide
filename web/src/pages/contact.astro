@@ -1,0 +1,105 @@
+---
+/**
+ * How to reach the person who maintains this.
+ *
+ * There is no form here and there cannot be: the site is static files on a
+ * CDN with no server to receive a POST, which is the same fact `/privacy/`
+ * states from the other direction. So this page routes to the channels that
+ * do exist and says what a useful report contains, which is the part that
+ * actually decides whether a correction gets made.
+ */
+import Base from "../layouts/Base.astro";
+import { buildInfo } from "../build-info";
+import { pageHref } from "../nav";
+
+const base = import.meta.env.BASE_URL;
+const { zigVersion } = await buildInfo();
+---
+
+<Base
+  title="Contact"
+  seoTitle="Contact the maintainer of Zig Guide Live"
+  description="How to report an error in a chapter, suggest a topic, or reach Rajesh Pillai about this Zig guide."
+  crumbs={[{ label: "Contact" }]}
+  schema={{ "@type": "ContactPage", name: "Contact" }}
+>
+  <article>
+    <h1>Contact</h1>
+
+    <p class="lede">
+      This guide is written and maintained by Rajesh Pillai. Corrections,
+      questions and requests all go to the same place, and all of them are
+      read.
+    </p>
+
+    <h2>Something on a page is wrong</h2>
+    <p>
+      This is the most useful thing you can send. Open an issue on{" "}
+      <a
+        href="https://github.com/rajeshpillai/zig-guide/issues"
+        target="_blank"
+        rel="noopener noreferrer">the issue tracker</a>. A report that can be
+      acted on straight away usually has four things in it:
+    </p>
+    <ul>
+      <li>The URL of the chapter.</li>
+      <li>
+        Your Zig version, from <code>zig version</code>. The guide targets
+        master and was last verified against {zigVersion}; a good half of
+        reports turn out to be a tagged release meeting code written for
+        master, which is what{" "}
+        <a href={pageHref("getting-started/coming-from-older-zig")}
+          >coming from an older Zig</a> covers.
+      </li>
+      <li>What you expected to happen.</li>
+      <li>What happened instead, with the error message pasted in full.</li>
+    </ul>
+    <p>
+      If a snippet does not compile for you on current master, that is a build
+      failure waiting to happen and worth reporting immediately. Every snippet
+      is compiled and run nightly, so it should not be possible, and if it is
+      happening then something about the check is wrong too. How that check
+      works is written up in{" "}
+      <a href={`${base}verification/`}>how this guide is verified</a>.
+    </p>
+
+    <h2>A chapter is missing, or one is unclear</h2>
+    <p>
+      Also the issue tracker. Say what you were trying to do and where you got
+      stuck. "I could not work out how to do X" is more useful than a proposed
+      table of contents, because the gap is usually somewhere other than where
+      it feels like it is.
+    </p>
+
+    <h2>A correction you have already written</h2>
+    <p>
+      Pull requests are welcome at{" "}
+      <a
+        href="https://github.com/rajeshpillai/zig-guide"
+        target="_blank"
+        rel="noopener noreferrer">github.com/rajeshpillai/zig-guide</a>. Every
+      snippet is a real file that the build compiles and runs, so a change to
+      example code is checked automatically the moment it is pushed. The
+      repository's own notes describe how snippets are classified and what a new
+      one needs.
+    </p>
+
+    <h2>Anything else</h2>
+    <p>
+      Rajesh is on X as{" "}
+      <a href="https://twitter.com/rajeshpillai" target="_blank" rel="noopener noreferrer"
+        >@rajeshpillai</a>, and reachable through the same GitHub account for
+      anything that does not belong in a public issue.
+    </p>
+
+    <h2>What this site cannot do</h2>
+    <p>
+      It has no accounts, no comment system and no server. Nothing here can
+      receive a form submission, store a message, or email you back, which is
+      why every route above leaves this domain. The same fact is why there is so
+      little to say on <a href={`${base}privacy/`}>privacy</a>.
+    </p>
+
+    <p><a href={`${base}about/`}>About this guide →</a></p>
+  </article>
+</Base>

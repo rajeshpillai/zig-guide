@@ -447,5 +447,11 @@ export const GROUPS: Record<string, SectionMeta> = {
       "simpler than its client libraries suggest. And Redis RESP, which is small " +
       "enough to parse in one page. For a query layer on top of these, see the " +
       "ORM chapters under Projects.",
+    takeaways: [
+      "A database driver is mostly a codec. Once the framing is written out, a query is a message you send and a stream of messages you read until the server says it is ready again.",
+      "Postgres and Redis both frame every message with a type and a length, and both are simpler to implement than to install a client library for. The complexity in a real driver is pooling, auth and types, not the protocol.",
+      "Protocol code that reads from a `Reader` rather than a socket can be tested with a string literal, which is why two of these three recipes run in your browser.",
+      "SQLite is a C library, so this is also the shortest realistic example of `@cImport`, linking, and turning C error codes into Zig errors.",
+    ],
   },
 };

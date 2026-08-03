@@ -193,6 +193,9 @@ pre {
 
 /* Hidden on phones: the dev version string is far too long for the topbar,
    and the status bar states the same compiler at the foot of every page. */
+/* An anchor, so the decoration and the visited colour have to be turned off
+   explicitly: it reads as a status badge and only announces itself as a link
+   on hover, which is where a reader who wants the explanation looks. */
 .version {
   display: none;
   font-size: 0.75rem;
@@ -201,6 +204,13 @@ pre {
   border-radius: 999px;
   padding: 0.15rem 0.6rem;
   white-space: nowrap;
+  text-decoration: none;
+}
+
+.version:hover,
+.version:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* Sits next to the version badge: the reader questioning their version is

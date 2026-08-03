@@ -1,0 +1,144 @@
+---
+/**
+ * What this site is, who maintains it, and what it is not.
+ *
+ * Separate from `/verification/`, which is the mechanism in detail. This page
+ * is the one a reader (or a reviewer) opens to find out whether the site is
+ * worth trusting; that question is answered by who wrote it and why, not by a
+ * description of the build.
+ */
+import Base from "../layouts/Base.astro";
+import { buildInfo } from "../build-info";
+import { guideHref, pageHref } from "../nav";
+
+const base = import.meta.env.BASE_URL;
+const { zigVersion, snippetCount } = await buildInfo();
+---
+
+<Base
+  title="About"
+  seoTitle="About Zig Guide Live"
+  description="Who writes this Zig guide, why it targets master rather than a tagged release, and what it deliberately is not."
+  crumbs={[{ label: "About" }]}
+  schema={{ "@type": "AboutPage", name: "About Zig Guide Live" }}
+>
+  <article>
+    <h1>About this guide</h1>
+
+    <p class="lede">
+      Zig Guide Live is a tutorial and cookbook for the Zig programming
+      language. Every code example on it was compiled and executed by a machine
+      against Zig {zigVersion} before this page was published, and the artifact
+      that ran in that check is the one your browser downloads when you press
+      Run.
+    </p>
+
+    <h2>Why it exists</h2>
+    <p>
+      Zig has no stable release, and the language is still moving underneath
+      everything written about it. Between the last tagged releases and today,
+      <code>pub fn main()</code> gained a parameter, writers became buffered and
+      have to be flushed, <code>std.fs.File</code> became <code>std.Io.File</code>
+      and started taking an <code>Io</code>, the <code>**</code> array-repeat
+      operator was removed outright, and <code>ArrayList</code> stopped holding
+      an allocator. Each of those breaks the first program in most Zig tutorials
+      that exist.
+    </p>
+    <p>
+      The usual failure is quiet. A tutorial is written against whatever
+      compiler its author had, it is correct for a few months, and then it is
+      wrong with no visible sign that anything changed. A reader following it
+      hits an error message that does not appear anywhere in the text, and has
+      no way to tell whether they made a mistake or the page did.
+    </p>
+    <p>
+      This site is built so that failure is loud. There is no separate copy of
+      the examples kept in prose: the pages embed the same files the build
+      compiles, so a snippet that stopped working cannot be published at all.
+      When Zig master changes something, the build goes red, and the fix is to
+      teach the new shape and say what the old one was. That delta is usually
+      the most useful thing on the page for anyone arriving from an older
+      tutorial.
+    </p>
+
+    <h2>How it is built</h2>
+    <p>
+      {snippetCount} snippets live as ordinary <code>.zig</code> files in the
+      repository. A build step compiles every one of them, runs the ones that
+      can be run, and compares their output against a recorded expected result.
+      Only if all of that passes does the site build at all, and only then is it
+      published. The same check runs again every night against a freshly built
+      compiler, so the guide proves itself correct today rather than on the day
+      it was last edited.
+    </p>
+    <p>
+      The full mechanism, including what happens to snippets that cannot run in
+      a browser and the three that are required to fail, is written up in{" "}
+      <a href={`${base}verification/`}>how this guide is verified</a>.
+    </p>
+
+    <h2>Who writes it</h2>
+    <p>
+      Rajesh Pillai. It is one person's work, written with AI assistance and
+      then verified: every code example by the build described above, and the
+      prose by a team of engineers before it is published. The machine checks
+      that the code is correct; people check that the explanation is.
+    </p>
+    <p>
+      It is not affiliated with the Zig Software Foundation. The official
+      language documentation is at{" "}
+      <a href="https://ziglang.org" target="_blank" rel="noopener noreferrer"
+        >ziglang.org</a>, and that is the reference this guide defers to on any
+      point where the two disagree.
+    </p>
+    <p>
+      The source, including every snippet and the build that checks them, is
+      public at{" "}
+      <a
+        href="https://github.com/rajeshpillai/zig-guide"
+        target="_blank"
+        rel="noopener noreferrer">github.com/rajeshpillai/zig-guide</a>. If
+      something here is wrong, it can be checked and corrected in the open;
+      see <a href={`${base}contact/`}>contact</a>.
+    </p>
+
+    <h2>What it is not</h2>
+    <ul>
+      <li>
+        <strong>Not a language reference.</strong> It teaches by running
+        programs and explaining what they did. Where you need the exact rule,
+        the official reference and the standard library source are better.
+      </li>
+      <li>
+        <strong>Not a guide to a tagged release.</strong> Code here targets
+        master. On 0.14 or 0.15 much of it will not build, which is what{" "}
+        <a href={pageHref("getting-started/coming-from-older-zig")}
+          >coming from an older Zig</a> is for.
+      </li>
+      <li>
+        <strong>Not stable in the way a book is.</strong> Chapters change when
+        the compiler does. The version in the footer is always the compiler
+        that verified what you are reading, and{" "}
+        <a href={`${base}whats-new/`}>what's new</a> lists what moved.
+      </li>
+      <li>
+        <strong>Not published unreviewed.</strong> Drafting uses AI assistance;
+        nothing reaches the site on that basis alone. The code is proved by the
+        build, and the prose is read by engineers who can tell whether the
+        explanation is right.
+      </li>
+    </ul>
+
+    <h2>Reading it</h2>
+    <p>
+      There are four tracks and one reading order through all of them. The
+      arrows at the foot of every chapter follow that order, so the guide can be
+      read straight through. If you already know what you are here for,{" "}
+      <a href={`${base}paths/`}>the reading paths</a> pick a route for five
+      common starting points, and <a href={guideHref}>the guide index</a> lists
+      every section.
+    </p>
+
+    <p><a href={guideHref}>Read the guide →</a></p>
+  </article>
+</Base>

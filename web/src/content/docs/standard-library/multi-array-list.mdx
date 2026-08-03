@@ -17,6 +17,11 @@ and `y` become three arrays of ten, not ten structs side by side. You still
 `append` whole structs and `get` whole structs back; the transpose is
 invisible until you ask for one field.
 
+The two layouts have names worth knowing, because the literature uses them.
+`ArrayList` is an array of structs, "AoS". `MultiArrayList` is a struct of
+arrays, "SoA". The data is identical; only the order the bytes sit in memory
+differs.
+
 ## Why bother
 
 `items(.hp)` hands you a real `[]u32`: every hp value packed together. A loop
@@ -24,6 +29,18 @@ that sums hp touches only that array, so the CPU loads no `x` or `y` bytes it
 will not use. When one field is hot and the struct is wide, this is the
 difference between streaming exactly the bytes you need and dragging the whole
 struct through cache. It is also what makes bulk field updates vectorize.
+
+The number that makes it concrete is the cache line: memory arrives from RAM in
+64-byte blocks whether you wanted 64 bytes or 4. Summing one `u32` field of a
+64-byte struct in AoS layout fetches 64 bytes to use 4, so fifteen sixteenths of
+the memory bandwidth is wasted. In SoA layout the same loop uses every byte it
+fetches. On a large array that is the entire difference, and no amount of
+optimising the loop body recovers it.
+
+A second win comes free: the field arrays are separately typed and densely
+packed, so `@Vector` operations and the auto-vectoriser can work on them. A
+loop over a field of a struct array cannot vectorise because the values are not
+adjacent.
 
 ## The costs
 
@@ -35,3 +52,25 @@ When several fields are needed in one pass, call `slice()` once and pull each
 `items(.field)` from it. Each bare `items()` call recomputes the field
 pointers; `slice()` does that work a single time. As with every list here,
 those slices are invalidated by the next append.
+
+The other cost is readability, and it is not nothing. Field access becomes
+`s.items(.hp)[i]` rather than `list.items[i].hp`, and code that mostly deals in
+whole entities reads worse for no gain. This is a layout decision to make
+deliberately, on a measurement, for the small number of arrays in a program that
+are actually large and actually hot.
+
+It also only works on structs whose fields are known: `MultiArrayList` uses the
+same comptime reflection everything else here does, walking the field list of
+`T` to generate the arrays. That is why `.hp` is checked at compile time and a
+typo is a build error rather than a runtime lookup.
+
+## Where it shows up
+
+Anywhere the array is large and the access pattern is columnar. Game entity
+systems are the canonical example, which is where the term "SoA" comes from.
+Compilers are another: Zig's own compiler stores its abstract syntax tree this
+way, because the passes over it walk one field of every node at a time.
+
+If you are storing thousands of small records and iterating them field by field,
+this is the container. If you are storing a few dozen of anything, use an
+`ArrayList` and spend the attention elsewhere.

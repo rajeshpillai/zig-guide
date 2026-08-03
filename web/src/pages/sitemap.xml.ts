@@ -68,6 +68,12 @@ export const GET: APIRoute = async ({ site }) => {
     add(pageHref(doc.id), dated.get(doc.id)?.modified);
   }
 
+  // The pages about the guide rather than in it. `/verification/` reports
+  // counts derived from the snippet manifest, so it is as new as the newest
+  // snippet, not as new as its own source.
+  add(`${base}about/`, await datesFor("src/pages/about.astro").then((d) => d?.modified));
+  add(`${base}verification/`, everything);
+  add(`${base}contact/`, await datesFor("src/pages/contact.astro").then((d) => d?.modified));
   add(`${base}privacy/`, await datesFor("src/pages/privacy.astro").then((d) => d?.modified));
 
   const body = [

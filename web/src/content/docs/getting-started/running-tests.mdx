@@ -53,8 +53,51 @@ defer std.testing.allocator.free(buf);   // omit this and the test fails
 `return error.SkipZigTest` marks a test skipped rather than failed. It is the
 way to handle a test that only applies to some targets.
 
+## Where to put them
+
+Next to the code they test, in the same file. That is the convention in the
+standard library and it is worth following, for two reasons that are easy to
+miss.
+
+The test can reach private declarations, because privacy is per file. A helper
+that is not `pub` has no other way to be tested, and moving tests to a separate
+file quietly pushes you toward making things public that should not be.
+
+And the test is read as the example. Someone opening the file to work out how a
+function is called finds a call, with real arguments and a checked result, a few
+lines below the definition. Documentation in a separate directory does not get
+read that way.
+
+Tests are not compiled into your program. A `test` block only exists in a build
+produced by `zig test` or a test step, so there is no cost to leaving them in
+place and no reason to move them somewhere else at release time.
+
+## Naming them
+
+The name is a plain string, so write a sentence:
+
+```zig
+test "parseInt rejects a trailing space" { ... }
+```
+
+That name is what the runner prints on failure and what `--test-filter` matches,
+so a description of the behaviour is more useful than a label. Reading a failing
+test's name and knowing what broke, without opening the file, is the whole
+benefit.
+
+## Reading a failure
+
+A failed assertion prints the values, then a stack trace pointing at the line.
+The trace is the useful part and it is only there because tests are built in
+Debug by default, with safety checks on. That is also why a test can catch an
+out-of-bounds index that a release build would let through.
+
 ## These pages are the tests
 
 Every snippet in this guide is compiled and run by CI, and the `test` ones
 report through this same runner. The output you see when you press Run is the
 real `zig test` output, executed in your browser as WebAssembly.
+
+More is in [testing](/learn/standard-library/testing/): the assertions that
+report what actually differed, checking that error paths clean up after
+themselves, and why the testing allocator turns every test into a leak test.

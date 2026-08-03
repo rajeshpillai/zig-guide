@@ -10,8 +10,16 @@ import Playground from "../../../components/Playground.astro";
 <Playground name="02-language.if-expressions" />
 
 There is no truthiness in Zig. `if (1)` does not compile; neither does
-`if (pointer)`. The condition must be a `bool`, which removes an entire family
-of bugs where a value is accidentally treated as a flag.
+`if (pointer)`. The condition must be a `bool`:
+
+```
+error: expected type 'bool', found 'u8'
+```
+
+That removes an entire family of bugs where a value is accidentally treated as
+a flag. In C, `if (strcmp(a, b))` is true when the strings *differ*, `if (n = 0)`
+is an assignment that is always false, and `if (ptr)` and `if (*ptr)` are one
+character apart with completely different meanings. None of those parse here.
 
 ## `if` produces a value
 
@@ -22,16 +30,65 @@ const x: u16 = if (a) 1 else 2;
 ```
 
 Both branches must agree on a type. Used as an expression, the `else` is
-mandatory: there would otherwise be no value when the condition is false.
+mandatory, and the error says so in terms of what is missing rather than what
+is absent:
+
+```
+error: expected type 'u16', found 'void'
+```
+
+An `if` with no `else` has nothing to evaluate to when the condition is false,
+so its type is `void`. Read that message as "this expression does not always
+produce a value".
+
+The one case that slips through is a condition the compiler already knows. If
+the condition is comptime-known, only the taken branch is compiled, so
+`const x: u16 = if (true) 1;` builds. Make the condition a runtime value and it
+stops. That is not a special rule for `if`; it is the same constant folding that
+lets `comptime` code disappear entirely.
 
 ## Unwrapping
 
 `if` is also how you get inside an optional, using payload capture:
 
 ```zig
-if (maybe) |value| { ... } else { ... }
+if (maybe) |value| {
+    // value is the payload, not the optional
+} else {
+    // maybe was null
+}
 ```
 
-The same shape works for error unions with `else |err|`. This is a recurring
-theme: the check and the unwrap are one construct, so they cannot fall out of
-sync.
+The captured `value` is a copy. To change the thing inside the optional, capture
+by pointer with `|*value|` and write through it. Without the `*` the mutation
+applies to the copy and is lost, which is worth knowing because nothing warns
+you.
+
+Error unions use the same shape, with the error going to the `else`:
+
+```zig
+if (parse(text)) |n| {
+    use(n);
+} else |err| {
+    report(err);
+}
+```
+
+This is a recurring theme: the check and the unwrap are one construct, so they
+cannot fall out of sync. There is no way to test for null and then read the
+payload through a different path that forgot the test.
+
+## When to use something shorter
+
+`if` on an optional is the general form, and two shorthands cover the common
+cases:
+
+- `maybe orelse default` when you only want a fallback value.
+- `try f()` when you only want to propagate the error upward.
+- `f() catch |err| ...` when you want to handle it here.
+
+Reach for `if` when both sides do real work. Reach for the shorthands when one
+side is a single expression, because `x orelse 0` says what
+`if (x) |v| v else 0` says in a quarter of the space. Optionals are covered in
+[optionals](/learn/language-basics/optionals/) and the error forms in
+[errors](/learn/language-basics/errors/).
