@@ -32,8 +32,9 @@ code does not change**, which is exactly why this page is runnable and the
 free to call the function immediately, finish it, and hand back a Future that
 is already resolved. That is what happens on this page.
 
-`io.concurrent` makes the stronger promise: the caller gets to keep going while
-the task runs. Not every `Io` can deliver that, so it returns an error union:
+`io.concurrent` makes the stronger promise: the caller gets to keep going
+while the task runs. Not every `Io` can deliver that, so it returns an error
+union:
 
 ```zig
 if (io.concurrent(slowDouble, .{ &c, 30 })) |handle| {
@@ -49,7 +50,7 @@ single-threaded wasm running it has no second unit of concurrency to give.
 Hand the same binary an `Io.Threaded` and it prints `concurrent: 60`.
 
 The distinction decides correctness, not performance. If a task must make
-progress *before* you await it, `io.async` can deadlock: a producer that fills
+progress *before* you await it, `io.async` can deadlock. A producer that fills
 a queue the same thread is about to drain will run to completion first and
 block on a full queue, with nobody left to empty it. Reach for `concurrent`
 there, and handle `error.ConcurrencyUnavailable` rather than `try`-ing it, or
@@ -74,27 +75,28 @@ property is what "structured" means here, and it is the thing raw
 
 ## Shared state still needs a lock
 
-Concurrency is not parallelism, but as soon as an implementation *is* parallel,
-unsynchronised shared mutation is a data race. `std.Io.Mutex` is the tool, and
-like everything else it takes the io instance:
+Concurrency is not parallelism, but as soon as an implementation *is*
+parallel, unsynchronised shared mutation is a data race. `std.Io.Mutex` is the
+tool, and like everything else it takes the io instance:
 
 ```zig
 try mutex.lock(io);
 defer mutex.unlock(io);
 ```
 
-Cancelling a `Group` cancels every member, which is the subject of the
-[next chapter](/learn/standard-library/cancellation/).
+Cancelling a `Group` cancels every member, which is the subject of the [next
+chapter](/learn/standard-library/cancellation/).
 
 ## The bigger picture
 
 This is the same idea as `Allocator`, applied to time instead of memory. A
-function that takes an `Io` announces that it may block, and the caller chooses
-the execution strategy. Libraries written this way work unchanged on a thread
-pool, an event loop, or a single-threaded wasm runtime.
+function that takes an `Io` announces that it may block, and the caller
+chooses the execution strategy. Libraries written this way work unchanged on a
+thread pool, an event loop, or a single-threaded wasm runtime.
 
-The rest of the machinery follows from here: [Queues](/learn/standard-library/queues/)
-for tasks that hand work to each other, [Select](/learn/standard-library/select/) for
-whichever finishes first, [Locks and Semaphores](/learn/standard-library/locks/) for
-the shared state underneath, and [Choosing an Io](/learn/standard-library/choosing-an-io/)
-for where the instance comes from in the first place.
+The rest of the machinery follows from here.
+[Queues](/learn/standard-library/queues/) for tasks that hand work to each
+other. [Select](/learn/standard-library/select/) for whichever finishes first.
+[Locks](/learn/standard-library/locks/) for the shared state underneath. And
+[Choosing an Io](/learn/standard-library/choosing-an-io/) for where the
+instance comes from in the first place.

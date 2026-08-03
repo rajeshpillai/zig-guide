@@ -37,9 +37,9 @@ The parsing logic you write is the same either way.
 
 There is no `argparse` in the standard library. For a small tool the loop in
 the snippet, match a flag, and pull the next token when it takes a value, is
-usually all you need. The first argument is always the program path, so skip it
-before parsing. Reach for a package (see the Build System section) only when
-you want subcommands, help text, and typed conversion.
+usually all you need. The first argument is always the program path, so skip
+it before parsing. Reach for a package (see the Build System section) only
+when you want subcommands, help text, and typed conversion.
 
 ## Environment variables
 
@@ -52,8 +52,8 @@ variable, `get` returning `null` is the case you handle, not an error.
 
 The reverse direction, running a subprocess, is `std.process.Child`. Like
 everything that touches the outside world it takes an `Io`, and it lets you
-wire up the child's stdin, stdout, and stderr or capture its output. It needs a
-real OS process, so it is not something the browser sandbox can demonstrate.
+wire up the child's stdin, stdout, and stderr or capture its output. It needs
+a real OS process, so it is not something the browser sandbox can demonstrate.
 
 ## Conventions worth following
 
@@ -70,16 +70,17 @@ expect them:
 - `-` on its own conventionally means standard input, not a file.
 
 None of this is hard, and all of it is easy to leave out. Deciding up front
-which of these you support is better than discovering the gap from a bug report.
+which of these you support is better than discovering the gap from a bug
+report.
 
 ## Failing well
 
-A command-line program's error handling is its user interface. Three rules cover
-most of it.
+A command-line program's error handling is its user interface. Three rules
+cover most of it.
 
 Write errors to stderr, not stdout. Anything that might be piped into another
-program has to keep its output stream clean, and a diagnostic mixed into the
-data is a bug in a shell pipeline that will be hard to find.
+program has to keep its output stream clean. A diagnostic mixed into the data
+becomes a bug in a shell pipeline that is hard to find.
 
 Exit non-zero on failure. Returning an error from `main` does that for you and
 prints the error name plus a return trace in a debug build. When you want a
@@ -93,8 +94,8 @@ difference is a few lines in the loop that already knows which token failed.
 ## Arguments are untrusted input
 
 Everything on the command line came from outside the program. A number is a
-`parseInt` that can fail, a path may not exist, a count may be enormous. The
-place to check is where the value enters, converting into a type that carries
-the constraint, so that the rest of the program is dealing with a `u16` port
-rather than a string somebody typed. See
-[parsing and encoding](/learn/standard-library/parsing-and-encoding/).
+`parseInt` that can fail, a path may not exist, a count may be enormous. Check
+the value where it enters, and convert it into a type that carries the
+constraint. The rest of the program then deals with a `u16` port rather than a
+string somebody typed. See [parsing and
+encoding](/learn/standard-library/parsing-and-encoding/).

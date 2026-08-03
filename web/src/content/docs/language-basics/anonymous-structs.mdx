@@ -41,8 +41,9 @@ fn describe(point: struct { x: i32, y: i32 }) i32 {
 
 Useful for a one-off shape that does not deserve a name, and for returning
 several values at once without declaring a type for the pair. Two separately
-written anonymous struct types are distinct types even if their fields match, so
-this is for local convenience rather than for anything crossing an interface.
+written anonymous struct types are distinct types even if their fields match,
+so this is for local convenience rather than for anything crossing an
+interface.
 
 ## Tuples
 
@@ -55,11 +56,12 @@ tuple[0];   // 1
 tuple.len;  // 3
 ```
 
-Index with a comptime-known constant: `tuple[i]` for a runtime `i` cannot work,
-because each element has its own type. A runtime index would mean the type of
-the expression depends on a runtime value, and there is no such thing. Walk them
-with [`inline for`](/learn/language-basics/inline-loops/), which compiles the
-body separately per element and so can give each one a different type.
+Index with a comptime-known constant: `tuple[i]` for a runtime `i` cannot
+work, because each element has its own type. A runtime index would mean the
+type of the expression depends on a runtime value, and there is no such thing.
+Walk them with [`inline for`](/learn/language-basics/inline-loops/), which
+compiles the body separately per element and so can give each one a different
+type.
 
 The `++` operator concatenates tuples, which is how variadic-looking helpers
 build up an argument list at compile time.
@@ -70,17 +72,18 @@ build up an argument list at compile time.
 std.mem.print(&buf, "{s}={d}", .{ "x", 42 });
 ```
 
-That second argument is just a tuple. There is no varargs mechanism in Zig:
-`print` takes one value that happens to be a struct, walks it with `inline for`,
-and checks it against the format string at compile time. A mismatched `{d}` is
-a compile error, not a runtime surprise.
+That second argument is just a tuple. There is no varargs mechanism in Zig.
+`print` takes one value that happens to be a struct, walks it with `inline
+for`, and checks it against the format string at compile time. A mismatched
+`{d}` is a compile error, not a runtime surprise.
 
-Once you see it, the whole design follows. Passing the wrong number of arguments
-is a compile error because the tuple has a length. Passing a struct where `{d}`
-expects a number is a compile error because the field's type is known. There is
-no `printf` format-string vulnerability to have, because the format string and
-the arguments are checked against each other before the program runs.
+Once you see it, the whole design follows. Passing the wrong number of
+arguments is a compile error because the tuple has a length. Passing a struct
+where `{d}` expects a number is a compile error because the field's type is
+known. There is no `printf` format-string vulnerability to have, because the
+format string and the arguments are checked against each other before the
+program runs.
 
-It also explains the empty case. A call with no arguments still passes a tuple,
-which is why `.{}` appears at the end of every `print` that interpolates
-nothing.
+It also explains the empty case. A call with no arguments still passes a
+tuple, which is why `.{}` appears at the end of every `print` that
+interpolates nothing.

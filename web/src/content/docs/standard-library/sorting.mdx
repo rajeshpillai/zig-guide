@@ -17,8 +17,8 @@ For simple orderings the comparator is provided: `std.sort.asc(T)` and
 `std.sort.desc(T)`.
 
 The sort is in place and needs no allocator, which is why it takes a slice
-rather than a list: it rearranges what is already there. Sorting the contents of
-an `ArrayList` means sorting `list.items`.
+rather than a list: it rearranges what is already there. Sorting the contents
+of an `ArrayList` means sorting `list.items`.
 
 ## The context argument
 
@@ -34,9 +34,10 @@ std.mem.sort(usize, &indices, values, byReferencedValue);
 That is what saves you from reaching for a global.
 
 The pattern generalises further than it first looks. Sorting an array of
-indices, rather than the data itself, is how you get several orderings of one
-dataset without copying it, and how you sort something too large to move around
-cheaply. The context is whatever the comparator needs to do its job.
+indices, rather than the data itself, gives you several orderings of one
+dataset without copying it. It is also how you sort something too large to
+move around cheaply. The context is whatever the comparator needs to do its
+job.
 
 ## Stable or not
 
@@ -50,9 +51,9 @@ key preserved within ties.
 
 That is how multi-key ordering is normally done: sort by the least significant
 key first, then by the most significant, and stability preserves the earlier
-work inside each group. Sort by name, then by department, and each department's
-entries are still in name order. Do the same with `sortUnstable` and the second
-sort scrambles the first.
+work inside each group. Sort by name, then by department, and each
+department's entries are still in name order. Do the same with `sortUnstable`
+and the second sort scrambles the first.
 
 When elements are genuinely interchangeable, such as plain integers, stability
 is unobservable and `sortUnstable` is the better choice: it does less work and
@@ -74,11 +75,11 @@ std.mem.sort([]const u8, &words, {}, struct {
 `std.mem.order` returns `.lt` / `.eq` / `.gt`, which is also what
 `std.sort.binarySearch` wants.
 
-The comparator has to be a strict "less than". Returning true for equal elements
-breaks the ordering the algorithm assumes, and the result is not merely
-mis-sorted: it can read out of bounds in an unchecked build. When comparing on
-several fields, compare the first, and only fall through to the second when the
-first is equal.
+The comparator has to be a strict "less than". Returning true for equal
+elements breaks the ordering the algorithm assumes, and the result is not
+merely mis-sorted: it can read out of bounds in an unchecked build. When
+comparing on several fields, compare the first, and only fall through to the
+second when the first is equal.
 
 ## Searching what you sorted
 
@@ -90,6 +91,6 @@ assertion to put in a test.
 Two neighbours are worth knowing when you do not need the whole thing ordered.
 `std.sort.lowerBound` and `upperBound` find insertion points, which is what a
 "how many are below this threshold" query wants. And when you only need the
-largest few, sorting everything is the wrong algorithm; a
-[priority queue](/learn/standard-library/priority-queue/) keeps the top *k*
-without touching the rest.
+largest few, sorting everything is the wrong algorithm; a [priority
+queue](/learn/standard-library/priority-queue/) keeps the top *k* without
+touching the rest.

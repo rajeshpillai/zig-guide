@@ -16,7 +16,8 @@ and `[4]u8` are as different as `u8` and `u16`.
 
 Assigning an array copies it. This is the opposite of C, where an array decays
 to a pointer at the slightest provocation. If you want a reference, take one
-explicitly with `&`, which gives you a [slice](/learn/language-basics/slices/).
+explicitly with `&`, which gives you a
+[slice](/learn/language-basics/slices/).
 
 `.len` is a compile-time constant, not a field read at runtime.
 
@@ -27,8 +28,8 @@ than a few words, the slice is what you meant.
 
 ## Writing one down
 
-`[_]T` lets the compiler count for you, which is the form to prefer because the
-length cannot fall out of sync with the contents:
+`[_]T` lets the compiler count for you, which is the form to prefer because
+the length cannot fall out of sync with the contents:
 
 ```zig
 const a = [_]u8{ 1, 2, 3 };        // [3]u8
@@ -54,14 +55,16 @@ Zig will not silently pick between comparing the contents and comparing the
 addresses. Compare contents with `std.mem.eql(u8, &a, &b)`, which takes slices
 and so also works between an array and a slice of a larger buffer.
 
-`++` concatenates, at compile time, producing an array whose length is the sum:
+`++` concatenates, at compile time, producing an array whose length is the
+sum:
 
 ```zig
 const joined = a ++ [_]u8{ 4 };    // [4]u8
 ```
 
-Both operands have to be comptime-known, because the result's *type* depends on
-their lengths. Joining runtime data is a copy into a buffer, not an operator.
+Both operands have to be comptime-known, because the result's *type* depends
+on their lengths. Joining runtime data is a copy into a buffer, not an
+operator.
 
 ## `**` is gone
 
@@ -81,8 +84,8 @@ const dashes: [5]u8 = @splat('-');
 
 `@splat` takes its length from the type you are assigning to, which is why the
 annotation is not optional here. It is the same builtin used to fill a
-[vector](/learn/language-basics/vectors/), and reading it as "every element gets
-this value" covers both uses.
+[vector](/learn/language-basics/vectors/), and reading it as "every element
+gets this value" covers both uses.
 
 Concatenation with `++` is unaffected and still works at comptime.
 
@@ -95,11 +98,11 @@ to it, and the length comes along:
 const s: []const u8 = &a;    // len 3, checked
 ```
 
-That is the usual direction of travel: build with an array, where the size is
-known and the memory is on the stack, then pass a slice, where the length
-travels with the pointer. Going back the other way, turning a slice into a
-fixed-size array, needs the length to be comptime-known and is covered in
-[array recipes](/learn/language-basics/array-recipes/).
+That is the usual direction. Build with an array, where the size is known and
+the memory is on the stack. Then pass a slice, where the length travels with
+the pointer. Going back the other way, turning a slice into a fixed-size
+array, needs the length to be comptime-known and is covered in [array
+recipes](/learn/language-basics/array-recipes/).
 
-Grids, tables computed at compile time, and getting a fixed-size array back out
-of a slice are in [Array Recipes](/learn/language-basics/array-recipes/).
+Grids, tables computed at compile time, and getting a fixed-size array back
+out of a slice are in [Array Recipes](/learn/language-basics/array-recipes/).

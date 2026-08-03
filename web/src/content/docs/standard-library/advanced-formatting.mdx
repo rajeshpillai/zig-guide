@@ -20,16 +20,16 @@ pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
 ```
 
 The old signature (which also received the format string and an options
-struct) no longer applies. If you find a tutorial showing
-`format(self, comptime fmt: []const u8, options: FormatOptions, writer: anytype)`,
-it predates the change.
+struct) no longer applies. If you find a tutorial showing `format(self,
+comptime fmt: []const u8, options: FormatOptions, writer: anytype)`, it
+predates the change.
 
-The reason for the change is worth knowing, because it explains the rest of this
-page. Under the old design every type's `format` had to parse the format string
-itself and decide what `{d:>8}` meant for it, which meant every implementation
-was slightly different and most ignored the options entirely. Now a type says
-how it prints, once, and the specifiers that control width and alignment are the
-formatter's job rather than yours.
+The reason for the change is worth knowing, because it explains the rest of
+this page. Under the old design, every type's `format` had to parse the format
+string itself and decide what `{d:>8}` meant for it. So every implementation
+was slightly different, and most ignored the options entirely. Now a type says
+how it prints, once, and the specifiers that control width and alignment are
+the formatter's job rather than yours.
 
 ## `{f}` calls it
 
@@ -62,14 +62,14 @@ generic dump, which used to be invisible.
 | `{!}` | an error union, as `error.Name` |
 | `{*}` | a pointer's address |
 
-Width, fill and alignment come after a colon: `{d:0>4}` pads with zeros to four
-characters, `{s:<20}` left-aligns in twenty. `{d:.2}` sets decimal places on a
-float.
+Width, fill and alignment come after a colon: `{d:0>4}` pads with zeros to
+four characters, `{s:<20}` left-aligns in twenty. `{d:.2}` sets decimal places
+on a float.
 
 Every one of these is checked at compile time against the tuple you passed. A
 `{d}` aimed at a string, or four specifiers with three arguments, is a build
-error rather than a runtime one, because the format string has to be a comptime
-value for exactly that reason.
+error rather than a runtime one. The format string has to be a comptime value
+for exactly that reason.
 
 ## `{t}` for tag names
 
@@ -93,10 +93,10 @@ out.written();   // []const u8
 ```
 
 For a bounded string where you know the maximum size, `std.mem.print` writes
-into a stack buffer and returns the slice it filled, with no allocator involved
-and an error if it does not fit. That is the right tool for formatting a number
-into a fixed field. `Allocating` is the right tool when the length depends on
-the data.
+into a stack buffer and returns the slice it filled. No allocator is involved,
+and it returns an error if the text does not fit. That is the right tool for
+formatting a number into a fixed field. `Allocating` is the right tool when
+the length depends on the data.
 
 ```zig
 var buf: [32]u8 = undefined;
@@ -107,6 +107,6 @@ If you have seen `std.fmt.bufPrint` and `std.fmt.allocPrint`, those are what
 this replaced: they are `std.mem.print` and `Allocator.print` now.
 
 Both are the same underlying `std.Io.Writer` interface that a file or a socket
-implements, which is why the same `print` call works against all of them and why
-a function that takes a `*std.Io.Writer` can be tested by handing it a buffer.
+implements. That is why the same `print` call works against all of them, and
+why a function taking a `*std.Io.Writer` can be tested by handing it a buffer.
 See [readers and writers](/learn/standard-library/readers-and-writers/).

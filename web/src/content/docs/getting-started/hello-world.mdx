@@ -36,8 +36,8 @@ use a shell. stdout carries what another program would read if you piped this
 one; stderr carries what the person running it reads. The greeting above goes
 to **stderr**, so redirecting the program into a file leaves the file empty.
 Check it: `zig run hello.zig > out.txt` prints the greeting to your terminal
-and writes zero bytes to `out.txt`. The
-[standard streams](/learn/os/standard-streams/) chapter puts both side by side.
+and writes zero bytes to `out.txt`. The [standard
+streams](/learn/os/standard-streams/) chapter puts both side by side.
 
 There is a second reason. `std.debug.print` ends in `catch return`: if the
 write fails, the output is gone and the program never finds out. That is the
@@ -57,7 +57,7 @@ pub fn main(init: std.process.Init) !void
 
 `init.io` is an **`Io`**: a value carrying the ability to do input and output.
 Writing to a file, opening a socket, reading the clock: each of those takes an
-`Io` as an argument, so code cannot block or start a thread unless a caller
+`Io` as an argument. So code cannot block or start a thread unless a caller
 handed it one. There is no global `stdout` to reach for. You are handed the
 capability to write.
 
@@ -67,8 +67,8 @@ Press **Run**; it executes in your browser as WebAssembly.
 <Playground name="01-getting-started.hello-world" />
 
 Who hands `main` its `Io` is the caller's choice, which is where the threaded
-and event-loop implementations come in. That is
-[the `Io` interface](/learn/standard-library/io-interface/), a later chapter.
+and event-loop implementations come in. That is [the `Io`
+interface](/learn/standard-library/io-interface/), a later chapter.
 
 If you have met Zig's `Allocator`, this is the same move applied to I/O: the
 caller supplies the mechanism, and nothing happens behind your back. If you
@@ -78,22 +78,22 @@ this page depends on them.
 
 ## Buffering, and the `flush` you must not forget
 
-`writeStreamingAll` is fine for a single fixed string, but real programs format
-output. For that you want a buffered writer:
+`writeStreamingAll` is fine for a single fixed string, but real programs
+format output. For that you want a buffered writer:
 
 <Playground name="01-getting-started.buffered-stdout" />
 
-Since Zig 0.15 (the release nicknamed *"writergate"*), writers are buffered and
-the buffer is part of the **interface**, not the implementation. You supply the
-memory, which means no hidden allocation.
+Since Zig 0.15 (the release nicknamed *"writergate"*), writers are buffered
+and the buffer is part of the **interface**, not the implementation. You
+supply the memory, which means no hidden allocation.
 
-The tradeoff is that **nothing is written until you `flush`**. Remove the
-`try out.flush()` line and the program produces no output at all: the greeting
-is formatted, copied into `buf`, and then thrown away when the program exits.
-It is the first thing to check when a program that clearly should print
-something prints nothing.
+The tradeoff is that **nothing is written until you `flush`**. Remove the `try
+out.flush()` line and the program produces no output at all: the greeting is
+formatted, copied into `buf`, and then thrown away when the program exits. It
+is the first thing to check when a program that clearly should print something
+prints nothing.
 
 The **Edit** button opens the snippet, and **Copy** takes the source. Running
-an edited version needs a Zig compiler in the browser, which this site does not
-carry yet, so the toolbar will say so and offer to hand your version to an
+an edited version needs a Zig compiler in the browser. This site does not
+carry one yet, so the toolbar says so and offers to send your version to an
 external playground. Every unedited snippet runs here.

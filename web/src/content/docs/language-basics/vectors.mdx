@@ -18,10 +18,10 @@ const sum = a + b;   // one operation, four lanes
 ```
 
 SIMD means "single instruction, multiple data": one machine instruction that
-does the same arithmetic to several values at the same time. A 128-bit register
-holds four `i32`s, and one add instruction adds all four. That is the whole
-idea, and Zig exposes it as a type rather than as a library of intrinsics with
-names like `_mm_add_epi32`.
+does the same arithmetic to several values at the same time. A 128-bit
+register holds four `i32`s, and one add instruction adds all four. That is the
+whole idea, and Zig exposes it as a type rather than as a library of
+intrinsics with names like `_mm_add_epi32`.
 
 ## The supporting builtins
 
@@ -32,22 +32,22 @@ names like `_mm_add_epi32`.
 | `@select(T, mask, a, b)` | pick lane-wise between two vectors |
 | `@shuffle` | rearrange lanes |
 
-Comparisons produce a `@Vector(N, bool)` mask rather than a single `bool`, which
-is why `@reduce(.Or, mask)` or `@select` is how you act on the result.
+Comparisons produce a `@Vector(N, bool)` mask rather than a single `bool`,
+which is why `@reduce(.Or, mask)` or `@select` is how you act on the result.
 
 The mask is the part to get used to, because it replaces branching. A scalar
-loop says "if this element matches, do the thing". A vector version computes the
-condition for every lane at once and then uses the mask to choose between two
-already-computed answers. There is no per-lane branch to take, which is exactly
-why it is fast, and also why work that genuinely differs per element does not
-vectorise.
+loop says "if this element matches, do the thing". A vector version computes
+the condition for every lane at once and then uses the mask to choose between
+two already-computed answers. There is no per-lane branch to take, which is
+exactly why it is fast, and also why work that genuinely differs per element
+does not vectorise.
 
 ## Choosing N
 
 `std.simd.suggestVectorLength(T)` asks the target how many lanes of `T` fit in
 its widest register, and returns null when the target has no SIMD at all. Code
-that wants to be portable uses it rather than hardcoding 4 or 8, and handles the
-null by falling back to a scalar loop.
+that wants to be portable uses it rather than hardcoding 4 or 8, and handles
+the null by falling back to a scalar loop.
 
 That null is worth taking seriously on this site. WebAssembly's SIMD is an
 optional feature, so the four chapters that teach vectors are compiled with it
@@ -62,13 +62,13 @@ const v: @Vector(4, i32) = arr;   // array -> vector
 const back: [4]i32 = v;           // vector -> array
 ```
 
-Same data, different type. Keep values in vector form through a computation and
-convert at the edges.
+Same data, different type. Keep values in vector form through a computation
+and convert at the edges.
 
-The conversion is free in the sense that no arithmetic happens, but it is not
-free in the sense that nothing happens: the values may move between ordinary
-registers and vector registers, and doing that in a loop can cost more than the
-vector arithmetic saves. Load once, compute, store once.
+The conversion is free in that no arithmetic happens. It is not free in that
+nothing happens. The values may move between ordinary registers and vector
+registers, and doing that inside a loop can cost more than the vector
+arithmetic saves. Load once, compute, store once.
 
 Vectors are not arrays and do not have `.len` in the same sense, do not
 bounds-check, and index only with comptime-known values in most useful cases.
@@ -82,12 +82,12 @@ need the guarantee, or when the operation does not map onto a simple loop. If
 the target lacks SIMD, the code still works. The compiler lowers it to scalar
 operations.
 
-The honest ordering is: write the scalar loop, measure, and only then reach for
-vectors. A vectorised version of a loop that was never the bottleneck is slower
-to read, harder to change, and exactly as fast as before. Where it does pay, it
-tends to pay by a lot, which is why the two recipes below are both about
-processing a large buffer in one pass.
+The honest ordering is: write the scalar loop, measure, and only then reach
+for vectors. A vectorised version of a loop that was never the bottleneck is
+slower to read, harder to change, and exactly as fast as before. Where it does
+pay, it tends to pay by a lot, which is why the two recipes below are both
+about processing a large buffer in one pass.
 
-Two how-to recipes put these builtins to work:
-[a SIMD dot product](/learn/how-to/simd-sum/) for arithmetic and
-[SIMD byte scanning](/learn/how-to/simd-scan/) for searching.
+Two how-to recipes put these builtins to work: [a SIMD dot
+product](/learn/how-to/simd-sum/) for arithmetic and [SIMD byte
+scanning](/learn/how-to/simd-scan/) for searching.

@@ -18,9 +18,9 @@ WebAssembly.
 
 ## Payload capture
 
-The `if (maybe) |value|` form is *payload capture*: inside the block, `value` is
-a plain `i32`, not an optional. The unwrapping and the null check are the same
-piece of syntax, so they cannot drift apart.
+The `if (maybe) |value|` form is *payload capture*: inside the block, `value`
+is a plain `i32`, not an optional. The unwrapping and the null check are the
+same piece of syntax, so they cannot drift apart.
 
 `orelse` is the shorthand when all you want is a fallback:
 
@@ -28,8 +28,8 @@ piece of syntax, so they cannot drift apart.
 const port = maybe_port orelse 8080;
 ```
 
-`orelse` takes an expression on the right, not just a value, and that expression
-can exit:
+`orelse` takes an expression on the right, not just a value, and that
+expression can exit:
 
 ```zig
 const port = maybe_port orelse return error.MissingPort;
@@ -43,8 +43,8 @@ continue.
 ## Forcing it with `.?`
 
 `maybe.?` unwraps and asserts the value is there. It is `orelse unreachable`,
-which means: checked and panicking in Debug and ReleaseSafe, undefined behaviour
-in ReleaseFast.
+which means: checked and panicking in Debug and ReleaseSafe, undefined
+behaviour in ReleaseFast.
 
 Use it where the invariant is genuinely local and visible, such as immediately
 after inserting a key you are about to look up. Do not use it to quiet the
@@ -53,21 +53,21 @@ you are making is about someone else's code.
 
 ## What is missing on purpose
 
-There is no way to compare an optional to its payload without unwrapping, no
-implicit conversion from `?T` to `T`, and no way to call a method on a `?T`.
-Every one of those exists in languages where null is a value of every type, and
-every one of them is a place a null slips through.
+There is no way to compare an optional to its payload without unwrapping it.
+There is no implicit conversion from `?T` to `T`. There is no way to call a
+method on a `?T`. Every one of those exists in languages where null is a value
+of every type, and every one of them is a place a null slips through.
 
-The cost is that a chain of optional lookups is more verbose than an
-`a?.b?.c` operator would be. The benefit is that each `orelse` names what
-happens when that particular step finds nothing, which is usually different at
-each step and usually worth saying.
+The cost is that a chain of optional lookups is more verbose than an `a?.b?.c`
+operator would be. The benefit is that each `orelse` names what happens when
+that particular step finds nothing, which is usually different at each step
+and usually worth saying.
 
 ## Optional pointers are free
 
-`?*T` is the same size as `*T`. Zig uses the null address as the `null` tag, so
-optional pointers cost nothing: no extra byte, no wrapper struct. The last test
-above asserts exactly this with `@sizeOf`.
+`?*T` is the same size as `*T`. Zig uses the null address as the `null` tag,
+so optional pointers cost nothing: no extra byte, no wrapper struct. The last
+test above asserts exactly this with `@sizeOf`.
 
 Note that this only applies to pointers. A `?u32` genuinely needs a tag byte
 alongside the payload, because every `u32` bit pattern is a valid `u32`.
@@ -76,10 +76,11 @@ The rule is that an optional pays for a tag only when the payload has no bit
 pattern to spare. A pointer has one, the null address, and `?T` uses it. A
 `u32` does not, so `?u32` is larger than a `u32`.
 
-Error unions do not get the same treatment: `error{A}!*u8` is twice the size of
-a `*u8`, because it has to carry the error code as well as the pointer. If a
-value that is genuinely just "there or not" is being returned as an error union
-to save an explanation, this is one more reason to make it a `?T` instead.
+Error unions do not get the same treatment: `error{A}!*u8` is twice the size
+of a `*u8`, because it has to carry the error code as well as the pointer.
+Sometimes a value that is genuinely just "there or not" gets returned as an
+error union to avoid writing an explanation. This is one more reason to make
+it a `?T` instead.
 
 ## Optional versus error
 
@@ -91,7 +92,7 @@ about whether there is anything to say about the failure.
 - **`E!T`** when the caller would want to know *why*: the file did not exist, the
   input was malformed, the allocation failed.
 
-A function returning `?T` for something that failed for a reason has thrown the
-reason away, and a function returning `error{NotFound}!T` for an ordinary miss
+A function returning `?T` for something that failed for a reason has thrown
+the reason away. A function returning `error{NotFound}!T` for an ordinary miss
 makes every caller write a `catch` for a case that is not exceptional.
 [Errors](/learn/language-basics/errors/) covers the other half.

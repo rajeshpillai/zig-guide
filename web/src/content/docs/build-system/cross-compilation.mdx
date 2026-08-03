@@ -27,7 +27,7 @@ zig targets       # everything available
 
 ```
 x86_64-linux-gnu
-x86_64-linux-musl      # static linking without glibc's baggage
+x86_64-linux-musl      # static linking without glibc's version requirements
 aarch64-macos-none
 wasm32-wasi
 native-native-musl
@@ -54,8 +54,8 @@ cost of not running on older ones.
 const target = b.standardTargetOption(.{});
 ```
 
-That exposes `-Dtarget=` to whoever runs your build, so users can cross-compile
-your project without you doing anything else.
+That exposes `-Dtarget=` to whoever runs your build, so users can
+cross-compile your project without you doing anything else.
 
 ## Why this is unusual
 
@@ -64,22 +64,22 @@ have cross-compiled C before, the absence is the surprising part.
 
 The traditional route needs a cross toolchain for each target, a sysroot
 containing that platform's headers and libraries, and a build system taught to
-find both. Assembling one is a day of work and keeping several is a permanent
-tax, which is why "we only build on Linux" is a common answer and why CI
+find both. Assembling one takes a day, and keeping several is a permanent
+cost, which is why "we only build on Linux" is a common answer and why CI
 matrices spend most of their time installing compilers.
 
-Zig ships the libc sources for the targets it supports and compiles the parts it
-needs on demand, so the toolchain and the sysroot are already inside the single
-binary you downloaded. Building a Windows executable from a Mac is the same
-command as building for yourself, with six more characters.
+Zig ships the libc sources for the targets it supports and compiles the parts
+it needs on demand, so the toolchain and the sysroot are already inside the
+single binary you downloaded. Building a Windows executable from a Mac is the
+same command as building for yourself, with six more characters.
 
 ## What still needs care
 
-Cross-compiling gets you a binary. It does not get you a tested one, and it does
-not remove the platform differences the code has to handle: path separators,
-line endings, the fact that `usize` is 4 bytes on wasm and 8 on your laptop.
-The build succeeding proves the code compiles for that target, which is
-genuinely most of the value and is not the same as working.
+Cross-compiling gets you a binary. It does not get you a tested one, and it
+does not remove the platform differences the code has to handle: path
+separators, line endings, the fact that `usize` is 4 bytes on wasm and 8 on
+your laptop. The build succeeding proves the code compiles for that target,
+which is genuinely most of the value and is not the same as working.
 
 Linking against a system library the target has and your machine does not is
 the other limit. That needs the real headers, and cross-compiling stops being
@@ -90,9 +90,9 @@ free at exactly that point.
 `zig cc` is a drop-in C compiler with the same cross-compilation story, which
 is why some projects adopt Zig purely as a build tool for their existing C.
 
-It accepts the flags a C compiler accepts, so it can be dropped into an existing
-`Makefile` or `configure` invocation as `CC=zig cc`, and it brings the
-cross-compilation with it. A C project that could only be built on the machine
-it was written for can usually be built for four platforms after that
-substitution, without a line of its source changing. `zig c++` does the same for
-C++.
+It accepts the flags a C compiler accepts, so it can be dropped into an
+existing `Makefile` or `configure` invocation as `CC=zig cc`, and it brings
+the cross-compilation with it. A C project that could only be built on the
+machine it was written for can usually be built for four platforms after that
+substitution, without a line of its source changing. `zig c++` does the same
+for C++.

@@ -31,9 +31,9 @@ const message = parse(buf[0..n]);
 
 That code is correct only when the whole message arrived in one read. On
 loopback, with a small message and an idle machine, it always does. It stops
-being true when the message crosses an MTU, when the network is busy, when
-the sender uses two writes, or when a proxy sits in between. The failure
-arrives in production and looks like corruption rather than truncation.
+being true when the message crosses an MTU, when the network is busy, when the
+sender uses two writes, or when a proxy sits in between. The failure arrives
+in production and looks like corruption rather than truncation.
 
 ## Two indices, no copying
 
@@ -77,10 +77,10 @@ Note also the `while` in the caller. One read can complete more than one
 message, so a handler that processes a single message per read will fall
 steadily further behind a fast client and never catch up.
 
-## What this buys you
+## What this gives you
 
 The parser never learns how the bytes were chunked, so chunking stops being
 part of your protocol. You can test it against a byte array, which is what
-[Three Ways to Frame](/learn/networking/framing/) does next, and the test is worth
-something, because the delivery pattern it does not simulate is one the
+[Three Ways to Frame](/learn/networking/framing/) does next, and the test is
+worth something, because the delivery pattern it does not simulate is one the
 parser cannot observe anyway.

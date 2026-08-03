@@ -7,9 +7,9 @@ order: 121
 
 import Playground from "../../../components/Playground.astro";
 
-A buffer nobody can look at is not much of a picture. PPM is the shortest route
-out: a short text header, then the pixel bytes. That is the whole format worth
-knowing, and it needs no library at all.
+A buffer nobody can look at is not much of a picture. PPM is the shortest
+route out: a short text header, then the pixel bytes. That is the whole format
+worth knowing, and it needs no library at all.
 
 It belongs to the Netpbm family, which is six formats along two axes: what a
 pixel is, and whether the data is text or binary.
@@ -20,9 +20,9 @@ pixel is, and whether the data is text or binary.
 | **PGM** (graymap) | `P2` | `P5` | one gray sample |
 | **PPM** (pixmap) | `P3` | `P6` | three samples: R, G, B |
 
-`P6` is the one to write. `P3` holds the same pixels as decimal numbers in text,
-which is larger and slower but worth generating once if you want to read your own
-image in an editor.
+`P6` is the one to write. `P3` holds the same pixels as decimal numbers in
+text, which is larger and slower but worth generating once if you want to read
+your own image in an editor.
 
 ## The header
 
@@ -31,8 +31,8 @@ P6\n64 32\n255\n<6144 raw bytes>
 ```
 
 Four fields, then data: the magic, the width, the height, and the maxval (the
-largest value a sample may take). They are separated by any mix of spaces, tabs,
-and newlines, so `P6 64 32 255 ` is as valid as the form above.
+largest value a sample may take). They are separated by any mix of spaces,
+tabs, and newlines, so `P6 64 32 255 ` is as valid as the form above.
 
 Then the rule that actually matters:
 
@@ -41,8 +41,8 @@ Then the rule that actually matters:
 
 Write `"255\n\n"` and every pixel shifts by one byte. The image comes out as
 diagonal noise, and no parser can detect the mistake, because `0x0A` is a
-perfectly legal pixel value. The snippet below ends by decoding a file with that
-exact defect so you can see what the reader gets.
+perfectly legal pixel value. The snippet below ends by decoding a file with
+that exact defect so you can see what the reader gets.
 
 <Playground name="09-graphics.ppm-write" />
 
@@ -56,16 +56,16 @@ Sample size follows from the maxval:
 - **maxval below 256** gives one byte per sample. `640 * 480 * 3` is 921,600
   bytes.
 - **maxval from 256 to 65535** gives *two* bytes per sample, **big-endian**.
-  This is the only place PPM has a byte order, and it catches people on
+  This is the only place PPM has a byte order, and it trips people up on
   little-endian machines.
 
 Anything other than 255 means your samples are scaled: with a maxval of 100, a
 sample of 50 is mid-gray. Use 255 unless you have a reason not to.
 
-A `#` starts a comment that runs to the end of the line and may appear anywhere
-whitespace may. Writing one is easy; reading them is not, because a strict parser
-has to strip comments while it scans the header fields. Plenty of naive parsers
-get that wrong, so leave them out if the file has to travel.
+A `#` starts a comment that runs to the end of the line and may appear
+anywhere whitespace may. Writing one is easy; reading them is not, because a
+strict parser has to strip comments while it scans the header fields. Plenty
+of naive parsers get that wrong, so leave them out if the file has to travel.
 
 ## Format the header from the constants
 
@@ -88,16 +88,16 @@ The file version is two writes: the header, then the pixels.
   tryLocally="zig run ppm-file.zig"
 />
 
-Note the drawing order. Background first, then the circle on top, and the circle
-simply overwrites what was there. That is the painter's algorithm, and until
-[Alpha Blending](../blending/) it is the entire compositing model here.
+Note the drawing order. Background first, then the circle on top, and the
+circle simply overwrites what was there. That is the painter's algorithm, and
+until [Alpha Blending](../blending/) it is the entire compositing model here.
 
 The `defer` that deletes `output.ppm` is there so the build that verifies this
-page leaves nothing behind. Drop that one line when you run it yourself, or the
-file you came here to look at will be gone before you can.
+page leaves nothing behind. Drop that one line when you run it yourself, or
+the file you came here to look at will be gone before you can.
 
-To look at the result, most Linux viewers open PPM directly (`feh output.ppm`),
-and both ImageMagick and the netpbm tools convert it:
+To look at the result, most Linux viewers open PPM directly (`feh
+output.ppm`), and both ImageMagick and the netpbm tools convert it:
 
 ```bash
 magick output.ppm output.png

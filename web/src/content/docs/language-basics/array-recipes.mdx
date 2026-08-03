@@ -21,8 +21,9 @@ type, `grid.len` is the row count and `grid[0].len` is the column count, and
 columns.
 
 This is not the same type as `[][]u8`, a slice of slices, which is a list of
-pointers to rows that may live anywhere. The nested array is one allocation-free
-block; the slice of slices is however many the code that built it made.
+pointers to rows that may live anywhere. The nested array is one
+allocation-free block; the slice of slices is however many the code that built
+it made.
 
 ## The outer loop hands you a copy
 
@@ -31,29 +32,30 @@ states. In a nested loop it stops being an abstract rule: `for (grid) |row|`
 copies each row, so writing through `row` changes nothing at all and the
 compiler has no reason to complain.
 
-`for (&grid) |*row|` iterates pointers, and then `for (row) |*cell|` reaches the
-elements. Both levels have to be pointers before a write lands.
+`for (&grid) |*row|` iterates pointers, and then `for (row) |*cell|` reaches
+the elements. Both levels have to be pointers before a write lands.
 
 ## Or one flat array
 
 `[width * height]T` with `y * width + x` is the other shape. The type stops
-carrying the geometry, so the stride becomes yours to keep right, and in exchange
-the dimensions no longer have to be two separate compile-time constants.
+carrying the geometry, so the stride becomes yours to keep right, and in
+exchange the dimensions no longer have to be two separate compile-time
+constants.
 
-Pick the nested array when the shape is fixed and small. Pick the flat one when
-the width is computed, when you want to hand the whole thing to something that
-takes a `[]T`, or when the rows are large enough that copying one by accident
-would matter.
+Pick the nested array when the shape is fixed and small. Pick the flat one in
+three cases: when the width is computed, when you want to hand the whole thing
+to something that takes a `[]T`, or when the rows are large enough that
+copying one by accident would matter.
 
 ## Tables built at compile time
 
 Declare `undefined` storage, fill it in a loop, and `break :blk` the finished
-array out of the block. Run that inside `comptime` and the result is a constant
-baked into the binary, with no initialization code at startup.
+array out of the block. Run that inside `comptime` and the result is a
+constant baked into the binary, with no initialization code at startup.
 
-The claim is checkable: use one of the table's entries as an array length. Array
-lengths must be known at compile time, so if it compiles, the value came out of
-comptime. That is a proof rather than a promise.
+The claim is checkable: use one of the table's entries as an array length.
+Array lengths must be known at compile time, so if it compiles, the value came
+out of comptime. That is a proof rather than a promise.
 
 ## From slice back to array
 
@@ -63,7 +65,6 @@ time. The length moves back into the type, which is what a function expecting
 
 It is a copy. Writing to the result leaves the original slice untouched.
 
-Concatenating at runtime is a `std.mem.concat` away and lives in
-[String Recipes](/learn/standard-library/string-recipes/); the operations that
-work on slices in place are in
-[Slice Recipes](/learn/language-basics/slice-recipes/).
+Concatenating at runtime is a `std.mem.concat` away and lives in [String
+Recipes](/learn/standard-library/string-recipes/); the operations that work on
+slices in place are in [Slice Recipes](/learn/language-basics/slice-recipes/).

@@ -13,10 +13,10 @@ values have to go somewhere, in some order, and the machine has an opinion
 about where.
 
 The opinion is called **alignment**. A processor reads memory in chunks, and a
-four-byte number that starts at an address divisible by four can be read in one
-go. One that straddles the boundary takes two reads and some assembly, and on
-some processors it is not allowed at all. So the rule is that a value of size N
-starts at an address divisible by N.
+four-byte number that starts at an address divisible by four can be read in
+one go. One that straddles the boundary takes two reads and some assembly, and
+on some processors it is not allowed at all. So the rule is that a value of
+size N starts at an address divisible by N.
 
 Follow that rule through a struct whose fields are different sizes and
 something falls out that surprises people: **the struct is bigger than its
@@ -43,9 +43,9 @@ struct is nothing; four bytes on ten million rows is 40 MB.
 **Zig's own layout also gave eight.** This is the part that differs from C.
 A plain `struct` in Zig has **no guaranteed layout**: the compiler may order
 the fields however it likes, and it generally packs them for you. `extern
-struct` is how you ask for C's rules, and you ask for them when the layout has
-to match something outside your program, a C library or a file format or a
-network packet. Inside your own program, let the compiler do it.
+struct` is how you ask for C's rules. Ask for them when the layout has to
+match something outside your program: a C library, a file format, a network
+packet. Inside your own program, let the compiler do it.
 
 ## Check yourself
 
@@ -54,9 +54,9 @@ If you added a `u64` field to `Packed`, what would `@sizeOf` become?
 16. The `u64` needs an address divisible by 8, and the four bytes already used
 by `count` plus the two by `flag` and `tag` come to 6, so it starts at 8 and
 ends at 16. The struct's own alignment also rises to 8, because a struct is
-aligned to its largest field, which is what makes arrays of it work. Adding one
-8-byte field to a 8-byte struct cost 8 bytes, and that is the ordinary case
-rather than a surprise.
+aligned to its largest field, which is what makes arrays of it work. Adding
+one 8-byte field to a 8-byte struct cost 8 bytes, and that is the ordinary
+case rather than a surprise.
 
 ## If you have written C
 
@@ -64,18 +64,19 @@ Same rules, same padding, same arithmetic. Two differences are worth knowing.
 
 C guarantees the declaration order, so you can reason about a struct's layout
 from its source and rely on it. Zig only guarantees that for `extern struct`
-and `packed struct`; a plain struct is the compiler's business. That is a
-better default (most structs never leave your program, and packing them is free
-performance) and a worse one exactly once: the moment you assume otherwise at
-an FFI boundary. Reach for `extern struct` there and the two languages agree.
+and `packed struct`; a plain struct is the compiler's business. That is the
+better default. Most structs never leave your program, and packing them is
+free performance. It is the wrong default in exactly one place: the moment you
+assume otherwise at a boundary with C. Reach for `extern struct` there and the
+two languages agree.
 
 C also gives you `offsetof` from `<stddef.h>`; Zig's `@offsetOf` is a builtin
 and needs no include. The program above used it to show the gaps rather than
 asking you to take them on trust.
 
 The rest of the layout controls, `align`, `packed struct` for bit fields, and
-the C ABI in detail, are in the
-[memory layout](/learn/how-to/memory-layout/) recipe.
+the C ABI in detail, are in the [memory layout](/learn/how-to/memory-layout/)
+recipe.
 
-Next: [Errors Are Values](/learn/systems-from-scratch/errors-are-values/), which
-is about what a function returns when it cannot do what you asked.
+Next: [Errors Are Values](/learn/systems-from-scratch/errors-are-values/),
+which is about what a function returns when it cannot do what you asked.

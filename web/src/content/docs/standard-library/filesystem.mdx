@@ -7,8 +7,8 @@ order: 42
 
 import Playground from "../../../components/Playground.astro";
 
-Zig 0.16 moved the filesystem API onto `std.Io`. This is the change most likely
-to make older filesystem examples fail to compile.
+Zig 0.16 moved the filesystem API onto `std.Io`. This is the change most
+likely to make older filesystem examples fail to compile.
 
 <Playground
   name="03-standard-library.filesystem"
@@ -36,8 +36,8 @@ pub fn main(init: std.process.Init) !void {
 ## Why
 
 It is the same argument as `Allocator`. A function's signature now tells you
-whether it performs I/O, and the *caller* decides how that I/O is executed
-(threaded, evented, or something else) instead of the standard library
+whether it performs I/O. The *caller* decides how that I/O is executed,
+threaded or evented or something else, instead of the standard library
 choosing on your behalf.
 
 ## Reading a whole file
@@ -47,8 +47,8 @@ const contents = try dir.readFileAlloc(io, path, gpa, .limited(1 << 20));
 defer gpa.free(contents);
 ```
 
-The limit is mandatory, not optional. There is no API that reads an
-unbounded amount of untrusted input into memory by accident.
+The limit is mandatory, not optional. There is no API that reads an unbounded
+amount of untrusted input into memory by accident.
 
 ## Why this page does not run
 
@@ -57,17 +57,16 @@ WASI programs can only touch directories the host explicitly preopens, and the
 playground grants none. CI still compiles it, so if the filesystem API changes
 again this page turns the build red. It just cannot be executed here.
 
-What an open file leaves you holding is a number.
 [A File Descriptor Is a Number](/learn/os/file-descriptors/) is that side of
-it, and it does run in the browser, because the descriptors a WASI program
-starts with are handed to it rather than opened.
+it, and it does run in the browser. The descriptors a WASI program starts with
+are handed to it rather than opened.
 
 ## Directories are handles, not strings
 
 `std.Io.Dir` is an open directory, and paths are resolved relative to it. That
-is not merely tidier than joining strings: a path resolved against an open
-handle cannot be changed underneath you between the check and the use, which is
-the shape of a whole family of security bugs.
+is not merely tidier than joining strings. A path resolved against an open
+handle cannot be changed underneath you between the check and the use, which
+is the shape of a whole family of security bugs.
 
 The practical version is that you open the directory once and do everything
 through it:
@@ -83,22 +82,23 @@ while (try it.next()) |entry| {
 }
 ```
 
-Note `.iterate = true` in the open options. A directory opened without it cannot
-be walked, because on some platforms that requires different permissions, and
-Zig makes you say which you wanted rather than asking for the superset.
+Note `.iterate = true` in the open options. A directory opened without it
+cannot be walked, because on some platforms that requires different
+permissions, and Zig makes you say which you wanted rather than asking for the
+superset.
 
 `entry.name` points into the iterator's buffer and is replaced on the next
-iteration, the same borrowed-view rule as everywhere else. Keeping a name means
-copying it.
+iteration, the same borrowed-view rule as everywhere else. Keeping a name
+means copying it.
 
-For a recursive walk, `walk` does the descent for you and yields paths relative
-to the starting directory. It needs an allocator, because the depth is not known
-in advance.
+For a recursive walk, `walk` does the descent for you and yields paths
+relative to the starting directory. It needs an allocator, because the depth
+is not known in advance.
 
 ## Errors are the interesting part
 
-Filesystem calls fail for reasons that are ordinary rather than exceptional, and
-the error set is the list of them. `error.FileNotFound`,
+Filesystem calls fail for reasons that are ordinary rather than exceptional,
+and the error set is the list of them. `error.FileNotFound`,
 `error.AccessDenied`, `error.IsDir`, `error.NoSpaceLeft`: each is a case a
 real program handles differently, and switching on the error is how you do it.
 
@@ -109,30 +109,30 @@ operation and handle the error instead; `openFile` returning
 
 ## Writing a file safely
 
-Writing directly into the destination means that a crash halfway through leaves
-a truncated file where a valid one used to be. The fix is the same everywhere:
-write a temporary file in the same directory, flush it, then rename it over the
-target. Rename is atomic within a filesystem, so a reader sees either the old
-contents or the new ones and never a half-written mixture.
+Writing directly into the destination means that a crash halfway through
+leaves a truncated file where a valid one used to be. The fix is the same
+everywhere: write a temporary file in the same directory, flush it, then
+rename it over the target. Rename is atomic within a filesystem, so a reader
+sees either the old contents or the new ones and never a half-written mixture.
 
 `dir.rename(io, "config.json.tmp", "config.json")` is the last step, and it is
-worth doing for anything a user would be upset to lose. Same directory matters:
-a rename across filesystems is a copy and not atomic.
+worth doing for anything a user would be upset to lose. Same directory
+matters: a rename across filesystems is a copy and not atomic.
 
 There is no `AtomicFile` helper in the standard library on master; older code
 that used one is writing the three steps by hand now. That is four lines, and
-writing them yourself makes the flush visible, which is the step most likely to
-be missing.
+writing them yourself makes the flush visible, which is the step most likely
+to be missing.
 
 ## Paths
 
 `std.Io.Dir.path` holds the pure string manipulation, no `Io` instance needed:
 `join`, `dirname`, `basename`, `extension`, `isAbsolute`. It is
 separator-aware, so `join` produces backslashes on Windows and forward slashes
-elsewhere, which is why building a path by concatenation is worse than it looks.
-Older code spells this `std.fs.path`, which moved with the rest of the
+elsewhere, which is why building a path by concatenation is worse than it
+looks. Older code spells this `std.fs.path`, which moved with the rest of the
 filesystem API.
 
-The other reason to prefer it: `join` allocates and returns a slice you free,
-which forces the lifetime question to be answered rather than leaving a path in
-a stack buffer that outlives its frame.
+There is a second reason to prefer it. `join` allocates and returns a slice
+you free, which forces you to answer the lifetime question, rather than
+leaving a path in a stack buffer that outlives its frame.

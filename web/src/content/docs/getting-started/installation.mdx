@@ -6,9 +6,9 @@ order: 0
 ---
 
 This guide tracks **Zig master**, not a tagged release. Every snippet here is
-compiled and executed against a fresh master build nightly, which is what keeps
-it correct. It also means a stable release will not compile some of these
-examples.
+compiled and executed against a fresh master build nightly, which is what
+keeps it correct. It also means a stable release will not compile some of
+these examples.
 
 ## Getting master
 
@@ -53,22 +53,24 @@ spurious errors on current syntax.
 
 Zig has not had a 1.0 release, and the language is still changing in ways that
 break code. Writing against a tagged release means the examples are stable and
-wrong within a year; writing against master means they are correct today and may
-need a fix tomorrow. This guide takes the second trade and pays for it with a
-nightly build that recompiles and reruns every snippet against a fresh compiler.
+wrong within a year; writing against master means they are correct today and
+may need a fix tomorrow. This guide takes the second trade and pays for it
+with a nightly build that recompiles and reruns every snippet against a fresh
+compiler.
 
-What that means for you as a reader: if something here does not compile on your
-machine, check `zig version` first. A mismatch of a few weeks is usually
+What that means for you as a reader: if something here does not compile on
+your machine, check `zig version` first. A mismatch of a few weeks is usually
 harmless, a mismatch across a tagged release usually is not.
 
 If you would rather be on a release, that is a reasonable choice for shipping
-software, and [coming from an older Zig](/learn/getting-started/coming-from-older-zig/)
-lists what differs so you can read this guide anyway.
+software. [Coming from an older
+Zig](/learn/getting-started/coming-from-older-zig/) lists what differs, so you
+can still read this guide.
 
 ## Keeping it current
 
-Master moves daily. Updating weekly is a habit worth having, because the changes
-arrive in small pieces that are each easy to absorb, whereas six months of them
+Master moves daily. Updating weekly is a habit worth having. The changes then
+arrive in small pieces that are each easy to absorb. Six months of them
 arriving at once is a project.
 
 ```bash
@@ -86,10 +88,10 @@ Zig is a single binary. It ships its own C compiler, cross-compiles to every
 supported target out of the box, and needs no separate build tool (`zig build`
 is part of it). There is no toolchain to assemble.
 
-There is also no package manager to install, no formatter to configure
-(`zig fmt` is built in and has no options to argue about), and no separate
-debugger integration to set up beyond pointing your existing debugger at the
-binary. The download is the environment.
+There is also no package manager to install and no formatter to configure:
+`zig fmt` is built in and has no options to argue about. Debugging needs no
+special setup either. Point your existing debugger at the binary. The download
+is the environment.
 
 Disk space is the one thing to be aware of: the tarball is several hundred
 megabytes, mostly libc sources and headers for every supported target. That is

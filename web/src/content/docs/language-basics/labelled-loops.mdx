@@ -22,10 +22,10 @@ outer: for (0..5) |i| {
 ```
 
 A label is an identifier followed by a colon, written before the loop keyword.
-The name is arbitrary. `outer` and `blk` are conventional but nothing enforces
-them, and a label that says what the loop is scanning (`rows:`, `candidates:`)
-usually reads better at the `break` site, which is where someone will be
-looking.
+The name is arbitrary. `outer` and `blk` are conventional, but nothing
+enforces them. A label that says what the loop is scanning (`rows:`,
+`candidates:`) usually reads better at the `break` site, which is where
+someone will be looking.
 
 ## What the alternative costs
 
@@ -43,8 +43,8 @@ for (rows) |row| {
 
 Three lines of bookkeeping, and the `if (found) break` has to be repeated at
 every level of nesting. Worse, the flag survives the loop, so later code can
-read it, and the `break` in the inner loop no longer tells you what it does
-without reading the two lines after it. C's answer is `goto` past the loops,
+read it. And the `break` in the inner loop no longer tells you what it does
+until you read the two lines after it. C's answer is `goto` past the loops,
 which works but gives the jump target a name that is a location rather than a
 loop.
 
@@ -79,18 +79,18 @@ Label a loop and never mention the label, and the program does not build:
 error: unused for loop label
 ```
 
-That matters more than it sounds. Labels usually appear because a `break :outer`
-was added, and they usually become dead when that `break` is deleted or moved
-during a refactor. A dead label is a strong hint that the control flow it was
-written for is gone, so Zig treats it the same way it treats an unused variable:
-as a leftover that should either be used or removed.
+That matters more than it sounds. Labels usually appear because a `break
+:outer` was added, and they usually become dead when that `break` is deleted
+or moved during a refactor. A dead label is a strong hint that the control
+flow it was written for is gone. Zig treats it the way it treats an unused
+variable: a leftover that should be used or removed.
 
 ## Labels are not only for loops
 
 A label can also name a plain block, and `break :label value` yields a value
-from it. The third test in the snippet uses that to turn a search into a single
-`const`: the block runs the loop, breaks out with the index on a hit, and falls
-through to a default at the end. That construct is covered on its own in
-[labelled blocks](/learn/language-basics/labelled-blocks/), and combined with
-`for` and `else` it becomes the shorter form in
-[loops as expressions](/learn/language-basics/loops-as-expressions/).
+from it. The third test in the snippet uses that to turn a search into a
+single `const`. The block runs the loop, breaks out with the index on a hit,
+and falls through to a default at the end. That construct is covered on its
+own in [labelled blocks](/learn/language-basics/labelled-blocks/), and
+combined with `for` and `else` it becomes the shorter form in [loops as
+expressions](/learn/language-basics/loops-as-expressions/).

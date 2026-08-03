@@ -17,9 +17,9 @@ That is usually what you actually need.
 
 **Why the old code below is not runnable.** Every other snippet on this site has
 a Run button because CI compiled and executed it. The "before" examples here
-deliberately *cannot* compile on current Zig (that is the whole point), so they
-are shown as plain code. The "after" side is verified, in the chapter each one
-links to.
+deliberately *cannot* compile on current Zig (that is the whole point), so
+they are shown as plain code. The "after" side is verified, in the chapter
+each one links to.
 
 </aside>
 
@@ -120,8 +120,8 @@ const dashes = "-" ** 5;
 const dashes: [5]u8 = @splat('-');
 ```
 
-Worth calling out because the failure is actively misleading: `**` no longer
-tokenises at all, so the compiler reports **"binary operator `*` has whitespace
+Worth calling out, because the failure is actively misleading. `**` no longer
+tokenises at all. The compiler reports **"binary operator `*` has whitespace
 on one side, but not the other"**, which tells you nothing about what actually
 happened. `++` concatenation is unaffected.
 
@@ -143,10 +143,12 @@ defer list.deinit(gpa);
 try list.append(gpa, 'a');
 ```
 
-More typing, but the allocator is visible at every call site that can fail. The
-same change applies to `StringHashMapUnmanaged` and `AutoHashMapUnmanaged`.
+More typing, but the allocator is visible at every call site that can fail.
+The same change applies to `StringHashMapUnmanaged` and
+`AutoHashMapUnmanaged`.
 
-→ [ArrayList](/learn/standard-library/arraylist/) · [Hash Maps](/learn/standard-library/hash-maps/)
+→ [ArrayList](/learn/standard-library/arraylist/) · [Hash
+Maps](/learn/standard-library/hash-maps/)
 
 ## Synchronisation moved to `Io`
 
@@ -168,7 +170,8 @@ defer mutex.unlock(io);
 exists, but structured concurrency via `io.async` and `Io.Group` is the better
 default, and works on targets with no threads at all.
 
-→ [Threads](/learn/standard-library/threads/) · [Concurrency](/learn/standard-library/concurrency/)
+→ [Threads](/learn/standard-library/threads/) ·
+[Concurrency](/learn/standard-library/concurrency/)
 
 ## Custom `format` methods
 
@@ -189,8 +192,8 @@ pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
 }
 ```
 
-And it is **no longer invoked by `{}`**; you must ask for it with `{f}`.
-`{t}` prints an enum tag name or error name.
+And it is **no longer invoked by `{}`**; you must ask for it with `{f}`. `{t}`
+prints an enum tag name or error name.
 
 → [Advanced Formatting](/learn/standard-library/advanced-formatting/)
 
@@ -209,9 +212,9 @@ info.field_names[2];
 info.field_values[2];
 ```
 
-This one is recent: it landed between `0.17.0-dev.644` and `dev.1441`, and was
-the only break across all 53 snippets in this guide when the compiler was
-updated across roughly 800 commits.
+This one is recent. It landed between `0.17.0-dev.644` and `dev.1441`. Across
+roughly 800 commits of compiler updates, it was the only break in all 53
+snippets this guide had at the time.
 
 → [Enums](/learn/language-basics/enums/)
 
@@ -268,15 +271,18 @@ var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
 var seen: std.bit_set.Static(64) = .empty;
 ```
 
-The whole `indexOf` family moved to `find`. `Allocator.print` is the allocating
-formatter. `SafeAllocator` also changed shape: it takes its backing allocator as
-an argument, and `deinit()` returns a leak count rather than `.ok` or `.leak`.
+The whole `indexOf` family moved to `find`. `Allocator.print` is the
+allocating formatter. `SafeAllocator` also changed shape: it takes its backing
+allocator as an argument, and `deinit()` returns a leak count rather than
+`.ok` or `.leak`.
 
 Every snippet on this site is checked against the list of names the standard
 library marks deprecated, on the same run that compiles it. That check is the
 only reason this section exists.
 
-→ [Strings](/learn/standard-library/strings/) · [Formatting](/learn/standard-library/formatting/) · [Allocators](/learn/standard-library/allocators/)
+→ [Strings](/learn/standard-library/strings/) ·
+[Formatting](/learn/standard-library/formatting/) ·
+[Allocators](/learn/standard-library/allocators/)
 
 ---
 

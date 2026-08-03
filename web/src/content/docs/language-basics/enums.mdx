@@ -20,8 +20,8 @@ takeDirection(.south);
 
 This keeps `switch` prongs and struct literals readable without repeating the
 type name everywhere. `.north` on its own has a type of its own, the enum
-literal type, which coerces to any enum that has a matching tag. That is why the
-same `.north` works for two unrelated enums in two different calls.
+literal type, which coerces to any enum that has a matching tag. That is why
+the same `.north` works for two unrelated enums in two different calls.
 
 ## Pinning the representation
 
@@ -49,9 +49,9 @@ const Opcode = enum(u8) { get = 1, set = 2, _ };
 
 This is the right type for a byte that arrives from a network or a C library,
 where the set of values is not yours to decide. `@enumFromInt` on one of these
-cannot fail, because every value is representable, and a `switch` handles the
-unnamed case with `_` rather than `else`, which keeps the exhaustiveness check
-alive for the named ones. See [switch](/learn/language-basics/switch/).
+cannot fail, because every value is legal. A `switch` handles the unnamed case
+with `_` rather than `else`, which keeps the exhaustiveness check alive for
+the named ones. See [switch](/learn/language-basics/switch/).
 
 ## Methods
 
@@ -59,11 +59,11 @@ Enums can declare functions. `Suit.hearts.isRed()` is exactly
 `Suit.isRed(Suit.hearts)`: method syntax is sugar for passing the receiver as
 the first argument. There is no dynamic dispatch and no vtable.
 
-They can hold constants and nested types too, so an enum is a fine place to put
-the parsing and formatting that belong to it. A `fromString` returning `?Suit`
-next to a `toString` returning `[]const u8` keeps the whole mapping in one
-place, and `std.meta.stringToEnum(Suit, text)` writes the parsing half for you
-from the tag names.
+They can hold constants and nested types too, so an enum is a fine place to
+put the parsing and formatting that belong to it. A `fromString` returning
+`?Suit` next to a `toString` returning `[]const u8` keeps the whole mapping in
+one place, and `std.meta.stringToEnum(Suit, text)` writes the parsing half for
+you from the tag names.
 
 ## Reflection
 
@@ -82,17 +82,17 @@ tutorials show `info.fields[i].name`; that shape is gone. The split landed
 between `0.17.0-dev.644` and `dev.1441`, and was the only break across all 53
 snippets in this guide when the compiler was updated.
 
-`@tagName` gives the name as a string. Together this is how generic code prints
-or parses enums without a hand-written table. Walk `field_names` with
-`inline for` and you have a parser, a formatter or a table of every case, built
-from the declaration and unable to fall out of sync with it. See
-[inline loops](/learn/language-basics/inline-loops/).
+`@tagName` gives the name as a string. Together this is how generic code
+prints or parses enums without a hand-written table. Walk `field_names` with
+`inline for` and you have a parser, a formatter or a table of every case,
+built from the declaration and unable to fall out of sync with it. See [inline
+loops](/learn/language-basics/inline-loops/).
 
 ## Enums versus the alternatives
 
 An enum is the right answer when a value is exactly one of a fixed, known set
 and carries nothing else. When each case needs its own payload, that is a
 [tagged union](/learn/language-basics/unions/), which is an enum with data
-attached. When the cases are independent flags that can combine, an enum is the
-wrong shape and a `packed struct` of `bool` fields is the right one, since it
-gives you named bits backed by a single integer.
+attached. When the cases are independent flags that can combine, an enum is
+the wrong shape. Use a `packed struct` of `bool` fields, which gives you named
+bits backed by a single integer.

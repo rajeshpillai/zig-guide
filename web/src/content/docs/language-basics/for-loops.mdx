@@ -10,9 +10,9 @@ import Playground from "../../../components/Playground.astro";
 <Playground name="02-language.for-loops" />
 
 Zig's `for` iterates over something: a slice, an array, a range. There is no
-three-clause `for (i = 0; i < n; i++)`; that is what `while` is for. The result
-is that the common case carries no opportunity for an off-by-one. You do not
-write the bound, so you cannot write it wrong.
+three-clause `for (i = 0; i < n; i++)`; that is what `while` is for. The
+result is that the common case carries no opportunity for an off-by-one. You
+do not write the bound, so you cannot write it wrong.
 
 ## Indices are opt-in
 
@@ -51,16 +51,17 @@ compile error, because nothing says when to stop.
 
 ## Mutating in place
 
-Capturing by value gives you a copy. To modify the underlying elements, iterate
-over a pointer to the array and capture by pointer:
+Capturing by value gives you a copy. To modify the underlying elements,
+iterate over a pointer to the array and capture by pointer:
 
 ```zig
 for (&numbers) |*n| n.* *= 2;
 ```
 
 Both halves are needed. `&numbers` is what makes the loop walk the original
-rather than a copy of the array, and `|*n|` is what makes each capture a pointer
-into it. Leave off either and the loop compiles and does nothing useful.
+rather than a copy of the array, and `|*n|` is what makes each capture a
+pointer into it. Leave off either and the loop compiles and does nothing
+useful.
 
 For a slice, the `&` is unnecessary: a slice already refers to memory it does
 not own, so `for (slice) |*item|` writes through to the underlying elements.
@@ -81,18 +82,19 @@ The decrement comes first for a reason: `items.len` is a `usize`, and a loop
 written `while (i >= 0) : (i -= 1)` never terminates, because an unsigned
 counter cannot go below zero. In a safety build it panics on the wraparound
 instead, which at least tells you. That asymmetry is a deliberate cost. The
-forward loop is the one that is safe by construction, and going backwards means
-opting back into managing the index yourself.
+forward loop is the one that is safe by construction, and going backwards
+means opting back into managing the index yourself.
 
 ## `for` also breaks and yields
 
 `break`, `continue`, labels and `else` all work here exactly as on `while`. A
 `for` used as an expression yields a value with `break x` and needs an `else`
-for the ran-out-of-elements case, which makes linear search a single expression.
-See [loops as expressions](/learn/language-basics/loops-as-expressions/) and
-[labelled loops](/learn/language-basics/labelled-loops/).
+for the ran-out-of-elements case, which makes linear search a single
+expression. See [loops as
+expressions](/learn/language-basics/loops-as-expressions/) and [labelled
+loops](/learn/language-basics/labelled-loops/).
 
 `inline for` unrolls the loop at compile time and makes the capture
-comptime-known, which is what lets a loop iterate over the fields of a struct or
-the tags of an enum. That is a different tool with a different purpose, covered
-in [inline loops](/learn/language-basics/inline-loops/).
+comptime-known. That is what lets a loop walk the fields of a struct or the
+tags of an enum. That is a different tool with a different purpose, covered in
+[inline loops](/learn/language-basics/inline-loops/).

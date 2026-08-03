@@ -25,16 +25,16 @@ because hashing the pointer is almost never what you meant. That is why string
 keys get their own type.
 
 The refusal is a compile error, not a runtime surprise, and it is one of the
-better examples of what comptime reflection buys. The map inspects your key type
-at compile time, and if it contains a pointer whose target it would have to
-follow, it stops and tells you rather than silently hashing the address.
+better examples of what comptime reflection buys. The map inspects your key
+type at compile time. If it contains a pointer whose target it would have to
+follow, it stops and tells you, rather than silently hashing the address.
 
 The third row is the one people miss. A plain hash map's iteration order is
-whatever the table's layout produces, and it changes as the map grows. An array
-hash map keeps the entries in a list alongside the table, so iterating gives you
-insertion order and the cost is one extra indirection. Reach for it whenever the
-output is going to be shown to a person or compared against a fixture, because
-a test that iterates a plain hash map is a test that will eventually fail for no
+whatever the table's layout produces, and it changes as the map grows. An
+array hash map keeps the entries in a list alongside the table, so iterating
+gives you insertion order and the cost is one extra indirection. Use it
+whenever the output will be shown to a person or compared against a fixture. A
+test that iterates a plain hash map is a test that will eventually fail for no
 reason.
 
 ## `getOrPut` instead of get-then-put
@@ -53,9 +53,9 @@ map, so writing through it updates the stored value in place.
 Note that pointer is only valid until the next insertion: the same
 invalidation rule as `ArrayList.items`.
 
-`entry.key_ptr` is there too, and it matters for the string case below: on a
-fresh insert the map has stored *your* slice as the key, and `key_ptr` is where
-to overwrite it with a copy you own.
+`entry.key_ptr` is there too, and it matters for the string case below. On a
+fresh insert the map has stored *your* slice as the key, and `key_ptr` is
+where to overwrite it with a copy you own.
 
 The family is worth knowing in full. `put` overwrites, `putNoClobber` asserts
 the key is new, `fetchPut` returns what was there before, and `getOrPutValue`
@@ -83,15 +83,16 @@ and the matching teardown iterates the map freeing `entry.key_ptr.*` before
 `deinit`. Forgetting that is the most common leak in Zig code that uses maps,
 and a leak-checking allocator in a test is what catches it.
 
-The case where you do *not* need to copy is when the keys are already owned by
-something with a longer life: string literals, names interned in an arena, or
-slices of a buffer you are holding for the duration. Then the map borrowing them
-is correct and copying would be waste.
+You do *not* need to copy when the keys are already owned by something
+longer-lived: string literals, names interned in an arena, or slices of a
+buffer you are holding for the duration. Then the map borrowing them is
+correct and copying would be waste.
 
 ## What it costs
 
 A hash map is not free at small sizes. For a handful of entries, a plain array
-searched linearly is usually faster and always simpler, because the hashing and
-the indirection cost more than scanning eight elements. The map wins when the
-count is large enough that O(1) beats O(n) by more than the constant, which is
-somewhere in the dozens for cheap keys and lower for expensive comparisons.
+searched linearly is usually faster and always simpler, because the hashing
+and the indirection cost more than scanning eight elements. The map wins when
+the count is large enough that O(1) beats O(n) by more than the constant. That
+is somewhere in the dozens for cheap keys, and lower for expensive
+comparisons.

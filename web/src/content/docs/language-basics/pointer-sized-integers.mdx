@@ -19,9 +19,9 @@ The snippets on this site compile to `wasm32-wasi`, so `@sizeOf(usize)` is
 last test above asserts 4: it is a fact about the target, not about Zig.
 
 This page is the one place on the site where the wasm target is visible in an
-assertion rather than hidden behind it. Run the snippet and you are running the
-32-bit answer, because the browser is a 32-bit machine as far as this program is
-concerned.
+assertion rather than hidden behind it. Run the snippet and you are running
+the 32-bit answer, because the browser is a 32-bit machine as far as this
+program is concerned.
 
 Writing `u64` where you mean `usize` produces code that works on your machine
 and breaks on a 32-bit one. Writing `usize` where you mean "a 64-bit counter"
@@ -58,11 +58,11 @@ between `usize` and a fixed width is explicit:
 const n: u32 = @intCast(slice.len);   // checked in safety builds
 ```
 
-`@intCast` asserts the value fits. In Debug and ReleaseSafe that assertion is a
-real check and a value that does not fit panics. In ReleaseFast it is a promise
-you made, and breaking it is undefined behaviour. So `@intCast` is for when you
-know the bound (a length you just checked, an index you just validated), not for
-silencing a type error.
+`@intCast` asserts the value fits. In Debug and ReleaseSafe that assertion is
+a real check and a value that does not fit panics. In ReleaseFast it is a
+promise you made, and breaking it is undefined behaviour. So `@intCast` is for
+when you know the bound (a length you just checked, an index you just
+validated), not for silencing a type error.
 
 When the value genuinely might not fit, do the check yourself and produce an
 error:
@@ -76,15 +76,16 @@ Going the other way, from a narrower type to `usize`, never loses anything and
 still needs `@intCast` to be written, because Zig has no implicit widening
 either. The upside is that every place a size changes is a place you can see.
 
-## Where it bites in practice
+## Where this goes wrong in practice
 
-Subtraction. `usize` is unsigned, so `a - b` when `b > a` wraps, and in a safety
-build it panics with an integer overflow rather than producing a large number.
-The common instance is a backwards loop over `items.len`, which is why counting
-down is written as a decrement inside the body rather than in a continue
-expression. [For loops](/learn/language-basics/for-loops/) covers that shape.
+Subtraction. `usize` is unsigned, so `a - b` when `b > a` wraps, and in a
+safety build it panics with an integer overflow rather than producing a large
+number. The common instance is a backwards loop over `items.len`, which is why
+counting down is written as a decrement inside the body rather than in a
+continue expression. [For loops](/learn/language-basics/for-loops/) covers
+that shape.
 
-The other one is `.len` arithmetic in format strings and buffer sizing, where
-mixing a `usize` length with a `u32` field means one `@intCast` per expression
-until you pick one type and convert at the boundary. Converting once, where the
+The other one is `.len` arithmetic in format strings and buffer sizing. Mixing
+a `usize` length with a `u32` field means one `@intCast` per expression, until
+you pick one type and convert at the boundary. Converting once, where the
 value enters your code, is the version that stays readable.

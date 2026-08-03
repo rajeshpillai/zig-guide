@@ -10,18 +10,18 @@ import Playground from "../../../components/Playground.astro";
 The last chapter said every value has an address. This one answers the obvious
 follow-up: who decides which address, and for how long?
 
-For a local variable, the machine does, and the answer is startlingly cheap. It
-keeps one number: where the used part of memory currently ends. Calling a
+For a local variable, the machine does, and the answer is startlingly cheap.
+It keeps one number: where the used part of memory currently ends. Calling a
 function moves that mark along to make room for the call's locals, and
 returning moves it back. That is the whole mechanism. Making room costs one
 addition, and giving it back costs one subtraction, which is why calling a
 function is not something you have to budget for.
 
-The region a call gets is its **frame**, and the run of frames is the **stack**.
-Think of a stack of plates only in one respect: the one you put down last is
-the one you pick up first. A call cannot return before the calls it made have
-returned, so frames are always given back in the reverse of the order they were
-taken.
+The region a call gets is its **frame**, and the run of frames is the
+**stack**. Think of a stack of plates only in one respect: the one you put
+down last is the one you pick up first. A call cannot return before the calls
+it made have returned, so frames are always given back in the reverse of the
+order they were taken.
 
 The consequence is the part that matters, and it is the source of an entire
 family of bugs: **when the call returns, that memory is not yours any more.**
@@ -35,9 +35,9 @@ call to happen will be handed the same bytes.
 ## What just happened
 
 **Three calls were live at once and none of them shared an address.** `main`
-called `outer`, which called `inner`, and each had a local sitting somewhere of
-its own. Nothing coordinated that. Each call just moved the mark along by the
-size of what it needed.
+called `outer`, which called `inner`, and each had a local sitting somewhere
+of its own. Nothing coordinated that. Each call just moved the mark along by
+the size of what it needed.
 
 **The direction printed here is not a rule.** On this target the frames run
 upward. On most machines you will use they run downward, which is why you will
@@ -47,9 +47,9 @@ the answer. It is in the output because the honest thing to print is what
 actually happened rather than what the textbook says.
 
 **The second call to `outer` landed on the same address as the first.** This is
-the line to remember. The first call finished, the mark went back, and the next
-call to need that much room was handed exactly the same bytes. The old values
-were still sitting there right up until they were overwritten.
+the line to remember. The first call finished, the mark went back, and the
+next call to need that much room was handed exactly the same bytes. The old
+values were still sitting there right up until they were overwritten.
 
 So if `outer` had returned a pointer to its local, that pointer would still
 look perfectly fine. It would point at real, readable memory. It would just be
@@ -58,9 +58,8 @@ number that used to mean something. Writing through it would corrupt whatever
 call is using that frame now.
 
 This is called a **dangling pointer**, and notice that nothing about the
-pointer changed. The pointer is a number, and the number is still
-valid. What changed is who the memory belongs to, and a number cannot carry
-that.
+pointer changed. The pointer is a number, and the number is still valid. What
+changed is who the memory belongs to, and a number cannot carry that.
 
 ## Check yourself
 
@@ -69,10 +68,11 @@ If `outer` had a second local, say `var other: u32 = 9;` declared next to
 
 Neither answer is wrong to guess, because the answer is that **you cannot rely
 on it**. The compiler lays out a frame however it likes, and may not give a
-local an address at all if it can keep the value in a register. That is why the
-program above writes `_ = &value;` next to each one: taking the address forces
-the value into memory so there is something to print. Without that line, an
-optimising build would be entitled to make the whole question meaningless.
+local an address at all if it can keep the value in a register. That is why
+the program above writes `_ = &value;` next to each one: taking the address
+forces the value into memory so there is something to print. Without that
+line, an optimising build would be entitled to make the whole question
+meaningless.
 
 ## If you have written C
 
@@ -94,9 +94,10 @@ slice of a local array must not outlive that array, and the compiler will not
 tell you.
 
 What Zig gives you instead is [`defer`](/learn/language-basics/defer/) and the
-ownership conventions in the next chapter, which between them make the question
-"who owns this and how long does it live" something you answer once, in a
-signature, rather than in every caller.
+ownership rules in the next chapter. Between them, "who owns this and how long
+does it live" becomes a question you answer once, in a signature, rather than
+in every caller.
 
-Next: [Who Owns This Memory](/learn/systems-from-scratch/who-owns-this-memory/),
-which is about the memory that has to outlive the call.
+Next: [Who Owns This
+Memory](/learn/systems-from-scratch/who-owns-this-memory/), which is about the
+memory that has to outlive the call.

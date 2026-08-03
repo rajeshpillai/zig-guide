@@ -15,10 +15,10 @@ the function, the scope. Every path counts: falling off the end, an early
 
 ## Reverse order is the point
 
-Deferred statements run last-registered-first. That is what makes them compose:
-if you acquire A then B, cleanup happens B then A, which is almost always the
-correct unwinding order. Writing the release directly under the acquire keeps
-the pair visible in one glance:
+Deferred statements run last-registered-first. That is what makes them
+compose: if you acquire A then B, cleanup happens B then A, which is almost
+always the correct unwinding order. Writing the release directly under the
+acquire keeps the pair visible in one glance:
 
 ```zig
 const buf = try allocator.alloc(u8, n);
@@ -44,8 +44,8 @@ for (0..3) |_| {
 
 This is the difference from Go, where `defer` is function-scoped and a `defer`
 inside a loop quietly piles up until the function ends. In Zig, opening a file
-inside a loop and deferring its close closes it on each pass, so the loop cannot
-run out of descriptors.
+inside a loop and deferring its close closes it on each pass, so the loop
+cannot run out of descriptors.
 
 It also means a bare block is a way to bound a cleanup tightly:
 
@@ -78,8 +78,9 @@ You also cannot `return` from inside one:
 error: cannot return from defer expression
 ```
 
-A deferred statement runs on the way out of a scope. Letting it pick a different
-way out would make the exit path of every function with cleanup unreadable.
+A deferred statement runs on the way out of a scope. Letting it pick a
+different way out would make the exit path of every function with cleanup
+unreadable.
 
 ## `errdefer` for the failure path only
 
@@ -117,9 +118,10 @@ next to the thing it undoes.
 
 ## If you have written C++ or Rust
 
-`defer` does the work of a destructor, with the pairing written at the use site
-instead of attached to a type. The trade is deliberate. Nothing runs invisibly
-at a closing brace: everything that happens on the way out is a statement in the
-function you are reading. The cost is that a `defer` can be forgotten, which is
-why the [allocator chapter](/learn/standard-library/allocators/) leans on a
-leak-checking allocator to catch what review misses.
+`defer` does the work of a destructor, with the pairing written at the use
+site instead of attached to a type. The trade is deliberate. Nothing runs
+invisibly at a closing brace: everything that happens on the way out is a
+statement in the function you are reading. The cost is that a `defer` can be
+forgotten, which is why the [allocator
+chapter](/learn/standard-library/allocators/) relies on a leak-checking
+allocator to catch what review misses.

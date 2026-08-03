@@ -12,10 +12,10 @@ import Playground from "../../../components/Playground.astro";
 ## Parsing is fallible, and says so
 
 `std.fmt.parseInt` returns an error union, so a bad character or an
-out-of-range value is a value you handle, never a silent zero. The target
-type is the bound: `parseInt(u8, "300", 10)` is `error.Overflow` because 300
-does not fit. Passing base `0` reads the prefix the way a Zig literal would:
-`0x`, `0o`, `0b`, or decimal, underscores allowed.
+out-of-range value is a value you handle, never a silent zero. The target type
+is the bound: `parseInt(u8, "300", 10)` is `error.Overflow` because 300 does
+not fit. Passing base `0` reads the prefix the way a Zig literal would: `0x`,
+`0o`, `0b`, or decimal, underscores allowed.
 
 The two errors are worth distinguishing when reporting to a user.
 `error.InvalidCharacter` means the text was not a number at all;
@@ -25,8 +25,8 @@ error already told you which it was.
 
 The target type doing the bounds checking is the useful part. There is no
 separate range validation to write and no chance of it disagreeing with the
-field it feeds, because the field's type *is* the range. Parsing into `u16` for
-a port number rejects 70000 without a line of code.
+field it feeds, because the field's type *is* the range. Parsing into `u16`
+for a port number rejects 70000 without a line of code.
 
 `parseFloat` accepts the usual decimal and scientific forms plus `inf` and
 `nan`.
@@ -38,17 +38,15 @@ comes from a file or a terminal, which is nearly always.
 ## Hex
 
 `bytesToHex` returns a fixed-size array, not a slice, because the output
-length is known from the input at compile time. That means no allocator and
-no failure path. `hexToBytes` goes the other way into a caller-provided
-buffer.
+length is known from the input at compile time. That means no allocator and no
+failure path. `hexToBytes` goes the other way into a caller-provided buffer.
 
 It takes a case argument, `.lower` or `.upper`, so there is no ambiguity about
 what a digest will look like. Decoding accepts either.
 
-Because the return is an array rather than a slice, remember to take a reference
-when passing it somewhere that wants `[]const u8`: `&std.fmt.bytesToHex(d,
-.lower)` where the value is a temporary needs a `const` binding first, since
-there is nothing to point at otherwise.
+Because the return is an array rather than a slice, take a reference when
+passing it somewhere that wants `[]const u8`. A temporary needs a `const`
+binding first, since otherwise there is nothing to point at.
 
 For formatting bytes inline rather than converting them, `{x}` on a byte slice
 does the same job directly inside a `print`.
@@ -68,14 +66,15 @@ the input might not be valid base64. Size the destination with
 | `*_no_pad` | above, no `=` | fixed-width IDs |
 
 Sizing is the step people skip, and it does not fail loudly if you guess. On
-the encoding side, `Encoder.calcSize(n)` gives the exact output length, which is
-4 bytes for every 3 input bytes, rounded up and padded. On the decoding side,
-`calcSizeForSlice` inspects the padding to give the exact answer, and
-`calcSizeUpperBound` gives a safe over-estimate when you want to allocate before
-looking. Both return an error for input that cannot be valid base64 at all.
+the encoding side, `Encoder.calcSize(n)` gives the exact output length, which
+is 4 bytes for every 3 input bytes, rounded up and padded. On the decoding
+side, `calcSizeForSlice` inspects the padding to give the exact answer, and
+`calcSizeUpperBound` gives a safe over-estimate when you want to allocate
+before looking. Both return an error for input that cannot be valid base64 at
+all.
 
-`encodeWriter` writes straight to a `std.Io.Writer`, so encoding a large payload
-into a response needs no intermediate buffer.
+`encodeWriter` writes straight to a `std.Io.Writer`, so encoding a large
+payload into a response needs no intermediate buffer.
 
 Base64 is not encryption and not compression. It makes arbitrary bytes safe to
 put in a text field, and it costs a third more space to do it.

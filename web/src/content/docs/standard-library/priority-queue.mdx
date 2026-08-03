@@ -23,9 +23,9 @@ against a target you only know at run time; pass the value through
 `initContext`.
 
 Putting the comparator in the type rather than in a field is what makes every
-comparison a direct call the optimiser can inline. It also means two queues with
-different orderings are different types, so one cannot be passed where the other
-is expected.
+comparison a direct call the optimiser can inline. It also means two queues
+with different orderings are different types, so one cannot be passed where
+the other is expected.
 
 ## It is unmanaged, like the rest
 
@@ -40,36 +40,35 @@ const smallest = q.pop();     // ?u32
 `.empty` to create, allocator to every method that can allocate, and `pop`
 returns an optional so the empty case is in the type. If you find code calling
 `init(allocator, {})` with `add` and `removeOrNull`, that is the older managed
-shape: the methods are `push` and `pop` now, and the allocator is passed per
+shape. The methods are `push` and `pop` now, and the allocator is passed per
 call.
 
-`pushSlice` adds several at once, `count` and `capacity` report the obvious
-things, and `update(old, new)` replaces an element and restores the heap
-property, which is what a Dijkstra implementation needs when it finds a shorter
+`pushSlice` adds several at once, and `count` and `capacity` report the
+obvious things. `update(old, new)` replaces an element and restores the heap
+order, which is what a Dijkstra implementation needs when it finds a shorter
 path to a node already in the queue.
 
 ## What it is good at
 
-`push` and `pop` are O(log n); `peek` is O(1). You reach for it when you
-repeatedly need the current best element out of a changing set: a scheduler
-pulling the most urgent job, Dijkstra pulling the nearest node, a merge of
-sorted streams.
+`push` and `pop` are O(log n); `peek` is O(1). Use it when you repeatedly need
+the current best element out of a changing set: a scheduler pulling the most
+urgent job, Dijkstra pulling the nearest node, a merge of sorted streams.
 
 The shape to look for is interleaving. If everything is added and then
 everything is removed, sorting once is faster and simpler. The heap wins when
-pushes and pops are mixed, because it never pays to fully order the elements it
-has not reached yet.
+pushes and pops are mixed, because it never pays to fully order the elements
+it has not reached yet.
 
-It is also the right structure for "the largest k of n" when n is large: push
-everything, keep the heap capped at k, and you have used memory proportional to
-k rather than sorting n items to throw most of them away.
+It is also the right structure for "the largest k of n" when n is large. Push
+everything and keep the heap capped at k. You have then used memory
+proportional to k, rather than sorting n items to throw most of them away.
 
 ## What it is not
 
 The backing storage is a heap, not a sorted array. `iterator` walks that
 storage in heap order, which is not sorted order. Only `pop` gives you
 elements in priority sequence. If you need everything sorted once, an
-`ArrayList` plus `std.sort` is the better fit; the queue earns its keep when
+`ArrayList` plus `std.sort` is the better fit; the queue is worth using when
 insertions and removals are interleaved.
 
 It is also not stable. Two elements the comparator calls equal come out in
@@ -78,5 +77,5 @@ elements are inserted. When ties need to break by insertion time, put a
 sequence number in the element and compare it as a second key.
 
 Nor is it a queue in the FIFO sense, despite the name. If what you want is
-"first in, first out", that is a [queue](/learn/standard-library/queues/) and it
-is O(1) rather than O(log n).
+"first in, first out", that is a [queue](/learn/standard-library/queues/) and
+it is O(1) rather than O(log n).

@@ -8,8 +8,8 @@ order: 66
 import Playground from "../../../components/Playground.astro";
 
 Every other chapter in this run takes `init.io` and passes it down. This one
-looks at where that value comes from, because the choice belongs to the program
-and it is the only place in the codebase that has to make it.
+looks at where that value comes from, because the choice belongs to the
+program and it is the only place in the codebase that has to make it.
 
 <Playground
   name="03-standard-library.choosing-an-io"
@@ -55,25 +55,16 @@ code needs `concurrent`, run it against this instance and find out now.
 ## Evented implementations
 
 `std.Io.Uring` on Linux and `std.Io.Kqueue` on Darwin and the BSDs are the
-other two in the standard library. They take the same `gpa` plus options and
-answer `io()` the same way, so swapping one in is a change to three lines in
-`main` and to nothing else in the program:
-
-```zig
-var ev: std.Io.Uring = undefined;
-try ev.init(gpa, .{});
-defer ev.deinit();
-```
-
-The difference is underneath. Rather than parking a thread per blocking call,
-they submit the operation to the kernel and suspend the task, and a task that
-suspends this way costs a stack rather than a thread. `std.Io.fiber` is the
-machinery that does it, saving a handful of registers and switching stacks; it
-is what an implementation uses, not something application code calls.
+other two in the standard library. Rather than parking a thread per blocking
+call, they submit the operation to the kernel and suspend the task. A task
+that suspends this way costs a stack rather than a thread. `std.Io.fiber` is
+the machinery that does it, saving a handful of registers and switching
+stacks; it is what an implementation uses, not something application code
+calls.
 
 That is the payoff the `Io` parameter was for. A server written against the
 interface runs on a thread pool during development and on io_uring in
-production without a line changing, and the decision stays in `main` where you
+production, without a line changing. The decision stays in `main`, where you
 can see it.
 
 ## Library code names none of them
@@ -85,8 +76,8 @@ fn run(io: std.Io, ...) !void
 The function in the snippet is called three times with three different
 implementations and does not know the difference. Take an `Io` parameter,
 never reach for a global, and handle `error.ConcurrencyUnavailable` where you
-ask for concurrency. Then the choice on this page is the caller's, which is the
-entire point of making blocking go through an interface.
+ask for concurrency. Then the choice on this page is the caller's, which is
+the entire point of making blocking go through an interface.
 
 `Io.Threaded.global_single_threaded` exists as an escape hatch for debugging
 and for code that genuinely cannot take a parameter. Reaching for it in a

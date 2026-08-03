@@ -33,12 +33,13 @@ const accepted = try queue.put(io, &.{ 1, 2, 3, 4, 5, 6 }, 0);
 
 The last argument is how many elements the call must move before it may
 return. `putAll` and `putOne` are the everything-or-block spellings. A minimum
-of zero is the one that never blocks: it moves what fits and returns the count,
-which is 4 above because that is the capacity. `get` mirrors it exactly.
+of zero is the one that never blocks: it moves what fits and returns the
+count, which is 4 above because that is the capacity. `get` mirrors it
+exactly.
 
-That parameter is what makes batching cheap. A consumer that asks for a minimum
-of one and offers a buffer of 64 gets everything currently queued in a single
-call, and blocks only when there is nothing at all.
+That parameter is what makes batching cheap. A consumer that asks for a
+minimum of one and offers a buffer of 64 gets everything currently queued in a
+single call. It blocks only when there is nothing at all.
 
 ## Closing is how the receiver learns to stop
 
@@ -72,17 +73,19 @@ through and resumes as the consumer drains. Nothing coordinates that: a full
 queue blocking the sender *is* the back pressure, and the pair self-regulates
 at the speed of the slower side.
 
-This is the case that needs [`io.concurrent`](/learn/standard-library/concurrency/)
-rather than `io.async`. A producer started with `async` may run inline, all the
-way to the point where it fills the queue and blocks, with the consumer that
-would drain it still waiting for `async` to return. That deadlock is the reason
-the two spellings exist, and it is why this snippet is native and the one at the
-top of the page is not.
+This is the case that needs
+[`io.concurrent`](/learn/standard-library/concurrency/) rather than
+`io.async`. A producer started with `async` may run inline, all the way to the
+point where it fills the queue and blocks. The consumer that would drain it is
+still waiting for `async` to return. That deadlock is the reason the two
+spellings exist, and it is why this snippet is native and the one at the top
+of the page is not.
 
 ## Cancellation
 
-Every blocking call here is a cancellation point: `put`, `get`, and their `One`
-and `All` forms return `Cancelable` errors, and the `Uncancelable` variants opt
-out for cleanup paths. See [Cancellation](/learn/standard-library/cancellation/); the
-rule that `error.Canceled` should propagate applies to a blocked producer as
-much as anywhere else.
+Every blocking call here is a cancellation point: `put`, `get`, and their
+`One` and `All` forms return `Cancelable` errors, and the `Uncancelable`
+variants opt out for cleanup paths. See
+[Cancellation](/learn/standard-library/cancellation/); the rule that
+`error.Canceled` should propagate applies to a blocked producer as much as
+anywhere else.

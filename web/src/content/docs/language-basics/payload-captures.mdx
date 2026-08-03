@@ -26,13 +26,14 @@ Learning it once means every wrapper type in the language is already familiar.
 
 The capture is what makes these safe. There is no `isSome()` followed by a
 separate `unwrap()`, because those can be separated by an edit and then the
-unwrap runs without the test. Here the payload only has a name inside the branch
-where it is known to exist. Outside that branch there is nothing to misuse.
+unwrap runs without the test. Here the payload only has a name inside the
+branch where it is known to exist. Outside that branch there is nothing to
+misuse.
 
 That also explains the missing operations. There is no way to ask an optional
-"are you null" and get a bare bool you can stash in a variable, and no way to
-name the payload of a union variant that is not currently active. The language
-gives you the payload exactly where it is valid and nowhere else.
+"are you null" and get a bare bool you can store in a variable. There is no
+way to name the payload of a union variant that is not currently active. The
+language gives you the payload exactly where it is valid and nowhere else.
 
 ## Capture by pointer to mutate
 
@@ -52,21 +53,21 @@ Without the `*` you get a copy, and mutating it silently does nothing to the
 original. This is one of the few places Zig will let you write something that
 looks effective but is not.
 
-The rule for spotting it: ask what you are holding. `|v|` is a value you own and
-can freely change without affecting anything. `|*v|` is a pointer to the thing
-itself, so writes land. When the payload is large, the pointer form also avoids
-the copy, but correctness is the reason to reach for it, not speed.
+The rule for spotting it: ask what you are holding. `|v|` is a value you own
+and can freely change without affecting anything. `|*v|` is a pointer to the
+thing itself, so writes land. When the payload is large, the pointer form also
+avoids the copy, but correctness is the reason to reach for it, not speed.
 
 Capturing by pointer requires something to point at. It works when the thing
-being unwrapped is a mutable location (a `var`, a field, an element). Unwrapping
-a temporary that only exists for the length of the expression has nothing stable
-to take the address of, and the compiler says so rather than handing you a
-dangling pointer.
+being unwrapped is a mutable location (a `var`, a field, an element). A
+temporary that only exists for the length of the expression has nothing stable
+to take the address of. The compiler says so, rather than handing you a
+pointer to memory that is already gone.
 
 ## `_` is a capture too
 
-When a construct requires a capture and you do not want the value, `_` discards
-it without the unused-variable error:
+When a construct requires a capture and you do not want the value, `_`
+discards it without the unused-variable error:
 
 ```zig
 while (it.next()) |_| : (n += 1) {}
@@ -74,9 +75,8 @@ while (it.next()) |_| : (n += 1) {}
 if (result) |v| use(v) else |_| return default;
 ```
 
-That last one is the idiomatic "I do not care which error" and it reads better
-than catching and ignoring, because the discard is at the point where the error
-arrives.
+That last one is the idiomatic "I do not care which error". It reads better
+than catching and ignoring, because the discard sits where the error arrives.
 
 ## Two captures at once
 
@@ -87,7 +87,7 @@ operands in order:
 for (names, scores, 0..) |name, score, i| { ... }
 ```
 
-Each can independently be a pointer capture, so `for (&items, extras) |*item, x|`
-mutates the first while reading the second. The count has to match the number of
-operands, which is checked, so adding a sequence and forgetting its capture is a
-compile error rather than a silent shift of every name by one.
+Each can independently be a pointer capture, so `for (&items, extras) |*item,
+x|` mutates the first while reading the second. The count has to match the
+number of operands, and that is checked. So adding a sequence and forgetting
+its capture is a compile error, not a silent shift of every name by one.

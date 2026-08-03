@@ -8,8 +8,8 @@ order: 62
 import Playground from "../../../components/Playground.astro";
 
 A task you started is a task you may need to stop: the client hung up, the
-timeout fired, the user pressed Ctrl-C. Cancellation in Zig is a request, not a
-kill. You ask, and the task finds out at its next *cancellation point*.
+timeout fired, the user pressed Ctrl-C. Cancellation in Zig is a request, not
+a kill. You ask, and the task finds out at its next *cancellation point*.
 
 <Playground
   name="03-standard-library.cancellation"
@@ -56,17 +56,16 @@ often depends on how quickly you need it to stop.
 
 ## `error.Canceled` is not a failure to swallow
 
-Only the *next* cancellation point reports it. After that the request is spent,
-and later points return normally, so a task that catches `error.Canceled` and
-carries on will not be told again. That makes ignoring it a bug in almost every
-case: propagate it, and let the caller who asked for the cancellation see that
-it happened.
+Only the *next* cancellation point reports it. After that the request is
+spent, and later points return normally, so a task that catches
+`error.Canceled` and carries on will not be told again. That makes ignoring it
+a bug in almost every case: propagate it, and let the caller who asked for the
+cancellation see that it happened.
 
-Two escape hatches exist for when you genuinely need to finish something first.
-`io.recancel` re-arms a request you have handled so the next point sees it
-again, and `Io.CancelProtection` (via `io.swapCancelProtection`) blocks delivery
-across a region that must not be interrupted, such as a rollback or a flush.
-Both are for the cleanup path, not for staying alive.
+`renew` re-arms a request you have handled, so the next point sees it again.
+`protect` (via `Cancelable`) blocks delivery across a region that must not be
+interrupted, such as a rollback or a flush. Both are for the cleanup path, not
+for staying alive.
 
 ## A `Group` cancels as a whole
 
@@ -77,11 +76,11 @@ group.cancel(io);
 ```
 
 Every member gets the request, and `cancel` returns once all of them have
-stopped. This is the property that makes
-[structured concurrency](/learn/standard-library/concurrency/) worth the parameter: a
-server holding one `Group` of connection handlers shuts down by cancelling the
-group, with no list of threads to track and no handler left running after the
-scope that started it is gone.
+stopped. This is what makes [structured
+concurrency](/learn/standard-library/concurrency/) worth the extra parameter.
+A server holding one `Group` of connection handlers shuts down by cancelling
+the group. There is no list of threads to track, and no handler left running
+after the scope that started it is gone.
 
 A `Group` is also a cancellation boundary. Its tasks must return something
 coercible to `Cancelable!void`, and a member returning `error.Canceled` stops
@@ -92,9 +91,10 @@ way the snippet writes each task's outcome into a slot.
 
 ## Cancellation is why `lock` can fail
 
-`Io.Mutex.lock`, `io.sleep` and [`Io.RwLock.lock`](/learn/standard-library/locks/) all return `Cancelable!void`
-where older code had a plain `void`. It is not that locking became unreliable.
-`Cancelable` is a one-member error set and that member is `error.Canceled`, so
-a signature whose only error is that one is telling you it is a cancellation
-point and nothing more. Where a call genuinely must not be one, the standard
-library spells it out: `lockUncancelable`, `futexWaitUncancelable`.
+`Io.Mutex.lock`, `io.sleep` and
+[`Io.RwLock.lock`](/learn/standard-library/locks/) all return
+`Cancelable!void` where older code had a plain `void`. `Cancelable` is a
+one-member error set, and that member is `error.Canceled`. So a signature
+whose only error is that one is telling you it is a cancellation point and
+nothing more. Where a call genuinely must not be one, the standard library
+spells it out: `lockUncancelable`, `futexWaitUncancelable`.

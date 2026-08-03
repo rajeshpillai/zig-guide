@@ -43,9 +43,10 @@ top -= 1; const f = buf[top]; // pop
 ```
 
 No allocator means no `try` on push, which changes the shape of the code that
-uses it: a parser with a bounded nesting depth has no error path for "ran out of
-stack", only a check against the limit. That check is the thing to write, and it
-is the difference between rejecting deeply nested input and crashing on it.
+uses it. A parser with a bounded nesting depth has no error path for "ran out
+of stack", only a check against the limit. That check is the thing to write,
+and it is the difference between rejecting deeply nested input and crashing on
+it.
 
 ## Where you will actually want one
 
@@ -70,10 +71,10 @@ when you need stable addresses or O(1) splicing.
 
 "Faster" here is not a small constant factor. A pop from an array reads memory
 the CPU has already fetched; a pop from a linked list follows a pointer to
-somewhere the cache knows nothing about, and waits. Textbooks present the two as
-equivalent because they compare instruction counts, which stopped being the
+somewhere the cache knows nothing about, and waits. Textbooks present the two
+as equivalent because they compare instruction counts, which stopped being the
 thing that decides performance decades ago.
 
 The exception is real: if something else holds pointers to the elements, an
 array cannot be used, because growing it moves everything. That is the case
-where the extra allocation buys you something.
+where the extra allocation gives you something.

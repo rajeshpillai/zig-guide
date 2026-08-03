@@ -60,17 +60,17 @@ standard library and it is worth following, for two reasons that are easy to
 miss.
 
 The test can reach private declarations, because privacy is per file. A helper
-that is not `pub` has no other way to be tested, and moving tests to a separate
-file quietly pushes you toward making things public that should not be.
+that is not `pub` has no other way to be tested. Moving tests to a separate
+file pushes you toward making things public that should not be.
 
-And the test is read as the example. Someone opening the file to work out how a
-function is called finds a call, with real arguments and a checked result, a few
-lines below the definition. Documentation in a separate directory does not get
-read that way.
+And the test is read as the example. Someone opening the file to work out how
+a function is called finds a call, with real arguments and a checked result, a
+few lines below the definition. Documentation in a separate directory does not
+get read that way.
 
-Tests are not compiled into your program. A `test` block only exists in a build
-produced by `zig test` or a test step, so there is no cost to leaving them in
-place and no reason to move them somewhere else at release time.
+Tests are not compiled into your program. A `test` block only exists in a
+build produced by `zig test` or a test step. So there is no cost to leaving
+them in place, and no reason to move them at release time.
 
 ## Naming them
 
@@ -80,10 +80,10 @@ The name is a plain string, so write a sentence:
 test "parseInt rejects a trailing space" { ... }
 ```
 
-That name is what the runner prints on failure and what `--test-filter` matches,
-so a description of the behaviour is more useful than a label. Reading a failing
-test's name and knowing what broke, without opening the file, is the whole
-benefit.
+That name is what the runner prints on failure and what `--test-filter`
+matches, so a description of the behaviour is more useful than a label.
+Reading a failing test's name and knowing what broke, without opening the
+file, is the whole benefit.
 
 ## Reading a failure
 
@@ -98,6 +98,6 @@ Every snippet in this guide is compiled and run by CI, and the `test` ones
 report through this same runner. The output you see when you press Run is the
 real `zig test` output, executed in your browser as WebAssembly.
 
-More is in [testing](/learn/standard-library/testing/): the assertions that
-report what actually differed, checking that error paths clean up after
-themselves, and why the testing allocator turns every test into a leak test.
+There is more in [testing](/learn/standard-library/testing/). The assertions
+that report what actually differed. Checking that error paths clean up after
+themselves. And why the testing allocator turns every test into a leak test.

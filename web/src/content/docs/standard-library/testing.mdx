@@ -12,8 +12,8 @@ import Playground from "../../../components/Playground.astro";
 ## expect tells you nothing; the others tell you what
 
 `try std.testing.expect(a == b)` fails with "expected true, found false" and
-leaves you to add print statements. The typed assertions carry the values
-into the failure message:
+leaves you to add print statements. The typed assertions carry the values into
+the failure message:
 
 | Assertion | Reports on failure |
 | --- | --- |
@@ -48,57 +48,57 @@ and compares the pointed-at content.
 ## The allocator is a test
 
 `std.testing.allocator` fails the test if anything it handed out is still live
-when the test returns, so a missing `free` is a caught bug rather than a slow
-leak in production. In test builds it also detects double-free and
+when the test returns. A missing `free` is therefore a caught bug rather than
+a slow leak in production. In test builds it also detects double-free and
 use-after-free. Wire every allocation to a `defer free` and let the allocator
 police it.
 
-This is the single highest-value habit in this section. Memory bugs are the ones
-that do not reproduce, do not show up in the test that caused them, and turn
-into a production incident weeks later. Using the testing allocator everywhere
-means every test is also a leak test, at no cost in code.
+This is the single highest-value habit in this section. Memory bugs are the
+ones that do not reproduce, do not show up in the test that caused them, and
+turn into a production incident weeks later. Using the testing allocator
+everywhere means every test is also a leak test, at no cost in code.
 
 `std.testing.checkAllAllocationFailures` goes further: it runs your function
-repeatedly, failing the allocator at a different call each time, and checks that
-every partial failure still cleans up. That is how you find out whether your
-`errdefer` ladder is actually right, and it is not a check you could write by
-hand.
+repeatedly, failing the allocator at a different call each time, and checks
+that every partial failure still cleans up. That is how you find out whether
+your `errdefer` ladder is actually right, and it is not a check you could
+write by hand.
 
 ## How tests are found and run
 
-A `test` block is a top-level declaration, and `zig test` compiles the file into
-a runner that executes every one it can see. "Can see" is the part with a rule
-behind it: tests in a file that nothing imports are never compiled, so a test
-file added to the tree does not run until something reaches it.
+A `test` block is a top-level declaration, and `zig test` compiles the file
+into a runner that executes every one it can see. "Can see" is the part with a
+rule behind it. Tests in a file that nothing imports are never compiled, so a
+test file added to the tree does not run until something reaches it.
 
 `std.testing.refAllDecls(@This())` at the bottom of a file forces every
-declaration to be analysed, which pulls in the tests of imported files and also
-catches code that no longer compiles but that nothing currently calls.
+declaration to be analysed. That pulls in the tests of imported files, and
+also catches code that no longer compiles but that nothing currently calls.
 
 `zig build test --test-filter <substring>` runs the subset whose names match,
 which is what you want when iterating on one failure. Test names are plain
-strings, so writing them as sentences that describe the behaviour pays off here:
+strings, so writing them as sentences that describe the behaviour helps here:
 filtering on `"rejects"` finds every negative case.
 
 ## Tests are documentation that cannot go stale
 
 A `test` next to the function it exercises is the usage example, and unlike a
-comment it fails the build when it stops being true. That is the reason the
-standard library is full of them, and it is worth copying: a reader arriving at
-an unfamiliar function will read the test before the doc comment, because the
+comment it fails the build when it stops being true. That is why the standard
+library is full of them, and it is worth copying. A reader arriving at an
+unfamiliar function will read the test before the doc comment, because the
 test cannot be lying.
 
 That is also the principle this entire site is built on. Every snippet here is
-compiled and run before the page is published, which is the same guarantee at a
-larger scale. See [how this guide is verified](/verification/).
+compiled and run before the page is published, which is the same guarantee at
+a larger scale. See [how this guide is verified](/verification/).
 
 ## Skipping and expected failures
 
-`return error.SkipZigTest` skips a test at run time, which is the way to handle
-a case that only applies on some targets. The runner reports it as skipped
-rather than passed, so a permanently skipped test is visible rather than
-silently absent.
+`return error.SkipZigTest` skips a test at run time, which is the way to
+handle a case that only applies on some targets. The runner reports it as
+skipped rather than passed, so a permanently skipped test is visible rather
+than silently absent.
 
 For code that should not compile, there is no assertion to write: a compile
-error fails the build, which is the point. Testing that a misuse is rejected is
-done by not writing it, and by trusting the type.
+error fails the build, which is the point. Testing that a misuse is rejected
+is done by not writing it, and by trusting the type.

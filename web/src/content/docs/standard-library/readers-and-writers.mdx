@@ -18,12 +18,12 @@ Zig 0.15 replaced the old generic `Reader`/`Writer` with non-generic
    common mistake with the new API.
 
 "Non-generic" is the word doing the work in that first sentence. The old
-`Writer` was a type parameter, so every function taking one was generic and got
-compiled again per writer type, and a struct that wanted to store one had to be
-generic too. `std.Io.Writer` is a concrete type holding a pointer and a vtable,
-so a function takes `*std.Io.Writer` and that is the end of it. Compile times
-drop, error messages get shorter, and writers become values you can put in a
-field.
+`Writer` was a type parameter. Every function taking one was therefore generic
+and got compiled again per writer type, and a struct that wanted to store one
+had to be generic too. `std.Io.Writer` is a concrete type holding a pointer
+and a vtable, so a function takes `*std.Io.Writer` and that is the end of it.
+Compile times drop, error messages get shorter, and writers become values you
+can put in a field.
 
 ## Constructing them
 
@@ -37,11 +37,11 @@ var growable: std.Io.Writer.Allocating = .init(gpa);
 For files, `file.writerStreaming(io, &buf)` gives you a `File.Writer` whose
 `.interface` field is the `std.Io.Writer` to use.
 
-That `.interface` field is the pattern to recognise. The concrete type holds the
-state that a file writer needs, and embeds the generic interface as a field, so
-you pass `&file_writer.interface` to anything that takes a writer. Getting a
-compile error about `File.Writer` where a `*std.Io.Writer` was expected almost
-always means a missing `.interface`.
+That `.interface` field is the pattern to recognise. The concrete type holds
+the state that a file writer needs, and embeds the generic interface as a
+field, so you pass `&file_writer.interface` to anything that takes a writer.
+Getting a compile error about `File.Writer` where a `*std.Io.Writer` was
+expected almost always means a missing `.interface`.
 
 ## Flush, and where it belongs
 
@@ -55,7 +55,8 @@ try fw.interface.print("{d}\n", .{42});
 
 Nothing reaches the file until the buffer fills or you flush. A program that
 prints and then exits without flushing prints nothing, which is a confusing
-first encounter and the reason the `defer` goes directly under the construction.
+first encounter and the reason the `defer` goes directly under the
+construction.
 
 Note the buffer size is yours to pick, and it is a real decision. One byte
 means a syscall per write. Four kilobytes is a page and a sensible default.
@@ -92,17 +93,17 @@ A `.fixed` writer fails with `error.WriteFailed` when the buffer is full. It
 does not truncate silently.
 
 On the reading side, a line longer than the reader's buffer is
-`error.StreamTooLong` rather than a partial line, for the same reason: the
-interface will not hand you something that looks complete and is not. If input
-line length is unbounded and untrusted, that error is your length limit, and
+`error.StreamTooLong` rather than a partial line. Same reason: the interface
+will not hand you something that looks complete and is not. If input line
+length is unbounded and untrusted, that error is your length limit, and
 treating it as a protocol violation is usually correct.
 
 ## Why one interface
 
 Because everything becomes composable. A parser written against
 `*std.Io.Reader` is tested against `.fixed("literal input")` and deployed
-against a socket without changing. A formatter written against `*std.Io.Writer`
-writes to a file, a buffer, or a hash. That is the reason the
+against a socket without changing. A formatter written against
+`*std.Io.Writer` writes to a file, a buffer, or a hash. That is the reason the
 [networking](/learn/networking/) chapters can run in a browser: the protocol
 code takes bytes and returns bytes, and only the chapters genuinely about
 sockets need one.

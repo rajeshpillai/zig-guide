@@ -16,18 +16,18 @@ memory is free and automatic and short-lived. Heap memory has to be requested,
 lasts until it is handed back, and if it is never handed back, the program
 holds it until it exits. That is a **leak**.
 
-Which means somebody has to be responsible for handing it back, and the whole
-of memory management is that one question: **who owns this, and when do they
-give it up?** Every scheme you have heard of is an answer to it. A garbage
-collector answers "nobody, the runtime works it out later". Rust answers "the
-compiler tracks it". C answers "you do, good luck". Zig answers "you do, and
-the type signature will say so".
+So somebody has to be responsible for handing it back. The whole of memory
+management is that one question: **who owns this, and when do they give it
+up?** Every scheme you have heard of is an answer to it. A garbage collector
+answers "nobody, the runtime works it out later". Rust answers "the compiler
+tracks it". C answers "you do, good luck". Zig answers "you do, and the type
+signature will say so".
 
 That last part is the difference that matters. In Zig, **a function that
 allocates takes an allocator as an argument**. There is no global `malloc` to
-reach for. So a function that needs memory cannot hide it: it is in the
-signature, visible at every call site, and a function without that parameter
-cannot be quietly allocating behind your back.
+reach for. So a function that needs memory cannot hide it. The allocator is in
+the signature, visible at every call site. A function without that parameter
+cannot be allocating without your knowledge.
 
 ## The program
 
@@ -38,8 +38,8 @@ cannot be quietly allocating behind your back.
 **The first function allocated nothing.** `writeGreeting` takes a buffer the
 caller already has and writes into it. It owns nothing, so there is nothing to
 release, and it cannot leak. Reach for this more often than people new to
-systems programming expect. Plenty of jobs that look like they need the
-heap just need the caller to supply the space.
+systems programming expect. Plenty of jobs that look like they need the heap
+just need the caller to supply the space.
 
 **The second one returns memory it asked for.** `makeGreeting` takes an
 `std.mem.Allocator` and returns a slice that came from it. The caller now owns
@@ -48,9 +48,9 @@ written where the reader will look: in the doc comment on the function.
 
 **`defer` is how the giving-back gets done.** Writing
 `defer allocator.free(greeting);` on the line after the allocation schedules
-the release for when the block ends, however it ends. The two lines are next to
-each other, so you can see the pair at a glance instead of scrolling to a
-cleanup section at the bottom and hoping every path reaches it.
+the release for when the block ends, however it ends. The two lines sit next
+to each other, so you can see the pair in one look. The alternative is
+scrolling to a cleanup section at the bottom and hoping every path reaches it.
 
 **The allocator answered the question at the end.** `SafeAllocator` remembers
 what it handed out. Calling `deinit` reports how many allocations never came
@@ -58,10 +58,10 @@ back: 0 the first time, and 1 in the block where the `defer` was left out. It
 also writes a description of the leaked block to standard error, which is why
 this is the allocator to use while developing.
 
-That last part is the reason to learn ownership in Zig rather than in C. A leak
-is not something you discover in production three months later when a server
-falls over. It is a number the program prints before it exits, and in tests it
-is a red build: `std.testing.allocator` fails any test that leaks.
+That last part is the reason to learn ownership in Zig rather than in C. A
+leak is not something you discover in production three months later when a
+server falls over. It is a number the program prints before it exits, and in
+tests it is a red build: `std.testing.allocator` fails any test that leaks.
 
 ## Check yourself
 

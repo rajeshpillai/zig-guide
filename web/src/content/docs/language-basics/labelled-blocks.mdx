@@ -19,20 +19,20 @@ const count = blk: {
 };
 ```
 
-The name `blk` is arbitrary. What matters is that a multi-statement computation
-still produces a single `const`, so the intermediate `var` cannot leak into the
-surrounding scope or be accidentally reused later.
+The name `blk` is arbitrary. What matters is that a multi-statement
+computation still produces a single `const`, so the intermediate `var` cannot
+leak into the surrounding scope or be accidentally reused later.
 
 This is the Zig answer to "I need a few lines to compute this, but I want the
-result to be immutable", a pattern that otherwise pushes people toward a
-mutable variable with a wider scope than it deserves, or a single-use function.
+result to be immutable". Without it, people reach for a mutable variable with
+a wider scope than it deserves, or a function used once.
 
 ## The label is what makes it an expression
 
-An unlabelled block is a statement. It groups code and opens a scope, and it has
-no value. The label is what gives `break` something to name, and `break :blk x`
-is what gives the block a type. Leave the label off and there is no way to get
-`x` out.
+An unlabelled block is a statement. It groups code and opens a scope, and it
+has no value. The label is what gives `break` something to name, and `break
+:blk x` is what gives the block a type. Leave the label off and there is no
+way to get `x` out.
 
 The reverse is also checked. A label nobody breaks to is an error:
 
@@ -40,9 +40,10 @@ The reverse is also checked. A label nobody breaks to is an error:
 error: unused block label
 ```
 
-which is the same treatment [labelled loops](/learn/language-basics/labelled-loops/)
-get, and for the same reason: a leftover label is usually the fossil of control
-flow that has since been deleted.
+which is the same treatment [labelled
+loops](/learn/language-basics/labelled-loops/) get, and for the same reason: a
+leftover label is usually the leftover of control flow that has since been
+deleted.
 
 ## `break :blk` is not `return`
 
@@ -54,16 +55,18 @@ and abandoning the whole construction.
 
 Blocks nest, and a `break` names the block it leaves, so an inner block can
 break to an outer label and skip everything in between. That is the one place
-this construct gets hard to read, and the fix is a well-chosen label name rather
-than a comment.
+this construct gets hard to read, and the fix is a well-chosen label name
+rather than a comment.
 
 ## The block is a scope
 
 The second test in the snippet is about that. Everything declared inside the
 braces stops existing at the closing brace, including the `var` that did the
-work. Only the value that was broken out survives, and it survives as a `const`.
+work. Only the value that was broken out survives, and it survives as a
+`const`.
 
-That containment is the actual reason to reach for this. The alternative shape:
+That containment is the actual reason to reach for this. The alternative
+shape:
 
 ```zig
 var sum: u32 = 0;
@@ -71,10 +74,10 @@ for (0..10) |i| sum += i;
 // sum is mutable, in scope, and still writable fifty lines later
 ```
 
-leaves a mutable variable alive for the rest of the function with no indication
-that it is finished being written. Someone editing that function later has to
-read the whole thing to know whether `sum` is still being accumulated. In the
-block form the answer is visible at the closing brace.
+leaves a mutable variable alive for the rest of the function with no
+indication that it is finished being written. Someone editing that function
+later has to read the whole thing to know whether `sum` is still being
+accumulated. In the block form the answer is visible at the closing brace.
 
 ## Where it shows up in real code
 

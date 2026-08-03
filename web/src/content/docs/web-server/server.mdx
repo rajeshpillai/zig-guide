@@ -47,20 +47,20 @@ not found
 **The server reads until it sees a blank line.** Not a fixed number of bytes,
 and not one line: a loop that keeps taking lines until the accumulated bytes
 contain `\r\n\r\n`. This is the framing rule from the last chapter arriving
-where it actually bites, because now the bytes are trickling in from a socket
+where it actually hurts, because now the bytes are trickling in from a socket
 and there is no way to know how many are coming.
 
 **`Content-Length` on the response is not politeness.** Without it the client
 has no idea the body ended, so it waits, and the request appears to hang. The
 alternative is to close the connection and let end-of-stream mark the end,
-which is what `Connection: close` announces and what the client here relies on.
-Those two mechanisms are the only ways HTTP/1.1 has to end a body, and chunked
-encoding is the third that exists because neither works for a response whose
-length is not known when the headers are sent.
+which is what `Connection: close` announces and what the client here relies
+on. Those two mechanisms are the only ways HTTP/1.1 has to end a body, and
+chunked encoding is the third that exists because neither works for a response
+whose length is not known when the headers are sent.
 
 **The routing is one `eql`.** `/` gets HTML, everything else gets a 404. That
-is genuinely all routing is at this level: a comparison against the target, and
-everything a framework adds sits on top of this.
+is genuinely all routing is at this level: a comparison against the target,
+and everything a framework adds sits on top of this.
 
 **The status line carries a number and a phrase.** The number is for programs
 and the phrase is for people, and nothing reads the phrase. You can send
@@ -95,10 +95,10 @@ a failed call is an error in the return type rather than `-1` plus `errno`.
 
 Two C-specific hazards this sidesteps. The read into a fixed buffer has to
 leave room for a terminator if the result is going to be treated as a string,
-and forgetting that is the off-by-one from the
-[strings chapter](/learn/terminal/strings/) on a buffer holding attacker-
-controlled bytes. And `write` can be partial on a socket just as on a pipe, so
-the C version needs its own loop around it; `writeAll` is that loop.
+and forgetting that is the off-by-one from the [strings
+chapter](/learn/terminal/strings/) on a buffer holding attacker- controlled
+bytes. And `write` can be partial on a socket just as on a pipe, so the C
+version needs its own loop around it; `writeAll` is that loop.
 
 The one thing the C version makes obvious that this hides is that a socket is
 just a file descriptor. `read` and `write` work on it because they work on

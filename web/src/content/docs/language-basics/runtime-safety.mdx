@@ -49,12 +49,13 @@ otherwise `ReleaseFast` build.
 
 <aside>
 
-Snippets on this site build as `ReleaseSmall`, where the checks are off, so the
-one above is the exception: it is built `ReleaseSafe` on purpose, because a
+Snippets on this site build as `ReleaseSmall`, where the checks are off. The
+one above is the exception. It is built `ReleaseSafe` on purpose, because a
 chapter about a check firing should be able to show one. Our build runs it on
 every change and requires it to stop with exactly the message quoted above, so
-that message is checked nightly rather than remembered. It costs about 1.1 MB
-against the 79 KB a snippet here typically weighs, which is what the checks and
-the machinery to describe them cost, and it downloads only when you press Run.
+that message is checked nightly rather than remembered. It costs about 1.1 MB,
+against the 79 KB a snippet here usually weighs. That is the price of the
+checks and the machinery that describes them, and it downloads only when you
+press Run.
 
 </aside>

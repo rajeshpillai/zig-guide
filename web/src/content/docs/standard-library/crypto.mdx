@@ -20,7 +20,8 @@ does.
 
 ## Picking the right tool
 
-The names are dense, so it is worth being clear about which problem each solves.
+The names are dense, so it is worth being clear about which problem each
+solves.
 
 | You want | Use | Not |
 | --- | --- | --- |
@@ -33,8 +34,8 @@ The names are dense, so it is worth being clear about which problem each solves.
 The last row is a real distinction. `std.hash` holds non-cryptographic hashes
 like Wyhash, which are much faster and are what a hash table wants.
 `std.crypto.hash` is for when an attacker must not be able to find two inputs
-with the same output. Using the wrong one is slow in one direction and unsafe in
-the other.
+with the same output. Using the wrong one is slow in one direction and unsafe
+in the other.
 
 ## One-shot and incremental
 
@@ -51,9 +52,9 @@ Both produce the same digest; use the incremental form when the input arrives
 in pieces or is too large to hold at once.
 
 The digest is a fixed-size array, `[32]u8` for SHA-256, and it is raw bytes
-rather than hex. Printing it needs `{x}` or `std.fmt.bytesToHex`, and comparing
-it against a hex string from elsewhere means converting one side, not eyeballing
-the two.
+rather than hex. Printing it needs `{x}` or `std.fmt.bytesToHex`, and
+comparing it against a hex string from elsewhere means converting one side,
+not eyeballing the two.
 
 ## Constant-time comparison
 
@@ -62,15 +63,15 @@ std.crypto.timing_safe.eql([32]u8, a, b)
 ```
 
 `std.mem.eql` returns as soon as it finds a difference, so how long it took
-reveals how many bytes matched. For MACs, tokens, and password hashes that is a
-real attack. Use the timing-safe form for anything secret.
+reveals how many bytes matched. For MACs, tokens, and password hashes that is
+a real attack. Use the timing-safe form for anything secret.
 
 The attack is easier to believe once you see the shape of it. An attacker who
-can submit guesses and measure the response time submits tokens differing in the
-first byte until one takes marginally longer, learns that byte, and moves to the
-second. That turns 256^32 guesses into 32 × 256, which is a few thousand. The
-timing-safe version compares every byte every time and combines the results, so
-the duration says nothing.
+can submit guesses and measure the response time submits tokens differing in
+the first byte. When one takes marginally longer, they have learned that byte,
+and they move to the second. That turns 256^32 guesses into 32 × 256, which is
+a few thousand. The timing-safe version compares every byte every time and
+combines the results, so the duration says nothing.
 
 ## Passwords are a different problem
 
@@ -79,14 +80,14 @@ bcrypt, and scrypt, which are deliberately slow and salted. That slowness is
 the feature: it is what makes an offline guessing attack expensive.
 
 SHA-256 is designed to be fast, and commodity hardware computes billions per
-second. A leaked table of SHA-256 password hashes is a table of passwords within
-hours. Argon2 is tuned so that one hash takes a measurable fraction of a second
-and a configurable amount of memory, which costs your login endpoint nothing and
-costs an attacker running millions of guesses everything.
+second. A leaked table of SHA-256 password hashes is a table of passwords
+within hours. Argon2 is tuned so that one hash takes a measurable fraction of
+a second and a set amount of memory. That costs your login endpoint nothing.
+It costs an attacker running millions of guesses everything.
 
-The salt is the other half. It is stored alongside the hash, in the clear, and
-its job is to make sure two users with the same password get different hashes,
-so one precomputed table cannot crack both. `pwhash` handles generating and
+The salt is the other half. It is stored next to the hash, in the clear. Its
+job is to make sure two users with the same password get different hashes, so
+one precomputed table cannot crack both. `pwhash` handles generating and
 encoding it, which is the main reason to use it rather than assembling the
 pieces.
 
@@ -94,5 +95,5 @@ pieces.
 
 Enough to design a protocol. Knowing the API for an AEAD does not tell you how
 to choose a nonce, and choosing one badly breaks the whole construction. Use a
-reviewed protocol where one exists, and treat `std.crypto` as the implementation
-of primitives rather than as advice about how to combine them.
+reviewed protocol where one exists, and treat `std.crypto` as the
+implementation of primitives rather than as advice about how to combine them.

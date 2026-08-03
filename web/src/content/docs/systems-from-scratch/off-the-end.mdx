@@ -33,14 +33,14 @@ around. The pointer alone would have told the function where the data starts
 and nothing about where to stop.
 
 **The slice printed as 8 bytes.** Four for the pointer and four for the length,
-on this 32-bit WebAssembly build. Compile it for your own machine and it prints
-16, for the same reason a pointer there is 8 bytes rather than 4.
+on this 32-bit WebAssembly build. Compile it for your own machine and it
+prints 16, for the same reason a pointer there is 8 bytes rather than 4.
 
 **The checked read returned an error instead of a number.** `at` compares the
 index against `.len` and returns `error.OutOfBounds` when it does not fit.
-Nothing was read. The caller was told, in the return type, that the answer might
-not exist, and had to deal with both cases before it could use the result. One
-comparison bought that.
+Nothing was read. The caller was told, in the return type, that the answer
+might not exist, and had to deal with both cases before it could use the
+result. One comparison bought that.
 
 **And then the last line said `safety checks in this build: false`.**
 
@@ -51,17 +51,17 @@ be.
 
 When you write `slice[i]` directly, Zig inserts that same comparison for you,
 and on failure the program stops with a message naming the index and the
-length. That check exists in Debug and ReleaseSafe builds. It does not exist in
-ReleaseFast or ReleaseSmall, where it is compiled out for speed and size.
+length. That check exists in Debug and ReleaseSafe builds. It does not exist
+in ReleaseFast or ReleaseSmall, where it is compiled out for speed and size.
 
 The wasm you just ran is a ReleaseSmall build, because that is what gets
 shipped to a reader's browser. So on this page, `slice[4]` would not stop the
 program. It would read four bytes that are not yours and hand them over as a
 number.
 
-Here is the program that does it. This one is the exception on this site: it is
-built ReleaseSafe rather than ReleaseSmall, so the check is present, and it is
-here to stop. Press **Run**.
+Here is the program that does it. This one is the exception on this site: it
+is built ReleaseSafe rather than ReleaseSmall, so the check is present, and it
+is here to stop. Press **Run**.
 
 <Playground name="15-groundwork.past-the-end" />
 
@@ -79,8 +79,8 @@ there is no call stack here to walk. On your own machine the same panic comes
 with the chain of calls that led to it, file and line for each.
 
 That message is not quoted from memory. Our build runs this program on every
-change and requires it to stop with exactly that text, so if a future Zig
-worded the panic differently, this page would fail to publish rather than
+change and requires it to stop with exactly that text. If a future Zig worded
+the panic differently, this page would fail to publish. It cannot quietly
 teach you a message you would never see.
 
 This snippet is about 1.1 MB, against 46 KB for the program at the top of this
@@ -89,18 +89,18 @@ cost, and it is the honest reason the rest of the site does not carry them. It
 downloads only when you press Run.
 
 The general rule behind this, what each build mode turns off and what you are
-promising when you choose one, is
-[When the Checks Are Off](/learn/systems-from-scratch/when-checks-are-off/).
+promising when you choose one, is [When the Checks Are
+Off](/learn/systems-from-scratch/when-checks-are-off/).
 
 ## Check yourself
 
 The program checks `index >= numbers.len`. Why not `index > numbers.len`?
 
 Because the indexes of four elements are 0, 1, 2 and 3. Index 4 is the first
-one past the end, so it has to be rejected. Off-by-one at exactly this boundary
-is common enough to have a name, the fencepost error, and it is the reason to
-prefer `for (slice) |item|` over an index and a counter whenever you do not
-actually need the number.
+one past the end, so it has to be rejected. Being off by one at exactly this
+boundary is common enough to have a name: the fencepost error. It is the
+reason to prefer `for (slice) |item|` over an index and a counter whenever you
+do not actually need the number.
 
 ## If you have written C
 
@@ -112,19 +112,20 @@ int x = row[4];        /* reads something. no error, no warning, no crash */
 ```
 
 C's array does not carry a length, so a function receiving `int *row` cannot
-check anything; the length has to be passed alongside and kept correct by hand.
-Reading past the end is undefined behaviour, which in practice means it usually
-works, sometimes returns nonsense, and occasionally corrupts something that
-fails much later somewhere unrelated.
+check anything; the length has to be passed alongside and kept correct by
+hand. Reading past the end is undefined behaviour, which in practice means it
+usually works, sometimes returns nonsense, and occasionally corrupts something
+that fails much later somewhere unrelated.
 
-Zig's equivalents are the slice, which carries the length so it cannot get out
-of step with the data, and the safety check, which turns "usually works" into a
+Zig has two answers to it. The slice carries the length, so the length cannot
+get out of step with the data. The safety check turns "usually works" into a
 message with a line number. Both are what make this material learnable: you
 find out at the moment you make the mistake rather than an hour later.
 
-The C-shaped pointer, the one without a length, still exists in Zig for talking
-to C, and it is spelled differently on purpose:
-[many-item pointers](/learn/language-basics/many-item-pointers/).
+The C-shaped pointer, the one without a length, still exists in Zig for
+talking to C, and it is spelled differently on purpose: [many-item
+pointers](/learn/language-basics/many-item-pointers/).
 
-Next: [When the Checks Are Off](/learn/systems-from-scratch/when-checks-are-off/),
-which is the promise you make when you turn a check off.
+Next: [When the Checks Are
+Off](/learn/systems-from-scratch/when-checks-are-off/), which is the promise
+you make when you turn a check off.

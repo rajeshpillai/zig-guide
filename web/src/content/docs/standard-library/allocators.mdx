@@ -25,10 +25,10 @@ pick:
 | `SafeAllocator` | per-`free`, with leak detection | Development builds |
 | `std.testing.allocator` | per-`free`, fails the test on leak | Tests |
 
-The arena is the one to reach for more often than you would think. If your
-program has a natural "do a unit of work, then throw everything away" shape,
-an arena turns hundreds of `free` calls into a single `deinit`, and removes a
-whole category of leak.
+The arena is the one to reach for more often than you would think. Does your
+program have a natural "do a unit of work, then throw everything away" shape?
+Then an arena turns hundreds of `free` calls into a single `deinit`, and
+removes a whole category of leak.
 
 ## `defer` is what makes this bearable
 
@@ -62,10 +62,10 @@ new pointer, so always reassign: `slice = try allocator.realloc(slice, n)`.
 
 ## `SafeAllocator` was `DebugAllocator` was `GeneralPurposeAllocator`
 
-The leak-checking allocator has been renamed twice. If you arrived from an older
-tutorial looking for `std.heap.GeneralPurposeAllocator`, it became
-`std.heap.DebugAllocator`, and on current master it is `std.heap.SafeAllocator`.
-Both older names still resolve.
+The leak-checking allocator has been renamed twice. If you arrived from an
+older tutorial looking for `std.heap.GeneralPurposeAllocator`, it became
+`std.heap.DebugAllocator`, and on current master it is
+`std.heap.SafeAllocator`. Both older names still resolve.
 
 The second rename changed the shape, not just the spelling:
 
@@ -87,7 +87,7 @@ const allocator = safe.allocator();
 
 The word "safe" rather than "debug" is the claim being made. It panics on a
 double free, on a free through the wrong allocator, and on most writes after
-free, which is worth having outside a development build. You pay for it in code
-size: swapping the five data-structure programs on this site over added about
-14 KB to each `.wasm`. When you do not want the bookkeeping, use
+free, which is worth having outside a development build. You pay for it in
+code size: swapping the five data-structure programs on this site over added
+about 14 KB to each `.wasm`. When you do not want the bookkeeping, use
 `std.heap.smp_allocator` or an arena.

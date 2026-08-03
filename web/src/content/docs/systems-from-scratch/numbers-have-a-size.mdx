@@ -19,8 +19,8 @@ So a `u8` counts from 0 to 255. Then what?
 
 That question has three answers, and the difference between them is a whole
 category of famous bugs. It can wrap around to 0. It can stop the program. Or
-it can hand back "that did not fit" and let you decide. Zig makes you say which
-one you meant.
+it can hand back "that did not fit" and let you decide. Zig makes you say
+which one you meant.
 
 ## The program
 
@@ -41,9 +41,9 @@ overflow, and wrapping is the behaviour I want". Hashing and checksums want
 exactly this.
 
 **`std.math.add` returned `Overflow` instead of a number.** Its return type
-says the answer might not exist, so the program has to handle both cases before
-it can use the result. There is no way to accidentally read a sum that was
-never computed.
+says the answer might not exist, so the program has to handle both cases
+before it can use the result. There is no way to accidentally read a sum that
+was never computed.
 
 ## Check yourself
 
@@ -55,10 +55,10 @@ program. You get a compile error and the program never runs at all.
 
 When the numbers only become known while the program is running, the compiler
 cannot decide in advance. It inserts a check that runs instead, and in a build
-that keeps those checks an overflow stops the program with a message naming the
-line. Which builds keep them is
-[a chapter of its own](/learn/systems-from-scratch/when-checks-are-off/), and
-the short version is: the ones you develop in.
+that keeps those checks an overflow stops the program with a message naming
+the line. Which builds keep them is [a chapter of its
+own](/learn/systems-from-scratch/when-checks-are-off/), and the short version
+is: the ones you develop in.
 
 ## If you have written C
 
@@ -73,15 +73,15 @@ int y = 2147483647;
 y = y + 1;        /* undefined behaviour: the compiler may assume it cannot happen */
 ```
 
-The first line silently wraps. The second is worse than wrong: signed overflow
-is undefined behaviour in C, which means an optimiser is entitled to assume it
-never occurs and delete the code you wrote to check for it. Beginners lose days
-to this and mostly conclude they are bad at programming.
+The first line silently wraps. The second is worse than wrong. Signed overflow
+is undefined behaviour in C. An optimiser is therefore allowed to assume it
+never happens, and to delete the check you wrote to catch it. Beginners lose
+days to this and mostly conclude they are bad at programming.
 
 Zig's mapping is: C's silent wrap is `+%`, and you have to type the `%`. C's
 undefined behaviour is a crash you can see, in Debug and ReleaseSafe builds.
-The full rules, including what changes in a release build, are in
-[Integer Rules](/learn/language-basics/integer-rules/).
+The full rules, including what changes in a release build, are in [Integer
+Rules](/learn/language-basics/integer-rules/).
 
 Next: [Memory Is Numbered](/learn/systems-from-scratch/memory-is-numbered/),
 where the values stop being loose and get an address.
