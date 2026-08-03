@@ -23,8 +23,8 @@ import Playground from "../../../components/Playground.astro";
 | coerces freely | no | no | **yes** |
 
 That last row is the dangerous one. A `[*c]T` converts to and from the safe
-pointer types without complaint, which is convenient at a C boundary and
-harmful anywhere else: it silently launders away the guarantees the rest of
+pointer types without complaint. That is convenient at a C boundary and
+harmful anywhere else, because it silently discards the guarantees the rest of
 the language is built on.
 
 ## Convert at the boundary
@@ -100,5 +100,5 @@ not be writing `[*c]`. Use `*T` for one item, `[*]T` for many, `[]T` when you
 know the count, and `?` when it may be absent.
 
 A `[*c]` appearing in a compile error deep inside your own code, far from any
-C, is a sign that one leaked out of a boundary and has been travelling since.
-The fix is at the boundary, not at the error.
+C, means one leaked out of a boundary. It has been travelling ever since. The
+fix is at the boundary, not at the error.

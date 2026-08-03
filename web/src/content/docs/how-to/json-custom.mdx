@@ -12,9 +12,9 @@ import Playground from "../../../components/Playground.astro";
 The default JSON serializer emits your struct exactly as declared: same field
 names, same values, nothing more. Often the wire format has to differ. The
 field is `is_admin` in Zig but `admin` in the API, or the response needs a
-value you compute rather than store. You want that control without hand-rolling
-string concatenation and without giving up the checks that keep the output
-valid.
+value you compute rather than store. You want that control without
+hand-rolling string concatenation and without giving up the checks that keep
+the output valid.
 
 Zig's answer is a hook: declare `pub fn jsonStringify` on the type and
 `std.json.Stringify` calls it instead of walking the fields.
@@ -33,8 +33,8 @@ Zig's answer is a hook: declare `pub fn jsonStringify` on the type and
 
 ## The hook, field by field
 
-`objectField("user_id")` writes the key, and `write(self.id)` writes the
-value with normal serialization, including quoting strings and escaping them.
+`objectField("user_id")` writes the key, and `write(self.id)` writes the value
+with normal serialization, including quoting strings and escaping them.
 Because you name each key yourself, renaming is just typing a different
 string: `is_admin` becomes `admin`, `name` becomes `full_name`. The stream
 tracks structure, so if you forget an `endObject` or write a value where a key
@@ -45,8 +45,9 @@ JSON.
 
 `epoch_day` is not a struct field. The hook computes it from `created_at` and
 writes it like any other value. This is the main reason to write a custom
-serializer: the output can carry derived data (a formatted timestamp, a
-signed URL, a total) that you would not want to store on the struct itself.
+serializer. The output can carry derived data, such as a formatted timestamp,
+a signed URL or a total, that you would not want to store on the struct
+itself.
 
 ## `write` versus `print`
 

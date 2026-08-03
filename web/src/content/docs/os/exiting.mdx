@@ -28,13 +28,13 @@ happens. No `defer` at any depth of the stack. No `errdefer`. No flush.
 The lost line is the part worth internalising. Those bytes were in a buffer in
 your process's memory, the operating system never heard about them, and the
 process ended. This is the most common way output goes missing from a program
-that "definitely printed it", and it is why the second `defer` above, the one
-that would have flushed, is a trap: it looks like the safety net and it is not
+that "definitely printed it". It is also why the second `defer` above, the one
+that would have flushed, is a trap. It looks like the safety net and it is not
 attached to anything.
 
 Returning from `main` normally does run every `defer`, which is why `main`
-returning an error and `exit(1)` are not interchangeable. The first unwinds and
-cleans up; the second stops the process where it stands.
+returning an error and `exit(1)` are not interchangeable. The first unwinds
+and cleans up; the second stops the process where it stands.
 
 ## The status you leave
 
@@ -44,8 +44,8 @@ define, which is the same one-bit protocol the parent sees as `Term` in
 
 Returning an error from `main` sets a nonzero status for you and prints the
 error name with a stack trace in debug builds. That is the right default for a
-tool. Choosing a specific code is for programs whose callers branch on it,
-like `grep` returning 1 for "no match" and 2 for "something went wrong", a
+tool. Choosing a specific code is for programs whose callers branch on it.
+`grep` returns 1 for "no match" and 2 for "something went wrong", a
 distinction a shell script can act on and an error message cannot.
 
 ## `cleanExit`, and why it does nothing in Debug
@@ -58,15 +58,15 @@ pub fn cleanExit(io: Io) void {
 }
 ```
 
-A program about to exit does not need to free anything. The kernel reclaims the
-whole address space, and walking a tree of allocations to release memory that
+A program about to exit does not need to free anything. The kernel reclaims
+the whole address space. Walking a tree of allocations to release memory that
 is about to vanish is work that only makes the program slower to quit.
 
 `std.process.cleanExit` is that shortcut, with the one condition that makes it
-safe to use: in Debug it returns and lets your teardown run, so the leak
-detector still sees a program that freed everything and can still tell you
-about the leak that matters. In release builds it exits immediately. The Zig
-compiler itself calls it.
+safe. In Debug it returns and lets your teardown run, so the leak detector
+still sees a program that freed everything and can still tell you about the
+leak that matters. In release builds it exits immediately. The Zig compiler
+itself calls it.
 
 That mode dependence is why this page describes the call rather than running
 it. A snippet whose output changed between `-Doptimize=Debug` and the

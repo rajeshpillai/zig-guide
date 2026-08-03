@@ -9,31 +9,31 @@ import Playground from "../../../components/Playground.astro";
 
 Writing a file is a one-way transaction: you produce bytes, you are done. A
 window is a conversation. The display server decides when you may paint, asks
-whether you are still alive, and reports input, and missing your side of any of
-that leaves the window blank, frozen, or killed.
+whether you are still alive, and reports input. Miss your side of any of that
+and the window is left blank, frozen, or killed.
 
 Three things change from [Writing an Image File](../image-files/).
 
 **Pixels get wider.** Both X11 and Wayland want 32 bits per pixel, not 24. On a
 little-endian machine both want a `u32` holding `0x00RRGGBB`, which lands in
 memory as B, G, R, X. Writing whole `u32`s gets the byte order right without
-thinking about it, which is why the framebuffer in this section has been 32-bit
-from the first chapter.
+thinking about it, which is why the framebuffer in this section has been
+32-bit from the first chapter.
 
 **The buffer may become shared.** A file write is a copy. Putting pixels on
 screen does not have to be: Wayland's `wl_shm` hands the compositor a file
-descriptor for the same pages you drew into, and nothing is copied at all. X11's
-`XPutImage` does copy, to the server, which is the whole reason the `MIT-SHM`
-extension exists.
+descriptor for the same pages you drew into, and nothing is copied at all.
+X11's `XPutImage` does copy, to the server, which is the whole reason the
+`MIT-SHM` extension exists.
 
 **Drawing once is not enough.** The server tells you when to paint, and it will
 ask again.
 
 ## Xlib, the short version
 
-Open a display, create a window, map it, then answer events. It is markedly less
-ceremony than Wayland, and it still runs everywhere, including under XWayland on
-a Wayland desktop.
+Open a display, create a window, map it, then answer events. It is markedly
+less ceremony than Wayland, and it still runs everywhere, including under
+XWayland on a Wayland desktop.
 
 <Playground
   name="09-graphics.x11-window"
@@ -46,15 +46,15 @@ Four things in that code are worth knowing before you write your own.
 this repo that is what `//! link: X11` and `//! cinclude:` set up: `build.zig`
 synthesizes a header, runs `addTranslateC` over it, and hands the snippet the
 result as `@import("c")`. In your own project it is `b.addTranslateC(...)`
-followed by `translate.createModule()`. See
-[Importing C](../../working-with-c/cimport/) for the general shape.
+followed by `translate.createModule()`. See [Importing
+C](../../working-with-c/cimport/) for the general shape.
 
 **Xlib's `Default*` macros do not survive translation.** `DefaultScreen(dpy)`,
-`RootWindow`, `DefaultVisual`, and `DefaultGC` all expand to member accesses on a
-private struct, and translate-c cannot give that meaning. Every one has a real
-function behind it (`XDefaultScreen`, `XRootWindow`, and so on), so call those.
-`XDestroyImage` is the same problem with a different answer: it expands to a call
-through the image's own function table, which Zig can do directly:
+`RootWindow`, `DefaultVisual`, and `DefaultGC` all expand to member accesses
+on a private struct, and translate-c cannot give that meaning. Every one has a
+real function behind it (`XDefaultScreen`, `XRootWindow`, and so on), so call
+those. `XDestroyImage` is the same problem with a different answer: it expands
+to a call through the image's own function table, which Zig can do directly:
 
 ```zig
 _ = image.*.f.destroy_image.?(image);
@@ -80,9 +80,10 @@ differences are all in the same direction: the compositor does less on your
 behalf.
 
 **Discovery is a handshake.** You connect, ask for the registry, and the
-compositor advertises its globals. You bind the ones you need: `wl_compositor`,
-`wl_shm`, `xdg_wm_base`, `wl_seat`. This takes two roundtrips, not one, because
-the second is what runs the listeners you registered from inside the first.
+compositor advertises its globals. You bind the ones you need:
+`wl_compositor`, `wl_shm`, `xdg_wm_base`, `wl_seat`. This takes two
+roundtrips, not one, because the second is what runs the listeners you
+registered from inside the first.
 
 **A surface is not a window.** A bare `wl_surface` is just a rectangle of
 pixels. It becomes a window by being wrapped in an `xdg_surface` and then an
@@ -90,27 +91,27 @@ pixels. It becomes a window by being wrapped in an `xdg_surface` and then an
 
 **The first commit carries no buffer.** It asks the compositor for the initial
 `configure`. Attaching a buffer before that handshake completes is a protocol
-error. The `configure` handler acks the serial, attaches, damages, and commits,
-and that last commit is the moment the window appears.
+error. The `configure` handler acks the serial, attaches, damages, and
+commits, and that last commit is the moment the window appears.
 
 **You must answer `xdg_wm_base.ping` with `pong`.** It is the compositor's
-liveness check. Ignore it and your client is killed as unresponsive. This is the
-easiest thing in the protocol to forget, because nothing goes wrong until it
-does.
+liveness check. Ignore it and your client is killed as unresponsive. This is
+the easiest thing in the protocol to forget, because nothing goes wrong until
+it does.
 
 **The shell protocol is not in the library.** `xdg-shell` ships as XML that
-`wayland-scanner` turns into a header plus glue at build time. That is a normal
-`addSystemCommand` step with `addOutputFileArg2`, so the generated files can live
-in the Zig cache with nothing checked in.
+`wayland-scanner` turns into a header plus glue at build time. That is a
+normal `addSystemCommand` step with `addOutputFileArg2`, so the generated
+files can live in the Zig cache with nothing checked in.
 
 **There are no window decorations.** A compositor *may* offer to draw them via
-`zxdg_decoration_manager_v1`, but it is not obliged to, and GNOME's Mutter does
-not advertise that global at all. A client that just posts a buffer gets exactly
-that buffer: no titlebar, no close button, no way to move the window. Drawing
-your own means allocating a taller buffer, painting a strip, tracking the
-pointer, and turning a drag into `xdg_toplevel_move`, because window positions
-belong to the compositor rather than to you. The cursor image is the client's
-job too: the pointer is undefined until you call `wl_pointer.set_cursor`, so
+`zxdg_decoration_manager_v1`, but it is not obliged to, and GNOME's Mutter
+does not advertise that global at all. A client that just posts a buffer gets
+exactly that buffer: no titlebar, no close button, no way to move the window.
+Drawing your own means allocating a taller buffer, painting a strip, tracking
+the pointer, and turning a drag into a move request. Window positions belong
+to the compositor rather than to you. The cursor image is the client's job
+too: the pointer is undefined until you call `wl_pointer.set_cursor`, so
 without a cursor theme loaded it simply vanishes over your window.
 
 That list is why the X11 version above is one file and a Wayland one is not.
@@ -118,8 +119,8 @@ That list is why the X11 version above is one file and a Wayland one is not.
 ## What neither version here does
 
 **Animation.** One static frame. On Wayland, redraws are driven by a
-`wl_surface_frame` callback so they land in step with the compositor. On X11 you
-drive them from a timer or an idle loop.
+`wl_surface_frame` callback so they land in step with the compositor. On X11
+you drive them from a timer or an idle loop.
 
 **Resizing.** A real client allocates a new buffer on every `ConfigureNotify` or
 `configure`. Reusing a fixed one leaves the extra area unpainted on X11 and
@@ -129,6 +130,6 @@ scaled on Wayland.
 you a torn frame. A real client keeps two and waits for `wl_buffer.release`.
 
 **Format negotiation.** `XRGB8888` is mandatory in the Wayland protocol so it is
-safe to assume. The X11 code above checks only that the default visual is 24- or
-32-bit, which is true on any desktop from the last twenty years and is not the
-same as checking what is actually offered.
+safe to assume. The X11 code above checks only that the default visual is 24-
+or 32-bit. That is true on any desktop from the last twenty years, and it is
+not the same as checking what is actually offered.

@@ -67,7 +67,7 @@ the day a library opens a log file before your function runs.
 
 This chapter runs in your browser, which has no kernel, no descriptor table
 and no processes. The numbers still come out 0, 1 and 2, because WASI copied
-the interface: a module is handed descriptors by its host, refers to them by
+the interface. A module is handed descriptors by its host, refers to them by
 number, and reads and writes through calls that take that number as their
 first argument.
 
@@ -79,7 +79,7 @@ written against a kernel cannot tell.
 ## Where they come from next
 
 The rest of this section is descriptors doing the four things worth doing to
-them: writing to the ones you were given, passing modified copies to a child,
-holding one end of a pipe, and closing one to say you are finished. Sockets in
+them. Writing to the ones you were given. Passing modified copies to a child.
+Holding one end of a pipe. And closing one to say you are finished. Sockets in
 [Network Programming](/learn/networking/what-is-a-socket/) are the same
 integers again, with a different call to create them.

@@ -12,12 +12,12 @@ pipeline of programs, each of which takes the output of the last and knows
 almost nothing about the others. This section builds that pipeline, and the
 first stage is the one that turns characters into words.
 
-Source code arrives as bytes. `let total = 0;` is fourteen of them, and nothing
-in there says that `let` is a keyword or that `total` is one name rather than
-five letters. Deciding that is **lexing**, and doing it as a separate pass is
-the decision that makes everything downstream tractable: the parser never sees
-a space, never counts a digit, and never wonders whether `letter` starts with
-the keyword `let`.
+Source code arrives as bytes. `let total = 0;` is fourteen of them, and
+nothing in there says that `let` is a keyword or that `total` is one name
+rather than five letters. Deciding that is *lexing*, and doing it as a
+separate pass is what makes everything downstream tractable. The parser never
+sees a space, never counts a digit, and never wonders whether an identifier
+starts with a keyword.
 
 ## The program
 
@@ -51,8 +51,8 @@ generic syntax was such a famous problem.
 **Nothing was allocated.** Every token's `text` is a slice pointing back into
 the source, so the tokens are meaningless once the source goes away, and
 producing them copied nothing. That is the same borrowing decision as
-[sort](/learn/unix-tools/sort/), and it is worth noticing that a compiler makes
-it too.
+[sort](/learn/unix-tools/sort/), and it is worth noticing that a compiler
+makes it too.
 
 ## Check yourself
 
@@ -66,9 +66,9 @@ explain which one failed.
 
 ## If you have written C
 
-The C version of this is a `switch` on the current character inside a `while`,
-with an `enum` of token types and a struct holding a pointer, a length and a
-line number, which is exactly what is above. The differences are small and
+The C version of this is a `switch` on the current character inside a loop,
+with an enum of token types and a struct holding a pointer, a length and a
+line number. That is exactly what is above. The differences are small and
 worth naming.
 
 C's token would hold `char *start; int len;` as two fields you keep in step by
@@ -76,8 +76,8 @@ hand. A Zig slice is those two fields with the language enforcing that they
 travel together.
 
 And C's keyword lookup is usually a chain of `strcmp` calls. The version here
-uses a comptime `inline for` over a table, so the comparisons are generated but
-the table is written once. Neither is a hash, and neither needs to be at seven
-keywords.
+uses a comptime `inline for` over a table, so the comparisons are generated
+but the table is written once. Neither is a hash, and neither needs to be at
+seven keywords.
 
 Next: a parser, which takes this flat list and finds the structure in it.

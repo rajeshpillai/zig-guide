@@ -7,10 +7,10 @@ order: 130
 
 import Playground from "../../../components/Playground.astro";
 
-The tables in [per-pixel transforms](/learn/graphics/per-pixel/) were constants: you
-chose a contrast factor and built a table from it. The tables here are measured.
-Count how many pixels sit at each luma value, and the correction the image needs
-falls out of the counts.
+The tables in [per-pixel transforms](/learn/graphics/per-pixel/) were
+constants: you chose a contrast factor and built a table from it. The tables
+here are measured. Count how many pixels sit at each luma value, and the
+correction the image needs falls out of the counts.
 
 ```zig
 fn histogram(src: []const u32) [256]u32 {
@@ -27,10 +27,10 @@ step, and everything on this page is derived from it.
 
 ## Reading the shape
 
-The histogram of the test picture is bunched into the low third: the background
-ramp lives between 16 and 63, and the block and discs are three isolated spikes
-higher up. Nothing at all occupies 80 to 95 or 112 to 143. The picture is using
-about half the range it has.
+The histogram of the test picture is bunched into the low third. The
+background ramp lives between 16 and 63, and the block and discs are three
+isolated spikes higher up. Nothing at all occupies 80 to 95 or 112 to 143. The
+picture is using about half the range it has.
 
 That shape is what "the image looks flat" means numerically, and it is what
 levels and equalization each fix in a different way.
@@ -38,21 +38,21 @@ levels and equalization each fix in a different way.
 ## Levels: measure the ends
 
 The straightforward correction stretches whatever range the image occupies to
-fill 0 to 255. The only question is where the image really starts and stops, and
-the answer is not the first and last non-empty bin:
+fill 0 to 255. The only question is where the image really starts and stops,
+and the answer is not the first and last non-empty bin:
 
 ```zig
 const black = percentile(hist, total, 10);   // 1%
 const white = percentile(hist, total, 990);  // 99%
 ```
 
-Clipping a fraction at each end first is not an approximation, it is the point.
-A single hot pixel at 255, or one dead pixel at 0, would otherwise set the whole
-range and the stretch would do nothing. Every auto-levels implementation clips,
-and the fraction is the only knob.
+Clipping a fraction at each end first is not an approximation, it is the
+point. A single hot pixel at 255, or one dead pixel at 0, would otherwise set
+the whole range and the stretch would do nothing. Every auto-levels
+implementation clips, and the fraction is the only knob.
 
-The table that results is the contrast table from two chapters ago with measured
-endpoints instead of chosen ones.
+The table that results is the contrast table from two chapters ago with
+measured endpoints instead of chosen ones.
 
 ## Equalization: the table is the distribution
 
@@ -65,36 +65,38 @@ lut[i] = (cdf[i] - cdf_min) * 255 / (total - cdf_min);
 ```
 
 Where many pixels share a range the CDF climbs steeply, so that range gets
-spread over many output values. Where the image has nothing, the CDF is flat and
-the range is compressed to almost nothing. The `cdf_min` subtraction anchors the
-darkest occupied level at 0, without which a picture containing no true black
-never reaches black.
+spread over many output values. Where the image has nothing, the CDF is flat
+and the range is compressed to almost nothing. The `cdf_min` subtraction
+anchors the darkest occupied level at 0, without which a picture containing no
+true black never reaches black.
 
 The result in the output is dramatic: the background ramp, which was three
-barely distinguishable shades, becomes a broad gradient with visible structure.
+barely distinguishable shades, becomes a broad gradient with visible
+structure.
 
 ## What equalization cannot do
 
 Look at the equalized histogram in the output. It is flatter, but it still has
 empty buckets, and one bucket holds 300 pixels while another holds 77.
 
-Equalization redistributes values; it cannot invent them. If 821 pixels share a
-single luma value, they still share a single luma value afterwards. It moves
+Equalization redistributes values; it cannot invent them. If 821 pixels share
+a single luma value, they still share a single luma value afterwards. It moves
 that spike to wherever the CDF puts it and leaves the gaps on either side. A
 perfectly flat histogram is only achievable with as many distinct input values
 as output levels.
 
-The other thing worth knowing is that equalization amplifies whatever is in the
-sparse regions, including noise. A flat sky with sensor grain becomes a flat sky
-with visible sensor grain, because the algorithm cannot tell the difference
-between detail worth stretching and noise worth leaving alone. This is why
-photo tools offer it and photographers rarely use it as-is. The usual answer is
-CLAHE, which equalizes small tiles independently and limits how far any one
-level may be stretched.
+The other thing worth knowing is that equalization amplifies whatever is in
+the sparse regions, including noise. A flat sky with sensor grain becomes a
+flat sky with visible sensor grain, because the algorithm cannot tell the
+difference between detail worth stretching and noise worth leaving alone. This
+is why photo tools offer it and photographers rarely use it as-is. The usual
+answer is CLAHE, which equalizes small tiles independently and limits how far
+any one level may be stretched.
 
 ## Apply it to brightness, not to channels
 
-There are two ways to run a table over a colour image and they are not the same:
+There are two ways to run a table over a colour image and they are not the
+same:
 
 ```zig
 // Per channel: run the table over R, G and B independently.
@@ -112,13 +114,13 @@ levels per channel: 255, 32, 32  R/B = 7.96
 levels on luma:     251, 43, 43  R/B = 5.83
 ```
 
-Hue is carried by the ratios between the channels. Pushing each channel through
-the same curve independently changes those ratios, because a curve is not
-linear, so a colour comes out more saturated and shifted. Deciding the new
+Hue is carried by the ratios between the channels. Pushing each channel
+through the same curve independently changes those ratios, because a curve is
+not linear, so a colour comes out more saturated and shifted. Deciding the new
 brightness from luma and scaling all three by that one factor keeps the ratios
 and moves only the brightness.
 
-Per-channel is not always wrong. It is what "auto colour" does deliberately,
-since running levels on each channel separately also removes a colour cast: if
-the blue channel never exceeds 200, stretching it to 255 corrects a yellow tint.
+Per-channel is not always wrong. It is what "auto colour" does deliberately.
+Running levels on each channel separately also removes a colour cast: if the
+blue channel never exceeds 200, stretching it to 255 corrects a yellow tint.
 Which one you want depends on whether the cast is the problem or the picture.

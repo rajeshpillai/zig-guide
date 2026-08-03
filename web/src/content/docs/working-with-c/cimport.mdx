@@ -44,8 +44,8 @@ exe.addCSourceFile(.{ .file = b.path("vendor/thing.c"), .flags = &.{"-std=c99"} 
 
 Types, functions, and simple `#define` constants translate cleanly.
 **Function-like macros do not**: they are C syntax, not C semantics, and Zig
-cannot always give them meaning. When one matters, reimplement it in Zig;
-`zig translate-c` shows you what the automatic translation produced, which is a
+cannot always give them meaning. When one matters, reimplement it in Zig; `zig
+translate-c` shows you what the automatic translation produced, which is a
 useful starting point.
 
 ## Strings
@@ -58,13 +58,13 @@ already null-terminated, so passing one to C needs no conversion. Coming back,
 
 The comparison worth making is with every other language's answer to the same
 problem. Python has ctypes and cffi and a generator; Rust has bindgen; Go has
-cgo with its own dialect of comments. All of them are a separate tool that reads
-the header and emits code in a third file, which then has to be regenerated and
-committed and kept in step.
+cgo with its own dialect of comments. All of them are a separate tool that
+reads the header and emits code in a third file, which then has to be
+regenerated and committed and kept in step.
 
-Zig parses the header during compilation. There is no generated file, nothing to
-regenerate, and no way for a binding to drift from the header it was made from,
-because it is remade on every build. Update the C library and a changed
+Zig parses the header during compilation. There is no generated file, nothing
+to regenerate, and no way for a binding to drift from the header it was made
+from, because it is remade on every build. Update the C library and a changed
 signature is a compile error the same day.
 
 That property is what lets this guide's X11 chapter link against the real
@@ -74,9 +74,9 @@ unnoticed until someone reads the page.
 
 ## Error handling across the boundary
 
-C reports failure by return value and by a global `errno`, and neither survives
-translation into anything meaningful. So the wrapper you write around a C
-library is also where its conventions become Zig errors:
+C reports failure by return value and by a global `errno`, and neither
+survives translation into anything meaningful. So the wrapper you write around
+a C library is also where its conventions become Zig errors:
 
 ```zig
 pub fn open(path: [:0]const u8) !Handle {
@@ -87,17 +87,17 @@ pub fn open(path: [:0]const u8) !Handle {
 ```
 
 Doing that once per function is dull and it is the whole job. What you get is
-that the rest of the program uses `try`, and no caller can forget to check a
+that the rest of the program uses `try`. No caller can forget to check a
 return code, because there is no return code to forget.
 
 Ownership is the other half. C libraries have their own rules about who frees
 what, and the wrapper is where those become `defer` and `errdefer` in the Zig
-caller's scope. A handle type with a `deinit` method is usually the right shape,
-so the pairing is visible.
+caller's scope. A handle type with a `deinit` method is usually the right
+shape, so the pairing is visible.
 
 ## Why this page has no Run button
 
-Unlike every other chapter here, this one shows no runnable snippet: `@cImport`
-needs real C headers and a libc for the target, and the wasm sandbox these
-pages execute in has neither. The code above is illustrative rather than
-CI-verified, the only page in this guide of which that is true.
+Unlike every other chapter here, this one shows no runnable snippet.
+`@cImport` needs real C headers and a libc for the target, and the wasm
+sandbox these pages execute in has neither. The code above is illustrative
+rather than CI-verified, the only page in this guide of which that is true.

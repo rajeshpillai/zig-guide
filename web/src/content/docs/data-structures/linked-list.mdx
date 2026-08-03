@@ -8,14 +8,13 @@ order: 62
 import Playground from "../../../components/Playground.astro";
 
 A linked list is a poor container. It scatters its elements across memory, so
-traversing one is a sequence of dependent loads that the prefetcher cannot help
-with, and an [ArrayList](/learn/standard-library/arraylist/) beats it at almost
-everything you would reach for a list to do.
+walking one is a chain of dependent loads that the prefetcher cannot help
+with. An `ArrayList` beats it at almost everything you would use a list for.
 
-It is still the right first structure to build, because it is the smallest one
-that forces you to answer the three questions every container in Zig has to
-answer: who allocates, what does "no next element" look like in the type system,
-and who frees.
+It is still the right first structure to build. It is the smallest one that
+forces you to answer the three questions every container in Zig has to answer.
+Who allocates. What "no next element" looks like in the type system. And who
+frees.
 
 <Playground name="10-data-structures.linked-list" />
 
@@ -41,10 +40,11 @@ The optional is free:
 @sizeOf(?i32)    > @sizeOf(i32)   -> true
 ```
 
-A pointer can never validly be zero, so Zig uses zero as the null representation
-rather than storing a flag beside it. An optional integer has no spare value to
-use that way, so it does grow. This is why `?*T` is the idiomatic way to say
-"maybe a node" and why inventing a sentinel value buys nothing.
+A pointer can never validly be zero, so Zig uses zero as the null
+representation rather than storing a flag beside it. An optional integer has
+no spare value to use that way, so it does grow. This is why `?*T` is the
+idiomatic way to say "maybe a node" and why inventing a sentinel value buys
+nothing.
 
 ## The deinit has an ordering rule
 
@@ -58,13 +58,14 @@ while (current) |node| {
 ```
 
 Reading `node.next` after destroying `node` is a use-after-free. It usually
-appears to work, because the allocator has not yet handed that memory to anyone
-else, which is what makes it a bug that ships.
+appears to work, because the allocator has not yet handed that memory to
+anyone else, which is what makes it a bug that ships.
 
 The snippet runs under `std.heap.SafeAllocator` (`DebugAllocator` in older
-code), whose `deinit` returns the number of allocations that were never freed. A container that hands out memory is exactly where a
-leak comes from, so it is worth having the allocator check rather than reasoning
-about it. [Catching Memory Leaks](/learn/how-to/catching-leaks/) covers the tooling.
+code), whose `deinit` returns the number of allocations that were never freed.
+A container that hands out memory is exactly where a leak comes from, so it is
+worth having the allocator check rather than reasoning about it. [Catching
+Memory Leaks](/learn/how-to/catching-leaks/) covers the tooling.
 
 ## Two fields that are not obvious
 
@@ -81,9 +82,9 @@ class of accidental quadratic behaviour.
 
 ## Where a singly linked list stops being pleasant
 
-Removal needs the node *before* the one being removed, and you cannot get there
-from the node itself. So `remove` tracks `previous` through the walk and special
-cases the head:
+Removal needs the node *before* the one being removed, and you cannot get
+there from the node itself. So `remove` tracks `previous` through the walk and
+special cases the head:
 
 ```zig
 if (previous) |prev| {

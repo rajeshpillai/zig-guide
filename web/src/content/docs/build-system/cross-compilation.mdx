@@ -65,21 +65,21 @@ have cross-compiled C before, the absence is the surprising part.
 The traditional route needs a cross toolchain for each target, a sysroot
 containing that platform's headers and libraries, and a build system taught to
 find both. Assembling one takes a day, and keeping several is a permanent
-cost, which is why "we only build on Linux" is a common answer and why CI
+cost. That is why "we only build on Linux" is a common answer, and why CI
 matrices spend most of their time installing compilers.
 
 Zig ships the libc sources for the targets it supports and compiles the parts
-it needs on demand, so the toolchain and the sysroot are already inside the
-single binary you downloaded. Building a Windows executable from a Mac is the
-same command as building for yourself, with six more characters.
+it needs on demand. So the toolchain and the system headers are already inside
+the single binary you downloaded. Building a Windows executable from a Mac is
+the same command as building for yourself, with six more characters.
 
 ## What still needs care
 
-Cross-compiling gets you a binary. It does not get you a tested one, and it
-does not remove the platform differences the code has to handle: path
-separators, line endings, the fact that `usize` is 4 bytes on wasm and 8 on
-your laptop. The build succeeding proves the code compiles for that target,
-which is genuinely most of the value and is not the same as working.
+Cross-compiling gets you a binary. It does not get you a tested one. Nor does
+it remove the platform differences the code has to handle: path separators,
+line endings, the fact that `usize` is 4 bytes on wasm and 8 on your laptop.
+The build succeeding proves the code compiles for that target, which is
+genuinely most of the value and is not the same as working.
 
 Linking against a system library the target has and your machine does not is
 the other limit. That needs the real headers, and cross-compiling stops being
@@ -94,5 +94,5 @@ It accepts the flags a C compiler accepts, so it can be dropped into an
 existing `Makefile` or `configure` invocation as `CC=zig cc`, and it brings
 the cross-compilation with it. A C project that could only be built on the
 machine it was written for can usually be built for four platforms after that
-substitution, without a line of its source changing. `zig c++` does the same
+substitution. Not a line of its source has to change. `zig c++` does the same
 for C++.

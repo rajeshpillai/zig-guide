@@ -25,7 +25,7 @@ const ok = try std.process.run(gpa, io, .{ .argv = &.{ path_buf[0..len], "ok" } 
 
 There is no `/bin/echo` in the snippet, on purpose. A chapter that shells out
 to a system binary is a chapter that fails on the machine where that binary
-lives somewhere else, and this site's whole claim is that CI ran every snippet
+lives somewhere else. This site's whole claim is that CI ran every snippet
 today. `executablePath` gives the running program its own path, and a first
 argument tells the copy which half of the program to be.
 
@@ -34,10 +34,10 @@ how a supervisor spawns workers it can be sure match its own version.
 
 ## `run` against `spawn`
 
-`std.process.run` does four things in one call: spawn, read standard output and
-standard error to end of file, wait, and hand you both buffers. You free them.
-It is the right call when the output is small and you want all of it, and the
-wrong one when the output is large or the point is to react to it as it
+`std.process.run` does four things in one call: spawn, read standard output
+and standard error to end of file, wait, and hand you both buffers. It is the
+right call when the output is small and you want all of it. It is the wrong
+one when the output is large, or when the point is to react to it as it
 arrives. `.stdout_limit` caps how much it will collect, and it returns
 `error.StreamTooLong` rather than filling memory with a child that will not
 stop talking.
@@ -47,7 +47,7 @@ that is yours: the streams you asked for, when to read them, and when to wait.
 [Pipes](/learn/os/pipes/) is that call.
 
 Both go through `Io`. Creating a process is an operation on the interface, not
-a free function reaching for the kernel behind your back, so a program written
+a free function reaching for the kernel behind your back. So a program written
 against a different `Io` implementation spawns the way that implementation
 spawns.
 
@@ -62,30 +62,30 @@ switch (failed.term) {
 ```
 
 `Term` is a union because "how did it finish" has more than one answer. A
-process that exited chose its own `u8`; a process that was killed did not
+process that exited chose its own status. A process that was killed did not
 choose anything, and reporting the signal number as an exit code (the shell's
 `128 + n` convention) loses that distinction.
 
 Of the 256 codes a program can choose, only 0 means success. That asymmetry is
-the whole protocol: `&&` in a shell, a failing step in CI, and `Term.success()`
-all ask the same question and all get the same one-bit answer. Everything else
-you want the caller to know goes on standard error, because a code has no room
-for it.
+the whole protocol: `&&` in a shell, a failing step in CI, and
+`Term.success()` all ask the same question and all get the same one-bit
+answer. Everything else you want the caller to know goes on standard error,
+because a code has no room for it.
 
 The snippet's child exits 3 and the snippet itself exits 0, which is not an
-accident of style. Every snippet on this site is gated on exiting 0, so a
-failing child observed by a succeeding parent is the only way this page can
-show you a nonzero code at all.
+accident of style. Every snippet on this site is gated on exiting 0. A failing
+child observed by a succeeding parent is the only way this page can show you a
+nonzero code at all.
 
 ## What a child inherits
 
-By default: the environment, the working directory, and descriptors 0, 1 and 2.
-That last one is why a child's output appears in your terminal without anyone
-arranging it. The child was handed the same descriptor 1 you were.
+By default: the environment, the working directory, and descriptors 0, 1 and
+2. That last one is why a child's output appears in your terminal without
+anyone arranging it. The child was handed the same descriptor 1 you were.
 
 Each is overridable at the spawn call. `environ_map` replaces the environment,
 `cwd` changes the directory, and `stdin`, `stdout` and `stderr` each take an
 `inherit`, `ignore`, `close`, an open `file`, or a `pipe`. Replacing the
-environment does not replace how `argv[0]` is resolved: that still uses the
+environment does not replace how the program is found. That still uses the
 parent's `PATH`, so a child cannot be sent looking for itself down a path you
 invented for it.

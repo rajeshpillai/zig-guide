@@ -7,15 +7,15 @@ order: 3
 
 import Playground from "../../../components/Playground.astro";
 
-A static file server is four lines of logic: take the request target, open that
-file under the document root, read it, send it. It is also the single most
-reliable way to hand an attacker your `/etc/passwd`, and the reason is a
+A static file server is four lines of logic: take the request target, open
+that file under the document root, read it, send it. It is also the single
+most reliable way to hand an attacker your `/etc/passwd`, and the reason is a
 one-line mistake in an ordering.
 
-The target arrives percent-encoded. `%20` is a space, and `%2e` is a full stop.
-So the string `/%2e%2e/%2e%2e/etc/passwd` contains no `..` at all as far as any
-check looking at it can tell, and decodes to `/../../etc/passwd` a moment
-later.
+The target arrives percent-encoded. `%20` is a space, and `%2e` is a full
+stop. So the string `/%2e%2e/%2e%2e/etc/passwd` contains no `..` at all as far
+as any check looking at it can tell, and decodes to `/../../etc/passwd` a
+moment later.
 
 **Decode first, then check.** A guard that runs before decoding is inspecting a
 string that is not the one the filesystem will see.
@@ -35,8 +35,8 @@ anything looks for `..`.
 **Reject rather than normalise.** Collapsing `a/../b` into `b` is possible, and
 then you own a path normaliser, which is a second thing to get exactly right
 and has its own history of bugs. Refusing any `..` component is one rule with
-no edge cases, and no legitimate URL contains one, because the browser resolves
-them before sending.
+no edge cases, and no legitimate URL contains one, because the browser
+resolves them before sending.
 
 **The nul byte was refused too.** `/safe.txt%00.png` decodes to a name
 containing a zero byte, and anything downstream that treats it as a C string
@@ -66,7 +66,7 @@ absolute path as absolute and discards the prefix. That is exactly what
 `path.join` does in several languages, including Python's `os.path.join` and
 Node's `path.resolve`, and it turns a "harmless" absolute path into a full
 filesystem read. The guard should not be the only thing standing between a
-request and the disk: opening relative to a directory handle, so the kernel
+request and the disk. Opening relative to a directory handle, so the kernel
 enforces the boundary, is the belt to this braces.
 
 ## If you have written C
@@ -79,14 +79,14 @@ url_decode(path, target);
 int fd = open(path, O_RDONLY);
 ```
 
-Two problems, and the ordering is only the first. `strstr` also matches `..`
-anywhere, so a legitimate file called `notes..txt` is refused, which pushes
+Two problems, and the ordering is only the first. It also matches the pattern
+anywhere, so a legitimate file whose name contains it is refused. That pushes
 whoever maintains it toward a cleverer check, and cleverer checks are how the
 encoded variant gets through.
 
 The other C-specific hazard is that `open` takes a `char *`, so a nul in the
 decoded path silently truncates it. That is the reason the guard above rejects
-a nul rather than shrugging at it: in Zig the slice keeps its length, but the
+a nul rather than shrugging at it. In Zig the slice keeps its length, but the
 moment the path crosses into C the length stops travelling with it.
 
 `openat` with a directory handle is the structural fix, and it is available in

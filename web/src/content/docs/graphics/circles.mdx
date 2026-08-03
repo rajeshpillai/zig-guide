@@ -20,9 +20,9 @@ Square both sides and the square root disappears:
 dx*dx + dy*dy <= r*r
 ```
 
-Both sides are now integers, and the test is two multiplies and a compare. This
-trick is worth internalizing well beyond graphics: any time you are about to
-call `sqrt` in order to *compare* two lengths, don't. Hit testing, nearest
+Both sides are now integers, and the test is two multiplies and a compare.
+This trick is worth internalizing well beyond graphics: any time you are about
+to call `sqrt` in order to *compare* two lengths, don't. Hit testing, nearest
 neighbour searches, and collision detection all run on squared distances.
 
 <Playground name="09-graphics.circles" />
@@ -30,17 +30,17 @@ neighbour searches, and collision detection all run on squared distances.
 ## The bounding box
 
 The naive version scans the whole buffer to fill one circle. At 64x32 that is
-2048 tests for a shape covering about 150 pixels; at 640x480 a circle of radius
-100 costs 307,200 tests to fill 31,000 pixels. Looping `y` and `x` over
+2048 tests for a shape covering about 150 pixels; at 640x480 a circle of
+radius 100 costs 307,200 tests to fill 31,000 pixels. Looping `y` and `x` over
 `[centre - r, centre + r]` instead tests `(2r+1)^2` pixels, which the snippet
 prints alongside the naive count.
 
-The reason this stays a three-line change is that `putPixel` clips. The bounding
-box of a circle near an edge runs off the buffer, and nothing in `fillCircle`
-checks for that. The last circle in the snippet hangs off three sides at once to
-show it. Without clipping in one place, every shape routine would need its own
-`@min`/`@max` against the buffer size, and one of them would eventually get it
-wrong.
+The reason this stays a three-line change is that `putPixel` clips. The
+bounding box of a circle near an edge runs off the buffer, and nothing in
+`fillCircle` checks for that. The last circle in the snippet hangs off three
+sides at once to show it. Without clipping in one place, every shape routine
+would need its own `@min`/`@max` against the buffer size, and one of them
+would eventually get it wrong.
 
 ## An outline is the same test twice
 
@@ -58,9 +58,9 @@ fill, the squared-distance test is simpler and vectorizes.
 ## What is missing
 
 The edge is hard: a pixel is in or out, with nothing between. That is the
-staircase you can see in the output, and fixing it means computing what
-*fraction* of each pixel falls inside the circle and using that as an alpha
-value. [Antialiasing](../antialiasing/) does exactly that, on this same shape.
+staircase you can see in the output. Fixing it means computing what fraction
+of each pixel falls inside the circle, and using that as an alpha value.
+[Antialiasing](../antialiasing/) does exactly that, on this same shape.
 
 ## Exercises
 

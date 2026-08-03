@@ -12,14 +12,14 @@ import Playground from "../../../components/Playground.astro";
 ## `len` is bytes
 
 `"héllo".len` is 6, not 5, because `é` encodes to two bytes. Nothing in the
-language layer knows about UTF-8; source files are required to be valid
-UTF-8, but a `[]const u8` at runtime is just bytes. When you need character
-counts, `std.unicode.utf8CountCodepoints` walks the encoding.
+language layer knows about UTF-8; source files are required to be valid UTF-8,
+but a `[]const u8` at runtime is just bytes. When you need character counts,
+`std.unicode.utf8CountCodepoints` walks the encoding.
 
 This is a design decision rather than an omission. Most code that handles text
-never needs to know where the character boundaries are: copying, hashing,
+never needs to know where the character boundaries are. Copying, hashing,
 comparing for equality, writing to a socket and searching for a substring all
-work on bytes and are all faster and simpler for it. The cases that genuinely
+work on bytes, and are faster and simpler for it. The cases that genuinely
 need characters are a minority, and they ask for the UTF-8 machinery
 explicitly.
 
@@ -36,10 +36,10 @@ bugs.
   combining accent is two code points and one character, and an emoji with a
   skin-tone modifier can be several.
 
-The standard library gives you the first two. Grapheme clustering needs Unicode
-tables that `std` does not ship, so "how many characters will this occupy on
-screen" is a question for a library, and terminal width is a fourth answer
-again.
+The standard library gives you the first two. Grapheme clustering needs
+Unicode tables that `std` does not ship. So "how many characters will this
+occupy on screen" is a question for a library, and terminal width is a fourth
+answer again.
 
 ## Validate once, then iterate
 
@@ -53,39 +53,39 @@ For input you do not control (network data, file contents), run
 `utf8ValidateSlice` before treating bytes as text.
 
 That split, validate once and then iterate infallibly, is the pattern worth
-copying elsewhere. The alternative, checking for malformed input at every step,
-puts an error path in the middle of every loop for a condition that was already
-decided when the bytes arrived.
+copying elsewhere. The alternative, checking for malformed input at every
+step, puts an error path in the middle of every loop for a condition that was
+already decided when the bytes arrived.
 
 `utf8ByteSequenceLength` reads the first byte and tells you how many bytes the
-code point occupies, which is the primitive underneath all of this and
+code point occupies. That is the primitive underneath all of this, and
 occasionally what you want directly when scanning backwards.
 
 ## Slicing can cut a character in half
 
 `s[0..2]` on `"héllo"` produces one valid byte followed by half of `é`. Byte
-indices from `std.mem.find` (`indexOf` in older code) are always safe cut points
-when the needle itself is valid UTF-8, but arbitrary arithmetic on indices is
-not. If you truncate strings for display, iterate codepoint slices and stop at
-the last full character.
+indices from `std.mem.find` (`indexOf` in older code) are always safe cut
+points when the needle itself is valid UTF-8, but arbitrary arithmetic on
+indices is not. If you truncate strings for display, iterate codepoint slices
+and stop at the last full character.
 
-[Unicode Recipes](/learn/standard-library/unicode-recipes/) writes that function
-out, and covers finding the character that contains a given byte, which std has
-no helper for.
+[Unicode Recipes](/learn/standard-library/unicode-recipes/) writes that
+function out, and covers finding the character that contains a given byte,
+which std has no helper for.
 
 ## What is deliberately absent
 
 There is no case folding, no locale-aware comparison, no normalisation and no
 collation in the standard library. `std.ascii.toLower` exists and does exactly
-what its name says: ASCII only, which is correct for protocol keywords and wrong
-for text in most languages.
+what its name says: ASCII only, which is correct for protocol keywords and
+wrong for text in most languages.
 
 The reason is size. Doing case conversion properly means shipping Unicode
 tables, and the rules are language-dependent in ways that surprise people:
 Turkish dotless i, German sharp s, Greek final sigma. Zig's position is that a
 program which needs this should depend on a library that keeps the tables
-current, rather than have a stale copy inside every binary that links `std`.
+current. The alternative is a stale copy inside every binary that links `std`.
 
 For comparing user-supplied text, that means deciding what you actually need.
-Byte equality is right for identifiers and tokens. Anything involving "the same
-word typed differently" needs normalisation, and that needs a library.
+Byte equality is right for identifiers and tokens. Anything involving "the
+same word typed differently" needs normalisation, and that needs a library.

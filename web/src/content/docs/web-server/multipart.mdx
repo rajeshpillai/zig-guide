@@ -40,15 +40,15 @@ The data is `PNG\r\ndata`, and the body has `\r\n` immediately before the next
 boundary line. Those two bytes belong to the **delimiter**, not to the file.
 
 A parser that takes them anyway appends `\r\n` to every uploaded file. In a
-text field you will never notice. In a PNG it corrupts the last chunk, in a ZIP
-it breaks the central directory, and in a checksum comparison it fails for
-reasons nobody can see by looking. The demo prints both numbers so the claim is
-checkable rather than asserted.
+text field you will never notice. In a PNG it corrupts the last chunk, in a
+ZIP it breaks the central directory, and in a checksum comparison it fails for
+reasons nobody can see by looking. The demo prints both numbers so the claim
+is checkable rather than asserted.
 
 **The filename arrived as `../../etc/passwd`.** Exactly what you would expect
-somebody to try, and the sanitised form is `passwd`. This is the same traversal
-as the [static files chapter](/learn/web-server/static/) with the stakes
-inverted: that one was an unauthorised **read**, this is an unauthorised
+somebody to try, and the sanitised form is `passwd`. This is the same
+traversal as the static files chapter, with the stakes inverted. That one was
+an unauthorised **read**. This is an unauthorised
 **write**, anywhere the process can write. A web shell dropped into a directory
 the server also serves is the classic outcome.
 
@@ -65,16 +65,16 @@ filesystem.
 ## What this parser does not handle
 
 It requires the whole body in memory. Real uploads are the case where that
-stops being acceptable: a 2 GB file cannot be buffered before parsing, so a
-production parser is a **state machine fed by reads**, emitting each part as it
+stops being acceptable. A 2 GB file cannot be buffered before parsing, so a
+production parser is a state machine fed by reads, emitting each part as it
 streams past and writing file data straight to disk.
 
 That changes the code substantially and none of the decisions above. The
 boundary is still client-chosen, the trailing `\r\n` still belongs to the
 delimiter, and the filename is still untrusted. What gets harder is that a
-boundary can arrive split across two reads, so the matcher has to carry partial
-state, which is the same problem [framing](/learn/networking/framing/) covers
-for protocols generally.
+boundary can arrive split across two reads, so the matcher has to carry
+partial state. That is the same problem framing covers for protocols
+generally.
 
 ## Check yourself
 
@@ -82,16 +82,16 @@ The client promises the boundary does not appear in the data. What should a
 server do if it does anyway?
 
 Nothing special, and that is worth understanding. If the boundary appears
-inside a file, the parser will split that file in two at exactly that point,
-and both halves are valid parts as far as the format is concerned. There is no
-way to detect it, because there is no length anywhere to check against.
+inside a file, the parser splits that file in two at exactly that point. Both
+halves are valid parts as far as the format is concerned. There is no way to
+detect it, because there is no length anywhere to check against.
 
 That is a real weakness of the design, and it is mitigated by boundaries being
-long and random rather than by any validation. Browsers generate something like
-`----WebKitFormBoundary` plus 16 random characters, which makes an accidental
-collision impossible in practice and a deliberate one require the attacker to
-already control the boundary, at which point they can simply send whatever
-parts they like anyway.
+long and random rather than by any validation. Browsers generate a fixed
+prefix plus 16 random characters. That makes an accidental collision
+impossible in practice, and a deliberate one requires the attacker to already
+control the boundary, at which point they can simply send whatever parts they
+like anyway.
 
 ## If you have written C
 
@@ -99,8 +99,8 @@ The searching is `memmem` rather than `strstr`, and the reason is the whole
 point: file data contains nul bytes, so every string function is wrong here.
 Anything reaching for `strlen` on a part's contents has already lost the file.
 
-The other C-shaped hazard is the filename. `basename()` is the obvious tool and
-it has two traps: the POSIX version may modify its argument, and neither
+The other C-shaped hazard is the filename. `basename()` is the obvious tool
+and it has two traps: the POSIX version may modify its argument, and neither
 version rejects `..`, since `basename("..")` is `".."`. Then `open(dir_fd,
 name)` with that is a write into the parent directory. The sanitiser above
 refuses it explicitly, because a function that returns something plausible for
@@ -110,5 +110,5 @@ a dangerous input is worse than one that returns nothing.
 
 Eight chapters, and a small web server: a request parser, a socket, static
 files with a traversal guard, routing, urlencoded forms, sessions, templates,
-and uploads. What remains is scale rather than concept, and
-[many clients](/learn/networking/many-clients/) covers the concurrency part.
+and uploads. What remains is scale rather than concept, and [many
+clients](/learn/networking/many-clients/) covers the concurrency part.

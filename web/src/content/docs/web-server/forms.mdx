@@ -9,11 +9,11 @@ import Playground from "../../../components/Playground.astro";
 
 A submitted HTML form arrives as `name=Ada+Lovelace&role=engineer`, which is
 exactly a query string with the `?` removed. That is not a coincidence: HTML
-specified one encoding, and whether it travels in the URL or in the body is the
-method's business rather than the format's.
+specified one encoding, and whether it travels in the URL or in the body is
+the method's business rather than the format's.
 
 So the parser is the one from the last chapter. What is new is everything
-around it, because a body is not a URL: it can be megabytes, it arrives after
+around it, because a body is not a URL. It can be megabytes, it arrives after
 the headers, and the client tells you how much is coming.
 
 That last part is the whole of this chapter. **The client tells you.**
@@ -38,32 +38,33 @@ client claims a 4 GB body, server allocates or reads toward it, server dies.
 It costs nothing to ask, and a server that does not ask has handed the client
 control of its memory.
 
-**A missing `Content-Length` means zero, not "read until it stops".** A `GET`
-has no body and sends no length, and treating absence as unbounded is how a
+A GET has no body and sends no length. Treating absence as unbounded is how a
 server ends up waiting forever on a connection that has nothing more to say.
 
 **`twelve` was rejected rather than treated as zero.** A malformed length is a
-malformed request. Defaulting it to 0 sounds forgiving and means the body that
-*was* sent stays in the socket buffer, where the next request on a keep-alive
-connection will read it as its own request line. That is request smuggling, and
-this is the second time in this section that leniency has been the vulnerability.
+malformed request. Defaulting it to 0 sounds forgiving. What it means is that
+the body which was sent stays in the socket buffer, where the next request on
+a keep-alive connection reads it as its own request line. That is request
+smuggling, and this is the second time in this section that leniency has been
+the vulnerability.
 
 ## Check yourself
 
-The parser handles `application/x-www-form-urlencoded`. What does a form with a
-file upload send instead, and why can it not use this encoding?
+The parser handles `application/x-www-form-urlencoded`. What does a form with
+a file upload send instead, and why can it not use this encoding?
 
 `multipart/form-data`, which is a completely different format: each field
 becomes a section separated by a boundary string the client chooses and
 announces in the `Content-Type` header. It exists because urlencoding a
-megabyte of binary would inflate it by roughly a third, and because a file has
-a filename and a content type of its own that the encoding has nowhere to put.
+megabyte of binary would inflate it by roughly a third. And because a file has
+a filename and a content type of its own, which the encoding has nowhere to
+put.
 
 The practical consequence is that a server supporting uploads has two body
-parsers, not one, and the multipart one has to handle a boundary appearing
-inside the data, sections arriving split across reads, and a filename that must
-never be trusted as a path. Every one of those has its own history, and
-[File Uploads](/learn/web-server/multipart/) is the chapter that builds it.
+parsers, not one. The multipart one has to handle a boundary appearing inside
+the data, sections arriving split across reads, and a filename that must never
+be trusted as a path. Every one of those has its own history, and [File
+Uploads](/learn/web-server/multipart/) is the chapter that builds it.
 
 ## If you have written C
 
@@ -74,15 +75,14 @@ mistake is reading it with the same call:
 read(fd, buf, sizeof buf);   /* may return the headers AND part of the body */
 ```
 
-A read returns what has arrived, not what belongs to one part of the message.
 By the time you have found the blank line you have probably already read some
-of the body, so the parser has to work with what is in the buffer and only then
-read more. Any code that assumes "headers, then a fresh read for the body" is
-correct on a fast loopback and wrong over a real network.
+of the body. So the parser has to work with what is in the buffer, and only
+then read more. Any code that assumes "headers, then a fresh read for the
+body" is correct on a fast loopback and wrong over a real network.
 
-The other one is `atoi(content_length)`, which returns 0 for `"twelve"` and for
-`"0"` alike, and has no way to report overflow. `parseInt` returns an error, so
-the malformed case is one the compiler makes you handle.
+The other one is `atoi(content_length)`, which returns 0 for `"twelve"` and
+for `"0"` alike, and has no way to report overflow. `parseInt` returns an
+error, so the malformed case is one the compiler makes you handle.
 
 Next: [cookies and sessions](/learn/web-server/sessions/), which is how the
 server remembers who sent the form.

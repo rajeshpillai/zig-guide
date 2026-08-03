@@ -16,9 +16,9 @@ covers. Boxes are visited parents first, then children in document order, so
 whatever is painted later simply covers what was there. No depth buffer, no
 visibility test, no clipping against what is already drawn.
 
-That is the **painter's algorithm**, named for exactly what it sounds like, and
-it is the correct choice here because the ordering is already known: the
-document says what is in front of what.
+That is the **painter's algorithm**, named for exactly what it sounds like. It
+is the correct choice here because the ordering is already known: the document
+says what is in front of what.
 
 ## The program
 
@@ -27,14 +27,14 @@ document says what is in front of what.
 ## What just happened
 
 **Four fills, in order, and you can read the order off the picture.** `#page`
-covered its area with `-`, `h1` covered part of that with `=`, `.box` covered a
-lower part with `o`, and the text was written over the top. Each stage
+covered its area with `-`, `h1` covered part of that with `=`, `.box` covered
+a lower part with `o`, and the text was written over the top. Each stage
 overwrote the last, and nothing checked whether it was about to.
 
 **The canvas is an array.** A real framebuffer is four bytes per pixel instead
 of one character, and the fill loop writes RGBA rather than a letter. Nothing
-else about the structure differs, which is what the
-[pixel buffers](/learn/graphics/pixel-buffers/) chapter builds properly.
+else about the structure differs, which is what the [pixel
+buffers](/learn/graphics/pixel-buffers/) chapter builds properly.
 
 **Clipping is a bounds check.** Every write tests whether the cell is inside
 the canvas, which is what stops a box positioned off the edge from writing
@@ -43,13 +43,13 @@ driven by a stylesheet.
 
 **Text is painted, not laid out.** It goes at the box's corner and runs to the
 right. Real text painting means rasterising glyphs from a font at a size, with
-hinting and subpixel positioning, which the [font](/learn/graphics/) work in the
-graphics section is closer to.
+hinting and subpixel positioning, which the [font](/learn/graphics/) work in
+the graphics section is closer to.
 
 ## Why this order and not another
 
 The obvious alternative is to paint children first and let parents fill in
-around them, and it fails immediately: a parent's background would need to
+around them, and it fails immediately. A parent's background would need to
 know the shape of the union of its children, which is a much harder question
 than "fill this rectangle".
 
@@ -61,34 +61,34 @@ everything, in order, and accept the overdraw.
 
 ## Check yourself
 
-`z-index` lets an element be painted in front of one that comes after it in the
-document. Where does that fit into a single ordered walk?
+`z-index` lets an element be painted in front of one that comes after it in
+the document. Where does that fit into a single ordered walk?
 
 It does not, and that is why stacking contexts exist. An element with a
-`z-index` (and a `position` other than `static`) creates a **stacking context**:
-its subtree is painted as a unit, and the units are sorted by `z-index` before
-being painted in that order.
+`z-index` (and a `position` other than `static`) creates a
+*stacking context*. Its subtree is painted as a unit, and the units are sorted
+by `z-index` before being painted in that order.
 
 So the walk is still ordered, but the order is a sort rather than document
 order, and the sort is over groups rather than elements. That is why a child
-can never escape its parent's stacking context no matter how large its
-`z-index` is, which is one of the more surprising things about CSS until you
-know that painting works this way.
+can never escape its parent's stacking context, no matter how large its
+`z-index` is. It is one of the more surprising things about CSS until you know
+that painting works this way.
 
 ## If you have written C
 
 The fill loop is the one from any framebuffer, and the performance notes are
-the familiar ones: write whole rows rather than individual cells so the
-compiler can vectorise, and keep the buffer row-major so the writes are
+the familiar ones. Write whole rows rather than individual cells, so the
+compiler can vectorise. Keep the buffer row-major, so the writes are
 sequential.
 
-The specific hazard here is the bounds check. A box with a negative position or
-a width larger than the canvas is not a corner case, it is normal: a stylesheet
-can produce one trivially, and content that overflows its container does it
-constantly. C code that computes `row * width + col` and writes without
-clamping has a stylesheet-controlled out-of-bounds write, which is as bad as it
-sounds. The version above clamps per cell, which is slow and obviously correct;
-production code clamps the rectangle once and then writes without checking,
-which is fast and requires the clamp to be right.
+The specific hazard here is the bounds check. A box with a negative position,
+or a width larger than the canvas, is not a corner case. It is normal. A
+stylesheet can produce one trivially, and content that overflows its container
+does it constantly. C code that computes `row * width + col` and writes
+without clamping has a stylesheet-controlled out-of-bounds write, which is as
+bad as it sounds. The version above clamps per cell, which is slow and
+obviously correct. Production code clamps the rectangle once and then writes
+without checking, which is fast and requires the clamp to be right.
 
 Next: the scripting engine, and then the pipeline end to end.

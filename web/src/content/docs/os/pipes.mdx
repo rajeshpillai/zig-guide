@@ -52,22 +52,23 @@ child.stdin.?.close(io);
 child.stdin = null;
 ```
 
-The child is reading until end of file. End of file on a pipe means every write
-end has been closed, and the parent is holding one. A parent that writes,
-does not close, and then waits for output waits forever: the child is blocked
-in a read that cannot return, and the parent is blocked in a read of a child
-that will never write. Both are healthy. Neither will move.
+The child is reading until end of file. End of file on a pipe means every
+write end has been closed, and the parent is holding one. A parent that
+writes, does not close, and then waits for output waits forever. The child is
+blocked in a read that cannot return, and the parent is blocked in a read of a
+child that will never write. Both are healthy. Neither will move.
 
 This is the classic pipe deadlock, and it has a second form worth knowing.
-Pipes hold a fixed amount, 64 KB on Linux by default. A parent that writes more
-than that before reading anything fills the buffer and blocks in its own write,
-while the child fills its output pipe and blocks in its. `std.process.run`
-avoids both by draining and waiting in the right order, which is a good reason
-to reach for it whenever the output fits in memory.
+Pipes hold a fixed amount, 64 KB on Linux by default. A parent that writes
+more than that before reading anything fills the buffer and blocks in its own
+write, while the child fills its output pipe and blocks in its.
+`std.process.run` avoids both by draining and waiting in the right order,
+which is a good reason to reach for it whenever the output fits in memory.
 
-Setting `child.stdin = null` after closing is not ceremony. `wait` closes the
-streams it still holds, and a descriptor closed twice is a bug that finds you
-much later, when the number has been reissued to a file you care about.
+Setting `child.stdin = null` after closing is not ceremony. `Child.wait`
+closes the streams it still holds. A descriptor closed twice is a bug that
+finds you much later, when the number has been reissued to a file you care
+about.
 
 ## `SIGPIPE`, the other direction
 

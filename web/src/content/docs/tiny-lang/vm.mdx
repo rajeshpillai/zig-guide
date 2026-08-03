@@ -13,12 +13,12 @@ program that does so is the smallest one in the section.
 There is an instruction pointer, an index into the array. Read the instruction
 it points at, move it forward, do what the instruction says, repeat. That loop
 is called **fetch, decode, execute**, and it is what a physical processor does
-too, which is why this one is called a virtual machine rather than an
+too. That is why this one is called a virtual machine rather than an
 interpreter.
 
 Everything the machine needs is a stack and a table of slots. Instructions
-never name their operands: they take them from the top of the stack and put the
-result back.
+never name their operands: they take them from the top of the stack and put
+the result back.
 
 ## The program
 
@@ -48,18 +48,17 @@ visible rather than assumed. Each one is a switch dispatch, which is the price
 of a bytecode VM: real ones use computed goto or a JIT precisely because this
 switch runs billions of times.
 
-**There is no tree, and no names.** The `globals` array is indexed by number.
-Nothing in the running program knows a variable was ever called `total`, which
-is why a stripped binary gives you a stack trace full of addresses and why
-debug information is a separate thing you choose to keep.
+Nothing in the running program knows a variable was ever given a name. That is
+why a stripped binary gives you a stack trace full of addresses, and why debug
+information is a separate thing you choose to keep.
 
 ## The state of this language
 
 This VM has no `call` and no `ret`, so a program using functions compiles to
 bytecode that silently leaves them out. That is deliberate for one more
-chapter: a calling convention is four separate decisions (where arguments live,
-how a frame is addressed, who restores the instruction pointer, who cleans up
-the arguments) and each has alternatives worth seeing.
+chapter. A calling convention is four separate decisions: where arguments
+live, how a frame is addressed, who restores the instruction pointer, and who
+cleans up the arguments. Each has alternatives worth seeing.
 
 [A Calling Convention](/learn/tiny-lang/calls/) makes those decisions and runs
 `fact(5)` through compiled bytecode. Read this VM first: it is the same
@@ -74,23 +73,22 @@ Because the compiler is the one producing the bytecode, and it only emits
 sequences that balance. `add` is only ever emitted after two operands, so a
 correct compiler cannot produce an `add` that underflows. Real VMs move the
 check to the moment bytecode is *loaded*, verifying it once rather than on
-every instruction, which is exactly what the JVM's bytecode verifier does and
+every instruction. That is exactly what the JVM's bytecode verifier does, and
 why it exists. The checks are here because they are cheap at this size and
 because a hand-written bad chunk should say so rather than read memory it does
 not own.
 
 ## If you have written C
 
-The dispatch loop is `while (1) switch (*ip++)`, and the standard trick to make
-it faster is computed goto, a GCC extension where each instruction ends by
-jumping directly to the next handler instead of returning to the top of the
-switch. It helps because the branch predictor gets one indirect jump per
-opcode rather than one shared one, and it is the single most common
-optimisation in real interpreters.
+The dispatch loop is a switch, and the standard trick to make it faster is
+computed goto. It is a GCC extension where each instruction ends by jumping
+directly to the next handler, instead of returning to the top of the switch.
+It helps because the branch predictor gets one indirect jump per opcode rather
+than one shared one, and it is the single most common optimisation in real
+interpreters.
 
-The stack in C would be `long stack[64]; int top;`, which is what it is here.
 The difference is that pushing past the end in C reads and writes past the
-array with no complaint, and this chapter's whole subject is a loop that runs
+array with no complaint. This chapter's whole subject is a loop that runs
 millions of times, so a bug there corrupts something far away and much later.
 
 ## Where to go next
@@ -100,7 +98,6 @@ or lowered to instructions, and the instructions run. Every compiler and every
 interpreter you use is this, with more cases.
 
 If you want the machine underneath rather than the language on top,
-[Groundwork](/learn/systems-from-scratch/) covers what a byte, an address and a
-stack frame actually are. If you would rather keep building tools,
-[the Unix toolbox](/learn/unix-tools/) is seven more programs in the same
-spirit.
+[Groundwork](/learn/systems-from-scratch/) covers what a byte, an address and
+a stack frame actually are. If you would rather keep building tools, [the Unix
+toolbox](/learn/unix-tools/) is seven more programs in the same spirit.

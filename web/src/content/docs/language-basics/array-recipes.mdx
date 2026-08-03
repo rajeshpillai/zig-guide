@@ -43,8 +43,8 @@ exchange the dimensions no longer have to be two separate compile-time
 constants.
 
 Pick the nested array when the shape is fixed and small. Pick the flat one in
-three cases: when the width is computed, when you want to hand the whole thing
-to something that takes a `[]T`, or when the rows are large enough that
+three cases. When the width is computed. When you want to hand the whole thing
+to something that takes a `[]T`. Or when the rows are large enough that
 copying one by accident would matter.
 
 ## Tables built at compile time

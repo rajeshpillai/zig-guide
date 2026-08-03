@@ -7,10 +7,10 @@ order: 3
 
 import Playground from "../../../components/Playground.astro";
 
-Two chapters in, there is a tree of nodes and a way to ask what each one should
-look like. Neither says where anything goes. Layout is the stage that turns
-that into rectangles with positions, and it is the first part of a browser that
-is geometry rather than parsing.
+Two chapters in, there is a tree of nodes and a way to ask what each one
+should look like. Neither says where anything goes. Layout is the stage that
+turns that into rectangles with positions, and it is the first part of a
+browser that is geometry rather than parsing.
 
 The structure of the algorithm is the thing worth taking away, because it is
 not symmetric and almost nothing explains it:
@@ -30,9 +30,9 @@ about CSS sizing follows from that asymmetry.
 ## What just happened
 
 **Widths narrow going down: 400, then 380, then 360.** The viewport gives 400.
-`#page` has 10 of padding on each side, so its content is 380. `.box` inside it
-has 5 of margin and 5 of padding, taking 20 more, so its children get 360. No
-child was consulted at any point.
+`#page` has 10 of padding on each side, so its content is 380. `.box` inside
+it has 5 of margin and 5 of padding, taking 20 more, so its children get 360.
+No child was consulted at any point.
 
 **Heights accumulate going up.** The two paragraphs inside `.box` are 20 each,
 so `.box` is 40. `#page` contains a 40-tall `h1`, that 40-tall box plus its
@@ -40,8 +40,8 @@ margins, and a 20-tall footer, and comes out at 120. Nothing could have known
 that before laying the children out.
 
 **`h1` was given an explicit height of 40 and kept it.** Its text is 20 tall.
-An explicit height overrides the measured one, which is why content can overflow
-a box, and why `overflow` exists as a property at all.
+An explicit height overrides the measured one, which is why content can
+overflow a box, and why `overflow` exists as a property at all.
 
 **Positions come from a running cursor.** Each child is placed at the current y
 and then the cursor advances by that child's full outer height. That single
@@ -56,12 +56,12 @@ folklore.
 `width: 100%` works because widths flow down: the parent's width is already
 known when the child is sized. `height: 100%` asks the child to be as tall as
 its parent, but the parent's height is computed *from its children*. The
-question is circular, so CSS defines it as having no answer unless the parent
-has a definite height of its own, and when there is no answer the declaration is
+question is circular. CSS defines it as having no answer unless the parent has
+a definite height of its own, and when there is no answer the declaration is
 ignored.
 
 That is why the fix has always been to give every ancestor an explicit height,
-and why `height: 100vh` works instead: the viewport has a definite height that
+and why viewport units work instead. The viewport has a definite height that
 does not depend on anything inside it.
 
 ## What this leaves out
@@ -69,8 +69,8 @@ does not depend on anything inside it.
 **Inline layout.** Text here is one 20-pixel line, always. A real engine
 measures the text in its font, breaks it into lines that fit the width, and
 gets the height from how many lines there were. That is a different algorithm
-running inside the block one, and it is where the whitespace the
-[HTML chapter](/learn/browser/html/) discarded turns out to matter.
+running inside the block one, and it is where the whitespace the [HTML
+chapter](/learn/browser/html/) discarded turns out to matter.
 
 **Everything that is not normal flow.** Floats, absolute positioning, flexbox
 and grid are each their own layout algorithm, chosen per element by `display`
@@ -84,11 +84,11 @@ can it not be one pass?
 
 Because a parent's height needs its children's heights, and a child's width
 needs its parent's width. One pass would have to move in both directions at
-once. Splitting into two passes with opposite directions is what makes each one
-simple.
+once. Splitting into two passes with opposite directions is what makes each
+one simple.
 
-Real engines do exactly this and call the second pass **reflow**, and it is why
-a change that affects one element's height forces a recomputation up the whole
+Real engines do exactly this, and call the second pass *reflow*. It is why a
+change that affects one element's height forces a recomputation up the whole
 ancestor chain. Layout thrashing, where reading a computed height from
 JavaScript forces a synchronous reflow, is this algorithm being run again
 because you asked a question only it can answer.
@@ -96,16 +96,16 @@ because you asked a question only it can answer.
 ## If you have written C
 
 The tree walk is unremarkable; the arithmetic is where the care goes. Every
-value here is an `i32` and the box model is additive, so a negative margin (a
-real CSS feature) makes a box wider than its parent, and a chain of them can
-make a width negative. A production engine clamps at zero after every
-subtraction.
+value here is a signed integer, and the box model is additive. A negative
+margin, which is a real CSS feature, makes a box wider than its parent, and a
+chain of them can make a width negative. A production engine clamps at zero
+after every subtraction.
 
 The other C-specific note is that this is the hot path. A page is tens of
 thousands of boxes and layout runs on every resize, every animation frame that
 changes geometry, and every DOM mutation. That is why box structs are packed,
-why engines cache the result per node with a dirty bit, and why the flat array
-used here is not just convenient: walking a tree of pointers scattered across
-the heap is what makes layout slow.
+and why engines cache the result per node with a dirty bit. It is also why the
+flat array used here is not just convenient: walking a tree of pointers
+scattered across the heap is what makes layout slow.
 
 Next: turning these rectangles into pixels.

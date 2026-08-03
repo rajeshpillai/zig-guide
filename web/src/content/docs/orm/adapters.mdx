@@ -9,15 +9,14 @@ import Playground from "../../../components/Playground.astro";
 
 ## The problem
 
-PostgreSQL numbers its placeholders (`$1`), SQLite uses positional
-question marks, MySQL quotes identifiers with backticks. An ORM that
-supports more than one database needs a seam where dialect differences
-live, and only there; the query builder above the seam should not know
-which database exists below it.
+PostgreSQL numbers its placeholders (`$1`), SQLite uses positional question
+marks, MySQL quotes identifiers with backticks. An ORM that supports more than
+one database needs a seam where dialect differences live, and only there. The
+query builder above the seam should not know which database exists below it.
 
-In a language with interfaces you would define `IDialect`. Zig's answer
-is structural: a dialect is any type with the right declarations, passed
-as a `comptime` parameter.
+In a language with interfaces you would define `IDialect`. Zig's answer is
+structural: a dialect is any type with the right declarations, passed as a
+`comptime` parameter.
 
 ## The pattern
 
@@ -33,30 +32,30 @@ as a `comptime` parameter.
 
 ## Requirements are structural, and errors are precise
 
-Nothing declares "Mysql implements Dialect". The requirement is exactly
-the set of declarations the renderer touches, and a dialect missing one
-fails to compile at the line that needed it. This is the same contract
-style the standard library uses for its `Io` implementations and the
-[repo's driver](/learn/orm/repo/) uses for databases.
+Nothing declares "Mysql implements Dialect". The requirement is exactly the
+set of declarations the renderer touches, and a dialect missing one fails to
+compile at the line that needed it. This is the same contract style the
+standard library uses for its `Io` implementations and the [repo's
+driver](/learn/orm/repo/) uses for databases.
 
-The three tests are the seam's specification: the same call produces
-three exact SQL strings, and the diff between them is precisely the
-dialect surface (placeholders and quoting), nothing else. When a new
-difference appears (say, `LIMIT` syntax), it becomes a new declaration,
-and every dialect must supply it or fail to build.
+The three tests are the seam's specification: the same call produces three
+exact SQL strings, and the diff between them is precisely the dialect surface
+(placeholders and quoting), nothing else. When a new difference appears (say,
+`LIMIT` syntax), it becomes a new declaration, and every dialect must supply
+it or fail to build.
 
 ## When to use comptime dispatch, and when not
 
 Comptime dialect selection means one binary supports the dialects it was
-compiled with. That is the right trade for an ORM, where an application
-knows its database. If users must choose a dialect from a config file at
-startup, you need runtime dispatch: a tagged union over the dialects, or
-a vtable like `std.mem.Allocator`. Start comptime; the seam's location
-does not move if you later change the dispatch.
+compiled with. That is the right trade for an ORM, where an application knows
+its database. If users must choose a dialect from a config file at startup,
+you need runtime dispatch: a tagged union over the dialects, or a vtable like
+`std.mem.Allocator`. Start comptime; the seam's location does not move if you
+later change the dispatch.
 
 ## In a full ORM
 
 The draft's adapters carry more than syntax: connection setup, the wire
-protocol (libpq for PostgreSQL, embedded C for SQLite), and type
-encoding live behind the same seam. The dialect surface grows, but the
-discipline holds: the builder never mentions a database by name.
+protocol (libpq for PostgreSQL, embedded C for SQLite), and type encoding live
+behind the same seam. The dialect surface grows, but the discipline holds: the
+builder never mentions a database by name.

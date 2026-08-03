@@ -8,11 +8,11 @@ order: 65
 import Playground from "../../../components/Playground.astro";
 
 Give the node a second pointer and keep everything smaller on the left, larger
-on the right. Lookup halves the search space at each step, and an in-order walk
-visits the values in sorted order for free.
+on the right. Lookup halves the search space at each step, and an in-order
+walk visits the values in sorted order for free.
 
-That is the whole idea, and it holds only while the tree stays roughly balanced.
-Nothing in the insert code makes it stay balanced.
+That is the whole idea, and it holds only while the tree stays roughly
+balanced. Nothing in the insert code makes it stay balanced.
 
 <Playground name="10-data-structures.bst" />
 
@@ -33,9 +33,9 @@ link.* = node;
 ```
 
 `link` points at the slot the new node will go into, rather than at the node
-above it. Inserting into an empty tree writes through `&self.root`; inserting at
-a leaf writes through `&node.left`. Both are the same two lines, so there is no
-special case for the empty tree and no "was this the root" branch.
+above it. Inserting into an empty tree writes through `&self.root`; inserting
+at a leaf writes through `&node.left`. Both are the same two lines, so there
+is no special case for the empty tree and no "was this the root" branch.
 
 `*?*Node` is worth reading slowly: a pointer, to an optional, to a node. Each
 layer is doing something. The optional is the empty slot; the outer pointer is
@@ -52,8 +52,8 @@ fn freeSubtree(allocator: std.mem.Allocator, maybe: ?*Node) void {
 }
 ```
 
-Children first, then the node. Freeing the node first loses the only pointers to
-its subtrees, and that leak is unreachable memory rather than a crash. The
+Children first, then the node. Freeing the node first loses the only pointers
+to its subtrees, and that leak is unreachable memory rather than a crash. The
 snippet runs under a leak-checking allocator, so the order is enforced rather
 than remembered.
 
@@ -73,9 +73,9 @@ The same fifteen values, inserted two ways:
 ```
 
 Sorted input never branches. Every value is larger than the last, so it goes
-right, every time, and the result is a linked list with an unused `left` pointer
-in every node. The search property still holds and in-order traversal still
-prints the values in order. Only the cost changed:
+right, every time, and the result is a linked list with an unused `left`
+pointer in every node. The search property still holds and in-order traversal
+still prints the values in order. Only the cost changed:
 
 ```
 lookups to find 15:
@@ -85,9 +85,9 @@ lookups to find 15:
 
 That is the whole problem with an unbalanced binary search tree, and sorted
 input is not an unusual case. It is what you get from a database export, a
-sorted file, a monotonic ID, or a timestamp: exactly the inputs most likely to
-show up in production and least likely to appear in a test written with
-hand-picked literals.
+sorted file, a monotonic ID, or a timestamp. Those are exactly the inputs most
+likely to show up in production, and least likely to appear in a test written
+with hand-picked literals.
 
 ## What the standard library gives you
 
@@ -104,5 +104,5 @@ There is no general-purpose balanced tree in `std`. The options are:
   rather than by rotation.
 
 Which leaves the case where you genuinely need ordered iteration with
-interleaved inserts. For that the tree has to repair its own shape, which is the
-next chapter.
+interleaved inserts. For that the tree has to repair its own shape, which is
+the next chapter.

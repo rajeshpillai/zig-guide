@@ -12,8 +12,8 @@ is not. Strip the syntax away and what is left is two ideas, both small, and
 both worth building once so the tool stops being mysterious.
 
 The first: **the targets form a graph.** `app` needs `main.o` and `util.o`,
-each of which needs its `.c` file. Building in the right order means visiting a
-node only after everything it depends on, which is a topological sort.
+each of which needs its `.c` file. Building in the right order means visiting
+a node only after everything it depends on, which is a topological sort.
 
 The second: **a timestamp decides whether work happens.** A target is stale if
 anything it depends on is newer than it is. That single comparison is the
@@ -31,13 +31,12 @@ built. `util.c` is 10 against `util.o` at 20, so that one is current.
 
 **The build order put the objects before the binary.** Nothing declared that
 order. It falls out of visiting dependencies first and appending each target
-only on the way back out, which is depth-first post-order and is what
+only on the way back out. That is depth-first post-order, and it is what
 "topological sort" means when you write it rather than name it.
 
-**Only `main.o` needed rebuilding.** Its source is newer than it is. `util.o`
-is newer than its source, so it was skipped, and this is the whole value
-proposition: on a large project almost everything is up to date, and the
-comparison that establishes that is one integer against another.
+**Only `main.o` needed rebuilding.** Its source is newer than it is. The output is newer than its source, so it was skipped. That is the whole
+value proposition. On a large project almost everything is up to date, and the
+comparison that establishes it is one integer against another.
 
 **The `visiting` flag is not bookkeeping, it is the cycle check.** Each target
 is marked while its dependencies are being visited and marked again when it is
@@ -54,23 +53,24 @@ never runs a command.
 
 ## Check yourself
 
-`make` is famously strict that recipe lines begin with a tab, not spaces. Given
-what you have just built, is that rule doing any work?
+`make` is famously strict that recipe lines begin with a tab, not spaces.
+Given what you have just built, is that rule doing any work?
 
 Almost none, and its author has said as much. The tab distinguishes a recipe
 line from a continuation of the rule, which a smarter parser could infer. It
 survives because changing it would break every Makefile ever written, which is
-the same reason a great many things in Unix are the way they are. The graph and
-the timestamps are the design; the tab is an accident that could not be undone.
+the same reason a great many things in Unix are the way they are. The graph
+and the timestamps are the design; the tab is an accident that could not be
+undone.
 
 ## If you have written C
 
 You have almost certainly written a Makefile without writing `make`, and the
-translation is direct: a rule's prerequisites are its edges, and `$@` and `$<`
+translation is direct. A rule's prerequisites are its edges, and `$@` and `$<`
 are the target and the first prerequisite of the node you are currently at.
 
 The one thing a C implementation has to do that this program skips is get the
-timestamp, with `stat()`, and handle the case where the file is not there at
+timestamp, with `stat`, and handle the case where the file is not there at
 all. A missing target has an mtime of nothing, which has to compare as "older
 than everything" so the target gets built. Representing that as 0 is exactly
 what the C version does, and it is the correct simplification.
@@ -78,8 +78,8 @@ what the C version does, and it is the correct simplification.
 ## Where to go next
 
 That is the toolbox. Seven programs, and between them the techniques that keep
-coming back: a fixed buffer and a streaming loop, a state machine, a search, an
-ownership decision, a delimiter, a conversion, and a graph.
+coming back. A fixed buffer and a streaming loop. A state machine. A search.
+An ownership decision. A delimiter. A conversion. And a graph.
 
 If you want the same treatment of the language itself,
 [Groundwork](/learn/systems-from-scratch/) starts from what a byte is. If you

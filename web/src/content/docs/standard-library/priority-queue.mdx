@@ -51,8 +51,8 @@ path to a node already in the queue.
 ## What it is good at
 
 `push` and `pop` are O(log n); `peek` is O(1). Use it when you repeatedly need
-the current best element out of a changing set: a scheduler pulling the most
-urgent job, Dijkstra pulling the nearest node, a merge of sorted streams.
+the current best element out of a changing set. A scheduler pulling the most
+urgent job. Dijkstra pulling the nearest node. A merge of sorted streams.
 
 The shape to look for is interleaving. If everything is added and then
 everything is removed, sorting once is faster and simpler. The heap wins when

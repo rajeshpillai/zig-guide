@@ -9,13 +9,13 @@ import Playground from "../../../components/Playground.astro";
 
 WebAssembly (wasm) is a binary instruction format for a stack machine. It is a
 compile *target*, not a language: you write Zig, C, or Rust, and the compiler
-emits a `.wasm` module. An engine (a browser, Node, wasmtime) loads that module
-and runs it in a sandbox at close to native speed.
+emits a `.wasm` module. An engine (a browser, Node, wasmtime) loads that
+module and runs it in a sandbox at close to native speed.
 
 This whole site is the demonstration. Every snippet you have read is Zig
-compiled to `wasm32-wasi`, and the Run button hands that exact module to a WASI
-shim in your browser. Press it below and the code reports the target it was
-built for.
+compiled to `wasm32-wasi`, and the Run button hands that exact module to a
+WASI shim in your browser. Press it below and the code reports the target it
+was built for.
 
 <Playground name="08-webassembly.hello-wasm" />
 
@@ -26,15 +26,15 @@ Three words carry most of the model.
 A **module** is the compiled `.wasm` file: code and a description of what it
 imports and exports. It is inert, like an unloaded shared library.
 
-An **instance** is a module that an engine has loaded and wired up. Instantiating
-resolves the module's imports (functions the host provides) and gives it its
-memory. You can instantiate the same module more than once; each instance has
-its own state.
+An **instance** is a module that an engine has loaded and wired up.
+Instantiating resolves the module's imports (functions the host provides) and
+gives it its memory. You can instantiate the same module more than once; each
+instance has its own state.
 
 **Linear memory** is the instance's heap: one flat, contiguous array of bytes,
 addressed from zero, that the module and the host both see. It starts at some
-number of 64 KiB pages and can grow. A Zig pointer inside a wasm module is just
-an offset into this array. There is no other memory the module can touch.
+number of 64 KiB pages and can grow. A Zig pointer inside a wasm module is
+just an offset into this array. There is no other memory the module can touch.
 
 ## Only numbers cross a call
 
@@ -44,8 +44,8 @@ struct, no array that a call can pass or return.
 
 Anything larger travels as bytes in linear memory, referred to by an `i32`
 offset and (usually) an `i32` length. A Zig `[]const u8` slice becomes a
-pointer and a length; across the wasm boundary that is two `i32`s. The
-[linear memory recipe](../linear-memory/) works through the pattern in full.
+pointer and a length; across the wasm boundary that is two `i32`s. The [linear
+memory recipe](../linear-memory/) works through the pattern in full.
 
 ## The sandbox
 
@@ -55,13 +55,13 @@ A module that was handed no imports can compute and nothing else.
 
 This is why the same `.wasm` runs unchanged in a browser tab and on a server:
 capability comes from the host, not from the binary. It is also why running an
-untrusted module is reasonable in a way that running an untrusted native binary
-is not.
+untrusted module is reasonable in a way that running an untrusted native
+binary is not.
 
 ## Three ways Zig reaches wasm
 
-The difference is the target triple you pass, which decides what the sandbox is
-allowed to reach.
+The difference is the target triple you pass, which decides what the sandbox
+is allowed to reach.
 
 | Target | What it gives you | Use it for |
 | --- | --- | --- |
@@ -77,17 +77,15 @@ the [freestanding recipe](../freestanding/) shows the smaller target.
 Two shapes of module, split by whether they have an entry point.
 
 A **command** has a `_start` function. The engine calls it once, it runs to
-completion like a `main`, and the instance is spent. Every WASI program in this
-guide is a command. A Zig file with `pub fn main` compiles to one.
+completion like a `main`, and the instance is spent. Every WASI program in
+this guide is a command. A Zig file with `pub fn main` compiles to one.
 
-A **reactor** has no entry point. The engine instantiates it and then calls its
-exported functions on demand, many times, keeping the instance alive between
-calls. This is the shape you want when JavaScript calls into Zig. You build it
-with `-fno-entry` and name the functions to export.
+A **reactor** has no entry point. The engine instantiates it and then calls
+its exported functions on demand, many times, keeping the instance alive
+between calls. This is the shape you want when JavaScript calls into Zig. You
+build it with `-fno-entry` and name the functions to export.
 
 Which one you need decides which recipe applies. The next pages build each in
-turn: a [WASI command](../wasi-command/) you run from a shell, a
-[reactor called from JavaScript](../export-to-js/), the
-[memory handshake](../linear-memory/) between them, a
-[freestanding module](../freestanding/), and finally
-[loading one in a browser](../browser-instantiate/).
+turn. A WASI command you run from a shell. A reactor called from JavaScript.
+The memory handshake between them. A freestanding module. And finally loading
+one in a browser.

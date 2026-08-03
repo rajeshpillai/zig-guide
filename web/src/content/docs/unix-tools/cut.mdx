@@ -25,8 +25,8 @@ patching it.
 
 **`carol::berlin` has three fields, and the middle one is empty.** Two
 delimiters, three fields, exactly as the rule says. This is the case that
-separates a correct splitter from a plausible one: it is tempting to treat a
-run of delimiters as one, because that is what splitting on *whitespace* feels
+separates a correct splitter from a plausible one. It is tempting to treat a
+run of delimiters as one, because that is what splitting on whitespace feels
 like it should do. For a delimited data format it is wrong, and it is wrong in
 the worst way, because it silently shifts every field after it. Field 3 of a
 CSV row becomes field 2 and the data is corrupted rather than rejected.
@@ -36,12 +36,11 @@ field 2 is `""`; `dave` field 2 is `(no such field)`. That distinction is the
 reason the function returns `?[]const u8` rather than `[]const u8`. An empty
 string is a value that was there and was empty. Null is the absence of a
 field. Collapse them and a caller cannot tell "this record has no email" from
-"this record's email is blank", which is a difference that matters as soon as
-anyone acts on it.
+"this record's email is blank". That difference matters as soon as anyone acts
+on it.
 
-**No allocation and no copying.** Each field is a slice of the line it came
-from, which is the same trick as the last chapter and the reason `cut` runs at
-the speed of the disk.
+Each field is a slice of the line it came from. That is the same trick as the
+last chapter, and the reason `cut` runs at the speed of the disk.
 
 ## Check yourself
 
@@ -65,16 +64,16 @@ char *field = strtok(line, ":");
 while (field) field = strtok(NULL, ":");
 ```
 
-Three problems. It **modifies the input**, writing `\0` over each delimiter, so
-the line you were handed is destroyed and you cannot use the original
+Three problems. It **modifies the input**, writing `\0` over each delimiter,
+so the line you were handed is destroyed and you cannot use the original
 afterwards. It **collapses runs of delimiters**, so `carol::berlin` gives two
 fields, not three, which is the exact bug described above baked into the
 standard library. And it keeps its position in a **static variable**, so it is
 not reentrant and two loops using it at once corrupt each other.
 
-`strtok_r` fixes only the third. The collapsing behaviour is by design, because
-`strtok` was written for whitespace, and using it on a data format is one of
-those habits that gets passed down.
+`strtok_r` fixes only the third. The collapsing behaviour is by design,
+because `strtok` was written for whitespace, and using it on a data format is
+one of those habits that gets passed down.
 
 Zig's `splitScalar` returns slices of the original, changes nothing, and
 collapses nothing. Same job, and none of the three problems.

@@ -7,9 +7,9 @@ order: 120
 
 import Playground from "../../../components/Playground.astro";
 
-There is no graphics library in this section. Every pixel is set by code you can
-read, and the only thing between the code and an image is a block of numbers and
-a decision about how to interpret it.
+There is no graphics library in this section. Every pixel is set by code you
+can read. The only thing between the code and an image is a block of numbers
+and a decision about how to interpret it.
 
 That decision has three parts:
 
@@ -28,13 +28,13 @@ That decision has three parts:
 ## Why the buffer is global
 
 `640 * 480 * 4` is 1.2 MB. The default thread stack is 8 MB on Linux, 1 MB on
-Windows, and smaller still on some embedded targets, so a full-size image
+Windows, and smaller still on some embedded targets. A full-size image
 declared as a local is a portability bug waiting for a different machine. Make
 it global, or heap-allocate it.
 
-`undefined` is honest here only because `drawGradient` writes every cell before
-anything reads one. A scene that fills part of the buffer has to start from a
-known colour, or it ships whatever was in memory.
+`undefined` is honest here only because `drawGradient` writes every cell
+before anything reads one. A scene that fills part of the buffer has to start
+from a known colour, or it ships whatever was in memory.
 
 ## The two arithmetic traps
 
@@ -43,8 +43,8 @@ const r: u8 = @intCast((x * 255) / (width - 1));
 ```
 
 **Multiply before dividing.** `(x / (width - 1)) * 255` is zero in every column
-but the last, because integer division truncates. This is the most common bug in
-integer scaling code, and it is invisible until you look at the output.
+but the last, because integer division truncates. This is the most common bug
+in integer scaling code, and it is invisible until you look at the output.
 
 **`width - 1`, not `width`.** With `width` the last column stops one short of
 255. Nobody sees that in a gradient. It matters the moment the value is used as
@@ -57,20 +57,21 @@ debugging by reading pixel values.
 ## Why putPixel takes signed coordinates
 
 Shapes arrive at their pixels by subtraction: a circle from its centre, a line
-from its start. Half of those results are negative. In `usize` a negative result
-underflows to an enormous number, which is a panic in Debug mode and a wrong
-answer everywhere else. Coordinates that can go negative want a signed type, and
-the `@intCast` at the point of use is the price.
+from its start. Half of those results are negative. In `usize` a negative
+result underflows to an enormous number, which is a panic in Debug mode and a
+wrong answer everywhere else. Coordinates that can go negative want a signed
+type, and the `@intCast` at the point of use is the price.
 
 The bounds check in `putPixel` is doing more than safety. It is **clipping**:
 once "off-screen" is a legal thing to ask for, every shape routine can be
 written without an edge case for the edges. That is why the circle in
-[Circles](../circles/) is a handful of lines even when it hangs off three sides
-of the buffer at once.
+[Circles](../circles/) is a handful of lines even when it hangs off three
+sides of the buffer at once.
 
-`putPixel` is also the slow way to draw. A real renderer writes whole spans of a
-row at a time, because a per-pixel call and a per-pixel bounds check dominate the
-cost. It is the right shape for learning and the wrong shape for a hot loop.
+`putPixel` is also the slow way to draw. A real renderer writes whole spans of
+a row at a time, because a per-pixel call and a per-pixel bounds check
+dominate the cost. It is the right shape for learning and the wrong shape for
+a hot loop.
 
 ## Why the output is text
 
@@ -80,8 +81,8 @@ buffer is printed: one character per pixel, picked from a ten-step ramp by
 luminance.
 
 Nothing is resampled. The canvas is 64x32 and the dump is 64 characters wide,
-so what you count on screen is what the code wrote. The chapters after this one
-share that dump through a helper module:
+so what you count on screen is what the code wrote. The chapters after this
+one share that dump through a helper module:
 
 ```zig
 pub const width: usize = 64;
@@ -105,8 +106,8 @@ keeps the build from treating it as a chapter of its own.
 
 ## Where this goes
 
-The order is: get pixels into a buffer, get the buffer out of the process, then
-draw things worth looking at.
+The order is: get pixels into a buffer, get the buffer out of the process,
+then draw things worth looking at.
 
 - [Writing an Image File](../image-files/) puts the buffer on disk as a PPM.
 - [Lines](../lines/) and [Circles](../circles/) are the two primitives every

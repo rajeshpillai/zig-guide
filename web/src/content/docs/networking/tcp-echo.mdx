@@ -9,14 +9,13 @@ import Playground from "../../../components/Playground.astro";
 
 ## The problem
 
-You want a TCP server and a client talking to it, in Zig, with today's
-API. This is the topic where stale tutorials hurt the most: networking
-moved from `std.net` to `std.Io.net`, every operation now takes the `io`
-instance, and code copied from a last-year guide does not get past the
-compiler.
+You want a TCP server and a client talking to it, in Zig, with today's API.
+This is the topic where stale tutorials hurt the most. Networking moved from
+`std.net` to `std.Io.net`, and every operation now takes the `Io` instance.
+Code copied from a last-year guide does not get past the compiler.
 
-The recipe runs both halves in one process. That is not a toy compromise;
-it is also how you write an integration test for any protocol code.
+The recipe runs both halves in one process. That is not a toy compromise; it
+is also how you write an integration test for any protocol code.
 
 ## The plan
 
@@ -51,19 +50,19 @@ parameter, and buffers are yours to supply.
 
 ## One interface for sockets and files
 
-`stream.reader(io, &buf).interface` is the same `std.Io.Reader` you use
-for files and stdin, so `takeDelimiterExclusive('\n')` reads a line off a
-socket exactly as it would off a file. Protocol code written against the
-interface does not know or care that a socket is underneath, which is
-what makes it testable with `std.Io.Reader.fixed` in unit tests.
+`stream.reader(io, &buf).interface` is the same `std.Io.Reader` you use for
+files and stdin, so `takeDelimiterExclusive('\n')` reads a line off a socket
+exactly as it would off a file. Protocol code written against the interface
+does not know or care that a socket is underneath, which is what makes it
+testable with `std.Io.Reader.fixed` in unit tests.
 
 ## Why a thread
 
-`accept` blocks until a client arrives, and `connect` blocks until the
-server accepts, so one thread cannot do both halves interleaved without
-relying on kernel queue subtleties. A second thread keeps each half
-straight-line. On the wasm target none of this compiles (no sockets, no
-threads), which is why CI runs this snippet natively.
+`accept` blocks until a client arrives, and `connect` blocks until the server
+accepts, so one thread cannot do both halves interleaved without relying on
+kernel queue subtleties. A second thread keeps each half straight-line. On the
+wasm target none of this compiles (no sockets, no threads), which is why CI
+runs this snippet natively.
 
 ## Variations
 

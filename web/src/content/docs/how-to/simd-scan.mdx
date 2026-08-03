@@ -16,13 +16,13 @@ while (i < bytes.len and bytes[i] != '"' and bytes[i] != '\\') i += 1;
 ```
 
 One byte per iteration. The machine underneath holds 16 bytes in a single
-128-bit vector register and can compare all of them in one instruction.
-[The dot product recipe](/learn/how-to/simd-sum/) used vectors for arithmetic;
-this one uses them for searching, which is where parsers, scanners, and
-codecs get their real SIMD wins. The shape of this recipe follows Mitchell
-Hashimoto's
-["Everyone should know SIMD"](https://mitchellh.com/writing/everyone-should-know-simd),
-which walks the same pattern through a terminal emulator's scanner.
+128-bit vector register and can compare all of them in one instruction. [The
+dot product recipe](/learn/how-to/simd-sum/) used vectors for arithmetic; this
+one uses them for searching, which is where parsers, scanners, and codecs get
+their real SIMD wins. The shape of this recipe follows Mitchell Hashimoto's
+["Everyone should know
+SIMD"](https://mitchellh.com/writing/everyone-should-know-simd), which walks
+the same pattern through a terminal emulator's scanner.
 
 ## The pattern
 
@@ -44,9 +44,9 @@ code becomes readable, whatever the language.
 
 ## The mask is an integer
 
-Step 4 is the part the other steps exist for. `@bitCast` packs a
-`@Vector(16, bool)` into a `u16`, lane 0 in the lowest bit. After that,
-questions about lanes become one-instruction questions about an integer:
+Step 4 is the part the other steps exist for. `@bitCast` packs a `@Vector(16,
+bool)` into a `u16`, lane 0 in the lowest bit. After that, questions about
+lanes become one-instruction questions about an integer:
 
 | Question | Answer |
 | --- | --- |
@@ -54,44 +54,45 @@ questions about lanes become one-instruction questions about an integer:
 | where is the first match? | `@ctz(hits)` |
 | how many matched? | `@popCount(hits)` |
 
-x86 calls this a movemask. The snippet uses `@ctz` to find the first
-special byte and `@popCount` to count quotes; both scans share steps 1
-through 3 and differ only here. The mask type is `@Int(.unsigned, lanes)`,
-the builtin that replaced `std.meta.Int` on current master.
+x86 calls this a movemask. The snippet uses `@ctz` to find the first special
+byte and `@popCount` to count quotes; both scans share steps 1 through 3 and
+differ only here. The mask type is `@Int(.unsigned, lanes)`, the builtin that
+replaced `std.meta.Int` on current master.
 
 ## Two needles, one pass
 
 The scan looks for `"` or `\`. Each needle is its own splat and its own
-compare, and integer `|` merges the two masks. A third needle costs one
-more compare, not another pass over the data. Scalar code pays a branch
-per needle per byte; the vector loop pays nothing extra per byte and
-branches once per 16.
+compare, and integer `|` merges the two masks. A third needle costs one more
+compare, not another pass over the data. Scalar code pays a branch per needle
+per byte; the vector loop pays nothing extra per byte and branches once per
+16.
 
 ## No SIMD, no problem
 
-`std.simd.suggestVectorLength(u8)` asks the target how many `u8` lanes its
-registers hold: 16 for this site's wasm, 32 on x86-64 with AVX2, 64 with
-AVX-512, and null when the target has no usable vectors. The result is
-comptime-known, so `orelse return findSpecialScalar(...)` does not emit a
-fallback branch; on a vectorless target the whole SIMD body is never
-compiled. That guard is why the playground prints the lane count: this
-snippet is built with wasm's `simd128` feature enabled, so the Run button
-executes real 16-lane vector instructions in your browser.
+`suggestVectorLength` asks the target how many lanes its registers hold: 16
+for this site's wasm, 32 on x86-64 with AVX2, 64 with AVX-512, and null when
+the target has no usable vectors. The result is comptime-known, so `orelse
+return findSpecialScalar(...)` does not emit a fallback branch; on a
+vectorless target the whole SIMD body is never compiled. That guard is why the
+playground prints the lane count. This snippet is built with wasm's SIMD
+feature enabled, so the Run button executes real 16-lane vector instructions
+in your browser.
 
-Only the four chapters that teach vectors are built that way. The rest of
-the site is baseline wasm, because `simd128` is a target feature rather than
-a per-function one: turn it on and the compiler auto-vectorizes `std`'s
-memcpy and formatting paths too, so hello-world shipped 159 vector opcodes
-it never asked for and would not load at all on an engine without SIMD.
+Only the four chapters that teach vectors are built that way. The rest of the
+site is baseline wasm, because SIMD is a target feature rather than a
+per-function one. Turn it on and the compiler auto-vectorizes the standard
+library's memcpy and formatting paths too. Hello-world then shipped 159 vector
+opcodes it never asked for, and would not load at all on an engine without
+SIMD.
 
 ## Why not let the compiler do it
 
-Compilers auto-vectorize the counting loop routinely. The find-first loop
-is harder: the early exit makes the trip count depend on the data, and
-whether the optimizer manages it can change with an unrelated edit or a
-compiler upgrade. Writing the vectors out is a guarantee, not a hint, and
-`@Vector` keeps that guarantee portable across targets. The cost is the
-dozen lines you just read.
+Compilers auto-vectorize the counting loop routinely. The find-first loop is
+harder. The early exit makes the trip count depend on the data, and whether
+the optimizer manages it can change with an unrelated edit or a compiler
+upgrade. Writing the vectors out is a guarantee, not a hint, and `@Vector`
+keeps that guarantee portable across targets. The cost is the dozen lines you
+just read.
 
 ## Variations
 

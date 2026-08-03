@@ -10,11 +10,11 @@ import Playground from "../../../../components/Playground.astro";
 
 ## The problem
 
-You want a real database from Zig, and SQLite is the obvious first one: it is a
-C library with no server, so the whole thing is a header and a linked library.
-Zig calls C directly, so there is no binding layer to install. The work is
-learning SQLite's own open/prepare/bind/step/finalize shape and translating its
-integer return codes into Zig errors.
+You want a real database from Zig, and SQLite is the obvious first one. It is
+a C library with no server, so the whole thing is a header and a linked
+library. Zig calls C directly, so there is no binding layer to install. The
+work is learning SQLite's own open/prepare/bind/step/finalize shape and
+translating its integer return codes into Zig errors.
 
 ## The plan
 
@@ -34,39 +34,39 @@ integer return codes into Zig errors.
 ## `@cImport` is gone; use translate-c
 
 If you are arriving from an older tutorial, the first line will not compile.
-Zig used to translate C headers inline with `@cImport`/`@cInclude`. That builtin
-was removed. Headers now come through a build-system step, `b.addTranslateC`,
-which produces a normal Zig module you import by name. This guide's `build.zig`
-does it from a `//! link: sqlite3` marker on the snippet: it synthesizes a
-header that includes `sqlite3.h`, translates it, links `libsqlite3`, and hands
-the module to the snippet as `c`. The payoff is that C imports are cached and
+Zig used to translate C headers inline with `@cImport`/`@cInclude`. That
+builtin was removed. Headers now come through a build-system step,
+`b.addTranslateC`, which produces a normal Zig module you import by name. This
+guide's `build.zig` does it from a marker on the snippet. It synthesizes a
+header that includes `sqlite3.h`, translates it, links `sqlite3`, and hands
+the module to the snippet. The payoff is that C imports are cached and
 configured like any other dependency rather than re-run on every compile.
 
 ## Return codes become errors
 
 Every SQLite call returns an `int`: `SQLITE_OK` for the setup calls,
 `SQLITE_ROW` and `SQLITE_DONE` for stepping. Left as integers they are easy to
-ignore, which is how C programs skip error handling. The `check` helper compares
-the code against the expected one and returns a Zig error otherwise, so `try`
-enforces it and `sqlite3_errmsg` explains any failure. This is the main thing a
-Zig wrapper adds over the raw API.
+ignore, which is how C programs skip error handling. The `check` helper
+compares the code against the expected one and returns a Zig error otherwise,
+so `try` enforces it and `sqlite3_errmsg` explains any failure. This is the
+main thing a Zig wrapper adds over the raw API.
 
 ## Prepared statements, not string building
 
 The insert uses `?` placeholders and `sqlite3_bind_text`, never string
 concatenation. That is the rule that keeps user data out of the SQL grammar,
-so a name containing a quote is data, not syntax. Binding `null` as the
-destructor argument is `SQLITE_STATIC`: it promises the string outlives the
-step, so SQLite does not copy it, which is true here because the values are
-string literals. `sqlite3_reset` rewinds the compiled statement so the next
-row reuses it instead of recompiling.
+so a name containing a quote is data, not syntax. Binding with `SQLITE_STATIC`
+as the destructor argument is a promise that the string outlives the step, so
+SQLite does not copy it. That is true here, because the values are string
+literals. `sqlite3_reset` rewinds the compiled statement so the next row
+reuses it instead of recompiling.
 
 ## Reading columns
 
 Stepping a `SELECT` returns `SQLITE_ROW` once per row. Columns are read by
 index and type: `sqlite3_column_int` for the id, `sqlite3_column_text` for the
-strings. The text accessor returns a C pointer, so `std.mem.span` turns it into
-a Zig slice for printing. The loop ends when `sqlite3_step` returns
+strings. The text accessor returns a C pointer, so `std.mem.span` turns it
+into a Zig slice for printing. The loop ends when `sqlite3_step` returns
 `SQLITE_DONE`.
 
 ## Variations

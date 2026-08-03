@@ -31,7 +31,7 @@ query never said how.
 
 That is the point of declarative languages, and it is also the thing that
 makes them frustrating: you cannot see the cost by reading the code. Which is
-why every database has `EXPLAIN`, and why the two lines this program prints,
+why every database has an EXPLAIN command. The two lines this program prints,
 the plan and the rows examined, are the two lines you spend most of your time
 looking at when something is slow.
 
@@ -63,10 +63,10 @@ every row in order. Disks and caches strongly prefer the straight pass.
 
 Real planners decide this with **statistics**: roughly how many rows match
 this value, how big is the table, how expensive is a random read against a
-sequential one. That machinery is why `EXPLAIN` output has numbers in it, why
-databases have a `ANALYZE` command to refresh those numbers, and why a query
-that was fast last month can go slow after the data shifts without anybody
-changing the query.
+sequential one. That machinery is why EXPLAIN output has numbers in it, and
+why databases have a command to refresh them. It is also why a query that was
+fast last month can go slow after the data shifts, without anybody changing
+the query.
 
 An index is not faster. An index is faster *for selective filters*, and a
 planner without statistics cannot tell the difference.
@@ -82,10 +82,10 @@ a filter applied afterwards. So it must choose: use the `id` index and check
 pick the first, and "obviously" is doing work, because the reasoning is that
 `id` is more selective.
 
-With two indexes the choice gets harder, and with a join it becomes the
-question that query optimisation is actually about: the number of possible
-plans grows factorially with the number of tables, so planners search rather
-than enumerate. That is why the same query can produce a different plan on a
+With two indexes the choice gets harder. With a join it becomes the question
+that query optimisation is actually about: the number of possible plans grows
+factorially with the number of tables, so planners search rather than
+enumerate. That is why the same query can produce a different plan on a
 different day.
 
 ## Where this section ends
@@ -97,7 +97,6 @@ scan reads everything. A write-ahead log, because a machine can lose power
 between two writes that had to agree. And a planner, because a declarative
 query has to be turned into a strategy by somebody.
 
-If you would rather use one of these than build it, [the database
-recipes](/learn/how-to/databases/sqlite-basic/) talk to SQLite, Redis and
-PostgreSQL from Zig, and the [ORM](/learn/orm/) builds the layer that sits
-above them.
+If you would rather use one of these than build it, the database recipes talk
+to SQLite, Redis and PostgreSQL from Zig, and the ORM builds the layer that
+sits above them.

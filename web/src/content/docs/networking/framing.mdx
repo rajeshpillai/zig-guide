@@ -41,10 +41,9 @@ SMTP, IMAP and Redis all use it for their text parts. You can debug it with
 `nc` and your eyes.
 
 The cost is permanent: that byte can never appear in a payload. The last line
-of the output shows what happens when it does. The reader stops early, returns
-`"two"` instead of `"two\nlines"`, and reports no error at all, because from
-its point of view the message ended exactly where a message is supposed to
-end. The rest gets treated as the next message.
+of the output shows what happens when it does. The reader stops early and
+reports no error at all. From its point of view the message ended exactly
+where a message is supposed to end. The rest gets treated as the next message.
 
 Real protocols solve this with escaping or with a length prefix on the body
 only, which is exactly what HTTP does: delimited headers, then
@@ -57,20 +56,20 @@ only, which is exactly what HTTP does: delimited headers, then
 ^^ 'i'           ^^ 's'
 ```
 
-A tag byte says how to read what follows. Here `i` means a fixed-width
-integer and `s` means a length-prefixed string, so the receiver does not have
-to have agreed in advance on what this field holds.
+A tag byte says how to read what follows. Here `i` means a fixed-width integer
+and `s` means a length-prefixed string, so the receiver does not have to have
+agreed in advance on what this field holds.
 
-That is the shape of RESP, of protobuf wire types, of MessagePack and of
-CBOR. The cost is a byte per value and a `switch` that has to reject unknown
-tags rather than trusting them.
+That is the shape of RESP, of protobuf wire types, of MessagePack and of CBOR.
+The cost is a byte per value and a `switch` that has to reject unknown tags
+rather than trusting them.
 
 ## Choosing
 
-Both of the others are special cases of a length prefix: a delimiter is a
-length you have to go looking for, and a tag is a length whose interpretation
-comes with it. If you are designing something new and have no reason to
-prefer readability, use a length prefix and stop thinking about it.
+Both of the others are special cases of a length prefix. A delimiter is a
+length you have to go looking for. A tag is a length whose meaning comes with
+it. If you are designing something new and have no reason to prefer
+readability, use a length prefix and stop thinking about it.
 
 If you want it debuggable by hand, use a delimiter for the envelope and a
 length for the body. That combination has survived thirty years of HTTP.

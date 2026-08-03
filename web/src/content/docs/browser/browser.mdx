@@ -7,9 +7,10 @@ order: 6
 
 import Playground from "../../../components/Playground.astro";
 
-Each stage has had a chapter. This one runs them in a row, which is worth doing
-because the pipeline is the actual answer to "how does a browser work", and
-because seeing it in forty lines is different from being told it in a diagram.
+Each stage has had a chapter. This one runs them in a row. That is worth
+doing, because the pipeline is the actual answer to "how does a browser work",
+and because seeing it in forty lines is different from being told it in a
+diagram.
 
 ```
 bytes ─► tree ─► boxes with widths ─► boxes with positions ─► pixels
@@ -17,9 +18,9 @@ bytes ─► tree ─► boxes with widths ─► boxes with positions ─► pi
 ```
 
 Five stages, each taking only what the previous one produced. That is not
-tidiness, it is the property that makes a browser possible to build at all: the
-HTML parser has never heard of a pixel, and the painter has never heard of a
-tag.
+tidiness. It is the property that makes a browser possible to build at all.
+The HTML parser has never heard of a pixel, and the painter has never heard of
+a tag.
 
 ## The program
 
@@ -32,28 +33,27 @@ became `height: 60`, and everything below moved down. Nothing else in the
 stylesheet or the document was touched.
 
 That is the reason stylesheets exist, and it is worth being precise about what
-made it work: the height of `h1` is an input to layout, and every position
+made it work. The height of the box is an input to layout, and every position
 below it is computed rather than stored. Change the input, run the two passes
 again, get a new set of positions. There is nothing to keep in sync because
 nothing was written down twice.
 
-**The counts are printed for each render.** 11 nodes, 4 rules, 11 boxes. The
-box tree and the node tree happen to be the same size here; in general they are
-not, because `display: none` produces no box, and a single element can produce
-several (one per line of text, one per table cell).
+**The counts are printed for each render.** 11 nodes, 4 rules, 11 boxes. The box tree and the node tree happen to be the same size here. In general
+they are not: some elements produce no box, and a single element can produce
+several, one per line of text or one per table cell.
 
 **Each stage is replaceable.** The renderer writes characters; swapping it for
 one that writes RGBA changes nothing upstream. The layout engine does block
 flow; adding flexbox means a different function producing the same `Box`
-values. This is what having a pipeline buys, and it is why browsers can rewrite
-one stage at a time.
+values. This is what having a pipeline buys, and it is why browsers can
+rewrite one stage at a time.
 
 ## What a real browser adds, in order of how much
 
 **Everything is incremental.** Nothing above caches anything: a second render
-redoes all five stages. A real engine tracks which nodes are dirty, which boxes
-need relayout, and which regions need repainting, because a page is fifty
-thousand nodes and a cursor blink must not re-render it. That machinery is
+redoes all five stages. A real engine tracks which nodes are dirty, which
+boxes need relayout, and which regions need repainting. A page is fifty
+thousand nodes, and a cursor blink must not re-render it. That machinery is
 larger than the pipeline it optimises.
 
 **Everything is concurrent.** Parsing happens while bytes are still arriving.
@@ -61,39 +61,37 @@ Images decode on other threads. Painting happens on a compositor thread so
 scrolling stays smooth while JavaScript is busy. The pipeline stays the same
 shape; there are just several of them in flight.
 
-**Everything is a specification.** The versions here are the shape of each
-stage with the details removed, and the details are where the years go: the
-HTML parser's 80 tokenizer states, CSS's dozen layout modes, text shaping,
-bidirectional text, and the accumulated behaviour of thirty years of pages
-that must keep working.
+The versions here are the shape of each stage with the details removed, and
+the details are where the years go. The HTML parser's 80 tokenizer states.
+CSS's dozen layout modes. Text shaping. Bidirectional text. And the
+accumulated behaviour of thirty years of pages that must keep working.
 
 ## Check yourself
 
 The pipeline is drawn as one direction, but a script can change the document.
 What does that do to the diagram?
 
-It makes it a loop, and the loop is the interesting part of a modern browser.
 A script mutates the tree, which invalidates boxes, which forces layout and
-paint again, and the browser tries to do all of that once per frame rather than
+paint again. The browser tries to do all of that once per frame rather than
 once per change.
 
 The failure mode has a name. Reading a computed geometry from JavaScript, like
 `offsetHeight`, cannot be answered from stale boxes, so the browser must run
 layout *right now*, in the middle of your script. Do that in a loop that also
-writes, and every iteration forces a full layout: **layout thrashing**, and it
-is the same two-pass algorithm from the layout chapter being run a thousand
+writes, and every iteration forces a full layout. That is *layout thrashing*.
+It is the same two-pass algorithm from the layout chapter, run a thousand
 times because it was asked a thousand questions.
 
 ## Where this section ends
 
-Six chapters: a parser that cannot fail, a cascade that decides between rules,
-two passes that turn a tree into rectangles, a painter that fills them, and a
+Six chapters. A parser that cannot fail. A cascade that decides between rules.
+Two passes that turn a tree into rectangles. A painter that fills them. And a
 scripting engine attached at a seam. Between them they are a browser, in the
-sense that a paper aeroplane is an aircraft: the shape is right and everything
-that makes the real one hard has been left out.
+sense that a paper aeroplane is an aircraft. The shape is right, and
+everything that makes the real one hard has been left out.
 
 If the graphics half interested you, [the graphics section](/learn/graphics/)
 does rasterisation properly, with real pixel buffers, line and triangle
-drawing, antialiasing and image files. If the language half did,
-[the Tiny Language section](/learn/tiny-lang/lexer/) is the engine this one
-only gestured at.
+drawing, antialiasing and image files. If the language half did, [the Tiny
+Language section](/learn/tiny-lang/lexer/) is the engine this one only
+gestured at.

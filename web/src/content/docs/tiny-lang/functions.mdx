@@ -8,18 +8,20 @@ order: 4
 import Playground from "../../../components/Playground.astro";
 
 The interpreter so far has one set of variables. Adding functions breaks that
-immediately: two calls to the same function must not share `n`, and a recursive
-call has to have several `n`s alive at once, each belonging to a different call.
+immediately. Two calls to the same function must not share one set of
+variables, and a recursive call has to have several alive at once, each
+belonging to a different call.
 
 So a call needs its own storage. That is a **frame**, the run-time counterpart
-of the machine-level idea in [The Stack](/learn/systems-from-scratch/the-stack/),
-except here you build it yourself instead of the hardware providing it. Calling
-pushes one, returning pops it, and the array of them is the call stack.
+of the machine-level idea in [The
+Stack](/learn/systems-from-scratch/the-stack/), except here you build it
+yourself instead of the hardware providing it. Calling pushes one, returning
+pops it, and the array of them is the call stack.
 
 The second problem is subtler. `return` can appear anywhere: inside an `if`,
-inside a `while`, inside a block inside both. It has to abandon all of that and
-land back at the call site. The `exec` function is recursive, so `return` needs
-to unwind an unknown number of Zig frames.
+inside a `while`, inside a block inside both. It has to abandon all of that
+and land back at the call site. The `exec` function is recursive, so `return`
+needs to unwind an unknown number of Zig frames.
 
 ## The program
 
@@ -33,61 +35,62 @@ calls, and each got a frame, used it, and gave it back.
 
 **`bump(1)` printed 2 and the global `x` stayed 100.** The parameter is defined
 in the new frame, so it shadows the global rather than overwriting it. Look at
-`lookup`: current frame first, globals second, and nothing else. Two lines, and
-they are the entire scoping rule of this language.
+`lookup`: current frame first, globals second, and nothing else. Two lines,
+and they are the entire scoping rule of this language.
 
 **`return` is implemented as an error.** `error.Return` is not a failure and
 does not mean anything went wrong. It is the only mechanism Zig offers that
-unwinds through an arbitrary depth of recursive calls, and it is caught in
-exactly one place: `call`, immediately after `exec`ing the body. Catching it
-nowhere else is what turns it from an error into a jump to a known point.
+unwinds through an arbitrary depth of recursive calls. It is caught in exactly
+one place: immediately after evaluating the body. Catching it nowhere else is
+what turns it from an error into a jump to a known point.
 
 This is a real technique rather than a hack, and interpreters written in
 languages with exceptions do the same thing with a `ReturnException`. What
-makes it safe here is that the error set is written out, so `error.Return` is
-visible in every signature that can produce it, and a `catch` that forgot to
+makes it safe here is that the error set is written out. The return signal is
+visible in every signature that can produce it, and a caller that forgot to
 handle it would not compile.
 
 **Arguments are evaluated before the frame is pushed.** They have to be: they
 are expressions in the *caller's* scope. Evaluating them after pushing would
-let a parameter named `n` see the new, empty `n` instead of the caller's, which
-is a bug that produces plausible-looking wrong answers rather than a crash.
+let a parameter see the new, empty frame instead of the caller's. That is a
+bug which produces plausible-looking wrong answers rather than a crash.
 
 **The stack depth is 64 and the limit is enforced.** `loop(n)` calling itself
 forever stops with `StackOverflow` rather than exhausting the host's stack and
 taking the whole program down. That is the advantage of building your own call
-stack: the limit is a number you chose and can report on, instead of a segfault
-somewhere in the runtime.
+stack: the limit is a number you chose and can report on, instead of a
+segfault somewhere in the runtime.
 
 ## Check yourself
 
-`fn` declarations are registered when the `fn` statement executes. What happens
-if a function calls another one that is declared after it?
+`fn` declarations are registered when the `fn` statement executes. What
+happens if a function calls another one that is declared after it?
 
 It works, as long as the *call* happens after both declarations have run. In
-the program above, `fib` refers to itself, and that is fine because by the time
-`print fib(10);` runs, the declaration has executed. But a program that called
-`f()` at the top and declared `f` at the bottom would fail with
+the program above, `fib` refers to itself, and that is fine because by the
+time `print fib(10);` runs, the declaration has executed. But a program that
+called `f()` at the top and declared `f` at the bottom would fail with
 `UnknownFunction`. Languages that allow that do a separate pass to collect
-declarations before running anything, which is called hoisting, and it is one
+declarations before running anything. It is called hoisting, and it is one
 more thing a compiler does that an interpreter has to be told to do.
 
 ## If you have written C
 
 C gives you the frame for free: locals live on the machine stack, and `return`
-is an instruction. The work in this chapter is the work the C compiler is doing
-for you, which is why writing an interpreter is a good way to understand what
-your compiler emits.
+is an instruction. The work in this chapter is the work the C compiler is
+doing for you. That is why writing an interpreter is a good way to understand
+what your compiler emits.
 
 Two comparisons worth drawing. C's stack depth is whatever the OS gave the
 thread, and exceeding it is a segfault with no useful message, because nothing
 is checking. The interpreter above checks on every call, which costs one
 comparison and buys an error you can report with a line number.
 
-And C's `return` genuinely unwinds nothing, because there is nothing to unwind:
-the frame is popped by adjusting a register. The equivalent of what this
-chapter does with `error.Return` is `longjmp`, which C programs use for exactly
-this shape of problem and which comes with all the caveats about what is left
-in an inconsistent state when you jump past it.
+And C's `return` genuinely unwinds nothing, because there is nothing to
+unwind: the frame is popped by adjusting a register. The C equivalent of what
+this chapter does is `setjmp`/`longjmp`. C programs use it for exactly this
+shape of problem, and it comes with all the caveats about what is left in an
+inconsistent state when you jump past it.
 
-Next: a compiler, which stops walking the tree and starts emitting instructions.
+Next: a compiler, which stops walking the tree and starts emitting
+instructions.

@@ -32,7 +32,7 @@ every run, which is also why this page can assert them.
 
 JSON is 4.62 times larger here, and the reasons are structural. Every record
 repeats its field names as text (`"player_id"`, `"timestamp"`) where the
-binary form carries none. Numbers expand: a `u32` that is four bytes in binary
+binary form carries none. Numbers expand. A `u32` that is four bytes in binary
 becomes up to ten decimal digits in JSON, and a float becomes a decimal string
 that is usually longer than its four raw bytes. The enum, one byte in binary,
 serializes as `"move"` or `"attack"`. None of this is waste in JSON's terms;
@@ -53,8 +53,8 @@ This page does not print timings, for two reasons. Wall-clock time is not
 reproducible, so it could not be asserted the way every snippet here is. And
 on this site the clock lives behind the `Io` interface, since timing is an
 effect like any other I/O. To measure it yourself on a native build, wrap each
-encode loop in a `std.time.Timer` and compare the elapsed nanoseconds; expect
-the gap to widen as the records get more numeric.
+encode loop in a timer and compare the elapsed nanoseconds. Expect the gap to
+widen as the records get more numeric.
 
 ## Variations
 

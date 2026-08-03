@@ -43,17 +43,17 @@ The form is `{[fill][align][width]}`, with `<` `^` `>` for alignment:
 "{d:.2}"    // "3.14"
 ```
 
-Right is the default for every type, strings included, which catches people out:
-`{s:8}` puts the padding before the text, not after. Lining up a column of
-strings has three more rules to it, and they are in
-[String Recipes](/learn/standard-library/string-recipes/).
+Right is the default for every type, strings included, which catches people
+out: `{s:8}` puts the padding before the text, not after. Lining up a column
+of strings has three more rules to it, and they are in [String
+Recipes](/learn/standard-library/string-recipes/).
 
 Escape a literal brace by doubling it: `{{` and `}}`.
 
 ## `bufPrint` and `allocPrint` moved
 
-If you have written any Zig before, you know the first two rows of that table as
-`std.fmt.bufPrint` and `std.fmt.allocPrint`:
+If you have written any Zig before, you know the first two rows of that table
+as `std.fmt.bufPrint` and `std.fmt.allocPrint`:
 
 ```zig
 // older tutorials
@@ -70,10 +70,10 @@ Both old names still resolve, and the error sets are the same ones:
 
 The buffer version moved to `std.mem` because filling a slice is a slice
 operation. The allocating version became `Allocator.print`, a method sitting
-next to `alloc` and `dupe`. Neither new name says "print into a buffer" the way
-`bufPrint` did, and `gpa.print` does not look like it allocates, so read the
-receiver rather than the verb: `std.mem` means you supplied the memory, an
-allocator means you own the result and have to free it.
+next to `alloc` and `dupe`. Neither new name says "print into a buffer" the
+way `bufPrint` did, and `Allocator.print` does not look like it allocates. So
+read the receiver rather than the verb. `mem` means you supplied the memory;
+an allocator means you own the result and have to free it.
 
 ## Checked at compile time
 

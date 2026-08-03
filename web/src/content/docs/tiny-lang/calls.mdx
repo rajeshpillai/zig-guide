@@ -7,9 +7,10 @@ order: 7
 
 import Playground from "../../../components/Playground.astro";
 
-The compiler and the VM stopped short of functions, and the reason was not that
-calls are hard to implement. It is that implementing them means answering four
-questions that have no obvious answers, and the set of answers is called a
+The compiler and the VM stopped short of functions, and the reason was not
+that calls are hard to implement. It is that implementing them means answering
+four questions that have no obvious answers, and the set of answers is called
+a
 **calling convention**.
 
 1. Where do the arguments go?
@@ -18,8 +19,8 @@ questions that have no obvious answers, and the set of answers is called a
 4. Who removes the arguments afterwards?
 
 Every one has alternatives, real machines disagree about them, and a mismatch
-between two pieces of code that disagree is why you cannot link a library built
-with different conventions.
+between two pieces of code that disagree is why you cannot link a library
+built with different conventions.
 
 ## The answers this one gives
 
@@ -38,7 +39,7 @@ points past the `call` when the frame is pushed, so remembering it is free.
 
 **The callee cleans up.** On `ret` it resets the stack to the frame base, which
 discards the arguments, and then pushes the result. The alternative is the
-caller cleaning up, which is what C does, and the reason C does it is variadic
+caller cleaning up, which is what C does. The reason C does it is variadic
 functions: `printf` cannot clean up arguments it was never told the number of.
 
 ## The program
@@ -54,9 +55,8 @@ index off the frame base.
 
 **`fact(5)` recursed through compiled bytecode and gave 120.** Each call pushed
 a frame; each `ret` popped one. The recursion works because the frame base is
-per-call, so five `n`s existed at once at different stack offsets, which is the
-same fact the [frames chapter](/learn/tiny-lang/functions/) established at the
-tree-walking level.
+per-call. Five frames existed at once at different stack offsets, which is the
+same fact the frames chapter established at the tree-walking level.
 
 **A jump goes around each function body.** Bodies are emitted inline, in the
 middle of the program, so running straight through would fall into `square`
@@ -64,8 +64,8 @@ without anybody calling it. The jump is patched once the body's length is
 known, which is the same backpatching the compiler chapter used for `if`.
 
 **The function is registered before its body is compiled.** That single
-ordering is what makes recursion possible: when the compiler reaches
-`fact(n - 1)` inside `fact`, it needs to already know that `fact` exists.
+ordering is what makes recursion possible: when the compiler reaches `fact(n -
+1)` inside `fact`, it needs to already know that `fact` exists.
 
 ## Check yourself
 
@@ -74,7 +74,7 @@ enclosing function. What happens to `let x = 1;` written inside a function
 body?
 
 It becomes a **global**, shared by every call. That is wrong, and it is the
-limitation this compiler still has: real locals need a scope resolver that
+limitation this compiler still has. Real locals need a scope resolver that
 walks the body first, collects every declaration, and assigns each one a slot
 above the parameters. The frame is then sized to hold both, and the base
 pointer addresses all of it uniformly.
@@ -101,9 +101,9 @@ ret               ; jump back
 
 `rbp` is the frame base, and a local at `[rbp-8]` is the slot arithmetic above
 with a real register doing the work. The reason a debugger can print a stack
-trace is that each frame stores the previous frame pointer, so walking the
-chain recovers the call history, which is exactly the `frames` array here made
-into a linked list in memory.
+trace is that each frame stores the previous frame pointer. Walking the chain
+recovers the call history, which is exactly the array here made into a linked
+list in memory.
 
 The convention is also why a stack overflow in C is a segfault rather than an
 error: nothing checks the depth, because checking would cost an instruction on

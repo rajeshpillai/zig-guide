@@ -47,16 +47,16 @@ wrong. Only the checksum notices.
 And look at what stopping cost: records three and four were perfectly readable
 and were refused anyway. That is deliberate. A log is a **sequence**, and a
 record after a damaged one may depend on the one that was lost. Applying the
-readable remainder gives you a store that never existed at any point in time,
-which is worse than a store that is missing the tail, because you cannot tell
-by looking.
+readable remainder gives you a store that never existed at any point in time.
+That is worse than a store missing its tail, because you cannot tell by
+looking.
 
 ## What this program cannot show you
 
-`fsync`. Writing to a file puts the bytes in the operating system's page cache,
-where they will reach the disk when it gets around to it. If the power fails in
-between, the write is gone, and the log will happily tell you on recovery that
-it never happened.
+`fsync`. Writing to a file puts the bytes in the operating system's page
+cache, where they will reach the disk when it gets around to it. If the power
+fails in between, the write is gone, and the log will happily tell you on
+recovery that it never happened.
 
 `fsync` is the call that says "actually put it on the platter, and do not
 return until you have". A WAL without it is a WAL that protects you from your
@@ -72,11 +72,10 @@ and the guarantee is not.
 The log grows forever. Every `set` appends, even to a key written a thousand
 times. What stops a real system from filling the disk?
 
-A **checkpoint**. Periodically the current state is written out in full, and
-every log record older than that point is no longer needed and can be deleted.
-Recovery then means loading the last checkpoint and replaying only what came
-after it, which also makes startup fast: without checkpoints a database that
-has been running for a year replays a year of history every time it starts.
+A **checkpoint**. Recovery then means loading the last checkpoint and
+replaying only what came after it. That also makes startup fast: without
+checkpoints, a database that has been running for a year replays a year of
+history every time it starts.
 
 This is the same idea as the tombstones from the first chapter arriving at a
 different scale. An append-only structure needs a periodic process to reclaim
@@ -86,19 +85,19 @@ what is dead, and in an LSM tree that process is called compaction.
 
 `write` then `fsync`, and the two hazards are ordering and lying.
 
-Ordering: the log write must reach the disk **before** the change it describes.
-Not at the same time, before. If the database file is updated first and the
-machine dies, the log has no record of a change that has already happened, and
-recovery cannot undo it. That is why it is called write-*ahead*, and getting it
-backwards produces a system that is correct in every test and wrong exactly
-once.
+Ordering: the log write must reach the disk **before** the change it
+describes. Not at the same time, before. If the database file is updated first
+and the machine dies, the log has no record of a change that has already
+happened, and recovery cannot undo it. That is why it is called write-*ahead*,
+and getting it backwards produces a system that is correct in every test and
+wrong exactly once.
 
-Lying: `fsync` has historically returned success without the data being durable
-on several combinations of filesystem, controller and drive with write caching
-enabled. PostgreSQL has a well-known write-up of discovering that error
-handling on a failed `fsync` also differed by kernel version, in ways that
-could lose data silently. The lesson is not to distrust `fsync`, it is that
-durability is a property of the whole stack rather than of one call.
+Lying: `fsync` has historically returned success without the data being
+durable on several combinations of filesystem, controller and drive with write
+caching enabled. PostgreSQL has a well-known write-up of discovering that
+error handling on a failed `fsync` also differed by kernel version, in ways
+that could lose data silently. The lesson is not to distrust `fsync`, it is
+that durability is a property of the whole stack rather than of one call.
 
-Next: a query engine, which is the first thing here that has to decide *how* to
-answer rather than what.
+Next: a query engine, which is the first thing here that has to decide *how*
+to answer rather than what.

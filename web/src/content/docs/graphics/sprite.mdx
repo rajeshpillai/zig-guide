@@ -22,19 +22,20 @@ drags a square of background around with it.
 
 **The background shows through the corners.** The checkerboard is visible
 inside the sprite's bounding box wherever the sprite's own pixel was the
-transparent value. 18 of the 35 pixels were drawn and 17 were skipped, which is
-printed so the ratio is visible: nearly half of a sprite is usually nothing.
+transparent value. 18 of the 35 pixels were drawn and 17 were skipped, which
+is printed so the ratio is visible: nearly half of a sprite is usually
+nothing.
 
 **Transparency is one comparison.** A **key colour**: one value declared to
 mean "skip". That is how every 8-bit and 16-bit console did it, because a
 per-pixel alpha channel costs a byte per pixel that those machines did not
-have. It has one famous drawback, which is that the key colour cannot appear in
-the artwork, and it is why so much sprite work of that era avoided a particular
-shade of magenta.
+have. It has one famous drawback: the key colour cannot appear in the artwork.
+That is why so much sprite work of that era avoided a particular shade of
+magenta.
 
 **The third copy was clipped.** Drawn partly off the right edge, and the loop
-simply skipped the cells outside the canvas. Clipping is not a feature here, it
-is the bounds check being honest.
+simply skipped the cells outside the canvas. Clipping is not a feature here,
+it is the bounds check being honest.
 
 **Three copies, one sprite.** Nothing was duplicated in memory. A sprite is
 data and drawing it is a loop, so the second and third copies cost only the
@@ -49,8 +50,8 @@ Partial transparency, so an edge pixel can be half sprite and half background,
 which is the difference between a jagged outline and a smooth one. The cost is
 memory, one more byte per pixel, and arithmetic: instead of copying, every
 pixel becomes a blend of source and destination weighted by alpha. That is
-exactly what the [blending](/learn/graphics/blending/) chapter builds, and it is
-why it comes before this one.
+exactly what the [blending](/learn/graphics/blending/) chapter builds, and it
+is why it comes before this one.
 
 The other cost is order. Opaque sprites can be drawn in any order if they do
 not overlap; translucent ones must be drawn back to front, because blending is
@@ -60,13 +61,13 @@ not commutative.
 
 `memcpy` per row is the obvious optimisation and it is only available when
 there is no transparency, because `memcpy` cannot skip. That tension is the
-whole story of 2D blitting: opaque rectangles are a fast row copy, and anything
-with holes in it is a per-pixel loop.
+whole story of 2D blitting: opaque rectangles are a fast row copy, and
+anything with holes in it is a per-pixel loop.
 
 Which is why hardware sprite units existed. The machines that made this
-technique famous had silicon that read a sprite and a key colour and composited
-during the scan-out, so the CPU never touched those pixels at all. When people
-say a 1985 console did something a faster PC could not, this is usually what
-they mean.
+technique famous had silicon that read a sprite and a key colour and
+composited during the scan-out. The CPU never touched those pixels at all.
+When people say a 1985 console did something a faster PC could not, this is
+usually what they mean.
 
 Next: a scene graph, which is how you move a lot of these at once.

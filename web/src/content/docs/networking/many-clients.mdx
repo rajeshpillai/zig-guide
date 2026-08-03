@@ -8,9 +8,10 @@ order: 70
 import Playground from "../../../components/Playground.astro";
 
 A server that handles one connection at a time is a server one slow client can
-stop. The traditional answers are a thread per connection, which costs a stack
-each and stops scaling in the thousands, and a single-threaded event loop,
-which scales and infects every function you write with callbacks.
+stop. The traditional answers are two, and both have a cost. A thread per
+connection costs a stack each and stops scaling in the thousands. A
+single-threaded event loop scales, and infects every function you write with
+callbacks.
 
 Zig's answer is neither, and this page runs it in your browser on a target
 with no threads at all.
@@ -32,9 +33,9 @@ never learns where they came from, which is why this page runs with no network
 underneath it. Put a `std.Io.net.Server` in front of the same function and it
 is [the TCP round trip](/learn/networking/tcp-echo/).
 
-That is the whole argument for writing protocol code against `std.Io.Reader`
-and `std.Io.Writer` instead of against a socket: the tests get to be fast and
-the browser gets to run the example.
+That is the whole argument for writing protocol code against `Reader` and
+`Writer` instead of against a socket. The tests get to be fast, and the
+browser gets to run the example.
 
 ## `io.async`, not `Thread.spawn`
 
@@ -49,13 +50,13 @@ try group.await(io);
 The `Io` implementation decides what "async" means. `std.Io.Threaded` runs
 these on a thread pool; the single-threaded WASI one running this page runs
 them inline. **The source does not change**, which is why
-[Threads](/learn/standard-library/threads/) is a page you cannot run here and this
-one is.
+[Threads](/learn/standard-library/threads/) is a page you cannot run here and
+this one is.
 
 If you are arriving from an older Zig looking for `async` and `await` as
 keywords: they were removed. This is what replaced them, and it is a library,
-not syntax. [Concurrency](/learn/standard-library/concurrency/) covers the shape in
-general.
+not syntax. [Concurrency](/learn/standard-library/concurrency/) covers the
+shape in general.
 
 ## A Group so nothing outlives the scope
 
@@ -63,8 +64,8 @@ general.
 cancels all of them, so a connection handler cannot outlive the server that
 started it. A bare `Thread.spawn` per connection gives you no such guarantee,
 and shutting down cleanly means tracking every thread you ever started.
-[Cancellation](/learn/standard-library/cancellation/) covers what a handler sees when
-the group it belongs to is cancelled.
+[Cancellation](/learn/standard-library/cancellation/) covers what a handler
+sees when the group it belongs to is cancelled.
 
 ## A handler cannot return an error
 
@@ -74,9 +75,9 @@ fn handle(conn: *Connection, counter: *usize, mutex: *std.Io.Mutex, io: std.Io) 
 
 Note the `void`. There is nobody to return an error to: the caller has moved
 on to the next connection. So a per-connection failure has to become part of
-that connection's reply, which is the same conclusion the
-[text protocol chapter](/learn/networking/text-protocols/) reached from the other
-direction. One client sending garbage must not affect any other client.
+that connection's reply, which is the same conclusion the [text protocol
+chapter](/learn/networking/text-protocols/) reached from the other direction.
+One client sending garbage must not affect any other client.
 
 ## Shared state still needs a lock
 
@@ -87,7 +88,7 @@ counter.* += 1;
 ```
 
 The single-threaded implementation this page runs on would be perfectly happy
-without the mutex. That is exactly the trap: code that is only correct under
+without the mutex. That is exactly the trap. Code that is only correct under
 the implementation you tested with is a race waiting for a deployment, and the
 `Io` you get in production is the threaded one.
 

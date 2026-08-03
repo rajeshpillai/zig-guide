@@ -16,11 +16,11 @@ decoded without scanning forward to find where the next one starts.
 `utf8ByteSequenceLength` reads it, and `utf8Decode2`, `utf8Decode3` or
 `utf8Decode4` turns those bytes into a `u21`.
 
-The length is in the name because each of those takes a fixed-size array. There
-used to be one `utf8Decode` taking a slice, and it is deprecated: it asserted
-that the length matched the leading byte and had no way to tell you when it did
-not. Asking for the length first and then decoding that many bytes is the same
-work with the mistake designed out.
+The length is in the name because each of those takes a fixed-size array.
+There used to be one `utf8Decode` taking a slice, and it is deprecated. It
+asserted that the length matched the leading byte, and had no way to tell you
+when it did not. Asking for the length first and then decoding that many bytes
+is the same work with the mistake designed out.
 
 Handing it a continuation byte returns `error.Utf8InvalidStartByte`, which is
 the check you want when an index came from arithmetic rather than an iterator.
@@ -29,10 +29,10 @@ bytes a codepoint needs before you size the buffer.
 
 ## Cutting a string safely
 
-The [Unicode](/learn/standard-library/unicode/) chapter says to iterate codepoint
-slices and stop at the last full character. This is that function, written out:
-walk `nextCodepointSlice`, keep a running end offset, and stop before the first
-slice that would push you past the limit.
+The [Unicode](/learn/standard-library/unicode/) chapter says to iterate
+codepoint slices and stop at the last full character. This is that function,
+written out: walk `nextCodepointSlice`, keep a running end offset, and stop
+before the first slice that would push you past the limit.
 
 The naive `s[0..max]` produces invalid UTF-8 whenever the cut lands mid
 character, and nothing about it fails at the time. It fails wherever the bytes
@@ -41,8 +41,8 @@ end up.
 ## Which character is byte 7 in
 
 There is no std helper for this, so you write it. Continuation bytes all match
-`0b10xxxxxx`, so walking back while `(b & 0xC0) == 0x80` lands on the start byte
-of the character you were inside.
+`0b10xxxxxx`, so walking back while `(b & 0xC0) == 0x80` lands on the start
+byte of the character you were inside.
 
 Worth knowing rather than looking up, because it is four bytes of the format
 doing the work: UTF-8 was designed so this walk is always short and never
@@ -54,9 +54,9 @@ ambiguous.
 the cursor where it was, which is what a parser needs before it commits to a
 branch.
 
-`Utf8View.initComptime` validates during compilation. A literal needs no `try`,
-and a malformed one is a compile error rather than a runtime path you have to
-handle.
+`Utf8View.initComptime` validates during compilation. A literal needs no
+`try`, and a malformed one is a compile error rather than a runtime path you
+have to handle.
 
 ## Bytes you did not validate
 
@@ -75,12 +75,13 @@ than automatic.
 ## What std does not do
 
 There is no grapheme-cluster support, no display width, no case folding, no
-normalization, and no case mapping past ASCII. This is not an oversight to route
-around with a loop. `é` can be one codepoint or two, they compare unequal, and
-deciding they are the same string needs the Unicode tables. Those tables are
-large, they change with each Unicode revision, and they belong in a library.
+normalization, and no case mapping past ASCII. This is not an oversight to
+route around with a loop. `é` can be one codepoint or two, they compare
+unequal, and deciding they are the same string needs the Unicode tables. Those
+tables are large, they change with each Unicode revision, and they belong in a
+library.
 
 [zg](https://codeberg.org/atman/zg) by Sam Atman is the one to reach for. It
-splits the work into separate modules (graphemes, display width, letter casing,
-case folding, normalization, word breaks, scripts, emoji) so a program only
-pays for the tables it actually uses. Codeberg is upstream, not a mirror.
+splits the work into separate modules (graphemes, display width, letter
+casing, case folding, normalization, word breaks, scripts, emoji) so a program
+only pays for the tables it actually uses. Codeberg is upstream, not a mirror.

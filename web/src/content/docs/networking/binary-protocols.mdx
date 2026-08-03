@@ -31,8 +31,8 @@ try socket.writeAll(std.mem.asBytes(&header));
 ```
 
 `extern struct` fixes the layout and is the right tool for calling C, as
-[ABI](/learn/working-with-c/abi/) covers. It still does not fix byte order, so it is
-not enough here.
+[ABI](/learn/working-with-c/abi/) covers. It still does not fix byte order, so
+it is not enough here.
 
 Write the fields:
 
@@ -52,7 +52,7 @@ length read as little-endian: 83886080
 ```
 
 Nothing errored. The length is simply wrong, and wrong in the worst possible
-way: a receiver that trusts it will try to wait for, or allocate, 83 megabytes
+way. A receiver that trusts it will try to wait for, or allocate, 83 megabytes
 because a five-byte message arrived.
 
 Network byte order is big-endian by convention, and the convention is worth
@@ -60,9 +60,9 @@ following even when both ends are little-endian machines today, because one
 day one of them will not be. State the endianness at every call. `readInt` and
 `writeInt` require the argument precisely so that you cannot forget.
 
-This is also why the [Byte Order](/learn/language-basics/integer-rules/) rules matter
-more here than anywhere else in a program: inside your process the question
-never comes up.
+This is also why the [Byte Order](/learn/language-basics/integer-rules/) rules
+matter more here than anywhere else in a program: inside your process the
+question never comes up.
 
 ## Reject before you trust
 
@@ -82,6 +82,7 @@ The same applies to the tag byte:
 ```
 
 A byte off the wire is attacker-controlled. `@enumFromInt` on a value that is
-not a valid tag is undefined behaviour, not a shortcut, and `std.enums.fromInt`
-is what returns null instead. It replaced `std.meta.intToEnum`, which no longer
-exists: if you have that in your code, this is the swap.
+not a valid tag is undefined behaviour, not a shortcut, and
+`std.enums.fromInt` is what returns null instead. It replaced
+`std.meta.intToEnum`, which no longer exists: if you have that in your code,
+this is the swap.

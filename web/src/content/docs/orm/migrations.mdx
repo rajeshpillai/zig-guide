@@ -9,12 +9,12 @@ import Playground from "../../../components/Playground.astro";
 
 ## The problem
 
-Schemas change after they ship. The discipline every mature ORM
-converges on: each change is a versioned migration with an `up` and a
-`down`, the list is append-only, and the database records which version
-it is at. The interesting engineering question is where the logic lives,
-because "compute what to run" tends to get tangled into "run it", and
-then nothing is testable without a database.
+Schemas change after they ship. This is the discipline every mature ORM
+converges on. Each change is a versioned migration with an up and a down, the
+list is append-only, and the database records which version it is at. The
+interesting engineering question is where the logic lives, because "compute
+what to run" tends to get tangled into "run it", and then nothing is testable
+without a database.
 
 ## The pattern
 
@@ -32,28 +32,27 @@ then nothing is testable without a database.
 ## Purity is what makes the edge cases cheap
 
 The four tests cover the cases that go wrong in real systems: the fresh
-database, the partial upgrade, the rollback (in reverse order; forward
-order corrupts), and the no-op. Each is an assertion about a function
-from two integers to a slice. No fixtures, no containers, no cleanup.
-When the planner and the executor are one function, every one of those
-tests needs a live database and most never get written.
+database, the partial upgrade, the rollback (in reverse order; forward order
+corrupts), and the no-op. Each is an assertion about a function from two
+integers to a slice. No fixtures, no containers, no cleanup. When the planner
+and the executor are one function, every one of those tests needs a live
+database and most never get written.
 
-The split also buys `--dry-run` for free: print the plan instead of
-executing it. Any operation your library can plan without performing is
-one users can review before trusting.
+The split also buys `--dry-run` for free: print the plan instead of executing
+it. Any operation your library can plan without performing is one users can
+review before trusting.
 
 ## Append-only is a social contract, not a technical one
 
 Nothing in the code stops someone editing migration 2 after release; the
-guarantee is convention plus review. A library can help enforce it: the
-draft stores a checksum of each applied migration and refuses to proceed
-when history was rewritten under it. That check is, again, pure logic
-over data, testable the same way.
+guarantee is convention plus review. A library can help enforce it: the draft
+stores a checksum of each applied migration and refuses to proceed when
+history was rewritten under it. That check is, again, pure logic over data,
+testable the same way.
 
 ## In a full ORM
 
-The draft's migrations are Zig files discovered by the build (the
-timestamped files in `sample-migrations/`), each exposing `up` and
-`down`, with a CLI that creates, applies, and rolls back. The applied
-version lives in a `schema_migrations` table; reading it and executing
-the plan are the only parts that touch the database.
+The draft's migrations are Zig files discovered by the build, each exposing an
+up and a down, with a CLI that creates, applies, and rolls back. The applied
+version lives in a `schema_migrations` table; reading it and executing the
+plan are the only parts that touch the database.

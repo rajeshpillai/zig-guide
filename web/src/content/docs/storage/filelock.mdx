@@ -17,8 +17,8 @@ Two writers, each doing 200 increments, should leave 400. They will not.
 ## The program
 
 No Run button: this needs real threads and a real filesystem, so it is built
-for the host and executed there. It also has no pinned output, which is unusual
-here and is the point of the chapter.
+for the host and executed there. It also has no pinned output, which is
+unusual here and is the point of the chapter.
 
 <Playground
   name="20-storage.filelock"
@@ -46,21 +46,22 @@ noticed. Every one of those lost updates was a thread reading 91, another
 thread reading 91, and both writing 92.
 
 **Run it again and you get a different number.** This is the property that
-makes races expensive. A bug that reproduces is a bug you can bisect; this one
+makes races expensive. A bug that reproduces is a bug you can bisect. This one
 is a different value every time, disappears under a debugger because the
 timing changes, and is worst on the machine with the most cores, which is
-production. It is also why this snippet has no expected output: pinning one
+production. It is also why this snippet has no expected output. Pinning one
 number would make our nightly fail on an unchanged tree, and that would be the
 build lying rather than the code.
 
 **The lock made it exact.** Not "more accurate": 400, every time. Making the
-read-modify-write indivisible is the whole fix, and the reason it works is that
-the gap stops existing rather than getting smaller.
+read-modify-write indivisible is the whole fix, and the reason it works is
+that the gap stops existing rather than getting smaller.
 
 **The lock here is in-process.** A `std.Io.Mutex` coordinates threads in one
-program and knows nothing about a second copy of the program. For that you need
-the operating system to hold the lock, which is `flock` on the file itself, and
-the same three-line fix applies at a level where every process can see it.
+program and knows nothing about a second copy of the program. For that you
+need the operating system to hold the lock, which means locking the file
+itself. The same three-line fix applies, at a level where every process can
+see it.
 
 ## Check yourself
 
@@ -79,21 +80,21 @@ up with careful `rename` dances and corrupted counters.
 
 ## If you have written C
 
-`flock(fd, LOCK_EX)` or `fcntl` with a write lock, and the two differ in ways
-that matter: `flock` locks the open file description, so it is inherited across
-`fork` and released when the last descriptor closes, while `fcntl` locks are
-per-process and are released when *any* descriptor for the file is closed, even
-one you opened separately. That second behaviour has surprised a lot of people.
+There are two calls, and they differ in ways that matter. `flock` locks the
+open file description, so it is inherited across `fork` and released when the
+last descriptor closes. `fcntl` locks are per-process, and are released when
+any descriptor for the file is closed, even one you opened separately. That
+second behaviour has surprised a lot of people.
 
 Both are **advisory** on Linux by default, meaning they only work if every
-writer asks. A process that ignores the lock and writes anyway is not stopped.
-That is not a flaw so much as a contract: file locking coordinates cooperating
-programs, and there is no mode that protects a file from a program determined
-to ignore you.
+writer asks. That is not a flaw so much as a contract. File locking
+coordinates cooperating programs, and there is no mode that protects a file
+from a program determined to ignore you.
 
 The other C-specific hazard is that `read` and `write` on the same descriptor
 share a file offset. Two threads using one `fd` interleave their positions, so
 the fix in C is usually `pread`/`pwrite`, which take an offset and leave the
 shared one alone.
 
-Next: [an index](/learn/storage/indexes/), so that reading one key stops meaning reading the whole file.
+Next: [an index](/learn/storage/indexes/), so that reading one key stops
+meaning reading the whole file.

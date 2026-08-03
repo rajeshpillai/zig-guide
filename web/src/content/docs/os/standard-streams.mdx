@@ -23,7 +23,7 @@ try buffered.interface.flush();
 ```
 
 Both writers address descriptor 1. The first was given a 1 KB buffer and holds
-bytes until it is drained; the second was given an empty slice and has nowhere
+bytes until it is drained. The second was given an empty slice and has nowhere
 to put them, so each write goes out immediately. The second line reaches the
 terminal first, and no amount of reading the source top to bottom would tell
 you that.
@@ -31,8 +31,8 @@ you that.
 The descriptor has no buffer. Buffering is something your writer does on your
 side of the call, which is why the fix is `flush` and not a flag on the file.
 [Hello, World](/learn/getting-started/hello-world/) covers the mechanics; the
-point here is that two writers on one descriptor are two independent
-buffers with no idea the other exists.
+point here is that two writers on one descriptor are two independent buffers
+with no idea the other exists.
 
 This is the single most common way interleaved output goes wrong. A program
 prints progress to standard error unbuffered and results to standard output
@@ -50,9 +50,9 @@ would want to filter out of the data belongs on 2: progress, warnings, errors,
 the name of the file being processed.
 
 Standard error is also the stream that survives a crash. It is conventionally
-unbuffered or line buffered for exactly that reason: a diagnostic still sitting
-in a buffer when the process dies is a diagnostic you did not get, and the
-process dying is when you wanted it most.
+unbuffered, or line buffered, for exactly that reason. A diagnostic still
+sitting in a buffer when the process dies is a diagnostic you did not get, and
+the process dying is when you wanted it most.
 
 ## `isTty`, and why anyone asks
 
@@ -60,17 +60,18 @@ process dying is when you wanted it most.
 std.Io.File.stdout().isTty(io)
 ```
 
-The answer is false in the playground above, false in a CI log, false through a
-pipe, and true in your terminal. It is a question about the descriptor, not
-about the program, and it is what a well-behaved tool asks before deciding to
-emit colour escapes, redraw a progress bar in place, or print a table sized to
-the window. A tool that skips the question writes escape sequences into the log
+The answer is false in the playground above, false in a CI log, false through
+a pipe, and true in your terminal. It is a question about the descriptor, not
+about the program. It is what a well-behaved tool asks before deciding to emit
+colour escapes, redraw a progress bar in place, or print a table sized to the
+window. A tool that skips the question writes escape sequences into the log
 file someone will read next year.
 
 ## Both streams in the playground
 
-The playground merges 1 and 2 into one pane, because a browser has one place to
-put text. Under CI they stay separate: the runner routes each to its own file
-and compares only standard output against the recorded expectation, which is
-why the stderr line in this snippet is not in the expectation that gates it. That is the right split for a test. What the program
-produced is the contract; what it had to say while producing it is not.
+The playground merges 1 and 2 into one pane, because a browser has one place
+to put text. Under CI they stay separate. The runner routes each to its own
+file and compares only standard output against the recorded expectation, which
+is why the stderr line in this snippet is not in the expectation that gates
+it. That is the right split for a test. What the program produced is the
+contract; what it had to say while producing it is not.

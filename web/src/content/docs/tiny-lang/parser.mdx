@@ -13,7 +13,8 @@ job is to find the shape, and the shape is a tree.
 
 The tree for `1 + 2 * 3` has `+` at the top, because it is the *last* thing
 done. Its right operand is the whole of `2 * 3`. Reading a tree is reading
-inwards-out, so the deepest node runs first, which means **precedence is depth**.
+inwards-out, so the deepest node runs first, which means **precedence is
+depth**.
 
 That reframes the problem usefully. You do not need a rule that says `*` binds
 tighter than `+`. You need `*` to end up deeper. And there is a way to write a
@@ -32,10 +33,10 @@ unary       ->  "-" unary | primary
 primary     ->  number | name | "(" comparison ")"
 ```
 
-`sum` cannot see a `*`. By the time it looks at the token stream, `product` has
-already consumed any multiplication and handed back a finished subtree. So the
-multiplication is inside the addition's operand, which is exactly what "binds
-tighter" means. The call chain *is* the precedence table.
+`sum` cannot see a `*`. By the time it looks at the token stream, `product`
+has already consumed any multiplication and handed back a finished subtree. So
+the multiplication is inside the addition's operand, which is exactly what
+"binds tighter" means. The call chain *is* the precedence table.
 
 This is **recursive descent**, and it is what most real compilers use, because
 it is the only parsing technique you can read.
@@ -63,10 +64,10 @@ exponentiation in languages that have it, are written exactly that way on
 purpose.
 
 **The whole tree is one flat array.** A node holds indices, not pointers, and
-children hang off a `first`/`next` linked list. So the parser allocates nothing
-beyond the array it was handed, a node is a fixed size, and the tree can be
-copied or thrown away in one move. Real compilers do this too, for the cache
-behaviour as much as the simplicity.
+children hang off a `first`/`next` linked list. So the parser allocates
+nothing beyond the array it was handed, a node is a fixed size, and the tree
+can be copied or thrown away in one move. Real compilers do this too, for the
+cache behaviour as much as the simplicity.
 
 **The error set is written out rather than inferred.** These functions are
 mutually recursive, since `primary` calls back into `expression` for a
@@ -77,15 +78,16 @@ length 6`, which names the cycle rather than pointing at one function.
 ## Check yourself
 
 The grammar says `while (cond) { ... }` with the parentheses required. Given
-recursive descent, could the language drop them and accept `while cond { ... }`?
+recursive descent, could the language drop them and accept `while cond { ...
+}`?
 
 Yes, and many languages do. The parentheses are not doing any parsing work
-here: the condition ends where the `{` begins, and `expression` stops there on
-its own because `{` is not an operator it recognises. What the parentheses buy
-is a better error message when the condition is malformed, and a grammar that
-stays unambiguous if you later add a construct where an expression could be
-followed by a brace that means something else. Rust requires the braces and
-forbids the parentheses for exactly this reason.
+here. The condition ends where the block begins, and the expression parser
+stops there on its own, because a brace is not an operator it recognises. What
+the parentheses give you is a better error message when the condition is
+malformed. They also keep the grammar unambiguous if you later add a construct
+where an expression could be followed by a brace that means something else.
+Rust requires the braces and forbids the parentheses for exactly this reason.
 
 ## If you have written C
 
@@ -93,16 +95,16 @@ The shape is identical, and this is one of the places where a C implementation
 and a Zig one differ least. The nodes would be a `struct Node` with a `kind`
 enum, a union of payloads, and `struct Node *` children.
 
-Two differences worth naming. Using indices rather than pointers is a choice in
-both languages, and in C it is the one you make when you want to `realloc` the
-node array without invalidating everything pointing into it. Here it is also
-what lets the whole tree live in a fixed array with no allocator at all.
+Two differences worth naming. Using indices rather than pointers is a choice
+in both languages. In C it is the one you make when you want to grow the node
+array without invalidating everything pointing into it. Here it is also what
+lets the whole tree live in a fixed array with no allocator at all.
 
 And C's union payload would be untagged in practice, with the `kind` field
 telling you which member is live and nothing checking that you agreed. That is
 the classic source of a compiler bug that only shows up on one node type. Zig
-has tagged unions for exactly this, and the version above sidesteps the
-question by giving every node the same fields, which is fine at ten node kinds
-and would not be at fifty.
+has tagged unions for exactly this. The version above sidesteps the question
+by giving every node the same fields, which is fine at ten node kinds and
+would not be at fifty.
 
 Next: an interpreter, which walks this tree and produces an answer.

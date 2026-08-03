@@ -15,8 +15,8 @@ target's C ABI says.
 
 ## Why not just use `i32`?
 
-Because `long` is not one size. It is 8 bytes on 64-bit Linux and macOS,
-4 bytes on Windows and on wasm32. Code that hardcodes `i64` for a C `long` is
+Because `long` is not one size. It is 8 bytes on 64-bit Linux and macOS, 4
+bytes on Windows and on wasm32. Code that hardcodes `i64` for a C `long` is
 correct on one platform and silently wrong on another, the kind of bug that
 appears only after a port.
 
@@ -43,16 +43,16 @@ assumption everywhere.
 C's `void *ptr` becomes `*anyopaque`, and C's `void f(void)` returns Zig's
 `void`. The two meanings of C's `void` are separated.
 
-For handles you control, prefer a distinct
-[`opaque {}`](/learn/language-basics/opaque/) type over `*anyopaque`: it keeps
+For handles you control, prefer a distinct [`opaque
+{}`](/learn/language-basics/opaque/) type over `*anyopaque`: it keeps
 different handle kinds from being interchangeable.
 
 ## What C guarantees, and what it does not
 
 C does not specify the size of its integer types. It specifies minimum ranges
-and an ordering, and the actual widths are the platform's business, recorded in
-a document called the ABI. That is why the table below has three answers rather
-than one:
+and an ordering, and the actual widths are the platform's business, recorded
+in a document called the ABI. That is why the table below has three answers
+rather than one:
 
 | C type | 64-bit Linux/macOS | 64-bit Windows | wasm32 |
 | --- | --- | --- | --- |
@@ -66,9 +66,10 @@ than one:
 platforms disagree about it. `c_long` gets this right on every target Zig
 supports, which is the entire reason it exists.
 
-`c_char` has a second problem on top of the width: whether it is signed is also
-platform-defined, and it differs between x86 and ARM Linux. Zig models that too,
-which is why `c_char` is its own type rather than an alias for `i8` or `u8`.
+`c_char` has a second problem on top of the width: whether it is signed is
+also platform-defined, and it differs between x86 and ARM Linux. Zig models
+that too, which is why `c_char` is its own type rather than an alias for `i8`
+or `u8`.
 
 ## Keep them at the boundary
 
@@ -87,8 +88,8 @@ assumption everywhere.
 The conversion is also where the validation belongs. A `c_int` from C can be
 negative, and if your code treats it as a count, that is the line to reject it
 on. `@intCast` panics in a safety build when the value does not fit, which is
-better than proceeding, but an explicit check producing an error is better
-still at a boundary where the value came from outside.
+better than proceeding. But at a boundary where the value came from outside,
+an explicit check producing an error is better still.
 
 ## `anyopaque`
 
@@ -96,11 +97,11 @@ still at a boundary where the value came from outside.
 C's `void *ptr` becomes `*anyopaque`, and C's `void f(void)` returns Zig's
 `void`. The two meanings of C's `void` are separated.
 
-That separation is worth noticing as an example of the general pattern here.
-C reuses one keyword for "nothing" and for "something whose type I am not
+That separation is worth noticing as an example of the general pattern here. C
+reuses one keyword for "nothing" and for "something whose type I am not
 telling you", and code has to work out which from context. Zig gives them
-different names, and the ambiguity disappears at the point of translation rather
-than being carried into your program.
+different names, and the ambiguity disappears at the point of translation
+rather than being carried into your program.
 
 Similarly, C's `void*` is both "a pointer to unknown data" and the generic
 pointer everything converts to. In Zig, `*anyopaque` is the first, and the

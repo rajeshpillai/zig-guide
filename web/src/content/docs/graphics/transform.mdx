@@ -9,8 +9,8 @@ import Playground from "../../../components/Playground.astro";
 
 [The scene graph](/learn/graphics/scene/) stored two integers per node and
 admitted the limit in passing: two integers only let a node move. A real one
-carries a matrix, so a node can turn and resize as well, and composing a parent
-with a child becomes a multiply. This is that matrix.
+carries a matrix, so a node can turn and resize as well, and composing a
+parent with a child becomes a multiply. This is that matrix.
 
 ## The program
 
@@ -29,13 +29,14 @@ travels a quarter circle to somewhere else entirely. Matrix multiplication is
 not commutative, and this is what that sentence looks like.
 
 **Turning about a point is three transforms.** There is no `rotate` that takes
-a centre. Move the pivot to the origin, turn, move it back, and the composition
-of those three is a single matrix costing exactly what one rotation costs. The
-arrows numbered 1, 2 and 3 orbit the `+` without any of them containing an
-orbit.
+a centre. Move the pivot to the origin, turn, move it back, and the
+composition of those three is a single matrix costing exactly what one
+rotation costs. The arrows numbered 1, 2 and 3 orbit the `+` without any of
+them containing an orbit.
 
 **The shape is never modified.** `shape` is one array of seven points, `const`,
-drawn eleven times across the three pictures. Every difference is in the matrix.
+drawn eleven times across the three pictures. Every difference is in the
+matrix.
 
 ## Reading a composition
 
@@ -60,8 +61,8 @@ graphics text would write as `T * R * T⁻¹`.
 The display's aspect ratio is composed the same way. A character cell is about
 twice as tall as it is wide, so every point gets a final non-uniform scale of
 `(2, 1)`. Keeping it out of the transforms above is why a rotation in this
-program is a rotation: the shape is reasoned about in square units and squashed
-once, at the end, by a matrix like any other.
+program is a rotation. The shape is reasoned about in square units and
+squashed once, at the end, by a matrix like any other.
 
 ## What the bottom row is for
 
@@ -72,19 +73,19 @@ It exists because translation is not a linear operation. A 2x2 matrix multiply
 can rotate, scale and shear, and every one of those leaves the origin where it
 is. Nothing built from `a`, `b`, `c` and `d` alone can move a point away from
 the origin. Adding a third coordinate fixed at 1 gives translation a column to
-live in, and `e` and `f` are that column: they are multiplied by the 1 and
-added, which is exactly what `apply` does.
+live in. The last column is that column: its entries are multiplied by the 1
+and added, which is exactly what a move does.
 
 That is the whole trick behind homogeneous coordinates. The payoff is not
-elegance, it is that translation joins the others as a multiply, so a chain of
-moves, turns and scales collapses into one matrix that is applied once per
-point instead of a pipeline walked per point.
+elegance. It is that translation joins the others as a multiply, so a chain of
+moves, turns and scales collapses into one matrix, applied once per point
+instead of a pipeline walked per point.
 
-Perspective is the same idea taken one step further: let the bottom row hold
-something other than `0 0 1`, divide by the third coordinate afterwards, and
-the division is where the far end of a wall gets smaller. That division is also
-exactly what the trapezoid in
-[texture mapping](/learn/graphics/texture/) was missing.
+Perspective is the same idea taken one step further. Let the bottom row hold
+something other than 0 and 1, divide by the third coordinate afterwards, and
+the division is where the far end of a wall gets smaller. That division is
+also exactly what the trapezoid in [texture mapping](/learn/graphics/texture/)
+was missing.
 
 ## Check yourself
 
@@ -92,11 +93,12 @@ exactly what the trapezoid in
 transform to the points in turn?
 
 For seven points it makes no difference. The reason is what happens when there
-are seven thousand, or when the chain is deep: composing costs one multiply per
-*transform*, applying costs one per *point*. Fold the chain first and every
-point pays for one matrix regardless of how many operations went into it, which
-is the same reason the scene graph accumulates an offset on the way down the
-tree instead of re-walking from the root at every node.
+are seven thousand, or when the chain is deep: composing costs one multiply
+per
+*transform*, applying costs one per *point*. Fold the chain first and every point pays for one matrix, regardless of how
+many operations went into it. That is the same reason the scene graph
+accumulates an offset on the way down the tree, instead of re-walking from the
+root at every node.
 
 The second reason is accuracy. Each application rounds, so applying five
 transforms in turn rounds five times per point. Composing rounds once while
@@ -105,13 +107,13 @@ building the matrix, and the points are transformed once.
 ## If you have written C
 
 The struct is the six-float affine matrix from every 2D graphics API you have
-met: `cairo_matrix_t`, Direct2D's `D2D1_MATRIX_3X2_F`, the six arguments to the
-web canvas `setTransform`, and Java's `AffineTransform`. Field order and naming
-differ, and it is always these six.
+met. Cairo's, Direct2D's, the six arguments to the web canvas `setTransform`,
+and Java's `AffineTransform`. Field order and naming differ, and it is always
+these six.
 
-Two differences in the Zig. `@cos` and `@sin` are builtins rather than libc
+Two differences in the Zig. The trigonometry is builtins rather than libc
 calls, so this snippet has no dependency to link and runs unchanged in a
-browser, which is why the program above is running in this page.
+browser. That is why the program above is running in this page.
 
 And the default field values in the struct declaration are doing real work.
 `identity` is `.{}`, and each constructor sets only the fields it cares about:

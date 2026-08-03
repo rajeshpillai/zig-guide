@@ -9,11 +9,11 @@ import Playground from "../../../components/Playground.astro";
 
 ## The problem
 
-You need to know how a struct sits in memory: how big it is, where each
-field lands, and whether you can hand it to C or to hardware. Guessing from
-the field types is a mistake, because the default layout is allowed to
-reorder fields and insert padding. Zig gives you builtins to read the real
-numbers and keywords to pin them down when it matters.
+You need to know how a struct sits in memory: how big it is, where each field
+lands, and whether you can hand it to C or to hardware. Guessing from the
+field types is a mistake, because the default layout is allowed to reorder
+fields and insert padding. Zig gives you builtins to read the real numbers and
+keywords to pin them down when it matters.
 
 ## The plan
 
@@ -29,15 +29,14 @@ numbers and keywords to pin them down when it matters.
 
 `Padded` is declared `a: u8, b: u64, c: u32`. A C programmer expects `a` at
 offset 0, seven bytes of padding, `b` at 8, `c` at 16, for 24 bytes. Zig's
-default layout is `auto`, which is explicitly unspecified, and the current
-compiler uses that freedom: it places `b` at 0, `c` at 8, and `a` at 12, for
-a total of 16 bytes. Putting the largest field first removes the padding a
-naive order would need.
+default layout is unspecified, and the current compiler uses that freedom. It
+places `id` at 0, `name` at 8, and `age` at 12, for a total of 16 bytes.
+Putting the largest field first removes the padding a naive order would need.
 
-The lesson is not the specific numbers, which belong to this compiler and
-this target. It is that you must not depend on the field order of an `auto`
-struct. If a byte offset matters, read it with `@offsetOf`, or use a layout
-that guarantees order.
+The lesson is not the specific numbers, which belong to this compiler and this
+target. It is that you must not depend on the field order of an `auto` struct.
+If a byte offset matters, read it with `@offsetOf`, or use a layout that
+guarantees order.
 
 ## `align(N)` raises the whole struct
 
@@ -50,17 +49,17 @@ a device expects a specific boundary.
 
 `packed struct` drops padding, keeps fields in declaration order, and allows
 sub-byte integers. `Register` packs a `bool`, a `u3`, a `u4`, and a `u8` into
-exactly two bytes. `@bitCast` reinterprets it as a `u16` with no copy: the
-fields fill the integer from the least significant bit up, so `enable` is bit
-0 and `value` occupies the high byte. The result is `0x2A0B`, which is how
-you would build a hardware register value or decode one.
+exactly two bytes. `@bitCast` reinterprets it with no copy. The fields fill
+the integer from the least significant bit up, so the first field is bit 0 and
+the last occupies the high byte. The result is `0x2A0B`, which is how you
+would build a hardware register value or decode one.
 
 ## Extern structs match C
 
 `extern struct` follows the platform C ABI: fields stay in order, padding
 follows C rules, so `CStruct` is 8 bytes with `b` at offset 4. This is the
-layout to use across an FFI boundary. The
-[ABI chapter](/learn/working-with-c/abi/) covers passing these to and from C in
+layout to use across an FFI boundary. The [ABI
+chapter](/learn/working-with-c/abi/) covers passing these to and from C in
 full.
 
 ## Variations

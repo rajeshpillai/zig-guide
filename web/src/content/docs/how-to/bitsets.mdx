@@ -9,14 +9,13 @@ import Playground from "../../../components/Playground.astro";
 
 ## The problem
 
-You need sets of small integers and set arithmetic over them: which hours
-two calendars are both free, which of 64 seats are taken, which permissions
-two roles share. A hash set works, but it allocates, chases pointers, and
-turns "intersect two sets" into a loop with lookups.
+You need sets of small integers and set arithmetic over them: which hours two
+calendars are both free, which of 64 seats are taken, which permissions two
+roles share. A hash set works, but it allocates, chases pointers, and turns
+"intersect two sets" into a loop with lookups.
 
-When the universe of possible members is small and known (hours 0 to 23,
-seats 0 to 63), a bit set does the same job as one integer and some
-bitwise operations.
+When the set of possible members is small and known (hours 0 to 23, seats 0 to
+63), a bit set does the same job as one integer and some bitwise operations.
 
 ## The plan
 
@@ -48,14 +47,13 @@ standard library's containers, so it is worth internalizing once.
 
 The intersection in the snippet compiles to an `and` instruction on a u24.
 `count()` is a popcount. Iteration visits set bits directly rather than
-scanning buckets. And because `bit_set.Static` picks its representation from
-the size (a single integer up to pointer width, an array of words beyond
-it), `std.bit_set.Static(365)` for days of a year works identically, just
-across several words.
+scanning buckets. And because `Static` picks its representation from the size
+(a single integer up to pointer width, an array of words beyond it), a set for
+the days of a year works identically, just across several words.
 
-The trade is that members must be small integers you can enumerate at
-compile time. The moment keys are strings or unbounded, you are back to
-[hash maps](/learn/standard-library/hash-maps/).
+The trade is that members must be small integers you can enumerate at compile
+time. The moment keys are strings or unbounded, you are back to [hash
+maps](/learn/standard-library/hash-maps/).
 
 ## Variations
 

@@ -68,9 +68,10 @@ describe.
 
 ## Only `pub` appears
 
-That makes the doc build a check on your interface. Generating docs and finding
-a type you meant to keep private, or a helper with no comment sitting in the
-public list, is a review of the boundary that would otherwise never happen.
+That makes the doc build a check on your interface. Generate the docs and you
+may find a type you meant to keep private, or a helper with no comment sitting
+in the public list. That is a review of the boundary that would otherwise
+never happen.
 
 The output is a static site: HTML, plus the source, plus a search index. It
 needs no server and can be published anywhere files can be, which is what
@@ -79,16 +80,16 @@ needs no server and can be published anywhere files can be, which is what
 ## Doctests
 
 Because tests are ordinary language constructs, a `test` block next to a
-function serves as both a test and an example. Unlike a comment, it cannot
-go stale without the build noticing. That is the same principle this entire
-guide is built on.
+function serves as both a test and an example. Unlike a comment, it cannot go
+stale without the build noticing. That is the same principle this entire guide
+is built on.
 
 Naming a test after the function it exercises, `test myFunction { ... }`,
 associates the two, so the example travels with the documentation rather than
 sitting in a separate file that nobody updates.
 
-This is worth taking seriously as the primary form of documentation rather than
-a supplement to it. A prose example in a comment is a claim about how the
+This is worth taking seriously as the primary form of documentation rather
+than a supplement to it. A prose example in a comment is a claim about how the
 function behaves, unchecked, written against whatever the signature was on the
 day it was typed. A test making the same claim is checked on every build. When
 the two disagree, and eventually they do, the test is the one that is right.

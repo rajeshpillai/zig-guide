@@ -7,10 +7,9 @@ order: 65
 
 import Playground from "../../../components/Playground.astro";
 
-`Io.Mutex` covers most shared state. Three other primitives cover the rest.
-All of them take the `Io` instance for the same reason the mutex does:
-blocking goes through the interface, so it can be cancelled and it works on an
-implementation with no threads.
+`Io.Mutex` covers most shared state. All of them take the `Io` instance for
+the same reason the mutex does. Blocking goes through the interface, so it can
+be cancelled, and it works on an implementation with no threads.
 
 <Playground name="03-standard-library.locks" />
 

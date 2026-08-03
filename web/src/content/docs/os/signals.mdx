@@ -7,10 +7,11 @@ order: 60
 
 import Playground from "../../../components/Playground.astro";
 
-A signal is the operating system calling a function in your program at a moment
-you did not choose. Not a queue you poll and not a message you receive: your
-thread is stopped between two instructions, the handler runs on that thread's
-stack, and then the instruction that was next runs as though nothing happened.
+A signal is the operating system calling a function in your program at a
+moment you did not choose. It is not a queue you poll, and not a message you
+receive. Your thread is stopped between two instructions, the handler runs on
+that thread's stack, and then the instruction that was next runs as though
+nothing happened.
 
 <Playground
   name="14-os.signals"
@@ -29,8 +30,8 @@ var action: std.posix.Sigaction = .{
 std.posix.sigaction(.USR1, &action, null);
 ```
 
-`sigaction` returns `void`. It used to return an error union, so `try` in front
-of it is now an error about a non-error value. And a handler takes a
+`sigaction` returns `void`. It used to return an error union, so `try` in
+front of it is now an error about a non-error value. And a handler takes a
 `std.posix.SIG` rather than a `c_int`:
 
 ```zig
@@ -39,9 +40,9 @@ fn onUsr1(sig: std.posix.SIG) callconv(.c) void
 
 Every handler written before this change has the signature `fn (c_int)
 callconv(.C) void` and does not compile. That is the good outcome. An enum
-parameter also means `switch` over the signal in a shared handler is checked,
-and `.USR1` cannot be confused with the integer 10 on one platform and 30 on
-another.
+parameter also means a `switch` over the signal in a shared handler is
+checked. And `.int` cannot be confused with the integer 10 on one platform and
+30 on another.
 
 ## Set a flag. Do nothing else.
 
@@ -66,9 +67,9 @@ handler is not working.
 
 So the handler stores to an atomic and returns. Everything real happens in the
 main loop, which reads the flag when it is between two units of work and can
-afford to think. `std.atomic.Value` rather than a plain `bool` because the
+afford to think. It is an atomic rather than a plain `bool` because the
 handler runs between two instructions of code that may be reading the same
-variable, and a torn or reordered read there is a real bug on a weakly ordered
+variable. A torn or reordered read there is a real bug on a weakly ordered
 machine.
 
 ## Blocking defers, it does not discard
@@ -82,10 +83,10 @@ std.posix.sigprocmask(std.posix.SIG.UNBLOCK, &mask, null);
 
 A blocked signal is held pending until it is unblocked, and then delivered.
 This is how a program protects a section that must not be interrupted without
-losing the notification. It is also the mechanism behind `sigwait` and
-`signalfd`, which block a signal permanently and then read it as data on a
+losing the notification. It is also the mechanism behind `signalfd` and
+`pidfd`. Those block a signal permanently and then read it as data on a
 descriptor, turning an interruption into something a normal event loop can
-select over. That is what most servers actually do.
+wait on. That is what most servers actually do.
 
 Pending is a bit, not a count. Ten `SIGUSR1`s raised while blocked deliver
 once. A handler that increments a counter is counting deliveries, not signals,
@@ -96,8 +97,8 @@ somewhere else.
 
 Every signal has a disposition before your program touches it, and for most of
 them it is to terminate the process. `SIGUSR1` is the snippet's example: named
-"user defined" and fatal by default, so a program that never installs a handler
-dies when one arrives.
+"user defined" and fatal by default, so a program that never installs a
+handler dies when one arrives.
 
 Three worth remembering:
 
@@ -109,5 +110,6 @@ Three worth remembering:
 
 `SIGINT` and `SIGTERM` are the two a long-running program should handle, and
 handling them means setting a flag that the main loop turns into a clean
-shutdown. `SIGKILL` and `SIGSTOP` cannot be handled or blocked at all, which is
-the guarantee that lets an operator stop a process that has stopped listening.
+shutdown. `SIGKILL` and `SIGSTOP` cannot be handled or blocked at all, which
+is the guarantee that lets an operator stop a process that has stopped
+listening.

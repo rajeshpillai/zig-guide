@@ -33,17 +33,11 @@ the column out; formatting never truncates for you.
 
 ## The width can be a value
 
-That form reads the width from an argument instead of from the format string.
-It is what you need when the column is as wide as the longest row, or as wide
-as the terminal: Nothing decodes the value first, and the standard library
-says so in its own docs: alignment "is not Unicode-aware; appropriate only
-when used with raw bytes or ASCII."
-
-So `{s:>8}` on `"héllo"` emits eight bytes and seven columns, while the same
-spec on `"world"` emits eight of both. A table of names lines up until one of
-them has an accent in it. Counting what a reader would call a character is a
-separate problem, and [Unicode
-Recipes](/learn/standard-library/unicode-recipes/) is where it lives.
+Nothing decodes the value first, and the standard library says so in its own
+docs: alignment "is not Unicode-aware; appropriate only when used with raw
+bytes or ASCII." A table of names lines up until one of them has an accent in
+it. Counting what a reader would call a character is a separate problem, and
+[Unicode Recipes](/learn/standard-library/unicode-recipes/) is where it lives.
 
 ## Joining at runtime
 

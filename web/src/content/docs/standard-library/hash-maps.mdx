@@ -84,7 +84,7 @@ and the matching teardown iterates the map freeing `entry.key_ptr.*` before
 and a leak-checking allocator in a test is what catches it.
 
 You do *not* need to copy when the keys are already owned by something
-longer-lived: string literals, names interned in an arena, or slices of a
+longer-lived. String literals, names interned in an arena, or slices of a
 buffer you are holding for the duration. Then the map borrowing them is
 correct and copying would be waste.
 
