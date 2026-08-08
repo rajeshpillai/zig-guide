@@ -14,6 +14,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { legacyRedirects } from "../legacy-urls.mjs";
 
 const DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "dist");
 
@@ -692,6 +693,57 @@ for (const href of internalLinks) {
 }
 
 /**
+ * Every address the guide has ever had still lands on the page that replaced
+ * it. Nothing on the site links to any of them, and none of them appears in
+ * the sitemap, so this is the only thing that will ever look: the failure mode
+ * is a chapter moving, its redirect quietly pointing at a 404, and the only
+ * report of it arriving months later in Search Console.
+ *
+ * Checked as documents rather than by following them. A zero-delay meta
+ * refresh is what a crawler reads, and asserting the URL it names is what
+ * proves the base path made it into the destination — a redirect built without
+ * the prefix would still load fine in a browser here and 404 in production.
+ */
+const legacy = Object.entries(legacyRedirects(`${PREFIX}/`));
+let redirectsChecked = 0;
+const destinations = new Set();
+for (const [from, to] of legacy) {
+  const res = await page.request.get(`${BASE}${PREFIX}${from}/`);
+  if (!res.ok()) {
+    failures.push(`legacy URL ${PREFIX}${from}/ -> HTTP ${res.status()}, want a redirect`);
+    continue;
+  }
+  const html = await res.text();
+  const refresh = html.match(/http-equiv="refresh" content="\d+;url=([^"]+)"/)?.[1];
+  if (refresh !== to) {
+    failures.push(`legacy URL ${PREFIX}${from}/ redirects to ${refresh ?? "nothing"}, want ${to}`);
+    continue;
+  }
+  if (!/name="robots" content="noindex"/.test(html)) {
+    failures.push(`legacy URL ${PREFIX}${from}/ is a redirect Google would index`);
+  }
+  destinations.add(to);
+  redirectsChecked++;
+}
+for (const to of destinations) {
+  const res = await page.request.get(BASE + to);
+  if (!res.ok()) failures.push(`legacy redirect destination ${to} -> HTTP ${res.status()}`);
+}
+
+// The page the host serves for everything else. GitHub Pages wants it at this
+// exact path, and Astro only puts it there because of the filename.
+const notFound = await page.request.get(`${BASE}${PREFIX}/404.html`);
+if (!notFound.ok()) {
+  failures.push(`404.html -> HTTP ${notFound.status()}; GitHub Pages will serve its own`);
+} else {
+  const html = await notFound.text();
+  if (!/name="robots" content="noindex/.test(html)) failures.push("404.html is indexable");
+  if (!html.includes(`href="${PREFIX}/learn/"`)) {
+    failures.push("404.html does not link to the guide index, which is the way back in");
+  }
+}
+
+/**
  * The sitemap is generated from the content collection, so it cannot list a
  * page that does not exist — but it can silently *omit* one, which is how a
  * whole section stays unindexed with nothing failing. Assert both directions:
@@ -917,6 +969,7 @@ console.log(
     `header widths: ${headerWidths}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
+    `legacy redirects: ${redirectsChecked}  ` +
     `llms.txt: ${machine.llms}  .md: ${machine.mdPages}  feed: ${machine.feedItems}  ` +
     `console errors: ${consoleErrors.size}`,
 );

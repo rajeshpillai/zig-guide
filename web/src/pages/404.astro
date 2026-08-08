@@ -1,0 +1,60 @@
+---
+/**
+ * What GitHub Pages serves for an address that matches no file.
+ *
+ * There was no such page for a long time, which meant every mistyped or stale
+ * URL landed on the host's own default: a grey page with no sidebar, no search
+ * and no way back into the guide. The addresses the guide itself abandoned are
+ * handled a level up, by the redirect table in `legacy-urls.mjs`, so anything
+ * that reaches this page is a typo, a truncated link, or a page that never
+ * existed. All three want the same thing, which is a route back in.
+ *
+ * The filename matters: Astro emits `src/pages/404.astro` as `dist/404.html`
+ * rather than `dist/404/index.html`, and GitHub Pages looks for exactly that.
+ */
+import Base from "../layouts/Base.astro";
+import { guideHref } from "../nav";
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Base
+  title="Not found"
+  seoTitle="Page not found"
+  description="There is no page at this address. The guide index lists every chapter."
+  crumbs={[{ label: "Not found" }]}
+  noindex
+>
+  <article>
+    <h1>Not found</h1>
+
+    <p class="lede">
+      There is no page at this address. Nothing was lost: the guide's own old
+      addresses still work and land on the chapter that replaced them, so a
+      link that ends up here was either mistyped or cut short somewhere.
+    </p>
+
+    <p>
+      <a href={guideHref}>The guide index</a> lists every track, section and
+      chapter in reading order, which is the fastest way to find what you were
+      after. If you know roughly what you want but not where it lives, the
+      search box in the header matches every chapter title and heading; press
+      <kbd>/</kbd> to open it.
+    </p>
+
+    <p>
+      If you are starting rather than looking for one page,{" "}
+      <a href={`${base}paths/`}>the reading paths</a> lay out five routes
+      through the guide depending on where you are coming from: another
+      systems language, a scripting language, no systems experience at all.
+    </p>
+
+    <p>
+      A link on this site that brought you here is a bug worth reporting, and
+      it should not be possible: every internal link on every page is resolved
+      in a browser before a build is allowed to publish. Either way,{" "}
+      <a href={`${base}contact/`}>say where you came from</a> and it gets
+      fixed.
+    </p>
+  </article>
+</Base>
