@@ -115,13 +115,24 @@ The sidebar folds away on wide screens (the `rail-toggle` checkbox, so it works 
 
 ## Writing style
 
-Applies to everything a reader sees: `.mdx` prose, snippet comments, page copy, home-page text. The voice is a careful human engineer: concrete, specific, plain. Nothing a reader sees may carry an AI or LLM tone: no assistant-style hedging, framing, or summary voice, no "as an AI", no generic upbeat filler. Every page must read as if a human engineer wrote it by hand. Detectable AI-generated phrasing is a defect in this repo, on the same footing as a broken snippet.
+**[rajesh-writing-style.md](rajesh-writing-style.md) is the voice.** Read it before writing anything a reader sees: `.mdx` prose, snippet comments, page copy, home-page text. Its core rule is the one that carries the most weight here, because a guide about a systems language is where the temptation to sound impressive is strongest: **simplify the language, not the idea.** Short sentences, one idea each, active voice, the concrete case before the general rule, and no claim added or softened in the name of readability.
+
+Nothing a reader sees may carry an AI or LLM tone: no assistant-style hedging, framing, or summary voice, no "as an AI", no generic upbeat filler. Every page must read as if a human engineer wrote it by hand. Detectable AI-generated phrasing is a defect in this repo, on the same footing as a broken snippet.
+
+The rules below are what this site adds on top, and they win where the two documents disagree. Each one is either checkable or the scar of something that went wrong on this domain.
 
 - **No em dashes (—) or en dashes (–) in prose.** Rewrite the sentence instead: split it, or use a colon, comma, or parentheses. Hyphens in compound words are fine.
 - **Banned phrasing:** "delve", "dive into", "seamless(ly)", "leverage" (as a verb), "robust", "powerful", "unlock", "elevate", "supercharge", "landscape", "game-changer", "journey", "excited to", and any "it's not just X, it's Y" construction.
 - **No throat-clearing.** Never open with "In this section we will..." or "Let's explore...". State the fact.
 - **No hype punctuation:** no exclamation marks in prose, no emoji, no rhetorical questions as section openers.
 - **Prefer short declarative sentences** over rule-of-three flourishes and adjective stacks. When a claim can be checked by the compiler or the reader, phrase it so they can check it.
+
+**Where the two documents differ**, so the next writer is not left guessing:
+
+- **Em dashes.** The style guide is silent on them; this repo bans them outright. The ban stands, because it is the one AI tell that can be grepped for.
+- **Contractions and "we".** The style guide invites both. The guide as written uses a contraction six times across 210 chapters and "we" not once, so a page that adopts them reads as a different author unless the whole page does. Use them where the sentence is genuinely better spoken aloud, keep one register per chapter, and do not retrofit a chapter that already reads well. Adopting them across the guide is a deliberate rewrite, not a side effect of editing one page.
+- **"You" is fine; chirpy is not.** The style guide's "you" for what the learner does holds everywhere, including Groundwork. What the Groundwork rule below forbids is the register, not the pronoun.
+- **The spoken-narration section is for narration**, and this repo has none. Its one rule that transfers is the one already stated: one idea per sentence, and one breath's worth of it.
 
 **The Groundwork track (`systems-from-scratch/`) is the one place that explains from zero**, and it has two extra rules because plain-language teaching is where AI tone gets in.
 

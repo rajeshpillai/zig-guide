@@ -73,9 +73,11 @@ first; the playground invites verification, not spectacle.
 ## Voice
 
 Careful human engineer. Concrete, specific, plain. Claims are phrased so the
-reader (or the compiler) can check them. Detailed rules live in CLAUDE.md
-under "Writing style"; the short form: no em dashes, no AI-flavored phrasing,
-no throat-clearing, no hype.
+reader (or the compiler) can check them. The voice is set by
+[rajesh-writing-style.md](rajesh-writing-style.md), whose core rule is to
+simplify the language and never the idea. What this site adds on top, and how
+the two are reconciled, lives in CLAUDE.md under "Writing style"; the short
+form: no em dashes, no AI-flavored phrasing, no throat-clearing, no hype.
 
 ## Visual identity
 
