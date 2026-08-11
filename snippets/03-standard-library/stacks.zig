@@ -14,8 +14,18 @@ test "ArrayList is the stack you want" {
     try stack.append(gpa, 3);
 
     try expect(stack.pop().? == 3);
-    try expect(stack.getLast() == 2);
+    try expect(stack.last().? == 2);
     try expect(stack.items.len == 2);
+}
+
+test "last is null on an empty stack, not a panic" {
+    const gpa = std.testing.allocator;
+    var stack: std.ArrayList(u32) = .empty;
+    defer stack.deinit(gpa);
+
+    try expect(stack.last() == null);
+    try stack.append(gpa, 7);
+    try expect(stack.last().? == 7);
 }
 
 test "pop returns null when empty" {

@@ -16,11 +16,19 @@ used from the end is a stack:
 | --- | --- |
 | push | `append(gpa, x)` |
 | pop | `pop()` (returns `?T`) |
-| peek | `getLast()` |
+| peek | `last()` (returns `?T`) |
 | size | `items.len` |
 
-`pop()` returns an optional, so the empty case is handled by the type rather
-than by a precondition you might forget.
+Both `pop()` and `last()` return an optional, so the empty case is handled by
+the type rather than by a precondition you might forget.
+
+If you learned this from an older tutorial, peek was `getLast()`, and it
+returned a `T`. It asserted the list was not empty, so calling it on an empty
+list was a safety-checked panic in a debug build and undefined behaviour in a
+release one. That name is gone. `last()` replaces it and returns `?T`, which
+moves the empty case into the type. `getLastOrNull()` still compiles as a
+deprecated alias for `last()`. There is also `lastPtr()`, which returns
+`?*T` when you want to modify the top element in place rather than copy it.
 
 Using the end rather than the front is what makes it cheap. Removing from the
 back is one decrement of the length; removing from the front would shift every
