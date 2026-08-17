@@ -13,6 +13,14 @@ export const SITE_DESCRIPTION =
 
 export const AUTHOR = "Rajesh Pillai";
 
+/**
+ * The one address a reader can write to. Plain text in a `mailto:`, not
+ * assembled by a script: this is the only direct route to a person on a site
+ * with no server to receive a form, so it has to work with JS off and has to
+ * be readable by anything that fetches the page rather than renders it.
+ */
+export const AUTHOR_EMAIL = "pillai.rajesh@gmail.com";
+
 /** Path of the social preview card, relative to the site root. */
 export const OG_IMAGE = "og.png";
 

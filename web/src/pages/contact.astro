@@ -11,6 +11,7 @@
 import Base from "../layouts/Base.astro";
 import { buildInfo } from "../build-info";
 import { pageHref } from "../nav";
+import { AUTHOR, AUTHOR_EMAIL } from "../seo";
 
 const base = import.meta.env.BASE_URL;
 const { zigVersion } = await buildInfo();
@@ -21,7 +22,11 @@ const { zigVersion } = await buildInfo();
   seoTitle="Contact the maintainer of Zig Guide Live"
   description="How to report an error in a chapter, suggest a topic, or reach Rajesh Pillai about this Zig guide."
   crumbs={[{ label: "Contact" }]}
-  schema={{ "@type": "ContactPage", name: "Contact" }}
+  schema={{
+    "@type": "ContactPage",
+    name: "Contact",
+    mainEntity: { "@type": "Person", name: AUTHOR, email: `mailto:${AUTHOR_EMAIL}` },
+  }}
 >
   <article>
     <h1>Contact</h1>
@@ -30,6 +35,12 @@ const { zigVersion } = await buildInfo();
       This guide is written and maintained by Rajesh Pillai. Corrections,
       questions and requests all go to the same place, and all of them are
       read.
+    </p>
+
+    <p>
+      Email <a href={`mailto:${AUTHOR_EMAIL}`}>{AUTHOR_EMAIL}</a> to reach him
+      directly. The sections below say which channel gets a given thing fixed
+      fastest.
     </p>
 
     <h2>Something on a page is wrong</h2>
@@ -86,18 +97,20 @@ const { zigVersion } = await buildInfo();
 
     <h2>Anything else</h2>
     <p>
-      Rajesh is on X as{" "}
+      For anything that does not belong in a public issue, write to{" "}
+      <a href={`mailto:${AUTHOR_EMAIL}`}>{AUTHOR_EMAIL}</a>. Rajesh is also on X
+      as{" "}
       <a href="https://twitter.com/rajeshpillai" target="_blank" rel="noopener noreferrer"
-        >@rajeshpillai</a>, and reachable through the same GitHub account for
-      anything that does not belong in a public issue.
+        >@rajeshpillai</a>.
     </p>
 
     <h2>What this site cannot do</h2>
     <p>
       It has no accounts, no comment system and no server. Nothing here can
-      receive a form submission, store a message, or email you back, which is
-      why every route above leaves this domain. The same fact is why there is so
-      little to say on <a href={`${base}privacy/`}>privacy</a>.
+      receive a form submission or store a message, which is why every route
+      above leaves this domain: the address at the top goes to a mailbox, not to
+      anything running here. The same fact is why there is so little to say on{" "}
+      <a href={`${base}privacy/`}>privacy</a>.
     </p>
 
     <p><a href={`${base}about/`}>About this guide →</a></p>
