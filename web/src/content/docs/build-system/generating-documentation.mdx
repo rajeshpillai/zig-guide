@@ -36,6 +36,32 @@ A `///` comment in a position where it cannot attach to anything is a compile
 error, not a warning, so they cannot silently drift away from what they
 describe.
 
+## What comes out
+
+The generator does one thing: it lifts the signature out of the source and
+puts your `///` text underneath it.
+
+```
+Source
+
+  /// Adds two integers.
+  pub fn add(a: i32, b: i32) i32 { ... }
+
+        │
+        │  zig build-lib -femit-docs
+        ▼
+
+Generated page
+
+  add(a: i32, b: i32) i32
+  Adds two integers.
+```
+
+That picture is the whole argument of the next section. The signature is
+already there, generated from the code and correct by construction. Anything
+your comment spends on restating it is a line that can go stale while the
+generated half above it stays right.
+
 ## In `build.zig`
 
 ```zig
@@ -62,9 +88,10 @@ that is the list worth working through:
 - **What it costs**, when it is not obvious. O(n) versus O(1) changes how the
   function is used.
 
-A `///` comment in a position where it cannot attach to anything is a compile
-error, not a warning, so they cannot silently drift away from what they
-describe.
+Applied to the example above, "Adds two integers" fails the test: the reader
+can see that from `add(a: i32, b: i32) i32`. What the signature cannot say is
+that the addition is checked and will panic on overflow rather than wrap. That
+sentence is worth writing; the other one is not.
 
 ## Only `pub` appears
 

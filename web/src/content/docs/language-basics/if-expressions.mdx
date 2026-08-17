@@ -7,6 +7,11 @@ order: 12
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `if` is both a control-flow statement and an expression that can
+produce a value. Unlike C, JavaScript and most languages you have used, Zig
+has no truthy or falsy values: the condition must be a `bool` and nothing else
+converts to one.
+
 <Playground name="02-language.if-expressions" />
 
 There is no truthiness in Zig. `if (1)` does not compile; neither does

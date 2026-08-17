@@ -11,6 +11,38 @@ global cache and verified on the way in. Two files cooperate. `build.zig.zon`
 declares what you depend on; `build.zig` pulls each one in and wires its
 modules into your artifacts.
 
+## The path a dependency takes
+
+```
+ build.zig.zon
+      │
+      │ declares
+      ▼
+  Dependency
+      │
+      │ downloaded, hash checked
+      ▼
+Global Zig cache
+      │
+      │ requested by
+      ▼
+   build.zig
+      │
+      ▼
+executable / module
+```
+
+Two files, two different questions:
+
+- `build.zig.zon` answers **what do I depend on?**
+- `build.zig` answers **where should that dependency be used?**
+
+Keeping them separate is why a checkout plus `zig build` reproduces the same
+dependency set on any machine. The manifest is the fact; the build script is
+the wiring. Neither file can be edited into a state where the other silently
+disagrees, because a name in `build.zig` that the manifest does not declare is
+an error rather than an empty module.
+
 ## `build.zig.zon`
 
 The manifest is a ZON literal (Zig Object Notation, the same syntax as a Zig

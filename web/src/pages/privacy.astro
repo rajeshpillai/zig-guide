@@ -1,5 +1,6 @@
 ---
 import Base from "../layouts/Base.astro";
+import { AUTHOR, AUTHOR_EMAIL } from "../seo";
 
 const base = import.meta.env.BASE_URL;
 ---
@@ -45,13 +46,27 @@ const base = import.meta.env.BASE_URL;
       it: every page, playground and search works the same either way.
     </p>
 
+    {
+      /*
+       * Conditional on purpose, and it has to stay that way until AdSense
+       * approves the site. The ad script is emitted on every page (see
+       * `ADSENSE_CLIENT` in src/adsense.ts), so Google may already set a
+       * cookie here, but no ad is being served and "the site is funded by
+       * Google AdSense" was a present-tense claim that was not true.
+       *
+       * This cannot be derived from `ADSENSE_CLIENT`. That constant says
+       * whether the tag is emitted, not whether the account is approved, and
+       * today those two facts disagree. After approval, change "may use" to
+       * "uses" and "may use cookies" to "use cookies" by hand.
+       */
+    }
     <h2>Advertising</h2>
     <p>
-      The site is funded by Google AdSense. Google and its partners serve ads
-      here, and they set their own cookies and read device identifiers to do
-      it. Those cookies are used to serve and measure ads, and, where Google
-      has a legal basis for it, to personalise them based on your prior visits
-      to this and other sites.
+      This site may use Google AdSense to display advertisements. Where
+      advertising is enabled, Google and its advertising partners may use
+      cookies and device identifiers to serve and measure ads, and, where
+      Google has a legal basis for it, to personalise them based on your prior
+      visits to this and other sites.
     </p>
     <p>
       You can turn personalised advertising off at{" "}
@@ -79,13 +94,14 @@ const base = import.meta.env.BASE_URL;
 
     <h2>Contact</h2>
     <p>
-      This guide is maintained by Rajesh Pillai. Questions about this page, or
-      anything else, can go to the{" "}
+      This guide is maintained by {AUTHOR}. Questions about this page can go to{" "}
+      <a href={`mailto:${AUTHOR_EMAIL}`}>{AUTHOR_EMAIL}</a>, or to the{" "}
       <a
         href="https://github.com/rajeshpillai/zig-guide"
         target="_blank"
         rel="noopener noreferrer"
-      >issue tracker</a>.
+      >issue tracker</a> if the answer is useful to everyone. The{" "}
+      <a href={`${base}contact/`}>contact page</a> lists every route.
     </p>
 
     <p><a href={base}>Back to the guide</a></p>

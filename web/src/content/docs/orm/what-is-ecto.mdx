@@ -62,16 +62,45 @@ field in a filter is a compile error in the
 [query builder chapter](/learn/orm/query-builder/), not a
 runtime database error.
 
-## What the alternative looks like
+## Why not Active Record?
 
 The other famous ORM shape is Active Record (Rails, Django): the record
-is an object that saves itself, `user.save()` and `User.find(1)`.
-Convenient at first, it couples every model to a global connection,
-makes tests need a database, and hides queries behind attribute access.
-The Ecto shape has more visible plumbing, and in exchange every piece is
-testable alone, which is exactly the property the
-[Repo chapter](/learn/orm/repo/) exploits with its
-recording driver.
+is an object that saves itself, `user.save()` and `User.find(1)`. The
+difference between the two designs is one thing only, and it is worth
+drawing.
+
+```
+Active Record
+
+  user.save()
+       │
+       └── the object knows about the database
+
+
+Ecto style
+
+  User        Query
+   │            │
+   └──── data ──┘
+         │
+        Repo
+         │
+      Database
+```
+
+The difference is where database behaviour lives. In Active Record, the
+record knows how to persist itself, so a `User` carries a connection
+with it wherever it goes. In the design these chapters build, a `User`
+stays data. It has no methods that touch a socket and no idea a database
+exists. `Repo` owns persistence, and it is the only thing that does.
+
+That sounds like extra plumbing, and it is. What you buy with it is that
+every piece can be tested alone: a schema is a struct, a query is a
+value you can inspect without running it, and the Repo is the single
+seam you swap in a test. The [Repo chapter](/learn/orm/repo/) exploits
+exactly that with a recording driver that never opens a connection.
+Active Record's convenience is real, and the bill arrives as a test
+suite that needs a live database to check a validation rule.
 
 ## Where each idea lives in this group
 

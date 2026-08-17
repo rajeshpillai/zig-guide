@@ -26,23 +26,29 @@ zig test       main.zig         # build and run its tests
 | `-fstrip` | drop debug info |
 | `-fsingle-threaded` | assume no threads |
 
-## Targeting WebAssembly
-
-This is how every snippet on this site is built:
-
-```bash
-zig build-exe main.zig -target wasm32-wasi -OReleaseSmall
-```
-
-For a freestanding wasm module with no WASI (the browser-canvas case), you
-want `-target wasm32-freestanding` plus `-fno-entry` and explicit exports:
-
-```bash
-zig build-exe main.zig -target wasm32-freestanding \
-  -OReleaseSmall -fno-entry --export=add
-```
-
 ## `zig run` is the one you will use most
+
+The difference between `run` and `build-exe` is only where the binary ends up:
+
+```
+zig run foo.zig
+      │
+      ├── compile
+      ├── binary into the cache
+      └── execute it
+
+zig build-exe foo.zig
+      │
+      └── compile
+             │
+             ▼
+           ./foo
+```
+
+`build-exe` leaves an artifact in your working directory for you to run,
+ship, or link. `run` puts the same artifact in the cache and executes it
+immediately, so there is nothing to clean up and nothing to add to
+`.gitignore`.
 
 For anything up to a few hundred lines, `zig run main.zig` is the whole
 workflow. It compiles to a cache directory and executes, so there is no binary

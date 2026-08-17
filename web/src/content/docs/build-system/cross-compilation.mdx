@@ -21,6 +21,38 @@ for the targets it supports and builds what it needs on demand.
 zig targets       # everything available
 ```
 
+## One source file, three platforms
+
+Nothing about the source changes. Only the flag does:
+
+```
+                 hello.zig
+                     │
+   ┌─────────────────┼─────────────────┐
+   │                 │                 │
+   ▼                 ▼                 ▼
+x86_64-linux-gnu  x86_64-windows-gnu  aarch64-linux-musl
+   │                 │                 │
+   ▼                 ▼                 ▼
+ hello            hello.exe          hello
+```
+
+Run it on a Linux machine:
+
+```bash
+zig build-exe hello.zig -target x86_64-windows-gnu
+file hello.exe
+```
+
+```
+hello.exe: PE32+ executable (console) x86-64, for MS Windows
+```
+
+`file` reads the container format, and it says Windows. The compiler that
+produced it is the same binary you would use for a native build, on a machine
+with no Windows SDK, no MinGW and no Wine. Swap the triple for
+`aarch64-linux-musl` and `file` reports a statically linked ARM64 ELF instead.
+
 ## The triple
 
 `<arch>-<os>-<abi>`, with `native` allowed in any position:
@@ -33,9 +65,15 @@ wasm32-wasi
 native-native-musl
 ```
 
+Read the three fields as narrowing questions: **architecture** is what
+instructions the CPU understands, **OS** is what the binary asks the system
+for and what container format it comes in, and **ABI** is which C library and
+calling conventions it expects to find once it is running.
+
 The ABI field matters more than people expect. `musl` produces a genuinely
 static binary; `gnu` links against glibc and inherits its version
-compatibility rules.
+compatibility rules. That is why the two `x86_64-linux` lines above are
+different builds and not the same one twice.
 
 ## Targeting a specific CPU
 

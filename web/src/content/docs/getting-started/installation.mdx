@@ -10,13 +10,77 @@ compiled and executed against a fresh master build nightly, which is what
 keeps it correct. It also means a stable release will not compile some of
 these examples.
 
+## The whole path
+
+```
+1. Download Zig master
+        │
+        ▼
+2. Put zig on PATH
+        │
+        ▼
+3. Run zig version
+        │
+        ▼
+4. Install a matching ZLS
+        │
+        ▼
+5. Write hello world
+```
+
+Steps 1 and 2 are the only ones that differ by platform. The rest are the same
+everywhere, and step 5 is
+[hello world](/learn/getting-started/hello-world/), the next chapter.
+
 ## Getting master
 
 The simplest route is a prebuilt tarball from
 [ziglang.org/download](https://ziglang.org/download/). Take the one under
-**master**, not the latest release.
+**master**, not the latest release. Unpack it anywhere and put that directory
+on your `PATH`.
 
-If you switch versions often, a version manager is worth it:
+<details>
+<summary>Linux</summary>
+
+```bash
+curl -L https://ziglang.org/builds/zig-x86_64-linux-0.17.0-dev.tar.xz -o zig.tar.xz
+tar xf zig.tar.xz -C ~/.local
+echo 'export PATH="$HOME/.local/zig-x86_64-linux-0.17.0-dev:$PATH"' >> ~/.bashrc
+```
+
+The exact filename changes with every master build, so copy the current one
+from the download page rather than pasting this URL.
+
+</details>
+
+<details>
+<summary>macOS</summary>
+
+```bash
+brew install zig --HEAD
+```
+
+Homebrew's `--HEAD` tracks master. If you would rather not build from source,
+take the `aarch64-macos` tarball from the download page and put it on `PATH`
+the same way as the Linux instructions above.
+
+</details>
+
+<details>
+<summary>Windows</summary>
+
+```powershell
+winget install zig.zig
+```
+
+`winget` installs the tagged release, which is not what this guide targets.
+For master, take the `x86_64-windows` zip from the download page, unpack it,
+and add that folder to `Path` under System Properties, Environment Variables.
+
+</details>
+
+If you switch versions often, a version manager saves the manual step and
+works the same on all three:
 
 ```bash
 # zvm
@@ -26,7 +90,7 @@ zvm install master && zvm use master
 asdf install zig master && asdf global zig master
 ```
 
-Verify:
+## Check it
 
 ```bash
 zig version
@@ -34,7 +98,8 @@ zig version
 ```
 
 A version without `-dev` in it is a tagged release, and several chapters here
-will not build against it.
+will not build against it. If `zig` is not found at all, step 2 is the one
+that did not take.
 
 ## Which version is this site?
 

@@ -32,6 +32,86 @@ CREATE TABLE links (
 );
 ```
 
+## The shape of it
+
+Every chapter in this project builds one box in this picture, bottom to
+top:
+
+```
+Browser / curl
+      │
+      ▼
+ HTTP Server
+      │
+      ▼
+   Routes ──────────► Slug logic
+      │
+      ▼
+    Store
+      │
+      ▼
+Postgres Client
+      │
+  TCP socket
+      │
+      ▼
+  PostgreSQL
+```
+
+Read it as two halves. Everything above `Store` is about HTTP: what a
+request means and what to answer. Everything below it is about Postgres:
+how to say the query and how to read the answer. `Store` is the line
+between them, and it is the reason most of this code runs without a
+network.
+
+## One request, end to end
+
+There is no JSON anywhere in this service. The body of a `POST` is the
+URL itself, and the answer is the slug. That keeps the parsing in the
+chapters that are about parsing.
+
+```bash
+curl -i -X POST http://127.0.0.1:8080/links \
+  --data 'https://ziglang.org'
+```
+
+```
+HTTP/1.1 201 Created
+Content-Length: 2
+
+1
+```
+
+The slug is `1` because it is the row id written in base62, not a random
+string. Following it is the redirect the whole service exists for:
+
+```bash
+curl -i http://127.0.0.1:8080/1
+```
+
+```
+HTTP/1.1 302 Found
+Location: https://ziglang.org
+Content-Length: 0
+```
+
+And the slug's own record reports where it points and how often it has
+been followed:
+
+```bash
+curl -i http://127.0.0.1:8080/links/1
+```
+
+```
+HTTP/1.1 200 OK
+Content-Length: 34
+
+1 -> https://ziglang.org (1 hits)
+```
+
+Those are not illustrations. They are the exchanges in the routes
+chapter's expected output, which CI replays on every build.
+
 ## Decision one: no driver
 
 The service talks to Postgres directly, over its wire protocol. The
