@@ -90,7 +90,7 @@ export const TRACKS: Track[] = [
   {
     title: "Projects",
     blurb: "One library at a time, designed in the open, one decision per chapter.",
-    sections: ["orm"],
+    sections: ["orm", "url-shortener"],
   },
 ];
 

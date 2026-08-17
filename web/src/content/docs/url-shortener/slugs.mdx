@@ -1,0 +1,65 @@
+---
+title: Slugs Are Arithmetic
+description: Base62 over the row id, and the validation that keeps a redirect service honest.
+section: A URL Shortener
+order: 30
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+The service needs a short name for every stored URL. The tempting
+design is a random string, checked against the database for collisions
+and retried. The better design is no design at all: the database
+already hands every row a unique integer, the `bigserial` id. A slug
+that is just that integer written compactly is unique because ids are,
+with no collision check anywhere.
+
+Compact means a bigger base. Base 10 writes a billion as ten
+characters; base 62, using the digits and both alphabets, writes it as
+six.
+
+## The plan
+
+1. `encode`: divide the id by 62 repeatedly, emitting one character per
+   remainder. The one-billionth link is still six characters.
+2. `decode`: the reverse, for the redirect path, so the lookup can use
+   the primary key. Reject anything outside the alphabet before it
+   reaches a query.
+3. `checkTarget`: what the service will agree to redirect to. This is
+   security logic, not tidiness.
+
+<Playground name="22-url-shortener.slugs" />
+
+## Why the scheme check is not pedantry
+
+A shortener is an open redirect by design: it sends visitors wherever
+its stored URLs point. The only thing keeping that from being a weapon
+is what it agrees to store. A stored `javascript:` URL turns the
+redirect into script execution in the visitor's browser. Control
+characters could let a stored URL smuggle extra bytes into the HTTP
+response that carries the redirect. So the check allows exactly two
+schemes and refuses anything below a space, and the
+[routes chapter](/learn/url-shortener/routes/) runs it on create and
+update both, before anything touches storage.
+
+## What the id leaks
+
+Deriving slugs from the sequence has one honest cost: slugs are
+guessable. `4c92` tells anyone that `4c91` probably exists, and roughly
+how many links the service has issued. This project accepts that
+because it is a demonstration, built to show the mechanism; a service
+whose links must be unguessable, or that should not leak its own size,
+encodes a permutation of the id rather than the id itself, keeping
+uniqueness while scrambling the order. The seam stays exactly here, in
+these two functions.
+
+## Variations
+
+- **Sixty-two, not sixty-four:** base64 needs `+` and `/` or their
+  URL-safe stand-ins. Base62 spends two characters to produce slugs
+  that survive any copy-paste untouched.
+- **Case matters:** `q0U` and `Q0u` are different links. A shortener
+  that wants to be shouted over a phone drops the uppercase half and
+  pays with slugs a third longer.

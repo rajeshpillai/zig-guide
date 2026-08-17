@@ -1,0 +1,66 @@
+---
+title: Routes Over a Seam
+description: All five CRUD routes as one pure function, tested against an in-memory store.
+section: A URL Shortener
+order: 40
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+The HTTP surface is where create, read, update and delete become
+routes. It is also the layer with the most cases to get right: the
+slug that does not exist, the URL that fails validation, the method
+nobody handles. Testing those against a running server and database
+means standing both up for every case.
+
+The fix is the same seam the
+[ORM's Repo chapter](/learn/orm/repo/) built: put storage behind an
+interface, and hand the handler whichever implementation the moment
+calls for. Here the handler takes request bytes and a store, and
+returns response bytes. With the in-memory store it needs no server,
+no socket and no database, which is why this chapter runs in your
+browser.
+
+## The plan
+
+1. A `Store` holding links in a fixed array, with the methods the
+   routes are allowed to want: create, find, and nothing else.
+2. `handle`: parse the request line, dispatch on method and path,
+   write a complete HTTP response. Request parsing is the minimum that
+   works; the [web server track](/learn/web-server/request/) does it
+   in full.
+3. A demo that runs all five routes, plus the failure cases, and
+   prints each exchange.
+
+<Playground name="22-url-shortener.routes" />
+
+## Read the trace as a contract
+
+The demo is the service's specification, one exchange per case: create
+answers 201 with the slug, the bad scheme answers 400 before storage
+hears about it, the redirect answers 302 and counts the hit, update
+changes where the same slug points, delete answers 204, and the slug
+that no longer exists answers 404. When the final chapter swaps the
+store for SQL, this trace is what must still be true.
+
+## The routing order is load-bearing
+
+`/links` and `/links/{slug}` are matched before the catch-all slug
+route, which means a link whose slug is literally `links` could never
+be reached. The slugs chapter's alphabet makes that collision
+impossible today (`links` decodes to a huge id, not an early one), but
+route shadowing is the kind of bug that arrives silently when someone
+adds `/stats` next to a growing slug space. Keeping every reserved
+path under one prefix, as `/links/...` does, is the cheap insurance.
+
+## Variations
+
+- **No allocation anywhere:** the store is a fixed array and every
+  response is built in a caller-owned buffer. A service this size can
+  simply decide its limits up front; 507 is what honesty looks like
+  when the array fills.
+- **Add a route:** a `GET /links` listing is one more branch and one
+  more store method. Notice the handler cannot cheat: whatever it
+  needs, it has to ask the seam for.

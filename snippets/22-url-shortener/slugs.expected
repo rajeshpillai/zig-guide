@@ -1,0 +1,22 @@
+-- encode --
+id 0 -> "0"
+id 7 -> "7"
+id 61 -> "Z"
+id 62 -> "10"
+id 100000 -> "q0U"
+id 1000000000 -> "15FTGg"
+id 18446744073709551615 -> "lYGhA16ahyf"
+
+roundtrip: decode(encode(id)) == id held for every size tried
+
+-- decode rejects --
+"zig_1" -> BadSlug
+"" -> BadSlug
+"zzzzzzzzzzzz" -> BadSlug
+
+-- target validation --
+ok      https://ziglang.org/download/
+ok      http://old-but-fine.example
+SchemeNotAllowed: javascript:alert(1)
+BadCharacter: https://zig lang.org
+SchemeNotAllowed: ziglang.org

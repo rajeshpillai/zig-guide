@@ -429,6 +429,34 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "Put the driver behind one seam and the same query code runs on two databases. Scatter it and it runs on whichever you wrote first.",
     ],
   },
+  "url-shortener": {
+    seoTitle: "Build a URL Shortener in Zig, down to the Postgres Wire Protocol",
+    description:
+      "A CRUD web service in Zig with no framework and no database driver: " +
+      "the PostgreSQL wire protocol spoken directly, base62 slugs, HTTP " +
+      "handlers that take bytes and return bytes, and one file that runs " +
+      "against a real database.",
+    lede:
+      "A working URL shortener, built the way this guide builds everything: " +
+      "no framework, no driver, no dependency that hides the interesting " +
+      "part. The Postgres client is written here, speaking the wire protocol " +
+      "from the cookbook recipe. The slug logic and the HTTP routes are pure " +
+      "functions over bytes, which is why most of these chapters run in your " +
+      "browser. The last chapter assembles the pieces into one file you run " +
+      "against a real database on your machine.",
+    takeaways: [
+      "A database driver is a client library you can write: connect, authenticate, send SQL, read rows, all as messages over one socket.",
+      "A failed query does not cost you the connection. Postgres reports the error and returns to ready, and a client that reads both keeps going.",
+      "A short link is base62 arithmetic on the row id, not a random string you have to check for collisions.",
+      "Handlers that take request bytes and return response bytes need no server to be tested, and the same store seam that made the ORM testable works on a web service.",
+    ],
+    note:
+      "This project is a teaching build, for demonstration on your own " +
+      "machine. Do not deploy it as a public service: it quotes values into " +
+      "SQL instead of using protocol parameters, speaks cleartext auth on " +
+      "loopback, serves one request at a time, and issues guessable slugs. " +
+      "Each chapter names its shortcut where it takes it.",
+  },
 };
 
 /** Copy for a group index (a body of work that lives one directory deeper). */

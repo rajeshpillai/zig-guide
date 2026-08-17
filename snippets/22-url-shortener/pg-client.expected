@@ -1,0 +1,8 @@
+connect: password asked: true, ready: I
+
+query: SELECT id, target, hits FROM links WHERE slug = 'zig1'
+  row: id=7 target=https://ziglang.org hits=41
+
+query: INSERT INTO links (slug, target) VALUES ('zig1', ...)
+  error 23505: duplicate key value violates unique constraint "links_slug_key"
+  connection after the failure: ready: I

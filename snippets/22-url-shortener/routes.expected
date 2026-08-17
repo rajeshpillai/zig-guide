@@ -1,0 +1,39 @@
+> POST /links HTTP/1.1
+< HTTP/1.1 201 Created
+< Content-Length: 2
+< 1
+
+> POST /links HTTP/1.1
+< HTTP/1.1 400 Bad Request
+< Content-Length: 17
+< SchemeNotAllowed
+
+> GET /1 HTTP/1.1
+< HTTP/1.1 302 Found
+< Location: https://ziglang.org
+< Content-Length: 0
+
+> GET /links/1 HTTP/1.1
+< HTTP/1.1 200 OK
+< Content-Length: 34
+< 1 -> https://ziglang.org (1 hits)
+
+> PUT /links/1 HTTP/1.1
+< HTTP/1.1 200 OK
+< Content-Length: 8
+< updated
+
+> GET /1 HTTP/1.1
+< HTTP/1.1 302 Found
+< Location: https://ziglang.org/download/
+< Content-Length: 0
+
+> DELETE /links/1 HTTP/1.1
+< HTTP/1.1 204 No Content
+< Content-Length: 0
+
+> GET /1 HTTP/1.1
+< HTTP/1.1 404 Not Found
+< Content-Length: 13
+< no such link
+

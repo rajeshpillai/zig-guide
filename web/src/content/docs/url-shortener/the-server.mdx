@@ -1,0 +1,105 @@
+---
+title: The Server
+description: The client, the slugs and the routes assembled into one file, run against a real Postgres.
+section: A URL Shortener
+order: 50
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+Three chapters built three pieces, each proven against bytes: a
+Postgres client, slug arithmetic, and a CRUD handler over a store
+seam. What remains is the part that cannot run in a browser: real
+sockets on both sides. One file assembles everything, so the whole
+service is something you can read top to bottom and run with one
+command.
+
+CI compiles this file on every run, which is what keeps it correct
+against Zig master like every other snippet. It cannot run it, because
+there is no Postgres in the room. On your machine there can be.
+
+## The plan
+
+1. Connect to Postgres on 127.0.0.1:5432 and reuse the client
+   chapter's `PgClient`, trimmed to what the server calls.
+2. `SqlStore`: the routes chapter's store interface, backed by SQL.
+   Values are quoted into statement text by `sqlQuote`, every `'`
+   doubled, so a value cannot end its own quotes.
+3. The same `handle` function, behind the same seam.
+4. An accept loop: parse one request, answer it, close. One Postgres
+   connection serves everything.
+
+<Playground
+  name="22-url-shortener.the-server"
+  note="Needs a Postgres answering on localhost, which CI does not have. Compiled against Zig master on every run; the commands below run it against a throwaway database."
+  tryLocally="zig run the-server.zig"
+/>
+
+## Run it
+
+A stock Postgres asks for SCRAM authentication, which this client
+does not speak. The container flag `POSTGRES_HOST_AUTH_METHOD=password`
+selects the cleartext method the client knows; that is acceptable on
+loopback and nowhere else.
+
+```bash
+docker run --rm -d --name shortener-pg \
+  -e POSTGRES_USER=shortener -e POSTGRES_PASSWORD=hunter2 \
+  -e POSTGRES_DB=shortener -e POSTGRES_HOST_AUTH_METHOD=password \
+  -p 5432:5432 postgres:16
+
+zig run the-server.zig
+```
+
+Then, from another terminal, the whole CRUD surface:
+
+```bash
+curl -X POST --data-binary 'https://ziglang.org' localhost:8080/links
+# 1
+curl -i localhost:8080/1
+# HTTP/1.1 302 Found, Location: https://ziglang.org
+curl localhost:8080/links/1
+# 1 -> https://ziglang.org (1 hits)
+curl -X PUT --data-binary 'https://ziglang.org/download/' localhost:8080/links/1
+curl -X DELETE localhost:8080/links/1
+```
+
+`docker stop shortener-pg` removes the database when you are done.
+
+## What changed behind the seam, and what did not
+
+Compare `handle` here with the routes chapter: the dispatch, the
+status codes and the bodies are the same, because the seam held. What
+changed is ownership. The in-memory store handed out pointers into its
+own array; SQL hands out bytes in a message buffer that the next query
+overwrites, so every store method copies what it returns and drains
+the row iterator before handing back control. The redirect also got
+better on the way through: `UPDATE ... SET hits = hits + 1 ...
+RETURNING target` reads the target and counts the hit in one
+statement, so two simultaneous visitors cannot lose an update.
+
+## Quoting is a defense with a known edge
+
+`sqlQuote` doubles every `'` and the demo stores an O'Reilly URL to
+prove it. Understand what that buys and what it does not. It stops a
+value from terminating its own string literal, which is the classic
+injection. It is also the method the simple query protocol forces,
+and keeping it correct forever is exactly the burden real drivers
+refuse: they use the extended protocol, where values travel in
+separate messages and are never part of the SQL text at all. That
+protocol is more messages, not more ideas, and the client chapter's
+`switch` is where `Parse`, `Bind` and `Execute` would go.
+
+## What to build next
+
+- **Pooling:** one Postgres connection means one query at a time. A
+  pool is a fixed array of clients and a free list, and the
+  [many-clients chapter](/learn/networking/many-clients/) supplies the
+  concurrency model.
+- **The extended protocol:** replace `sqlQuote` with real parameters.
+  The messages are in the Postgres manual; the framing code does not
+  change.
+- **SCRAM:** one more arm in the auth `switch`, and the loopback-only
+  configuration above stops being necessary.
