@@ -26,6 +26,8 @@ arrive whenever they arrive.
    message, because there is no connection to remember it.
 3. Receive with `socket.receive(io, &buffer)`, which returns the data
    slice and the sender's address.
+4. Reply by sending to that address. There is no connection to answer
+   on, so the reply is just another `send`.
 
 <Playground
   name="11-networking.udp-message"
@@ -50,11 +52,20 @@ designers buy with UDP, and it comes with the matching constraint: a
 datagram larger than the receive buffer is truncated, signalled by
 `msg.flags.trunc`.
 
+## Replying without a connection
+
+The last step uppercases the message and sends it back. Look at what it
+does not need. With TCP, a server that wants to answer must `accept` and
+hold a socket for that client. Here the receiver knows one thing about
+the sender: the address in `second.from`. It sends to that address and is
+done.
+
+That receive-then-send-back pair is the whole core of request/response
+over UDP. DNS works this way: one datagram asks, one datagram answers,
+and no connection ever exists.
+
 ## Variations
 
-- **Know your sender:** `receive` fills `msg.from` with the sender's
-  address; reply by sending back to it. That pair is the entire core of a
-  request/response protocol over UDP.
 - **Timeouts:** `receiveTimeout` returns `error.Timeout` instead of
   blocking forever, which is how you write "wait up to a second for a
   reply".

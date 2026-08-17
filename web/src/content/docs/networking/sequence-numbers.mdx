@@ -1,0 +1,87 @@
+---
+title: Sequence Numbers and Acks
+description: One counter turns invisible loss into a detected gap, and one reply turns it into the sender's problem.
+section: Networking
+order: 94
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+The previous chapter ended with a receiver that could not tell loss from
+silence. The fix costs one byte: number every message. A receiver that
+expects 2 and gets 3 now knows something the network never told it. A
+receiver that gets 4 twice knows the second one is a retry, not news.
+
+Detection is only half the job. The receiver knows about the gap, but
+the sender is the one holding the missing message. So the receiver
+reports back: an acknowledgement, going the other way, saying how much
+of the stream it has. That single reply makes loss the sender's problem,
+which is the only place it can be fixed.
+
+## The plan
+
+1. The same misbehaving channel, but scripted: it drops datagram 2 and
+   duplicates datagram 4, so every line of output can be checked by hand.
+2. A `Watcher` with one field, the next number it expects. Below it:
+   duplicate. Equal: in order. Above it: a gap, and the gap has exact
+   edges.
+3. An acking receiver that answers every arrival with "I have everything
+   through N", and a sender that reads those answers.
+
+<Playground name="11-networking.sequence-numbers" />
+
+## One counter, three verdicts
+
+The `Watcher` is a single `u8` and a comparison, and that is genuinely
+all sequence-number detection is. Everything it reports in the first
+half of the trace follows from one rule: numbers arrive in order unless
+the network interfered. The duplicate of 4 is caught by the same
+comparison that catches gaps, which matters more than it looks. The last
+chapter said retries create duplicates; this receiver is already immune
+to them, one page before retries exist.
+
+The scripted channel does not reorder, and that is deliberate. With
+reordering, "3 arrived and 2 did not" might mean 2 is lost or merely
+late, and the receiver cannot know which yet. Sequence numbers detect
+that something is wrong; deciding it is loss takes a timeout, which is
+the next chapter's first move.
+
+## Acks are cumulative on purpose
+
+The acking receiver never says "I got 3". It says "I have everything
+through 1", even while 3, 4 and 5 are arriving. Two things fall out of
+that phrasing. First, acks repair themselves: if one ack is lost, the
+next arrival repeats everything it said. Second, the sender's
+bookkeeping collapses to one number. Look at the final line of the
+trace: the sender heard "through 1" and concluded that 2 through 5 need
+resending. It never saw the drop. It reconstructed the damage entirely
+from replies. That is TCP's ack design, and this snippet's version
+differs mainly in byte layout.
+
+The cost is also visible in the trace: 3, 4 and 5 did arrive, and a
+sender this simple will send them again. A real receiver keeps the
+out-of-order arrivals buffered so the resends can be cheap, and a real
+sender has smarter recovery. The shape of the exchange does not change.
+
+## Acks ride the same network
+
+In this snippet the acks always arrive; that is the one concession to
+keeping the trace readable. On a real network the ack for 2 can vanish
+just like 2 itself, and the sender cannot distinguish the two cases at
+all. It handles both with the same tool, and the receiver's duplicate
+check is what makes that safe: resending something already received is
+wasteful but harmless. The next chapter puts these pieces in a loop and
+lets the clock decide when to use them.
+
+## Variations
+
+- **Move the script:** drop 0 instead of 2 and the first ack becomes
+  "have nothing". The sender learns exactly as much from that.
+- **Wrap-around:** a `u8` sequence number reaches 255 and wraps. Real
+  protocols size the counter so old numbers cannot come back around
+  while their datagrams could still be in flight; TCP uses 32 bits.
+- **Selective acks:** "I have 0 through 1, and also 3 through 5" names
+  the hole exactly at the price of a more complex reply. TCP grew this
+  as the SACK option decades after cumulative acks shipped.

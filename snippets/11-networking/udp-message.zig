@@ -36,5 +36,16 @@ pub fn main(init: std.process.Init) !void {
     const second = try receiver.receive(io, &data_buf);
     try out.print("got {d} bytes: \"{s}\"\n", .{ second.data.len, second.data });
 
+    // The message carries the sender's address in `second.from`. Sending
+    // back to it is a reply. No accept, no connection: the address in the
+    // packet is all the receiver knows about the sender, and all it needs.
+    var upper_buf: [256]u8 = undefined;
+    const reply = std.ascii.upperString(&upper_buf, second.data);
+    try receiver.send(io, &second.from, reply);
+
+    var reply_buf: [256]u8 = undefined;
+    const answer = try sender.receive(io, &reply_buf);
+    try out.print("reply: \"{s}\"\n", .{answer.data});
+
     try out.flush();
 }

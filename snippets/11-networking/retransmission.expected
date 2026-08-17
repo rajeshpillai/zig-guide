@@ -1,0 +1,29 @@
+-- window = 1 --
+tick  1: send 0 .. ack: have 0 through 0
+tick  1: send 1 .. lost
+tick  4: 1 timed out, resend .. ack: have 0 through 1
+tick  4: send 2 .. ack: have 0 through 2
+tick  4: send 3 .. delivered, ack lost
+tick  7: 3 timed out, resend .. receiver had it already, ack repeated
+tick  7: send 4 .. lost
+tick 10: 4 timed out, resend .. ack: have 0 through 4
+tick 10: send 5 .. ack: have 0 through 5
+tick 10: send 6 .. ack: have 0 through 6
+tick 10: send 7 .. ack: have 0 through 7
+delivered 8 messages in 10 ticks, 11 transmissions
+
+-- window = 4 --
+tick  1: send 0 .. ack: have 0 through 0
+tick  1: send 1 .. lost
+tick  1: send 2 .. ack: have 0 through 0
+tick  1: send 3 .. ack: have 0 through 0
+tick  1: send 4 .. delivered, ack lost
+tick  4: 1 timed out, resend .. ack: have 0 through 4
+tick  4: 2 timed out, resend .. lost
+tick  4: 3 timed out, resend .. receiver had it already, ack repeated
+tick  4: 4 timed out, resend .. receiver had it already, ack repeated
+tick  4: send 5 .. ack: have 0 through 5
+tick  4: send 6 .. ack: have 0 through 6
+tick  4: send 7 .. ack: have 0 through 7
+delivered 8 messages in 4 ticks, 12 transmissions
+

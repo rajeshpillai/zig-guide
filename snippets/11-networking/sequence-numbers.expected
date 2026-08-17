@@ -1,0 +1,24 @@
+-- numbering finds the failures --
+send 0
+  got 0, in order
+send 1
+  got 1, in order
+send 2
+send 3
+  got 3: gap, 2 never arrived
+send 4
+  got 4, in order
+  got 4 again, dropped
+send 5
+  got 5, in order
+
+-- acks tell the sender --
+send 0: ack "have 0 through 0"
+send 1: ack "have 0 through 1"
+send 2: no ack came back
+send 3: ack "have 0 through 1"
+send 4: ack "have 0 through 1"
+send 4: ack "have 0 through 1"
+send 5: ack "have 0 through 1"
+
+sender: confirmed through 1, so 2 through 5 need resending

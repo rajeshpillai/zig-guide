@@ -1,0 +1,75 @@
+---
+title: When Datagrams Go Missing
+description: Loss, duplication and reordering, produced on demand so you can watch them.
+section: Networking
+order: 92
+---
+
+import Playground from "../../../components/Playground.astro";
+
+## The problem
+
+UDP promises delivery of nothing. The
+[previous chapter](/learn/networking/udp-message/) sent datagrams over
+loopback, where they always arrive, which hides the three things a
+real network does to traffic: it loses datagrams, it delivers some twice,
+and it delivers some out of order.
+
+You cannot learn to handle failures you never see. So this chapter builds
+the failures. The snippet is a channel that misbehaves on purpose, driven
+by a seeded random generator: the same run, the same failures, every
+time. The next two chapters send their traffic through the same kind of
+channel while they fix each problem in turn.
+
+## The plan
+
+1. A `FlakyChannel` with one method: put a datagram in, see what comes
+   out. Sometimes that is nothing, sometimes the datagram twice,
+   sometimes an older datagram arriving late.
+2. Send ten numbered datagrams through it.
+3. Let the receiver tally what arrived and name each failure.
+
+<Playground name="11-networking.packet-loss" />
+
+## Silence looks the same as nothing
+
+Datagram 0 was dropped, and the trace for it is empty. That emptiness is
+the whole problem. The receiver does not see a gap where 0 should be; it
+sees nothing, which is also what it sees before any traffic starts and
+between datagrams. Loss is invisible at the moment it happens. The
+receiver could only name the missing datagram afterwards, because this
+snippet numbered the datagrams and told it ten were coming. A real
+receiver knows neither, until the protocol tells it. That is the next
+chapter.
+
+## Where duplicates come from
+
+The channel duplicated datagram 1, which looks unfair: the sender sent it
+once. Real networks do this, but the far more common source is the fix
+for loss. A sender that resends after silence cannot tell "my datagram
+was lost" from "the reply was lost", and in the second case the receiver
+gets the message twice. Any protocol that retries must expect its own
+retries back. Chapter after next, the receiver handles this with the same
+sequence numbers it uses to spot gaps.
+
+## Reordering is just delay
+
+Datagram 4 arrived after datagram 5. Nothing swapped them; 4 was held
+back and 5 overtook it. On real networks two datagrams can take
+different routes, and the second one sent wins the race. This one is
+worth keeping in mind because it complicates loss detection: a gap in
+the numbers might be a lost datagram, or a slow one that is still
+coming. TCP faces exactly this ambiguity, and its answer (wait a little,
+then give up and resend) is the timeout logic this section builds in the
+retransmission chapter.
+
+## Variations
+
+- **Turn the dials:** the fate roll gives each datagram a 2 in 10 chance
+  of being dropped. Raise it and the summary grows; a channel that drops
+  half of everything is what wifi looks like at the edge of range.
+- **Change the seed:** a different seed is a different network. The
+  failures move; the kinds of failure do not.
+- **No corruption here:** real networks also flip bits, but UDP carries a
+  checksum, so corrupted datagrams are discarded before your program
+  sees them. Corruption reaches you as loss.
