@@ -589,17 +589,50 @@ const THEME_PAGES = [
   `${PREFIX}/learn/os/signals/`,
 ];
 
+/*
+ * Both axes, every combination. A palette is a block of token overrides and a
+ * theme picks a column out of each one, so the two multiply rather than
+ * overlap: a pair that clears AA in Zig dark says nothing about the same pair
+ * in Nord dark, where a lighter accent sits on a lighter surface.
+ *
+ * One page load serves all six, and that is not a shortcut. Nothing here
+ * measures loading; it reads computed styles, and both attributes are pure CSS
+ * switches that the browser has fully resolved by the time the next evaluate
+ * runs. Reloading per combination would have turned 8 loads into 24 to learn
+ * the same thing.
+ */
+const PALETTES = ["paper", "zig", "nord"];
+
 let contrastChecks = 0;
-for (const theme of ["light", "dark"]) {
-  for (const href of THEME_PAGES) {
-    await page.goto(BASE + href, { waitUntil: "networkidle" });
-    await page.evaluate((t) => {
+for (const href of THEME_PAGES) {
+  await page.goto(BASE + href, { waitUntil: "networkidle" });
+  for (const palette of PALETTES) {
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(({ t, p }) => {
       document.documentElement.dataset.theme = t;
-    }, theme);
+      // "paper" is the absence of the attribute, exactly as the picker writes
+      // it, so this measures the default state rather than a value no block
+      // in the stylesheet defines.
+      if (p === "paper") delete document.documentElement.dataset.palette;
+      else document.documentElement.dataset.palette = p;
+    }, { t: theme, p: palette });
 
     const results = await page.evaluate(() => {
       const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-      const parse = (s) => (s.match(/[\d.]+/g) ?? []).map(Number);
+      const parse = (s) => {
+        const n = (s.match(/[\d.]+/g) ?? []).map(Number);
+        if (!s.startsWith("color(")) return n;
+        // Chromium serialises the result of `color-mix()` as
+        // `color(srgb r g b / a)`, and those channels run 0 to 1 rather than
+        // 0 to 255. Read as though they were 0 to 255 every translucent accent
+        // fill composited as near-black, which moved the measured ratio in
+        // opposite directions in the two themes: too harsh on light, where the
+        // text is dark, and too generous on dark, where it is not. Any colour
+        // space but srgb is refused rather than guessed at, because scaling a
+        // display-p3 channel into sRGB is wrong without saying so.
+        if (!s.startsWith("color(srgb")) throw new Error(`unhandled colour space: ${s}`);
+        return [n[0] * 255, n[1] * 255, n[2] * 255, ...n.slice(3)];
+      };
       const lum = ([r, g, b]) =>
         0.2126 * srgb(r / 255) + 0.7152 * srgb(g / 255) + 0.0722 * srgb(b / 255);
       const over = (fg, bg) => {
@@ -675,12 +708,123 @@ for (const theme of ["light", "dark"]) {
       contrastChecks++;
       if (r.ratio < r.need) {
         failures.push(
-          `${theme} ${href} "${r.sel}" ${r.ratio.toFixed(2)}:1 needs ${r.need}:1 ` +
-            `(${r.color}, "${r.sample}")`,
+          `${palette} ${theme} ${href} "${r.sel}" ${r.ratio.toFixed(2)}:1 ` +
+            `needs ${r.need}:1 (${r.color}, "${r.sample}")`,
         );
       }
     }
   }
+  }
+}
+
+/*
+ * The palette picker, and with it the progressive-enhancement contract the
+ * search box and the theme toggle keep.
+ *
+ * Two failures live here and neither one is visible in a screenshot. The first
+ * is the picker not working: a row of three buttons that set nothing looks
+ * exactly like a row of three buttons that do. The second is the opposite and
+ * is the reason `[hidden]` carries an `!important` in the stylesheet: `[hidden]`
+ * is a user-agent rule, so any author `display` on the same element beats it,
+ * and every control revealed by script sets one. Without that rule the JS-off
+ * page renders all of them, inert, which is precisely what shipping them
+ * hidden was meant to prevent.
+ */
+let pickerChecks = 0;
+{
+  const href = `${PREFIX}/learn/language-basics/optionals/`;
+  await page.goto(BASE + href, { waitUntil: "networkidle" });
+
+  const wired = await page.evaluate(() => {
+    const row = document.querySelector(".palette-pick");
+    const buttons = [...document.querySelectorAll("[data-palette-set]")];
+    return {
+      revealed: row !== null && !row.hidden,
+      count: buttons.length,
+      pressed: buttons.filter((b) => b.getAttribute("aria-pressed") === "true").length,
+      // Nothing chosen yet, so the default is the attribute's absence.
+      attr: document.documentElement.dataset.palette ?? null,
+    };
+  });
+  pickerChecks++;
+  if (!wired.revealed) failures.push("palette picker: never revealed by its script");
+  if (wired.count !== 3) failures.push(`palette picker: ${wired.count} swatches, expected 3`);
+  if (wired.pressed !== 1) failures.push(`palette picker: ${wired.pressed} pressed, expected 1`);
+  if (wired.attr !== null) failures.push(`palette picker: default wrote data-palette="${wired.attr}"`);
+
+  for (const id of ["nord", "zig", "paper"]) {
+    await page.click(`[data-palette-set="${id}"]`);
+    const after = await page.evaluate((chosen) => {
+      const button = document.querySelector(`[data-palette-set="${chosen}"]`);
+      return {
+        attr: document.documentElement.dataset.palette ?? null,
+        pressed: button.getAttribute("aria-pressed") === "true",
+        others: [...document.querySelectorAll("[data-palette-set]")]
+          .filter((b) => b.getAttribute("aria-pressed") === "true").length,
+        stored: localStorage.getItem("palette"),
+      };
+    }, id);
+
+    // Paper is the default and so is written as no attribute at all, which is
+    // what makes it survive a later change to the base tokens.
+    const want = id === "paper" ? null : id;
+    pickerChecks++;
+    if (after.attr !== want) {
+      failures.push(`palette picker: clicking ${id} left data-palette=${after.attr}`);
+    }
+    if (!after.pressed || after.others !== 1) {
+      failures.push(`palette picker: clicking ${id} left ${after.others} swatch(es) pressed`);
+    }
+    if (after.stored !== id) {
+      failures.push(`palette picker: clicking ${id} stored "${after.stored}"`);
+    }
+  }
+
+  // The choice has to outlive the page, and it has to be applied before the
+  // stylesheet resolves a single `light-dark()` or every navigation flashes.
+  await page.evaluate(() => localStorage.setItem("palette", "nord"));
+  await page.goto(BASE + `${PREFIX}/learn/networking/`, { waitUntil: "domcontentloaded" });
+  const restored = await page.evaluate(() => document.documentElement.dataset.palette ?? null);
+  pickerChecks++;
+  if (restored !== "nord") {
+    failures.push(`palette picker: choice did not survive navigation (${restored})`);
+  }
+  await page.evaluate(() => localStorage.removeItem("palette"));
+
+  // A value no block in the stylesheet defines must not reach <html>, or the
+  // reader is left on a palette made of whatever the base tokens happen to be.
+  await page.evaluate(() => localStorage.setItem("palette", "solarized"));
+  await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
+  const junk = await page.evaluate(() => document.documentElement.dataset.palette ?? null);
+  pickerChecks++;
+  if (junk !== null) failures.push(`palette picker: accepted unknown palette "${junk}"`);
+  await page.evaluate(() => localStorage.removeItem("palette"));
+}
+
+/* Every script-revealed control, with scripting off. */
+let jsOffChecks = 0;
+{
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const bare = await context.newPage();
+  await bare.goto(BASE + `${PREFIX}/learn/language-basics/optionals/`, {
+    waitUntil: "domcontentloaded",
+  });
+  const visible = await bare.$$eval(
+    ".palette-pick, .theme-toggle, [hidden]",
+    (nodes) =>
+      nodes
+        .filter((n) => getComputedStyle(n).display !== "none")
+        .map((n) => (n.className || n.tagName).toString().split(" ")[0]),
+  );
+  jsOffChecks++;
+  if (visible.length) {
+    failures.push(`JS off: inert control(s) rendered anyway: ${visible.join(", ")}`);
+  }
+  // The floor the whole site stands on: a snippet is still readable code.
+  const readable = await bare.$$eval(".astro-code", (n) => n.length);
+  jsOffChecks++;
+  if (!readable) failures.push("JS off: no snippet rendered as a code block");
+  await context.close();
 }
 
 let brokenLinks = 0;
@@ -966,6 +1110,7 @@ console.log(
     `compile-only: ${compileOnly}  expected failures: ${expectedFailures}  ` +
     `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
+    `picker: ${pickerChecks}  js-off: ${jsOffChecks}  ` +
     `header widths: ${headerWidths}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +

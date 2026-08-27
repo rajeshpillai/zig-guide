@@ -4,49 +4,67 @@
  */
 
 /*
- * Two palettes, one set of tokens. `light-dark()` picks a column from the
- * used `color-scheme`, so each value is written once and switching a theme
- * is the two one-line rules below rather than a duplicated block that drifts.
+ * Two columns, one set of tokens. `light-dark()` picks a column from the used
+ * `color-scheme`, so each value is written once and switching a mode is the
+ * two one-line rules below rather than a duplicated block that drifts.
  *
- * The dark column is the palette this site shipped with, unchanged. The light
- * one is its GitHub-light counterpart, with two values that could not be
- * carried over directly:
+ * This block is the default palette, and the default is Paper: warm off-white
+ * under warm near-black, a sepia accent that does not compete with the code
+ * beside it, and the three surface depths held close together so the chrome
+ * stays behind the prose. It is the palette tuned for an hour of reading
+ * rather than for a first impression, which is what a reader is here to do.
+ * Its dark column is the same paper after dark rather than a different world,
+ * which is what keeps the mode toggle meaningful on it.
  *
- *   --accent   Zig amber on white is 2.04:1, so it cannot be link text. The
- *              light column darkens it until it can (6.27:1 on --bg, and 5.3:1 on the
- *              amber-tinted pill it also has to survive).
- *   --on-accent  Text sitting on an accent fill. Near-black over amber in
- *              dark, near-white over the darkened amber in light: the one
- *              token that has to invert rather than lighten.
+ * The default palette lives here rather than in a `[data-palette]` block on
+ * purpose: on every axis this site has, the default is the absence of the
+ * attribute rather than a value of it. That is what lets the inline script in
+ * Base.astro write nothing in the common case, and what stops a name the
+ * stylesheet no longer defines from surviving in someone's localStorage.
+ *
+ * The palette axis further down redefines these same tokens, as pairs, so
+ * light and dark keeps meaning what it means on every one of them.
  *
  * Ratios for every pair are asserted by `npm run e2e` against the rendered
- * page, in both themes, so a future palette edit cannot quietly fail AA.
+ * page, once per palette per mode, so a future palette edit cannot quietly
+ * fail AA.
  */
 :root {
-  /* Both are allowed, so an untouched page follows the reader's system
-     setting. The two rules below narrow it when they choose explicitly. */
-  color-scheme: light dark;
+  /* Light, not `light dark`. An untouched page used to follow the reader's
+     system setting; it now opens light whatever that setting says, and the
+     reader's own choice is the only thing that darkens it. The cost is real
+     and is paid by exactly one group: someone whose machine is set to dark
+     gets one light page before they reach for the toggle. */
+  color-scheme: light;
 
-  --bg: light-dark(#ffffff, #0d1117);
-  --surface: light-dark(#f6f8fa, #161b22);
+  --bg: light-dark(#faf7f2, #1a1613);
+  --surface: light-dark(#f2ece2, #241f1a);
   /* Lifted off the surface: buttons, the copy affordance. */
-  --raised: light-dark(#eaeef2, #21262d);
+  --raised: light-dark(#e8e0d3, #302921);
   /* Recessed into it: program output, which is not part of the page. */
-  --sunken: light-dark(#f6f8fa, #0b0e13);
-  --border: light-dark(#d0d7de, #30363d);
-  --text: light-dark(#1f2328, #e6edf3);
-  --muted: light-dark(#59636e, #8b949e);
-  --accent: light-dark(#8a5400, #f7a41d); /* Zig amber */
-  --on-accent: light-dark(#ffffff, #1a1200);
-  --ok: light-dark(#1a7f37, #3fb950);
-  --err: light-dark(#cf222e, #f85149);
+  --sunken: light-dark(#f5efe6, #14110e);
+  --border: light-dark(#ddd3c4, #3d342a);
+  --text: light-dark(#2b2622, #ede4d8);
+  --muted: light-dark(#6b6055, #a89a89);
+  /* One pair per palette, all three declared here rather than each inside its
+     own block below. The picker has to paint a swatch for a palette that is
+     not the active one, and CSS cannot read another selector's variable, so
+     this is what stops a swatch from drifting away from the palette it claims
+     to show. `--accent` is whichever of them is currently in force. */
+  --accent-zig: light-dark(#8a5400, #f7a41d); /* Zig amber */
+  --accent-nord: light-dark(#40618c, #96cbda); /* Nord Frost */
+  --accent-paper: light-dark(#7a4a12, #e0a256); /* sepia ink */
+  --accent: var(--accent-paper);
+  --on-accent: light-dark(#faf7f2, #1a1613);
+  --ok: light-dark(#3f6b2a, #7fb069);
+  --err: light-dark(#a02c1f, #e0705f);
   /* The what's-new dot, and nothing else. Deliberately more vivid than the
      muted --ok green: it is a decorative mark rather than text, so it is tuned
      to catch the eye on both surfaces instead of to a text contrast ratio. */
-  --fresh: light-dark(#00a63e, #3ddc84);
+  --fresh: light-dark(#4f7d2f, #8fc470);
   /* A shadow that reads on white cannot be the one that reads on near-black:
      the light column tints toward the text colour instead of going darker. */
-  --shadow: light-dark(0 12px 32px rgb(31 35 40 / 0.16), 0 12px 32px rgb(0 0 0 / 0.45));
+  --shadow: light-dark(0 12px 32px rgb(43 38 34 / 0.18), 0 12px 32px rgb(0 0 0 / 0.55));
   --radius: 8px;
   --gutter: 1rem;
   --topbar-h: 3.25rem;
@@ -64,8 +82,103 @@
   color-scheme: dark;
 }
 
+/*
+ * The second axis: palette.
+ *
+ * `light-dark()` has exactly two columns, so another theme cannot be a third
+ * value in the pairs above. It is a block that redefines the colour tokens,
+ * and it redefines them as pairs, so a palette is a whole world with a light
+ * and a dark column rather than one fixed look. `data-theme` still narrows
+ * `color-scheme` and still decides which column gets used, on every palette.
+ * The two attributes are independent: three palettes across two modes is six
+ * looks out of two short blocks, and no palette is reachable in one mode only.
+ *
+ * Only colour tokens are overridden. `--radius`, `--gutter` and `--topbar-h`
+ * are the same layout everywhere; a palette that moved them would be a
+ * redesign wearing a palette's clothes.
+ *
+ * Code blocks are deliberately outside this. `.astro-code` paints itself from
+ * Shiki's own background rather than from a token here, so a snippet reads the
+ * same on every palette, in the GitHub high-contrast theme its tokens were
+ * generated against. That is a decision, not a shortfall. Shiki bakes its
+ * colours into per-token custom properties at build time, so a third code
+ * theme costs about 92 KB on the largest chapter, and the verified code is the
+ * one thing on the page that should not change when the frame around it does.
+ *
+ * `npm run e2e` measures every pair below on the rendered page, once per
+ * palette per mode, so a palette that cannot clear AA cannot ship.
+ */
+
+/*
+ * Nord. Polar Night under Snow Storm, Frost as the accent.
+ *
+ * Two values could not be carried across from the published palette, and both
+ * for the reason Zig amber could not be:
+ *
+ *   --accent  Frost nord8 (#88c0d0) measures 4.35:1 against the accent-tinted
+ *             pill it has to survive, the same 8% fill described above, so
+ *             `--accent-nord` above lifts it until it clears. That column's
+ *             light half starts from nord10 (#5e81ac) and is darkened for
+ *             the reason amber is.
+ *   --surface Polar Night nord1 (#3b4252) is taken down one step, which is
+ *             what buys the pill its remaining headroom without moving a hue.
+ */
+:root[data-palette="nord"] {
+  --bg: light-dark(#f2f4f8, #2e3440);
+  --surface: light-dark(#e5e9f0, #373d4a);
+  --raised: light-dark(#dbe1eb, #434c5e);
+  --sunken: light-dark(#e9edf3, #262b35);
+  --border: light-dark(#c3ccdb, #4c566a);
+  --text: light-dark(#2e3440, #eceff4);
+  --muted: light-dark(#4c566a, #aeb8ca);
+  --accent: var(--accent-nord);
+  --on-accent: light-dark(#ffffff, #2e3440);
+  --ok: light-dark(#3d6b2e, #a3be8c);
+  --err: light-dark(#a3232f, #e0919a);
+  --fresh: light-dark(#3f7d4a, #b5d99c);
+  --shadow: light-dark(0 12px 32px rgb(46 52 64 / 0.18), 0 12px 32px rgb(12 15 20 / 0.5));
+}
+
+/*
+ * Zig. What this site shipped with, and now one choice among three: GitHub
+ * dark, its GitHub-light counterpart, and Zig amber holding both together.
+ * Two values could not be carried straight across when the light column was
+ * added, and the reason is the one every palette here runs into:
+ *
+ *   --accent   Zig amber on white is 2.04:1, so it cannot be link text. The
+ *              light column darkens it until it can (6.27:1 on --bg, and
+ *              5.3:1 on the amber-tinted pill it also has to survive).
+ *   --on-accent  Text sitting on an accent fill. Near-black over amber in
+ *              dark, near-white over the darkened amber in light: the one
+ *              token that has to invert rather than lighten.
+ */
+:root[data-palette="zig"] {
+  --bg: light-dark(#ffffff, #0d1117);
+  --surface: light-dark(#f6f8fa, #161b22);
+  --raised: light-dark(#eaeef2, #21262d);
+  --sunken: light-dark(#f6f8fa, #0b0e13);
+  --border: light-dark(#d0d7de, #30363d);
+  --text: light-dark(#1f2328, #e6edf3);
+  --muted: light-dark(#59636e, #8b949e);
+  --accent: var(--accent-zig);
+  --on-accent: light-dark(#ffffff, #1a1200);
+  --ok: light-dark(#1a7f37, #3fb950);
+  --err: light-dark(#cf222e, #f85149);
+  --fresh: light-dark(#00a63e, #3ddc84);
+  --shadow: light-dark(0 12px 32px rgb(31 35 40 / 0.16), 0 12px 32px rgb(0 0 0 / 0.45));
+}
+
 * {
   box-sizing: border-box;
+}
+
+/* `[hidden]` is a user-agent rule, and any author `display` beats it whatever
+   the specificity. Every control on this site that ships inert and is revealed
+   by script sets a display of its own, so without this the JS-off page would
+   render all of them, doing nothing, which is the exact outcome the hidden
+   attribute is there to prevent. */
+[hidden] {
+  display: none !important;
 }
 
 html {
@@ -1282,6 +1395,90 @@ main th {
 
 .status-links a:hover {
   color: var(--accent);
+}
+
+/* The palette picker.
+ *
+ * In the footer rather than beside the theme toggle, and the reason is the use
+ * scene rather than the space. Light or dark is a decision a reader remakes
+ * whenever the light in the room changes, so it rides the topbar on every
+ * page. A palette is picked once and then lived in, so it belongs with the
+ * other set-once facts about the site. The topbar could not take it in any
+ * case: `HEADER_WIDTHS` in the browser gate measures that row at 17 widths
+ * twice over because it has shipped with its controls overlapping twice.
+ *
+ * Hidden in the markup and revealed by the script, the same contract the
+ * search box and the theme toggle keep. With JS off there is no picker and the
+ * default palette still follows the reader's system light or dark setting, so
+ * nothing here is broken, only unavailable.
+ */
+.palette-pick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.palette-pick > .palette-label {
+  margin-right: 0.15rem;
+}
+
+.palette-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  /* Same 2rem the footer links already stand up to, so the row of swatches
+     does not sit at a different height from the row above it. */
+  min-height: 2rem;
+  padding: 0.15rem 0.6rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.palette-swatch:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* The selected state is the `.unofficial` pill's treatment, deliberately: the
+   accent-on-8%-accent pair up there is the one combination on this site whose
+   contrast has already been measured on every palette, because the accent
+   tints the surface toward the colour of the text sitting on it. Inventing a
+   second selected style would mean measuring a second pair for nothing. */
+.palette-swatch[aria-pressed="true"] {
+  color: var(--accent);
+  font-weight: 600;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* Each swatch shows its own palette's accent rather than the active one, which
+   is the whole point of showing a dot instead of only a name: the row is the
+   three choices, not three labels. The ring keeps a dot legible when its
+   accent lands close to the surface behind it, which Nord's light column does. */
+.palette-dot {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+.palette-dot[data-palette-dot="zig"] {
+  background: var(--accent-zig);
+}
+
+.palette-dot[data-palette-dot="nord"] {
+  background: var(--accent-nord);
+}
+
+.palette-dot[data-palette-dot="paper"] {
+  background: var(--accent-paper);
 }
 
 /* ---------- playground ---------- */

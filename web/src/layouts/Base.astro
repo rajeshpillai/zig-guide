@@ -147,6 +147,16 @@ const openSlug =
         if (saved === "light" || saved === "dark") {
           document.documentElement.dataset.theme = saved;
         }
+        // The palette is the second axis and is restored the same way and in
+        // the same breath, because a page that painted the right mode and the
+        // wrong palette would flash just as badly as one that painted neither.
+        // "paper" is the absence of the attribute rather than a value of it,
+        // so the default palette costs no write and no read can revive a name
+        // that no block in the stylesheet defines.
+        const palette = localStorage.getItem("palette");
+        if (palette === "zig" || palette === "nord") {
+          document.documentElement.dataset.palette = palette;
+        }
       } catch {
         // Private mode: the system setting decides, which is the default.
       }
@@ -520,6 +530,31 @@ const openSlug =
       </span>
 
 
+      {/* Hidden until the script wires it up, the same contract the search box
+          and the theme toggle keep. Down here rather than in the topbar
+          because a palette is set once and then read in, while light and dark
+          is remade whenever the light in the room does. */}
+      <span class="status-item palette-pick" hidden>
+        <span class="palette-label">Palette</span>
+        {
+          [
+            ["paper", "Paper"],
+            ["zig", "Zig"],
+            ["nord", "Nord"],
+          ].map(([id, label]) => (
+            <button
+              class="palette-swatch"
+              type="button"
+              data-palette-set={id}
+              aria-pressed="false"
+            >
+              <span class="palette-dot" data-palette-dot={id} aria-hidden="true" />
+              {label}
+            </button>
+          ))
+        }
+      </span>
+
       <span class="status-item status-links">
         <a
           href="https://github.com/rajeshpillai/zig-guide"
@@ -557,6 +592,7 @@ const openSlug =
       import "../scripts/search.ts";
       import "../scripts/nav-state.ts";
       import "../scripts/theme.ts";
+      import "../scripts/palette.ts";
     </script>
   </body>
 </html>
