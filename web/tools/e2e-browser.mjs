@@ -350,6 +350,7 @@ for (const href of [
  */
 const EDIT_PAGE = `${PREFIX}/learn/getting-started/hello-world/`;
 let editPath = "not run";
+let editorLooks = 0;
 {
   await page.goto(BASE + EDIT_PAGE, { waitUntil: "networkidle" });
   const block = page.locator("zig-playground").first();
@@ -359,6 +360,74 @@ let editPath = "not run";
   await page.waitForFunction(() => document.querySelector(".cm-content") !== null, null, {
     timeout: 30000,
   });
+
+  /*
+   * What the editor looks like, which no other check here would notice.
+   *
+   * Pressing Edit must not change a colour. The editor is built in the browser
+   * so Shiki has emitted nothing for it, and its theme restates the same two
+   * GitHub high-contrast themes as `--code-*`; if those tokens drift from what
+   * Shiki actually emits, the snippet changes colour under the reader's hands
+   * and every other assertion here still passes. It shipped that way for as
+   * long as Edit has existed, in One Dark, which on a light page turned the
+   * block black.
+   *
+   * The palette leg is the other half. The code island is deliberately outside
+   * the palette axis, so the editor must be too: an editor that followed the
+   * palette while the block beside it did not is the quieter version of the
+   * same bug.
+   */
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((t) => {
+      document.documentElement.dataset.theme = t;
+      delete document.documentElement.dataset.palette;
+    }, theme);
+
+    const look = await page.evaluate(() => {
+      const srgb = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+      const parse = (s) => (s.match(/[\d.]+/g) ?? []).map(Number);
+      const lum = ([r, g, b]) =>
+        0.2126 * srgb(r / 255) + 0.7152 * srgb(g / 255) + 0.0722 * srgb(b / 255);
+
+      const view = document.querySelector(".cm-editor");
+      const root = getComputedStyle(document.documentElement);
+      const bg = getComputedStyle(view).backgroundColor;
+      const bgL = lum(parse(bg));
+
+      const worst = { ratio: Infinity, color: null, sample: "" };
+      for (const span of view.querySelectorAll(".cm-content span")) {
+        const text = (span.textContent ?? "").trim();
+        if (!text || span.querySelector("span")) continue;
+        const color = getComputedStyle(span).color;
+        const [hi, lo] = [lum(parse(color)), bgL].sort((a, b) => b - a);
+        const ratio = (hi + 0.05) / (lo + 0.05);
+        if (ratio < worst.ratio) Object.assign(worst, { ratio, color, sample: text.slice(0, 20) });
+      }
+
+      // The same probe with a palette in force. The editor must not move.
+      document.documentElement.dataset.palette = "nord";
+      const underPalette = getComputedStyle(view).backgroundColor;
+      delete document.documentElement.dataset.palette;
+
+      return { bg, worst, underPalette };
+    });
+
+    editorLooks++;
+    if (look.bg !== look.underPalette) {
+      failures.push(
+        `${theme} editor: a palette moved its background (${look.bg} -> ${look.underPalette})`,
+      );
+    }
+    if (!Number.isFinite(look.worst.ratio)) {
+      failures.push(`${theme} editor: nothing highlighted, so nothing was measured`);
+    } else if (look.worst.ratio < 4.5) {
+      failures.push(
+        `${theme} editor: "${look.worst.sample}" ${look.worst.ratio.toFixed(2)}:1 ` +
+          `needs 4.5:1 (${look.worst.color} on ${look.bg})`,
+      );
+    }
+  }
+  await page.evaluate(() => delete document.documentElement.dataset.theme);
 
   // Entering the editor has to state what Run will do, before anything is
   // typed. Promising a recompile that cannot happen is the bug this replaced.
@@ -715,6 +784,83 @@ for (const href of THEME_PAGES) {
     }
   }
   }
+}
+
+/*
+ * `--code-*` against what Shiki actually emits.
+ *
+ * Those tokens exist because Shiki puts its colours on the elements it
+ * rendered and nowhere else, so the browser-built editor cannot read them and
+ * has to be told. Told once, they are a copy, and a copy goes stale in silence:
+ * a Shiki version bump that retuned `github-dark-high-contrast` would leave
+ * every pre-rendered block on the site correct and every editor a shade off,
+ * with nothing failing anywhere. So the copy is checked against the original,
+ * in the direction that matters. A token the editor holds and the page never
+ * uses is harmless; a colour the page paints and the editor does not have is
+ * the drift.
+ */
+let codeTokens = 0;
+for (const href of [
+  `${PREFIX}/learn/language-basics/optionals/`,
+  `${PREFIX}/learn/getting-started/hello-world/`,
+]) {
+  await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((t) => {
+      document.documentElement.dataset.theme = t;
+    }, theme);
+
+    const drift = await page.evaluate(() => {
+      // Compared as painted, not as written: `#A0111F` and `#a0111f` are the
+      // same colour and only the browser agrees on how to say so.
+      const probe = document.createElement("span");
+      document.body.appendChild(probe);
+      const paint = (value) => {
+        probe.style.color = "";
+        probe.style.color = value;
+        return getComputedStyle(probe).color;
+      };
+
+      const root = getComputedStyle(document.documentElement);
+      const known = new Set(
+        ["fg", "comment", "keyword", "string", "literal", "name", "call"].map((n) =>
+          paint(root.getPropertyValue(`--code-${n}`).trim()),
+        ),
+      );
+
+      const used = new Map();
+      for (const span of document.querySelectorAll(".astro-code span")) {
+        if ((span.textContent ?? "").trim() && !span.querySelector("span")) {
+          const c = getComputedStyle(span).color;
+          if (!used.has(c)) used.set(c, (span.textContent ?? "").trim().slice(0, 20));
+        }
+      }
+
+      const block = document.querySelector(".astro-code");
+      const out = {
+        blockBg: block ? getComputedStyle(block).backgroundColor : null,
+        codeBg: paint(root.getPropertyValue("--code-bg").trim()),
+        missing: [...used].filter(([c]) => !known.has(c)),
+        counted: used.size,
+      };
+      probe.remove();
+      return out;
+    });
+
+    codeTokens++;
+    if (!drift.counted) failures.push(`${href} has no highlighted code to check --code-* against`);
+    if (drift.blockBg !== drift.codeBg) {
+      failures.push(
+        `${theme} ${href} --code-bg ${drift.codeBg} is not the block's ${drift.blockBg}`,
+      );
+    }
+    for (const [color, sample] of drift.missing) {
+      failures.push(
+        `${theme} ${href} Shiki paints ${color} ("${sample}") and no --code-* token has it`,
+      );
+    }
+  }
+  await page.evaluate(() => delete document.documentElement.dataset.theme);
 }
 
 /*
@@ -1111,6 +1257,7 @@ console.log(
     `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
     `picker: ${pickerChecks}  js-off: ${jsOffChecks}  ` +
+    `editor: ${editorLooks}  code tokens: ${codeTokens}  ` +
     `header widths: ${headerWidths}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +

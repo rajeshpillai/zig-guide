@@ -168,6 +168,43 @@
   --shadow: light-dark(0 12px 32px rgb(31 35 40 / 0.16), 0 12px 32px rgb(0 0 0 / 0.45));
 }
 
+/*
+ * The code island's own colours, and the one set of tokens here that no
+ * palette touches.
+ *
+ * `.astro-code` paints itself from Shiki's `--shiki-*-bg`, which Shiki emits
+ * only on the elements it rendered. The editor that replaces a snippet when
+ * someone presses Edit is built in the browser, so Shiki has emitted nothing
+ * for it, and it needs the same values restated. These are them: the two
+ * GitHub high-contrast themes named in `astro.config.mjs`, read back off a
+ * built page rather than typed from memory.
+ *
+ * Restating them is what makes pressing Edit not change any colour on screen.
+ * It used to swap the snippet to One Dark, which was a different theme and a
+ * fixed dark one, so on a light page the block went black under the reader's
+ * hands. Following `--text` and `--surface` instead would have been worse in
+ * a quieter way: the editor would have tracked the palette while the block
+ * beside it did not.
+ *
+ * Deliberately outside the palette axis for that reason, and the same reason
+ * `.astro-code` is: verified code reads the same on every palette, and the
+ * frame around it is what changes.
+ */
+:root {
+  --code-bg: light-dark(#ffffff, #0a0c10);
+  /* Punctuation and anything the grammar did not claim. */
+  --code-fg: light-dark(#0e1116, #f0f3f6);
+  --code-comment: light-dark(#66707b, #bdc4cc);
+  /* Keywords, operators, and type names: `const`, `var`, `=`, `?i32`. */
+  --code-keyword: light-dark(#a0111f, #ff9492);
+  --code-string: light-dark(#032563, #addcff);
+  /* Numbers and builtins, which this theme paints alike. */
+  --code-literal: light-dark(#023b95, #91cbff);
+  /* Plain identifiers, which is most of a Zig snippet. */
+  --code-name: light-dark(#702c00, #ffb757);
+  --code-call: light-dark(#622cbc, #dbb7ff);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -930,6 +967,25 @@ main {
   min-width: 0;
   /* Long identifiers and URLs in prose must not widen the page. */
   overflow-wrap: break-word;
+}
+
+/*
+ * Prose links are the accent, which is what `--accent` is for: its light
+ * columns are darkened specifically so they survive as link text, and the
+ * comment on the token has said so since there was a light theme.
+ *
+ * They were the browser's default blue until now, on every palette and both
+ * modes. Nothing caught it because `-webkit-link` follows `color-scheme`, so
+ * it cleared AA everywhere and the contrast pass read it as a colour someone
+ * had chosen. A palette that recolours the page and leaves the most common
+ * coloured thing on it belonging to no palette is half a palette.
+ *
+ * Deliberately weak at (0,0,2): every component inside `main` that names its
+ * own colour, and most of them do, keeps it on the ordinary cascade rather
+ * than by fighting this.
+ */
+main a {
+  color: var(--accent);
 }
 
 main :is(h1, h2, h3) {
