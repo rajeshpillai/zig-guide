@@ -71,7 +71,7 @@ for staying alive.
 
 ```zig
 var group: std.Io.Group = .init;
-for (&status) |*slot| group.async(io, trackedNap, .{ io, slot });
+for (&status) |*slot| try group.concurrent(io, trackedNap, .{ io, slot });
 group.cancel(io);
 ```
 
@@ -88,6 +88,34 @@ at the group rather than propagating out of it. `Group.await` returns
 `error.Canceled` when the task doing the awaiting is itself cancelled, not
 because a member was. If you want to know how a member ended, record it, the
 way the snippet writes each task's outcome into a slot.
+
+## Use `concurrent` for a task you intend to cancel
+
+That loop says `group.concurrent`, not `group.async`, and the difference is not
+style. `async` is allowed to run the task on the calling thread. The threaded
+`Io` does exactly that once it runs out of spare capacity. Its `async_limit`
+defaults to one less than the number of logical cores, and past that limit
+`async` runs the task immediately instead of scheduling it.
+
+For a task that finishes on its own that is fine. It is why
+[`concurrency`](/learn/standard-library/concurrency/) starts eight `accumulate`
+tasks with `group.async`: each one adds a number and returns, so running inline
+costs nothing but parallelism.
+
+For a task that only ends when cancelled it is a deadlock. `trackedNap` sleeps
+for an hour. Run inline, it sleeps for an hour on the thread that was about to
+call `group.cancel`, and that call is never reached.
+
+This is not a race. It happens every time the group is at least as large as the
+core count, and never below it. Three sleepers hang on a machine with one, two
+or three cores and pass on four. That is the worst shape a bug can have: it
+passes on the machine you wrote it on, and hangs on the smaller one you deploy
+to. This snippet had it, and it took a CI runner with four cores and something
+else running to find it.
+
+`concurrent` makes the promise `async` withholds. The task runs somewhere else,
+or the call fails with `error.ConcurrencyUnavailable` and you are told. That is
+also why `nap` and `count` further up are started with `io.concurrent`.
 
 ## Cancellation is why `lock` can fail
 

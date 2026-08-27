@@ -68,9 +68,16 @@ pub fn main(init: std.process.Init) !void {
 
     // A Group cancels as a whole: every member gets the request, and `cancel`
     // returns once all of them have stopped.
+    //
+    // `concurrent`, not `async`. `async` may run the task on this thread, and
+    // the threaded `Io` does once it is out of spare capacity: `async_limit`
+    // defaults to one less than the core count. A nap run on this thread naps
+    // for an hour here, and `group.cancel` below is never reached. It hangs
+    // whenever the group is at least as large as the core count, so it passes
+    // on a development machine and deadlocks on a small one.
     var status: [3][]const u8 = @splat("still running");
     var group: std.Io.Group = .init;
-    for (&status) |*slot| group.async(io, trackedNap, .{ io, slot });
+    for (&status) |*slot| try group.concurrent(io, trackedNap, .{ io, slot });
     group.cancel(io);
     for (status, 0..) |s, i| try out.print("group task {d}: {s}\n", .{ i, s });
 
