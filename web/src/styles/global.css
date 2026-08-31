@@ -1034,6 +1034,23 @@ main pre {
   overflow-x: auto;
 }
 
+/*
+ * Fenced blocks in prose had no padding at all, so the code sat flush against
+ * the edge of its own background. It survived 202 of 251 pages because the two
+ * places anyone looks hardest were both exceptions: a playground pads itself
+ * through `.pg-static pre`, and inline `<code>` has its own rule.
+ *
+ * Same rhythm as a playground, without the bleed. A playground stretches out to
+ * the gutter and pads back in by the same amount, so its code lines up with the
+ * prose above it. A fenced block sits inside the column already and only needs
+ * room.
+ */
+main pre.astro-code {
+  padding: 0.85rem var(--gutter);
+  border-radius: var(--radius);
+}
+
+
 /* With `defaultColor: false` Shiki bakes no colour into the markup at all: it
    emits `--shiki-light` and `--shiki-dark` on every token and leaves the
    choice to CSS. This is that choice, and it is the same `light-dark()` the
@@ -1596,6 +1613,21 @@ zig-playground pre:not(.pg-output) {
   margin: 0;
   padding: 0.85rem var(--gutter);
   overflow-x: auto;
+}
+
+/*
+ * A playground owns its own corners. The container is what carries the border
+ * and the radius, and it is full bleed on narrow screens, where its edges are
+ * the page edges. The rounding `main pre.astro-code` gives a fenced block would
+ * inset the code's background from a square frame, so it is taken back here.
+ *
+ * This has to sit after that rule rather than beside it: `zig-playground
+ * pre.astro-code` and `main pre.astro-code` have identical specificity, so the
+ * later one wins and moving this up the file would silently undo it.
+ */
+zig-playground pre.astro-code,
+.pg-static pre.astro-code {
+  border-radius: 0;
 }
 
 .pg-note {
