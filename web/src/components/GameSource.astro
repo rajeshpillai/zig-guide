@@ -6,6 +6,7 @@
  */
 import { Code } from "astro:components";
 import { gameSource } from "../game-source";
+import { REPO_URL } from "../seo";
 
 /**
  * The same pair `astro.config.mjs` gives fenced blocks in prose, repeated for
@@ -22,15 +23,22 @@ interface Props {
   file: string;
   /** One declaration out of it. Omit for the whole file. */
   decl?: string;
+  /** For a struct that carries methods: show the fields and stop. */
+  fields?: boolean;
 }
 
-const { file, decl } = Astro.props;
-const code = await gameSource(file, decl);
+const { file, decl, fields = false } = Astro.props;
+const code = await gameSource(file, decl, fields);
+
+// `main` rather than a commit: the deployed site is built from `main`, so the
+// link shows the same revision the block above was read from.
+const source = `${REPO_URL}/blob/main/examples/lane-dodger/${file}`;
 ---
 
 <figure class="game-source">
   <figcaption>
-    <code>examples/lane-dodger/{file}</code>{decl && <span class="decl">{decl}</span>}
+    <a href={source} rel="noopener">examples/lane-dodger/{file}</a>
+    {decl && <span class="decl">{decl}{fields && " fields"}</span>}
   </figcaption>
   <Code code={code} lang="zig" themes={CODE_THEMES} defaultColor={false} />
 </figure>
@@ -50,11 +58,16 @@ const code = await gameSource(file, decl);
     color: var(--muted);
   }
 
-  .game-source figcaption code {
-    font-size: inherit;
-    background: none;
-    padding: 0;
+  .game-source figcaption a {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
     color: inherit;
+    text-decoration-color: var(--border);
+    text-underline-offset: 0.2em;
+  }
+
+  .game-source figcaption a:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
   }
 
   .decl::before {

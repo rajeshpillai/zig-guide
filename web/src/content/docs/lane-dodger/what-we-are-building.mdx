@@ -69,19 +69,28 @@ src/
   main.zig    window and the fixed timestep loop
 ```
 
-The project is in the repository under `examples/lane-dodger/`. Every code block
-below with a file path above it is read out of that file when this page is
-built, so a chapter cannot end up describing a function that was deleted months
-ago.
+The whole project is on GitHub under
+[examples/lane-dodger](https://github.com/rajeshpillai/zig-guide/tree/main/examples/lane-dodger).
+Every code block in these chapters carries the path it came from, and that path
+links to the file. The blocks are read off disk when this page is built, so a
+chapter cannot end up describing a function that was deleted months ago.
+
+The chapters walk the whole thing, in the order you would build it.
 
 ## The chapters
 
 - [Vendoring raylib](/learn/lane-dodger/the-build/): how to add raylib to a Zig
   project, and why the dependency here is its C rather than its build script.
+- [The world](/learn/lane-dodger/the-world/): the field, the player's two
+  positions, and the order of work inside a tick.
 - [The loop](/learn/lane-dodger/the-loop/): a fixed timestep, and why `step`
   takes no `dt`.
 - [Handles](/learn/lane-dodger/entities/): a pool of entities that never
   allocates, referred to by handles rather than pointers.
+- [Drawing it](/learn/lane-dodger/drawing/): field units onto a window, the
+  road, and a particle system with no raylib in it.
+- [Input](/learn/lane-dodger/input/): presses latched once a frame and handed to
+  exactly one tick.
 - [Difficulty](/learn/lane-dodger/fair-by-design/): row spacing derived from
   what is possible, not tuned until it feels right.
 - [Sound](/learn/lane-dodger/sound/): five effects, no audio files.

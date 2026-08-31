@@ -21,6 +21,16 @@ export const AUTHOR = "Rajesh Pillai";
  */
 export const AUTHOR_EMAIL = "pillai.rajesh@gmail.com";
 
+/**
+ * The repository this guide is written in.
+ *
+ * One constant, because three things point at it: the footer link, the source
+ * link on every block of game code, and anything added later. A repository that
+ * moves and leaves two of the three behind is the sort of breakage nothing on
+ * this site would notice.
+ */
+export const REPO_URL = "https://github.com/rajeshpillai/zig-guide";
+
 /** Path of the social preview card, relative to the site root. */
 export const OG_IMAGE = "og.png";
 

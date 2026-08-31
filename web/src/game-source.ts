@@ -26,7 +26,11 @@ const projectRoot = resolve(process.cwd(), "../examples/lane-dodger");
  * codebase the comment above a declaration is usually the reason the
  * declaration is worth quoting.
  */
-export async function gameSource(file: string, decl?: string): Promise<string> {
+export async function gameSource(
+  file: string,
+  decl?: string,
+  fieldsOnly = false,
+): Promise<string> {
   if (file.includes("..")) throw new Error(`gameSource: refusing path "${file}"`);
 
   const path = resolve(projectRoot, file);
@@ -38,10 +42,10 @@ export async function gameSource(file: string, decl?: string): Promise<string> {
   }
 
   if (!decl) return text.trimEnd();
-  return extract(text, decl, file);
+  return extract(text, decl, file, fieldsOnly);
 }
 
-function extract(text: string, decl: string, file: string): string {
+function extract(text: string, decl: string, file: string, fieldsOnly: boolean): string {
   const lines = text.split("\n");
   const escaped = decl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   // A declaration by name, or a test by its title. Tests are the most worth
@@ -68,7 +72,24 @@ function extract(text: string, decl: string, file: string): string {
     const closer = `${indent}}`;
     for (let j = i + 1; j < lines.length; j++) {
       if (lines[j] === closer || lines[j].startsWith(`${closer};`)) {
-        return lines.slice(start, j + 1).join("\n");
+        if (!fieldsOnly) return lines.slice(start, j + 1).join("\n");
+
+        // A struct that carries its own methods is mostly methods. `World` is
+        // 309 lines, and the chapters quote the interesting ones separately, so
+        // showing the whole thing is a wall of code the reader has already been
+        // given. Cut at the first method instead. The lines are still read off
+        // disk; only the ellipsis is added, and the caption says it is an
+        // excerpt.
+        let end = j;
+        for (let k = i + 1; k < j; k++) {
+          if (/^\s+(?:pub\s+)?fn\s/.test(lines[k])) {
+            end = k;
+            break;
+          }
+        }
+        if (end === j) return lines.slice(start, j + 1).join("\n");
+        const body = lines.slice(start, end).join("\n").trimEnd();
+        return `${body}\n\n${indent}    // ...\n${closer};`;
       }
     }
     throw new Error(

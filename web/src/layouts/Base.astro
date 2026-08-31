@@ -3,7 +3,7 @@ import { buildInfo } from "../build-info";
 import { ADSENSE_CLIENT } from "../adsense";
 import { ANALYTICS_ID } from "../analytics";
 import { navTracks, pageHref } from "../nav";
-import { SITE_NAME, SITE_DESCRIPTION, AUTHOR, OG_IMAGE } from "../seo";
+import { SITE_NAME, SITE_DESCRIPTION, AUTHOR, OG_IMAGE, REPO_URL } from "../seo";
 import "../styles/global.css";
 
 interface Crumb {
@@ -560,7 +560,7 @@ const openSlug =
 
       <span class="status-item status-links">
         <a
-          href="https://github.com/rajeshpillai/zig-guide"
+          href={REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
         >
