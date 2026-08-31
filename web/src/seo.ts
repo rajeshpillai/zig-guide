@@ -465,6 +465,38 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "loopback, serves one request at a time, and issues guessable slugs. " +
       "Each chapter names its shortcut where it takes it.",
   },
+  "lane-dodger": {
+    seoTitle: "Build a Game in Zig with raylib: a Playable Endless Runner",
+    description:
+      "A complete hyper casual game in Zig and raylib, playable in the page. " +
+      "Vendoring raylib's C so a dependency cannot break your build, a fixed " +
+      "timestep loop, an entity pool with generational handles, a difficulty " +
+      "curve derived from what is possible rather than guessed at, and sound " +
+      "effects synthesised in code. Fifty-five tests, none of which opens a " +
+      "window.",
+    lede:
+      "A three lane endless runner, built the way this guide builds " +
+      "everything: no engine, no assets, nothing hiding the interesting part. " +
+      "The game is on this page and you can play it now. What the chapters " +
+      "are actually about is how to write a game you can test, because the " +
+      "usual answer is that you cannot, and the usual result is a game whose " +
+      "difficulty nobody can reason about. The simulation here imports " +
+      "nothing at all, so every rule is checked by a program that plays the " +
+      "game, and the graphics and the sound are both things that happen to " +
+      "it afterwards.",
+    takeaways: [
+      "A game loop that takes a `dt` is a game that plays differently on every machine. A fixed timestep with an accumulator costs ten lines and buys reproducible runs.",
+      "Game logic that imports no graphics library can be tested by playing it. The rules here are exercised by a bot at every seed, in about a second, with no window open.",
+      "A difficulty curve should be derived from what is physically possible, not tuned until it feels right. Tuned numbers stop agreeing with each other the first time one of them moves.",
+      "Handles beat pointers for anything spawned and destroyed constantly: a stale index silently reads its slot's next occupant, and a generation counter turns that into a null.",
+      "Sound effects can be a few hundred lines of arithmetic rather than a folder of files, and waveforms are as testable as anything else.",
+    ],
+    note:
+      "raylib is vendored from its C sources at a pinned commit rather than " +
+      "used as a Zig package, and the chapters explain why. The browser build " +
+      "needs the Emscripten SDK, which CI does not carry, so the playable " +
+      "artefacts on this page are built by hand and committed.",
+  },
 };
 
 /** Copy for a group index (a body of work that lives one directory deeper). */

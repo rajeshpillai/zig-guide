@@ -1,0 +1,64 @@
+---
+/**
+ * A block of the game's real source, read off disk at build time.
+ *
+ * See `src/game-source.ts` for why the chapters quote nothing by hand.
+ */
+import { Code } from "astro:components";
+import { gameSource } from "../game-source";
+
+/**
+ * The same pair `astro.config.mjs` gives fenced blocks in prose, repeated for
+ * the same reason `Playground.astro` repeats it: `<Code>` takes its themes as a
+ * prop and does not read the markdown config.
+ */
+const CODE_THEMES = {
+  light: "github-light-high-contrast",
+  dark: "github-dark-high-contrast",
+} as const;
+
+interface Props {
+  /** Path under `examples/lane-dodger/`, e.g. `src/sim/pool.zig`. */
+  file: string;
+  /** One declaration out of it. Omit for the whole file. */
+  decl?: string;
+}
+
+const { file, decl } = Astro.props;
+const code = await gameSource(file, decl);
+---
+
+<figure class="game-source">
+  <figcaption>
+    <code>examples/lane-dodger/{file}</code>{decl && <span class="decl">{decl}</span>}
+  </figcaption>
+  <Code code={code} lang="zig" themes={CODE_THEMES} defaultColor={false} />
+</figure>
+
+<style>
+  .game-source {
+    margin: 1.5rem 0;
+  }
+
+  .game-source figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .game-source figcaption code {
+    font-size: inherit;
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  .decl::before {
+    content: "·";
+    margin-right: 0.5rem;
+  }
+</style>

@@ -1,0 +1,113 @@
+---
+title: The Loop Takes No dt
+description: A fixed timestep, an accumulator, interpolation for the leftover, and the split that lets a browser own the loop.
+section: Lane Dodger
+order: 30
+---
+
+import GameSource from "../../../components/GameSource.astro";
+
+The first game loop everyone writes reads the clock and passes the elapsed time
+to everything else.
+
+```zig
+while (running) {
+    const dt = getFrameTime();
+    world.update(dt);   // do not do this
+    draw(world);
+}
+```
+
+It is wrong, and the way it is wrong is worth being precise about, because the
+symptoms arrive months later and look like something else.
+
+## What a variable timestep costs
+
+**The same inputs stop producing the same run.** `dt` is whatever the machine
+happened to deliver, so a 60 Hz laptop and a 165 Hz monitor step the world
+differently. Floating point makes that a real difference and not a rounding
+one: adding 1/60 sixty times does not give the same number as adding 1/165 a
+hundred and sixty five times.
+
+**A slow frame becomes a gameplay advantage.** This game scores survival. A
+frame that takes 50 ms advances the world by 50 ms in one jump, and collision is
+tested at the ends of that jump rather than through it. Stutter and you pass
+through a block.
+
+**Nothing can be replayed.** A crash report becomes a video instead of a seed
+and a list of keypresses.
+
+## The fix
+
+`step` takes no `dt`. It advances one tick, always the same size.
+
+<GameSource file="src/sim/sim.zig" decl="step" />
+
+There is no way to call it wrong. A caller who wants to advance half a tick
+cannot, and a caller who wants to advance ten calls it ten times. Determinism
+here is structural rather than a convention somebody has to remember.
+
+The tick rate is 120 Hz, which is above every common refresh rate, so the
+simulation is never the thing making the game look choppy.
+
+## The accumulator
+
+Real time still arrives in whatever lumps the scheduler produces. The loop banks
+it and spends it a tick at a time.
+
+<GameSource file="src/main.zig" decl="advance" />
+
+Two details. Input is taken by the first tick of the frame and is empty for the
+rest, which matters because presses are edge triggered: delivering the same
+press to three ticks would cross three lanes on one tap. And a frame is clamped
+before it reaches the accumulator.
+
+<GameSource file="src/main.zig" decl="max_frame_time" />
+
+Without that clamp, a paused game or a laptop waking from sleep hands the loop
+ten seconds, which becomes 1200 ticks, which takes long enough to produce
+another large `dt`. That is the spiral of death, and it presents as a game that
+freezes rather than one that skips.
+
+## The leftover
+
+After the tick loop there is always some time left over, less than one tick.
+Ignoring it makes the game visibly step at 120 Hz on a 165 Hz display. So the
+renderer is told how far through the next tick it is, and draws between the last
+two states.
+
+```zig
+const alpha = self.accumulator / config.tick_dt;
+```
+
+Entities carry their previous position for exactly this.
+
+<GameSource file="src/render/draw.zig" decl="lerp" />
+
+That is why `Entity` has a `y_prev` field that no rule ever reads. It is not
+simulation state; it is what the renderer needs to draw a frame that falls
+between two ticks.
+
+## The split the browser forces
+
+On the desktop the loop is a `while`. In a browser it cannot be. Emscripten
+calls a function once per animation frame and never returns into your code, so
+there is nowhere for a `while` loop to live and nothing for its locals to live
+in.
+
+The answer is to separate "one frame" from "keep doing frames". `Game` is a
+struct with a `frame` method, and only the thing calling it differs.
+
+<GameSource file="src/main.zig" decl="main" />
+
+The game state is a file scope variable rather than a local, and that is not
+laziness. `emscripten_set_main_loop` with `simulate_infinite_loop` set never
+returns; a local in `main` would be gone by the first frame.
+
+This split is worth making even in a game that will never ship to a browser. A
+frame you can call is a frame you can call six hundred times with a bot at the
+controls and no window open, which is what
+[the difficulty tests](/learn/lane-dodger/fair-by-design/) do.
+
+Next: [entities](/learn/lane-dodger/entities/), and why none of them is
+referred to by a pointer.

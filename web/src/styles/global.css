@@ -779,6 +779,28 @@ pre {
    sections under it. It has to outrank the section summaries below, which are
    already uppercase and bold, so it takes the next step up in size and sits in
    full-strength text against their muted grey. */
+/*
+ * Marks the few sections that are not a topic tour, e.g. a playable game. A
+ * track heading says roughly the same thing, but it sits above a run of
+ * sections and is easy to read past; this rides the section it describes.
+ *
+ * Quiet on purpose. It is a label, not a link, so it takes the accent as a
+ * tint rather than as text on the surface.
+ */
+.nav-tag {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: 0.08em;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
 .nav-track {
   margin: 1.75rem 0 0.5rem;
   padding: 0 0.6rem;

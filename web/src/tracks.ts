@@ -90,9 +90,29 @@ export const TRACKS: Track[] = [
   {
     title: "Projects",
     blurb: "One library at a time, designed in the open, one decision per chapter.",
-    sections: ["orm", "url-shortener"],
+    // The game last, and it is the odd one out: the only project here with a
+    // frame budget, and the only one whose output you judge by playing rather
+    // than by reading. It earns its place because the discipline it needs is
+    // the same one the other two teach, applied where it is least expected.
+    sections: ["orm", "url-shortener", "lane-dodger"],
   },
 ];
+
+/**
+ * Sections that are a different kind of thing from a set of chapters, and the
+ * word for what they are.
+ *
+ * A track already says roughly this, but a track heading sits above a run of
+ * sections and is easy to read past. A reader scanning the sidebar for "how do
+ * I do X in Zig" should be able to tell at a glance that one of these is a
+ * playable game rather than another topic tour, and decide accordingly.
+ *
+ * Deliberately sparse. A tag on every section is a tag on nothing: the whole
+ * value is that the few that carry one stand out from the rest.
+ */
+export const SECTION_TAGS: Record<string, string> = {
+  "lane-dodger": "Game",
+};
 
 /** Section directory to track title, for the lookup `navTracks` does. */
 export const TRACK_OF = new Map(

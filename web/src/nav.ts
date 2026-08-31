@@ -11,7 +11,7 @@
  * or bare chapters.
  */
 import { getCollection, type CollectionEntry } from "astro:content";
-import { TRACKS, TRACK_OF } from "./tracks";
+import { SECTION_TAGS, TRACKS, TRACK_OF } from "./tracks";
 
 export type Doc = CollectionEntry<"docs">;
 
@@ -28,6 +28,8 @@ export interface NavSection {
   slug: string;
   /** Ungrouped chapters first, then one bucket per `group` label. */
   groups: NavGroup[];
+  /** Set for the few sections that are not a topic tour, e.g. "Game". */
+  tag?: string;
 }
 
 export interface NavTrack {
@@ -118,7 +120,11 @@ export async function navTracks(): Promise<NavTrack[]> {
   return TRACKS.map((track) => ({
     title: track.title,
     blurb: track.blurb,
-    sections: track.sections.flatMap((slug) => sections.get(slug) ?? []),
+    sections: track.sections.flatMap((slug) => {
+      const section = sections.get(slug);
+      if (!section) return [];
+      return [{ ...section, tag: SECTION_TAGS[slug] }];
+    }),
   }));
 }
 

@@ -1,0 +1,207 @@
+---
+/**
+ * The playable build of the Lane Dodger game, on a canvas.
+ *
+ * Nothing loads until the reader presses Play. The game is about 400 KB of
+ * JavaScript and WebAssembly, and most people who open a chapter are here to
+ * read it; making them pay for a download they did not ask for is the same
+ * mistake as an autoplaying video. The click is also what browsers want before
+ * an audio context may start, so the button that begins the game is the gesture
+ * that lets it make a sound.
+ *
+ * This is not a `<Playground>`. Playgrounds run a WASI snippet through the
+ * site's own runner and print its stdout; this is an Emscripten program that
+ * owns a GL context and an event loop, built by a separate toolchain. The two
+ * share no code, which is why the game lives in `examples/` rather than
+ * `snippets/`.
+ */
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+interface Props {
+  /** Caption under the frame. */
+  caption?: string;
+}
+
+const { caption } = Astro.props;
+
+/**
+ * The artefacts are committed rather than built here, because building them
+ * needs the Emscripten SDK and CI does not carry it. That is the same
+ * arrangement as `og.png`, and it has the same hazard: nothing regenerates
+ * them, so they can fall behind the source. Checking at build time at least
+ * means a missing build is a failed build rather than a chapter with a dead
+ * button on it.
+ */
+// Anchored to the Astro project root rather than `import.meta.url`, which
+// points into the bundle output once this component has been compiled. That is
+// the same trap `src/snippets.ts` documents.
+const wasm = resolve(process.cwd(), "public/games/lane-dodger/lane-dodger.wasm");
+if (!existsSync(wasm)) {
+  throw new Error(
+    "web/public/games/lane-dodger/ is missing. Rebuild it with:\n" +
+      "  cd examples/lane-dodger && ./fetch-raylib.sh\n" +
+      "  zig build web -Doptimize=ReleaseFast\n" +
+      "  cp zig-out/web/lane-dodger.{js,wasm} ../../web/public/games/lane-dodger/",
+  );
+}
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<figure class="game">
+  <div class="game-frame">
+    <canvas id="lane-dodger" class="game-canvas" tabindex="0" aria-label="Lane Dodger" hidden></canvas>
+    <div class="game-poster">
+      <p class="game-title">LANE DODGER</p>
+      <button class="game-play" type="button" data-src={`${base}/games/lane-dodger/lane-dodger.js`} hidden>
+        Play
+      </button>
+      <p class="game-hint">
+        Three lanes. Take the coins, they mark the gap.
+      </p>
+      <noscript>
+        <p class="game-hint">This one needs JavaScript. The rest of the chapter does not.</p>
+      </noscript>
+    </div>
+  </div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  /*
+   * The frame follows the site's tokens; the canvas deliberately does not. The
+   * game paints its own world, in the same palette on every theme, for the same
+   * reason a code block keeps Shiki's colours: the thing being demonstrated
+   * should not change when the frame around it does.
+   */
+  .game {
+    margin: 1.75rem 0;
+  }
+
+  .game-frame {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 9 / 16;
+    max-height: 70vh;
+    max-width: min(100%, 39.375vh);
+    margin-inline: auto;
+    background: #121428;
+    border: 1px solid var(--border, #2c3155);
+    border-radius: var(--radius, 8px);
+    overflow: hidden;
+  }
+
+  .game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    outline: none;
+  }
+
+  .game-poster {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 0.9rem;
+    padding: 1rem;
+    text-align: center;
+    color: #e7e9f5;
+  }
+
+  .game-title {
+    margin: 0;
+    font-size: clamp(1.4rem, 5vw, 2rem);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: #22d3ee;
+  }
+
+  .game-hint {
+    margin: 0;
+    max-width: 22rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #8a90b8;
+  }
+
+  .game-play {
+    font: inherit;
+    font-weight: 600;
+    padding: 0.55rem 1.6rem;
+    color: #08131c;
+    background: #22d3ee;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .game-play:hover {
+    background: #67e8f9;
+  }
+
+  .game-play:focus-visible {
+    outline: 2px solid #e7e9f5;
+    outline-offset: 3px;
+  }
+
+  figcaption {
+    margin-top: 0.6rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--muted, #8a90b8);
+  }
+</style>
+
+<script>
+  /*
+   * Revealed by script, on the same contract as the search box and the theme
+   * toggle: the button ships `hidden` so that a reader with JavaScript off is
+   * not offered a control that cannot work.
+   */
+  const button = document.querySelector<HTMLButtonElement>(".game-play");
+  const canvas = document.querySelector<HTMLCanvasElement>("#lane-dodger");
+  const poster = document.querySelector<HTMLElement>(".game-poster");
+
+  if (button && canvas && poster) {
+    button.hidden = false;
+
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      button.textContent = "Loading…";
+      try {
+        const source = button.dataset.src!;
+        const { default: createLaneDodger } = await import(/* @vite-ignore */ source);
+        canvas.hidden = false;
+        poster.hidden = true;
+        await createLaneDodger({ canvas });
+        canvas.focus();
+      } catch (error) {
+        canvas.hidden = true;
+        poster.hidden = false;
+        button.hidden = true;
+        const hint = poster.querySelector(".game-hint");
+        if (hint) hint.textContent = `This build needs WebGL 2. ${error}`;
+      }
+    });
+
+    /*
+     * The game reads the arrow keys and space; the browser reads those as
+     * "scroll the page". Swallowed only while the canvas has focus, so the
+     * rest of the chapter still scrolls normally.
+     */
+    const swallow = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"]);
+    window.addEventListener(
+      "keydown",
+      (event) => {
+        if (document.activeElement === canvas && swallow.has(event.code)) {
+          event.preventDefault();
+        }
+      },
+      { passive: false },
+    );
+  }
+</script>

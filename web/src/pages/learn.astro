@@ -76,6 +76,7 @@ const schema = {
             {track.sections.map((section) => (
               <li>
                 <a href={pageHref(section.slug)}>{section.title}</a>
+                {section.tag && <span class="nav-tag">{section.tag}</span>}
                 <span>
                   {SECTIONS[section.slug]?.description ??
                     `${section.groups.reduce((n, g) => n + g.members.length, 0)} chapters.`}

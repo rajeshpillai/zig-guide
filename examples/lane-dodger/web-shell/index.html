@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lane Dodger</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #0d0f1e;
+    display: grid;
+    place-items: center;
+    font: 14px/1.5 system-ui, sans-serif;
+    color: #8a90b8;
+    overflow: hidden;
+  }
+  #frame { display: grid; place-items: center; gap: 12px; }
+  canvas {
+    display: block;
+    height: min(94vh, calc(94vw * 16 / 9));
+    aspect-ratio: 9 / 16;
+    border-radius: 10px;
+    touch-action: none;
+    outline: none;
+  }
+  #status { min-height: 1.5em; }
+</style>
+</head>
+<body>
+  <div id="frame">
+    <canvas id="canvas" tabindex="0" aria-label="Lane Dodger"></canvas>
+    <p id="status">loading…</p>
+  </div>
+<script type="module">
+  const canvas = document.getElementById("canvas");
+  const status = document.getElementById("status");
+
+  // The game reads the arrow keys and space. The browser reads those as
+  // "scroll the page", and a game that scrolls the page out from under itself
+  // every time you dodge left is unplayable. Emscripten forwards the event
+  // either way, so this only has to stop the browser's own handling.
+  const swallow = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"]);
+  window.addEventListener("keydown", (event) => {
+    if (swallow.has(event.code)) event.preventDefault();
+  }, { passive: false });
+
+  try {
+    const { default: createLaneDodger } = await import("./lane-dodger.js");
+    await createLaneDodger({ canvas });
+    status.textContent = "A / D or arrow keys · space to start";
+    canvas.focus();
+  } catch (error) {
+    status.textContent = "This game needs WebGL 2. " + error;
+  }
+</script>
+</body>
+</html>

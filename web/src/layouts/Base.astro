@@ -387,7 +387,10 @@ const openSlug =
               data-nav-key={section.slug}
               open={section.slug === openSlug}
             >
-              <summary>{section.title}</summary>
+              <summary>
+                {section.title}
+                {section.tag && <span class="nav-tag">{section.tag}</span>}
+              </summary>
               <ul>
                 <li>
                   <a

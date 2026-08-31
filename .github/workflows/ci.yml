@@ -52,8 +52,17 @@ jobs:
       # can resolve the symbols. libx11-dev is for the graphics window chapter,
       # which is `//! norun`: it is linked but never executed, since it opens a
       # window and waits for a keypress. No X server is needed to build it.
+      # The last five are for the raylib game in examples/lane-dodger, which is
+      # a real desktop build and links the X libraries GLFW needs. No ALSA
+      # package: raylib's audio backend resolves libasound at runtime rather
+      # than including its header, so the game compiles without it and simply
+      # stays silent where there is no device.
       - name: Install C libraries for linked snippets
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev zlib1g-dev libx11-dev
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            libsqlite3-dev zlib1g-dev libx11-dev \
+            libxrandr-dev libxinerama-dev libxi-dev libxcursor-dev libgl1-mesa-dev \
+            xvfb
 
       # `master` resolves to the current nightly on every run, which is what
       # makes the schedule meaningful.
@@ -94,6 +103,40 @@ jobs:
 
       - name: Emit wasm + manifest
         run: zig build
+
+      # The game is a separate project with its own build, and it is here for
+      # the same reason everything else is: to find out today whether Zig
+      # master still compiles it. It is also the only thing in the repo that
+      # links a large third-party C library, so it is the first place a
+      # translate-c change shows up.
+      #
+      # What is *not* rebuilt here is the browser build. That needs the
+      # Emscripten SDK, which would add ten minutes to every run, so the
+      # artefacts under web/public/games/ are built by hand and committed, on
+      # the same terms as og.png. The hazard is the obvious one: nothing here
+      # notices if they fall behind the source. Rebuild them when the game
+      # changes.
+      - name: Vendor raylib
+        working-directory: examples/lane-dodger
+        run: ./fetch-raylib.sh
+
+      - name: Test the game
+        working-directory: examples/lane-dodger
+        run: zig build test
+
+      - name: Build the game
+        working-directory: examples/lane-dodger
+        run: zig build -Doptimize=ReleaseFast
+
+      # Compiling proves the API still matches. Running proves it still draws.
+      # The bot plays 600 frames against a virtual display and the process must
+      # exit cleanly; sound is off, because the runner has no device and
+      # opening one only fills the log with driver warnings.
+      - name: Play the game headless
+        working-directory: examples/lane-dodger
+        run: |
+          zig build -Dframes=600 -Ddemo=play
+          xvfb-run -a -s "-screen 0 640x1100x24" ./zig-out/bin/lane-dodger
 
       - name: Install site dependencies
         working-directory: web

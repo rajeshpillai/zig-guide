@@ -1,0 +1,111 @@
+---
+title: Vendoring raylib
+description: Why the dependency is raylib's C and not its build script, and what it takes to compile the same game for a browser canvas.
+section: Lane Dodger
+order: 20
+---
+
+import GameSource from "../../../components/GameSource.astro";
+
+raylib is a C library for drawing things and playing sounds. It ships a
+`build.zig`, and using it is one line:
+
+```zig
+const raylib = b.dependency("raylib", .{ .target = target, .optimize = optimize });
+```
+
+On the Zig this guide tracks, that line does not compile. Not the library: the
+line.
+
+## What goes wrong
+
+Naming a package in `build.zig.zon` makes the build runner import that package's
+`build.zig`. Every dependency's build script is compiled before any of your code
+is, so a dependency whose build script has not caught up with Zig master fails
+your build before it reaches you.
+
+raylib's had two such problems at once. `std.Build.findProgram` changed
+signature, and `b.build_root` was removed. Both are in raylib's Wayland
+detection, which this project does not use, and it makes no difference: the
+whole build script has to type-check.
+
+```
+raylib/build.zig:95:10: error: member function expected 1 argument(s), found 2
+raylib/build.zig:762:23: error: no field named 'build_root' in struct 'Build'
+```
+
+`raylib-zig`, the usual binding, was further behind still: it pins raylib 5.5
+and calls three standard library functions that no longer exist.
+
+This is not a complaint about either project. Zig master moves weekly and they
+track releases. It is a statement about what happens when a repository that
+follows master takes a dependency on someone else's build script.
+
+## What to depend on instead
+
+raylib's C does not move nearly as fast as Zig's build API does. So the
+dependency here is the C.
+
+`fetch-raylib.sh` clones raylib at a pinned commit into a git-ignored `vendor/`,
+keeps `src/` and the licence, and deletes the rest. raylib's `examples/`
+directory alone is 72 MB and none of it is compiled here.
+
+The important part is what the project does *not* do: `vendor/raylib` is not
+named in `build.zig.zon`. It is a directory of C files. The build runner imports
+the build script of every declared package, and never looks at a plain
+directory, so raylib's `build.zig` sits there unread.
+
+<GameSource file="build.zig" decl="raylibModule" />
+
+The macros are copied from what raylib's own build script sets for these
+targets. That is the maintenance cost of this approach, stated plainly: when
+raylib changes its configuration, this has to follow. It is about forty lines,
+it is visible, and it fails loudly. The alternative failed invisibly and on
+somebody else's schedule.
+
+## Two builds, one game
+
+The same source compiles to a desktop window and to a browser canvas. The
+differences are all in this one function.
+
+On the desktop it is `PLATFORM_DESKTOP_GLFW` with OpenGL 3.3, raylib's bundled
+GLFW compiled in as `rglfw.c`, and X11 linked from the system. On the web it is
+`PLATFORM_WEB` with GLES 3, and `rglfw.c` is not compiled at all, because
+Emscripten supplies its own GLFW bound to the canvas.
+
+Zig compiles both the game and raylib to a static library for
+`wasm32-emscripten`, and `emcc` links it. Emscripten has to do the link because
+the JavaScript glue, the GL context and the canvas plumbing are things only it
+knows how to emit.
+
+<GameSource file="build.zig" decl="addWeb" />
+
+Two details in there are worth the space, because both fail quietly.
+
+**`-sMIN_WEBGL_VERSION=2`.** raylib is built against GLES 3 here, which emits
+`#version 300 es` shaders. Those need a WebGL 2 context, and Emscripten creates
+a WebGL 1 one unless told otherwise. The symptom is a game that loads, runs,
+reports no error, and compiles not a single shader.
+
+**`.sanitize_c = .off`** on the raylib module. Zig instruments C with UBSan in
+the debug modes and links its own runtime to catch the reports. That runtime
+arrives with a Zig link, and this link is done by `emcc`, so the instrumentation
+leaves a few dozen undefined `__ubsan_*` symbols behind. Nothing here is our C
+anyway; it is a pinned upstream release.
+
+## The result
+
+The browser build is a 200 KB `.wasm` and about the same again of JavaScript
+glue. It needs the Emscripten SDK, which CI does not carry, so the playable
+build on the [first chapter](/learn/lane-dodger/what-we-are-building/) is made
+by hand and committed, the same arrangement as this site's preview card.
+
+The desktop build needs nothing but Zig and the X11 development headers.
+
+```bash
+cd examples/lane-dodger
+./fetch-raylib.sh
+zig build run -Doptimize=ReleaseFast
+```
+
+Next: [the loop](/learn/lane-dodger/the-loop/), and why it takes no `dt`.
