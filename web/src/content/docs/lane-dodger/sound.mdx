@@ -1,6 +1,6 @@
 ---
 title: Sound Without Sound Files
-description: Five effects synthesised at startup from oscillators and envelopes, and the waveform tests that run with no audio device.
+description: Five effects synthesised at startup from oscillators and envelopes, with waveform tests that run without an audio device.
 section: Lane Dodger
 order: 60
 ---
@@ -11,18 +11,17 @@ There are no audio files in this project. The five effects are arithmetic,
 generated when the game starts.
 
 Recording or licensing five blips would have been faster than writing a
-synthesiser. It would also have added a folder of binaries nobody can diff, a
+synthesiser. It also would have added a folder of binaries nobody can diff, a
 licence question attached to each one, and a tuning loop that runs through an
-audio editor. Generating them instead means a sound is changed by changing a
-number.
+audio editor. Generating them means a sound changes when a number changes.
 
 ## One oscillator with an envelope
 
 <GameSource file="src/audio/synth.zig" decl="Layer" />
 
-A frequency sweep, an amplitude envelope, and an optional low pass to take the
-fizz off noise. `delay` staggers a layer, which is how the arpeggios are built
-with no sequencing code.
+Each layer has a frequency sweep, an amplitude envelope, and an optional low
+pass to take the fizz off noise. `delay` staggers a layer, which is how the
+arpeggios are built with no sequencing code.
 
 The coin is two layers, a triangle and a quieter sine an octave up:
 
@@ -56,7 +55,7 @@ distortion.
 The envelope reaches exactly zero at both ends of every layer.
 
 A clip that begins at full amplitude starts with a step from silence to whatever
-the waveform happened to be at. A step like that is a broadband impulse, which
+the waveform happened to be at. A step like that is a broadband impulse. It
 comes out of the speaker as a click, usually louder than the effect it belongs
 to. The same applies at the end. Four milliseconds of fade in is enough, and the
 decay is shaped to land on zero rather than being cut off there.
@@ -64,23 +63,22 @@ decay is shaped to land on zero rather than being cut off there.
 ## Testing a waveform
 
 The synthesiser holds no raylib types. It fills a buffer with samples and stops.
-So the sounds are checked without an audio device, and CI has no speakers
-anyway.
+So the sounds are checked without an audio device. CI has no speakers anyway.
 
 <GameSource file="src/audio/synth.zig" decl="no sound begins or ends with a click" />
 
 Then the mix. Absolute frequencies are taste and can move. The arrangement
-cannot: the crash is the low long loud one, and the lane tick fires on every
-input and must not shout over a pickup.
+cannot. The crash is the low long loud one. The lane tick fires on every input
+and must not shout over a pickup.
 
 <GameSource file="src/audio/synth.zig" decl="the sounds sit in the right places against each other" />
 
-Brightness there is zero crossings per second, which is a crude pitch estimate
-and good enough to tell a chime from a thud.
+Brightness here is zero crossings per second. That is a crude pitch estimate,
+but good enough to tell a chime from a thud.
 
-Measured, the five come out as intended: the coin at about 1130 Hz over 85 ms,
-the crash running 900 ms with 81 percent of its energy below 500 Hz, and the
-lane tick shortest and quietest. `zig build sounds` writes them all out as
+Measured, the five come out as intended. The coin sits at about 1130 Hz over 85
+ms. The crash runs for 900 ms, with 81 percent of its energy below 500 Hz. The
+lane tick is shortest and quietest. `zig build sounds` writes them all out as
 `.wav` if you would rather listen than read numbers.
 
 ## Playing them
@@ -105,10 +103,10 @@ turns into nothing.
 
 <GameSource file="src/platform/audio.zig" decl="init" />
 
-Failing to start because a mixer would not open is not an acceptable outcome for
-a game whose sound is decoration. The real binary is run with a deliberately
-broken ALSA configuration as part of checking that.
+Failing to start because a mixer would not open is not acceptable for a game
+whose sound is decoration. The real binary is run with a deliberately broken
+ALSA configuration as part of checking that.
 
-None of this changed a rule of the game. It reads the same
+None of this changed a rule of the game. Sound reads the same
 [event stream](/learn/lane-dodger/entities/) the particles read, and the
 existing tests kept passing while it was written.

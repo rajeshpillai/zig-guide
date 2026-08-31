@@ -1,34 +1,33 @@
 ---
 title: Handles, Not Pointers
-description: A fixed-capacity pool with generational handles, and the event stream that lets particles and sound react without touching a rule.
+description: A fixed-capacity pool with generational handles, plus the event stream used by particles and sound.
 section: Lane Dodger
 order: 40
 ---
 
 import GameSource from "../../../components/GameSource.astro";
 
-Blocks and coins are created off the top of the screen and destroyed as they
-leave the bottom, several times a second, for as long as the game runs.
+Blocks and coins are created above the screen and destroyed after they leave the
+bottom. That happens several times a second for as long as the game runs.
 
 ## Storage is a fixed array
 
-A run of any length allocates once, at startup, and never again. There is no
-allocator in the simulation at all, and that is part of how it manages to
-import nothing.
+A run of any length allocates once at startup, then never again. There is no
+allocator in the simulation, which is part of how it imports nothing.
 
 Forty-eight slots is more than the field can hold. At the tightest spacing and
-the highest speed there are about nine rows on screen of at most three entities
-each. A test asserts the peak stays under capacity and above six, so a change
-that quietly stops spawning shows up.
+the highest speed there are about nine rows on screen, with at most three
+entities each. A test asserts the peak stays under capacity and above six, so a
+change that quietly stops spawning shows up.
 
 ## An index is not enough
 
-The obvious way to refer to an entity is its index. It produces a bug you will
-not reproduce.
+The obvious way to refer to an entity is its index. That creates the kind of bug
+you almost never reproduce on purpose.
 
 An event says "coin 12 was collected". A frame later, slot 12 has been freed and
 given to a newly spawned block. Anything still holding 12 now reads a block and
-believes it is a coin. Nothing crashes; the score is just wrong about once an
+believes it is a coin. Nothing crashes. The score is just wrong about once an
 hour, and never while you are looking.
 
 Storing a pointer instead of an index does not help, since the slot is reused
@@ -42,12 +41,12 @@ occupant stops resolving.
 
 <GameSource file="src/sim/pool.zig" decl="Pool" />
 
-The generation is odd while a slot is live and even while it is free, so one
+The generation is odd while a slot is live and even while it is free. One
 counter answers both "which occupant" and "is anyone home". Generation zero is
-never handed out, so a zeroed handle is a null one.
+never handed out, so a zeroed handle is a null handle.
 
 `create` returns an optional rather than asserting. A full pool is not an error
-here. The spawner treats it as back pressure and skips the spawn. That is safe
+here. The spawner treats it as back pressure and skips that spawn. That is safe
 because the course stays solvable either way.
 
 The test names the bug:
@@ -66,8 +65,7 @@ worth checking.
 The pool is generic because it is general. The particle system uses the same one
 with a capacity of 256 and a different element type, even though particles
 belong to the renderer rather than the simulation. Writing it once meant the
-renderer got fixed-capacity storage with no allocator without anyone deciding it
-should.
+renderer got fixed-capacity storage with no allocator for free.
 
 ## Events
 
@@ -76,8 +74,8 @@ about it.
 
 <GameSource file="src/sim/sim.zig" decl="Event" />
 
-Events accumulate in a fixed buffer and the caller drains it once per frame. The
-buffer counts what it had to drop, and a test asserts that count is zero across
+Events accumulate in a fixed buffer, and the caller drains it once per frame.
+The buffer counts what it had to drop. A test asserts that count is zero across
 forty thousand ticks. A truncated event stream would show up as occasional
 missing particles and nothing else.
 
@@ -85,19 +83,19 @@ The whole reaction to a tick is one function:
 
 <GameSource file="src/main.zig" decl="react" />
 
-A coin becomes ten amber dots and a small kick of screen shake, and a crash
-becomes debris. None of that is visible to the simulation.
+A coin becomes ten amber dots and a small kick of screen shake. A crash becomes
+debris. None of that is visible to the simulation.
 
-## What the seam buys
+## What this split buys
 
-Sound was added to this game after it was finished and playing. It changed no
-rule, because it reads the same events the particles read.
+Sound was added after the game was already playable. It changed no rule, because
+it reads the same events the particles read.
 
 <GameSource file="src/platform/audio.zig" decl="onEvent" />
 
-Event systems are easy to over-build, and six variants in a tagged union with a
-fixed buffer and one loop is about as far as this one needs to go. The question
-to ask is whether adding a reaction means touching the thing that caused it.
-Here it does not, and the same property is what lets
+Event systems are easy to over-build. Six variants in a tagged union, a fixed
+buffer and one loop are enough here. The useful question is whether adding a
+reaction means touching the thing that caused it. Here it does not. The same
+property lets
 [the difficulty tests](/learn/lane-dodger/fair-by-design/) run the entire game
 with no renderer and no audio device.

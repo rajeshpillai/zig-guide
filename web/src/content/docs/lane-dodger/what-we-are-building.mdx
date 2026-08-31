@@ -1,6 +1,6 @@
 ---
 title: A Game You Can Test
-description: A three lane endless runner, playable here, and the one rule that makes the rest of it testable.
+description: A three lane endless runner you can play here, and the one rule that makes the rest testable.
 section: Lane Dodger
 order: 10
 ---
@@ -8,34 +8,34 @@ order: 10
 import LaneDodger from "../../../components/LaneDodger.astro";
 import GameSource from "../../../components/GameSource.astro";
 
-Press Play. Arrow keys or `A` and `D` switch lane. Space starts a run. `M`
-mutes.
+Press Play. Arrow keys or `A` and `D` change lane. Space starts a run. `M`
+mutes the sound.
 
 <LaneDodger caption="The same build that runs on the desktop, compiled to WebAssembly." />
 
-Three lanes. Blocks come at you, coins add to the score, and it speeds up until
-you lose. A run lasts about half a minute.
+Three lanes. Blocks come at you. Coins add to the score. The game keeps getting
+faster until you lose. A run lasts about half a minute.
 
 ## Games are hard to test
 
-The interesting behaviour sits inside a loop that reads a keyboard, talks to a
-GPU and runs sixty times a second. Not one of those three belongs in a test.
+The interesting behaviour sits inside a loop that reads the keyboard, talks to
+a GPU and runs sixty times a second. None of those three belongs in a test.
 
-So most games have no tests. They get tuned by playing them, and the difficulty
-ends up being whatever the person doing the tuning could handle that week.
+So most small games have no tests. They get tuned by playing them. The
+difficulty becomes whatever the person doing the tuning could handle that week.
 
 This game has fifty-five tests, and none of them needs a window.
 
 ## One rule makes that possible
 
-The rules of the game live in one module. That module does not import raylib,
-or a windowing library, or a clock, and it never allocates. It turns a seed and
-a list of inputs into a list of states.
+The rules of the game live in one module. That module does not import raylib, a
+windowing library, or a clock. It never allocates. It turns a seed and a list of
+inputs into a list of states.
 
 <GameSource file="src/sim/sim.zig" decl="Input" />
 
-Everything else reads from it. The renderer draws the world and the audio plays
-a note when something happens, and neither of them can change the outcome of a
+Everything else reads from that state. The renderer draws the world. The audio
+plays a note when something happens. Neither one can change the outcome of a
 run.
 
 The [networking chapters](/learn/networking/) are built the same way, with
@@ -44,16 +44,16 @@ runs inside the whole program does not get tested.
 
 ## What the tests actually do
 
-A bot plays the course for four minutes of game time at every seed and must
+A bot plays the course for four minutes of game time at every seed. It must
 never crash. If the generator can produce a row nobody could get through, this
-is what finds it. It also found a bug in the bot: it was steering into blocks
-whose centres had passed the player but whose bodies had not.
+test finds it. It also found a bug in the bot: it was steering into blocks whose
+centres had passed the player, but whose bodies had not.
 
-The same bot runs again with a delay in front of it, standing in for human
-reaction time, and the test checks the average run length. A machine with no
-reaction time surviving a course says nothing about whether a person can play
-it. This is the test that caught a difficulty curve which stopped rising after
-sixty seconds, where a good player never lost.
+The same bot runs again with a delay in front of it. The delay stands in for
+human reaction time, and the test checks the average run length. A machine with
+no reaction time surviving a course says nothing about whether a person can play
+it. This is the test that caught a difficulty curve that stopped rising after
+sixty seconds. A good player never lost.
 
 A third test runs two worlds from one seed and one script of inputs, and
 compares them on every tick.

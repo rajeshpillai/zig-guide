@@ -1,14 +1,14 @@
 ---
 title: Vendoring raylib
-description: Step by step, how to add raylib to a Zig project, why the dependency here is its C rather than its build script, and how the same source compiles to a browser canvas.
+description: How to add raylib to a Zig project, why this one depends on the C source, and how the same game reaches a browser canvas.
 section: Lane Dodger
 order: 20
 ---
 
 import GameSource from "../../../components/GameSource.astro";
 
-raylib is a C library for windows, drawing and sound. This chapter adds it to a
-Zig project.
+raylib is a C library for windows, drawing and sound. This chapter wires it into
+a Zig project.
 
 ## The one line version, and why it fails
 
@@ -31,19 +31,20 @@ is. So a dependency whose build script has not caught up with Zig master fails
 your build before it reaches you.
 
 Both errors are in raylib's Wayland detection, which this project does not use.
-That makes no difference. The whole build script has to type-check.
+That makes no difference. The whole build script has to type-check before your
+code is reached.
 
-`raylib-zig`, the usual binding, is further behind: it pins raylib 5.5 and calls
-three standard library functions that no longer exist.
+`raylib-zig`, the usual binding, is further behind. It pins raylib 5.5 and calls
+three standard library functions that no longer exist on master.
 
-Neither project is at fault here. They track releases and this guide tracks
-master, and that gap is where the breakage lives. It is worth knowing about
-before you take the dependency, not after.
+Neither project is doing something wrong. They track releases. This guide tracks
+master. That gap is where the breakage lives, and it is better to know that
+before you take the dependency.
 
 ## Depend on the C instead
 
-raylib's C changes far more slowly than Zig's build API does. So depend on the
-C.
+raylib's C changes far more slowly than Zig's build API. So this project depends
+on the C.
 
 ### 1. Fetch the source
 
@@ -57,11 +58,12 @@ git -C vendor/raylib fetch --depth 1 origin <commit>
 git -C vendor/raylib checkout FETCH_HEAD
 ```
 
-Keep `src/` and the licence, delete the rest. raylib's `examples/` directory
-alone is 72 MB and none of it gets compiled. `fetch-raylib.sh` in this project
-does all of the above and records the commit it fetched.
+Keep `src/` and the licence. Delete the rest. raylib's `examples/` directory is
+72 MB by itself, and none of it gets compiled. `fetch-raylib.sh` in this project
+does those steps and records the commit it fetched.
 
-Add `vendor/` to `.gitignore`. The script is the record, not the copy.
+Add `vendor/` to `.gitignore`. The script is the record. The vendored copy is
+not.
 
 ### 2. Do not declare it in `build.zig.zon`
 
@@ -96,8 +98,9 @@ for ([_][]const u8{ "GL", "X11", "Xrandr", "Xinerama", "Xi", "Xcursor" }) |name|
 }
 ```
 
-Seven C files. `rglfw.c` is raylib's bundled GLFW, the windowing layer. The rest
-are raylib's modules, switched on and off by the `SUPPORT_MODULE_*` macros.
+That is seven C files. `rglfw.c` is raylib's bundled GLFW, the windowing layer.
+The rest are raylib's modules, switched on and off by the `SUPPORT_MODULE_*`
+macros.
 
 On Debian or Ubuntu the system libraries come from:
 
@@ -153,22 +156,23 @@ directly.
 
 <GameSource file="build.zig" decl="raylibModule" />
 
-The macros are copied from raylib's own build script, and that is the running
-cost of this approach: when raylib changes its configuration, this has to
-follow. It is about forty lines in one function, and a mismatch fails at compile
-time rather than quietly producing a different library.
+The macros are copied from raylib's own build script. That is the cost of this
+approach. When raylib changes its configuration, this function has to follow. It
+is about forty lines, and a mismatch fails at compile time rather than quietly
+producing a different library.
 
 ## The same source, on a canvas
 
-Only this one function differs between a desktop window and a browser.
+The platform choice reaches two places: the raylib module below, and a separate
+`addWeb` step that runs `emcc`.
 
 Desktop is `PLATFORM_DESKTOP_GLFW` with OpenGL 3.3 and raylib's bundled GLFW.
 Web is `PLATFORM_WEB` with GLES 3, and `rglfw.c` is not compiled at all, because
 Emscripten supplies its own GLFW bound to the canvas.
 
 Zig compiles the game and raylib to a static library for `wasm32-emscripten`.
-`emcc` does the link, because the JavaScript glue, the GL context and the canvas
-plumbing are things only Emscripten emits.
+`emcc` does the link. The JavaScript glue, the GL context and the canvas setup
+come from Emscripten.
 
 <GameSource file="build.zig" decl="addWeb" />
 
@@ -192,8 +196,8 @@ cd examples/lane-dodger
 zig build run -Doptimize=ReleaseFast
 ```
 
-The browser build is a 200 KB `.wasm` plus about as much JavaScript. It needs
-the Emscripten SDK:
+The browser build is a 200 KB `.wasm` plus about the same amount of JavaScript.
+It needs the Emscripten SDK:
 
 ```bash
 zig build web -Doptimize=ReleaseFast
