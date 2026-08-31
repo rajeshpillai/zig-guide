@@ -36,9 +36,9 @@ That makes no difference. The whole build script has to type-check.
 `raylib-zig`, the usual binding, is further behind: it pins raylib 5.5 and calls
 three standard library functions that no longer exist.
 
-This is not a complaint about either project. They track releases; this guide
-tracks master. It is what happens when a repository following master depends on
-someone else's build script.
+Neither project is at fault here. They track releases and this guide tracks
+master, and that gap is where the breakage lives. It is worth knowing about
+before you take the dependency, not after.
 
 ## Depend on the C instead
 
@@ -153,10 +153,10 @@ directly.
 
 <GameSource file="build.zig" decl="raylibModule" />
 
-The macros are copied from raylib's own build script. That is the cost of this
-approach: when raylib changes its configuration, this has to follow. It is forty
-lines, it is visible, and it fails loudly. The alternative failed invisibly, on
-someone else's schedule.
+The macros are copied from raylib's own build script, and that is the running
+cost of this approach: when raylib changes its configuration, this has to
+follow. It is about forty lines in one function, and a mismatch fails at compile
+time rather than quietly producing a different library.
 
 ## The same source, on a canvas
 

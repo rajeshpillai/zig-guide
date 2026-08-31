@@ -19,42 +19,44 @@ you lose. A run lasts about half a minute.
 ## Games are hard to test
 
 The interesting behaviour sits inside a loop that reads a keyboard, talks to a
-GPU and runs sixty times a second. None of those three belong in a test.
+GPU and runs sixty times a second. Not one of those three belongs in a test.
 
-So most games have no tests. They get tuned by playing them. Nobody can say
-whether the difficulty is fair, because nobody can state what fair would mean.
+So most games have no tests. They get tuned by playing them, and the difficulty
+ends up being whatever the person doing the tuning could handle that week.
 
-This game has fifty-five tests. None of them opens a window.
+This game has fifty-five tests, and none of them needs a window.
 
 ## One rule makes that possible
 
-The rules of the game live in one module, and that module imports nothing. No
-raylib, no window, no clock, no allocator. It turns a seed and a list of inputs
-into a list of states.
+The rules of the game live in one module. That module does not import raylib,
+or a windowing library, or a clock, and it never allocates. It turns a seed and
+a list of inputs into a list of states.
 
 <GameSource file="src/sim/sim.zig" decl="Input" />
 
-Everything else reads from it. The renderer draws the world. The audio plays a
-note when something happens. Neither can change the outcome of a run.
+Everything else reads from it. The renderer draws the world and the audio plays
+a note when something happens, and neither of them can change the outcome of a
+run.
 
-The [networking chapters](/learn/networking/) do the same thing: protocol code
-parses from a `Reader`, never from a socket. Code you can only run inside the
-whole program is code you will not test.
+The [networking chapters](/learn/networking/) are built the same way, with
+protocol code that parses from a `Reader` instead of a socket. Code that only
+runs inside the whole program does not get tested.
 
 ## What the tests actually do
 
-A bot plays the course for four minutes of game time at every seed, and must
-never crash. That is the proof the level generator is fair. It found a real bug:
-the bot steered into blocks whose centres had passed the player but whose bodies
-had not.
+A bot plays the course for four minutes of game time at every seed and must
+never crash. If the generator can produce a row nobody could get through, this
+is what finds it. It also found a bug in the bot: it was steering into blocks
+whose centres had passed the player but whose bodies had not.
 
 The same bot runs again with a delay in front of it, standing in for human
-reaction time. The test checks the average run length. A machine with no
+reaction time, and the test checks the average run length. A machine with no
 reaction time surviving a course says nothing about whether a person can play
-it. This test caught a difficulty curve that stopped rising after sixty seconds,
-where a good player never lost.
+it. This is the test that caught a difficulty curve which stopped rising after
+sixty seconds, where a good player never lost.
 
-Two worlds run from one seed and one script of inputs. Every tick must match.
+A third test runs two worlds from one seed and one script of inputs, and
+compares them on every tick.
 
 ## Where the code is
 
@@ -69,7 +71,8 @@ src/
 
 The project is in the repository under `examples/lane-dodger/`. Every code block
 below with a file path above it is read out of that file when this page is
-built. A chapter cannot describe a function that has been deleted.
+built, so a chapter cannot end up describing a function that was deleted months
+ago.
 
 ## The chapters
 

@@ -29,8 +29,8 @@ and sixty five times.
 takes 50 ms advances the world 50 ms in one jump, and collision is tested at the
 ends of that jump rather than through it. Stutter and you pass through a block.
 
-**Nothing replays.** A crash report becomes a video instead of a seed and a list
-of keypresses.
+**Nothing replays.** To report a crash you have to record a video of it, because
+a seed and a list of keypresses will not reproduce it on another machine.
 
 ## Fixed steps
 
@@ -38,10 +38,11 @@ of keypresses.
 
 <GameSource file="src/sim/sim.zig" decl="step" />
 
-There is no way to call it wrong. A caller who wants half a tick cannot get one.
-A caller who wants ten calls it ten times.
+There is no way to call it wrong. A caller who wants half a tick cannot get one,
+and a caller who wants ten calls it ten times.
 
-The tick rate is 120 Hz, above every common refresh rate.
+The tick rate is 120 Hz, which is above every common refresh rate, so the
+simulation is never what makes the game look choppy.
 
 ## The accumulator
 
@@ -59,8 +60,9 @@ A frame is clamped before it reaches the accumulator.
 <GameSource file="src/main.zig" decl="max_frame_time" />
 
 Without that clamp, a paused game or a laptop waking from sleep hands the loop
-ten seconds. That becomes 1200 ticks, which takes long enough to produce another
-large `dt`. The game freezes rather than skips.
+ten seconds at once. That is 1200 ticks, which takes long enough to produce
+another large `dt`, which produces more ticks. The game stops responding instead
+of skipping forward, and the usual name for it is the spiral of death.
 
 ## The leftover
 
@@ -76,8 +78,9 @@ const alpha = self.accumulator / config.tick_dt;
 
 <GameSource file="src/render/draw.zig" decl="lerp" />
 
-This is why `Entity` carries a `y_prev`. No rule reads it. It exists so the
-renderer can draw a frame that falls between two ticks.
+This is why `Entity` carries a `y_prev` that no rule ever reads. It is not
+simulation state; the renderer needs it to draw a frame that falls between two
+ticks.
 
 ## One frame, not a loop
 
@@ -97,5 +100,5 @@ the first frame.
 
 The split is worth making even for a game that will never ship to a browser. A
 frame you can call is a frame you can call six hundred times with a bot at the
-controls and no window open, which is what
-[the difficulty tests](/learn/lane-dodger/fair-by-design/) do.
+controls and no window open. That is how
+[the difficulty tests](/learn/lane-dodger/fair-by-design/) work.

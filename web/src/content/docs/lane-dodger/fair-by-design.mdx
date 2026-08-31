@@ -10,9 +10,9 @@ import GameSource from "../../../components/GameSource.astro";
 The course generator lays down rows of blocks. They have to get harder and stay
 possible.
 
-Getting that wrong does not look like a bug. Every row still leaves a lane open.
-The game just becomes unwinnable, and the only report is that people stop
-playing.
+Getting that wrong does not look like a bug from the outside. Every row still
+leaves a lane open, the game still runs, and nothing fails. It has just become
+unwinnable, and the only report you get is that people stop playing.
 
 ## There is a floor under the spacing
 
@@ -24,23 +24,23 @@ The tightest spacing that is still winnable is the sum of those two.
 
 <GameSource file="src/sim/sim.zig" decl="fairnessFloor" />
 
-The second term shrinks as the game speeds up: a faster row spends less time
-beside you. The first term never moves.
+The second term shrinks as the game speeds up, because a faster row spends less
+time beside you. The first term does not change with speed at all.
 
 ## Derive the spacing, do not tune it
 
 The first version had two hand-picked constants, an easy spacing and a hard one,
-interpolated between. It worked. It was also wrong in a way that surfaces later:
-three numbers had to agree, and nothing said so. Change the lane change time and
-the hard spacing silently becomes unreachable.
+interpolated between. It worked, but it left three numbers that had to agree
+with each other and nothing anywhere saying so. Change the lane change time and
+the hard spacing quietly becomes unreachable.
 
 Now the spacing is computed from the floor and decays towards it.
 
 <GameSource file="src/sim/sim.zig" decl="rowGapSeconds" />
 
-The decay never arrives. That fixed the second problem. The earlier curve
-reached its hardest setting at sixty seconds and held, so a good player never
-lost, and an endless runner nobody can lose has no score worth chasing.
+The decay never arrives, which fixes a second problem. The earlier curve reached
+its hardest setting at sixty seconds and then held, so a good enough player
+never lost at all.
 
 The margin above unwinnable is now one named constant.
 
@@ -48,8 +48,8 @@ The margin above unwinnable is now one named constant.
 
 ## Prove it by playing it
 
-An argument about four constants is worth as much as the argument is careful. A
-program that plays the game is worth more.
+All of that is an argument about four constants, and arguments about constants
+are wrong more often than anyone expects. So a program plays the game instead.
 
 <GameSource file="src/sim/bot.zig" decl="targetLane" />
 
@@ -61,7 +61,7 @@ Then a test runs it for four minutes of game time at every seed.
 
 <GameSource file="src/sim/tests.zig" decl="solvable course: the bot survives a long run at every seed" />
 
-It failed the first time it ran. Seed 21, after 8.2 seconds.
+It failed the first time it ran, at seed 21, after 8.2 seconds of play.
 
 ## What it found
 
@@ -80,9 +80,10 @@ The regression test states the case in its title:
   decl="the bot will not slide into a block that is still level with it"
 />
 
-Every unit test passed while this bug existed. The collision code was right, the
-generator was right, the spacing was right. The bug was in the reasoning that
-joined them, and only a run exercises that.
+Every unit test passed while this bug existed. The collision code was correct on
+its own, and so were the generator and the spacing. What was wrong was the
+reasoning that joined them together, and the only thing that exercises that is a
+run.
 
 ## Solvable is not the same as playable
 
@@ -93,11 +94,11 @@ So the same policy runs again with a delay in front of it.
 
 <GameSource file="src/sim/tests.zig" decl="Human" />
 
-Pure latency: the decision made from the world as it looked some ticks ago is
-the one acted on now. An earlier version counted down a timer and reset it
-whenever the ideal lane changed. That livelocked whenever the policy was torn
-between two lanes, and made the game look far harder than it is. Measuring the
-wrong thing carefully is worse than not measuring.
+It models pure latency: the decision made from the world as it looked some ticks
+ago is the one acted on now. An earlier version counted down a timer and reset
+it whenever the ideal lane changed, which livelocked whenever the policy was
+torn between two lanes. That version reported the game as far harder than it is,
+and it took a while to notice the model was at fault rather than the game.
 
 The numbers it produces are the difficulty curve:
 
@@ -109,11 +110,11 @@ The numbers it produces are the difficulty curve:
 | 250 ms | 26 s |
 | 300 ms | 24 s |
 
-Half a minute for an unhurried player, a minute for a sharp one, and everybody
-loses eventually.
+Half a minute for an unhurried player and a minute for a sharp one. Everybody
+loses eventually, which is the part that took the most work to get right.
 
-The test asserts the shape, not the values, so the numbers can be tuned without
-rewriting it.
+The test asserts the shape rather than the values, so the numbers can be tuned
+without rewriting it.
 
 <GameSource file="src/sim/tests.zig" decl="a run lasts about as long as a hyper casual run should" />
 
@@ -124,15 +125,17 @@ green.
 ## Two smaller things
 
 **The opening is gentle.** Modelling a 200 ms player gave a mean of 30 seconds
-and a worst seed of 3.9. Some openings demanded a two lane crossing before
-anyone had settled in. A game that can kill you in four seconds does not get a
-second try. Inside a grace window, no row blocks more than one lane.
+and a worst seed of 3.9. Some openings were demanding a two lane crossing before
+anyone had settled into the controls. Inside a grace window no row blocks more
+than one lane, so a single nudge answers everything the game asks in the first
+few seconds.
 
 <GameSource file="src/sim/config.zig" decl="grace_seconds" />
 
 **Coins mark the safe lane.** A coin only ever goes in a lane its own row leaves
-open. When a row blocks two of three lanes, the coin sits in the one gap, so
-following the coins and playing correctly are the same thing. That is the whole
-tutorial for this game, and it is four lines in the spawner.
+open. When a row blocks two of three lanes the coin sits in the one gap, so a
+player chasing coins is being steered through the course without being told
+anything. It is four lines in the spawner, and it is the only tutorial the game
+has.
 
 <GameSource file="src/sim/sim.zig" decl="spawnRow" />
