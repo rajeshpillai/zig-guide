@@ -1,0 +1,99 @@
+---
+/**
+ * A list of the game's files with links to each one, for the build order.
+ *
+ * The build-along chapter cannot inline the whole game. At roughly half a
+ * kilobyte of rendered HTML per line of Zig, the 3,683 lines would be a 1.9 MB
+ * page. So the big files are named, described, pointed at the chapter that
+ * explains them, and linked to the source. The paths are checked at build time
+ * for the same reason `GameSource` checks its declarations: a file that gets
+ * renamed should fail the build rather than leave a reader clicking a 404.
+ */
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { REPO_URL } from "../seo";
+
+interface Entry {
+  /** Path under `examples/lane-dodger/`. */
+  path: string;
+  /** One line on what it is. */
+  what: string;
+  /** The chapter that explains it. */
+  chapter?: string;
+  /** Chapter link text. */
+  chapterTitle?: string;
+}
+
+interface Props {
+  files: Entry[];
+}
+
+const { files } = Astro.props;
+
+const root = resolve(process.cwd(), "../examples/lane-dodger");
+for (const entry of files) {
+  if (!existsSync(resolve(root, entry.path))) {
+    throw new Error(`GameFiles: no such file examples/lane-dodger/${entry.path}`);
+  }
+}
+---
+
+<ul class="game-files">
+  {
+    files.map((entry) => (
+      <li>
+        <a
+          class="path"
+          href={`${REPO_URL}/blob/main/examples/lane-dodger/${entry.path}`}
+          rel="noopener"
+        >
+          {entry.path}
+        </a>
+        <span class="what">
+          {entry.what}
+          {entry.chapter && (
+            <>
+              {" "}
+              <a href={entry.chapter}>{entry.chapterTitle ?? "Explained here"}</a>.
+            </>
+          )}
+        </span>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .game-files {
+    list-style: none;
+    margin: 1.25rem 0;
+    padding: 0;
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .game-files li {
+    display: grid;
+    gap: 0.15rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--border);
+  }
+
+  .path {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+    font-size: 0.8125rem;
+    color: inherit;
+    text-decoration-color: var(--border);
+    text-underline-offset: 0.2em;
+  }
+
+  .path:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
+  }
+
+  .what {
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+</style>

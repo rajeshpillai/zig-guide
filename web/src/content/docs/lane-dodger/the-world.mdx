@@ -20,6 +20,9 @@ Three lanes divide the width, so a lane is 120 units across.
 
 <GameSource file="src/sim/config.zig" decl="laneCenter" />
 
+So `laneCenter(0)` is 60, `laneCenter(1)` is 180 and `laneCenter(2)` is 300.
+Those three numbers are the only x positions anything ever settles at.
+
 The player sits at a fixed height near the bottom. The world comes to them.
 
 <GameSource file="src/sim/config.zig" decl="player_y" />
@@ -69,6 +72,17 @@ fraction of a point sixty times a second would drift.
 ## The order inside a tick
 
 <GameSource file="src/sim/sim.zig" decl="stepPlaying" />
+
+Written out, a tick does this:
+
+1. Move the target lane if a press arrived.
+2. Slide `x` towards that lane at constant speed.
+3. Move every entity down by `speed * dt`.
+4. Score a near miss the first time a block reaches player height.
+5. Destroy anything below the field. A missed coin resets the combo.
+6. Spawn a row if the gap has been travelled.
+7. Test the player box against every entity box.
+8. Recompute the score as bonus plus distance.
 
 The order is not arbitrary. The player moves first, then the world moves, then
 they are tested against each other. Testing collisions before moving the world

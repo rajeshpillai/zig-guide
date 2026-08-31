@@ -25,9 +25,11 @@ interface Props {
   decl?: string;
   /** For a struct that carries methods: show the fields and stop. */
   fields?: boolean;
+  /** Highlighting language. Zig unless the file is a shell script. */
+  lang?: "zig" | "bash";
 }
 
-const { file, decl, fields = false } = Astro.props;
+const { file, decl, fields = false, lang = "zig" } = Astro.props;
 const code = await gameSource(file, decl, fields);
 
 // `main` rather than a commit: the deployed site is built from `main`, so the
@@ -40,7 +42,7 @@ const source = `${REPO_URL}/blob/main/examples/lane-dodger/${file}`;
     <a href={source} rel="noopener">examples/lane-dodger/{file}</a>
     {decl && <span class="decl">{decl}{fields && " fields"}</span>}
   </figcaption>
-  <Code code={code} lang="zig" themes={CODE_THEMES} defaultColor={false} />
+  <Code code={code} lang={lang} themes={CODE_THEMES} defaultColor={false} />
 </figure>
 
 <style>
