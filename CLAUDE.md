@@ -33,6 +33,18 @@ There is no per-test runner: `zig build verify` walks all of `snippets/` in one 
 node tools/run-wasi.mjs web/public/wasm/02-language.optionals.wasm
 ```
 
+The game is a separate project with its own build (see [The game](#the-game-exampleslane-dodger)):
+
+```bash
+cd examples/lane-dodger
+./fetch-raylib.sh                      # once: vendor raylib's C at a pinned commit
+zig build test                         # 55 tests, no window and no speakers needed
+zig build run -Doptimize=ReleaseFast   # play it
+zig build sounds                       # write the sound effects to zig-out/sounds as .wav
+zig build web -Doptimize=ReleaseFast   # browser build; needs $EMSDK or -Demsdk=
+zig build -Dframes=600 -Ddemo=play -Dshot=out.png   # headless smoke run
+```
+
 Other scripts:
 
 ```bash
@@ -121,10 +133,12 @@ A raylib game with its own build, its own tests and its own toolchain, written u
 
 **raylib is vendored as C, never as a Zig package.** `fetch-raylib.sh` clones raylib at a pinned commit into a gitignored `vendor/`, keeps `src/` and the licence, and deletes the rest (`examples/` alone is 72 MB). `build.zig` compiles those C files directly. This is not a preference. Naming a package in `build.zig.zon` makes the build runner import that package's `build.zig`, so a dependency whose build script has not caught up with Zig master fails the build before any of our code compiles, and raylib's had two such breaks at once (`findProgram` changed signature, `b.build_root` was removed) while `raylib-zig` had three. For a repo that tracks master, depending on someone else's build script is depending on their release cadence. The C moves far slower. The cost is that the macro list in `raylibModule` is copied from raylib's own build and has to follow it; that cost is visible and fails loudly.
 
-**Two non-obvious build flags, both of which fail silently without them:**
+**Four things about the browser build, every one of which fails silently.** All four cost real time to find; none of them produces an error message that names the cause.
 
 1. `-sMIN_WEBGL_VERSION=2`. raylib is built against GLES 3, which emits `#version 300 es` shaders. Emscripten creates a WebGL 1 context unless told otherwise, and the symptom is a game that loads, runs, reports no error and compiles not one shader.
 2. `.sanitize_c = .off` on the raylib module. Zig instruments C with UBSan in the debug modes and links its own runtime; the web link is done by `emcc`, so the instrumentation leaves dozens of undefined `__ubsan_*` symbols.
+3. **The game is a classic script, not an ES module.** `-sEXPORT_ES6=1` is deliberately absent. Vite rewrites a dynamic `import()` even for a file it is only serving out of `public/`, appending `?import` and then failing to transform a 190 KB Emscripten bundle; `/* @vite-ignore */` does not stop it. The built site worked and `astro dev` did not, which is the worst shape a bug can have. `LaneDodger.astro` loads it with a `<script>` tag and calls the global `createLaneDodger`. Do not "modernise" either half.
+4. **`FLAG_WINDOW_RESIZABLE` is desktop-only.** raylib's web resize callback sets the canvas backing store to `window.innerWidth` by `window.innerHeight`, which is the browser window rather than the element the canvas occupies. On a page where the canvas is one column of a chapter, the buffer ends up several times wider than its box, the letterbox centres the field inside it, and CSS squashes the result into a narrow strip. Without the flag the buffer stays the size `InitWindow` asked for and the page scales it.
 
 **The simulation imports nothing** (`src/sim/` has no raylib, no clock, no allocator), which is what lets 55 tests run headless. `step` takes no `dt` on purpose: it advances one fixed 1/120 s tick, so determinism is structural rather than a convention. Do not add a `dt` parameter for convenience; the replay tests and the difficulty tests both depend on it.
 
@@ -132,7 +146,7 @@ A raylib game with its own build, its own tests and its own toolchain, written u
 
 **Two tests are the point of the whole project.** `solvable course` runs a bot for four minutes at every seed and asserts it never crashes; it found a real off-by-one-body bug where the policy steered into blocks still overlapping the player. `a run lasts about as long as a hyper casual run should` puts a reaction delay in front of the same policy and asserts the mean run length lands in a band, because a course only a machine can run is not a game. Treat both as load-bearing.
 
-**Sound is synthesised, and there are no audio files.** `src/audio/synth.zig` holds no raylib types, so waveforms are tested with no audio device: audible, not clipped flat, and never starting or ending partway up a waveform (that is a step, and a step is a click). Audio is optional at runtime everywhere; no device means silence, never a refusal to start. `zig build sounds` writes the clips to `zig-out/sounds/*.wav` for auditioning.
+**Sound is synthesised, and there are no audio files.** `src/audio/synth.zig` holds no raylib types, so waveforms are tested with no audio device: audible, not clipped flat, and never starting or ending partway up a waveform (that is a step, and a step is a click). Audio is optional at runtime everywhere; no device means silence, never a refusal to start. `zig build sounds` writes the clips to `zig-out/sounds/*.wav` for auditioning. `-Daudio=false` builds it silent, and `-Dframes` implies that; `-Daudio=true` forces the device open in a headless run, which is how the no-sound-card path gets exercised.
 
 **`web/public/games/lane-dodger/` is committed, not generated.** This is the one exception to "generated artifacts are never committed", and it exists for the same reason `og.png` does: building it needs the Emscripten SDK, which CI does not carry and which would add about ten minutes to every run. The hazard is real and unguarded, so **rebuild and re-commit whenever the game changes**:
 
@@ -144,7 +158,13 @@ cp zig-out/web/lane-dodger.{js,wasm} ../../web/public/games/lane-dodger/
 
 CI does build and test the desktop game on every push and nightly, which is what catches Zig master breaking it. It also plays 600 frames under Xvfb, because compiling proves the API still matches while running proves it still draws.
 
-**Chapters quote the real source.** `<GameSource file="..." decl="..." />` reads a file (or one declaration, or one `test` by its title) out of `examples/lane-dodger/` at build time, so a chapter cannot describe a function that has been deleted; a bad name is a build error. It is the game's equivalent of `Playground.astro` validating snippet names. `<LaneDodger />` embeds the playable build, loading nothing until the reader presses Play, which also supplies the gesture browsers require before audio may start.
+**The section is a build-along, not a design commentary.** Nine chapters in the order you would build the thing: what it is, vendoring raylib, the world, the loop, handles, drawing, input, difficulty, sound. The bar is that a reader who follows it ends up with the game. It did not start that way, and the gap was invisible until it was counted: four source files were quoted nowhere at all and `draw.zig` had one declaration of twenty-two on the page, so nobody could have drawn a pixel. **If you add a file to the game, a chapter has to cover it.** The check is mechanical, so run it rather than guessing: list every top-level declaration per file and compare against every `decl=` in the chapters.
+
+**Chapters quote the real source.** `<GameSource file="..." decl="..." />` reads a file (or one declaration, or one `test` by its title) out of `examples/lane-dodger/` at build time, so a chapter cannot describe a function that has been deleted; a bad name is a build error. It is the game's equivalent of `Playground.astro` validating snippet names. Add `fields` for a struct that carries its own methods: `World` is 309 lines and the chapters quote its interesting methods separately, so quoting it whole is a wall of code the reader has already been given. The lines still come off disk; only the trailing ellipsis is generated, and the caption says it is an excerpt. Every block links to its file on GitHub via `REPO_URL` in [seo.ts](web/src/seo.ts), which is also what the footer link reads.
+
+**`<LaneDodger />`** embeds the playable build. It loads nothing until the reader presses Play: the artefacts are about 400 KB, most readers are there to read, and the click is also the gesture browsers require before an audio context may start.
+
+**`grace_seconds` is a judgement call, not a measurement, and the chapter says so.** It was added after a worst seed of 3.9 seconds, but that number came from the *broken* human model, the one that reset a countdown and livelocked. Against the current code, turning the window off moves the modelled 200 ms average from 29.5s to 29.2s and the worst seed not at all. The window still earns its place, because the reaction-time model already knows the controls perfectly and cannot represent a first-time player hunting for the keys. Do not re-add the 3.9 figure, and do not let a rewrite claim the window is worth more than it measures.
 
 **`SECTION_TAGS` in [tracks.ts](web/src/tracks.ts)** labels the few sections that are not a topic tour (`lane-dodger` is "Game"). It renders in the sidebar and on `/learn/`. Keep it sparse: a tag on every section is a tag on nothing.
 
@@ -179,6 +199,20 @@ The rules below are what this site adds on top, and they win where the two docum
 - **"You" is fine; chirpy is not.** The style guide's "you" for what the learner does holds everywhere, including Groundwork. What the Groundwork rule below forbids is the register, not the pronoun.
 - **The spoken-narration section is for narration**, and this repo has none. Its one rule that transfers is the one already stated: one idea per sentence, and one breath's worth of it.
 
+**Checking for AI tone is a read, not a grep.** Greps catch vocabulary: dashes, the banned list, contractions, throat-clearing. Run them, but do not report back that a draft is clean on the strength of them, because the tell that actually gets noticed is rhythm and no grep sees it. The Lane Dodger chapters passed every word-level check twice and still read as machine-written.
+
+What was wrong, and what to look for next time:
+
+- **An epigram closing every section.** Individually fine, and a formula in bulk. Lift the last sentence of each section into a column and read them together; if they all land a point, cut most of them and let sections end on a plain fact.
+- **Symmetry.** Three short parallel sentences then a summarising fourth. Four-part negation lists ("no raylib, no window, no clock, no allocator"). Antithesis pairs. Any of these once is writing; a rhythm of them is a tell.
+- **Repeated frames.** Sentences opening `That is` or `This is`. Trailing `which is` clauses. `X is worse than Y` moralising. Count them: seven, ten and six across six chapters was too many, and two, five and one reads fine.
+- **A motif reused across chapters.** "None of them opens a window" in one chapter and "none of them needed a speaker" in another is the same joke twice, which a person notices and a formula does not.
+- **Flat sentence length.** The giveaway metric. Aim for a spread rather than a mode: the shipped chapters run a mean of 12.5 words with a standard deviation of 6, and a mix of six-word sentences and twenty-five-word ones.
+
+**Narration is the other half of it.** Cut any sentence that describes what the chapter is doing rather than the subject: "the interesting part is", "what this is really about", "worth the space", "worth being precise about". State the fact and move on.
+
+**The house edit, applied to these chapters and worth copying:** split compound sentences at the semicolons and at the joining `and`, prefer plain nouns (`chunks` not `lumps`, `saves` not `banks`), and name the subject rather than reaching for a pronoun (`reads from that state`, not `reads from it`). It also catches real bugs: that pass found a tautology, a missing noun and a missing unit.
+
 **The Groundwork track (`systems-from-scratch/`) is the one place that explains from zero**, and it has two extra rules because plain-language teaching is where AI tone gets in.
 
 - **An analogy must be paid off by the snippet on the same page.** Memory is a street of numbered houses, and the next block prints an actual address; a pointer is a scrap of paper with a house number, and the next block repaints the real door through it. An analogy that cannot be cashed out gets cut rather than extended. The register is Feynman, not a children's book: concrete and physical, still plain and still declarative, with no chirpy second person and no exclamation marks (the style rules above apply here unchanged).
@@ -191,7 +225,7 @@ The impeccable skill (`.claude/skills/impeccable/`) is installed for design work
 
 ## CI and deployment
 
-[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on push, PR, and a 06:00 UTC nightly: `zig build verify` → `zig build` → `astro build` → `npm run e2e` → push `web/dist` to `gh-pages` (main only, only if all passed). The nightly is the point — it proves the docs are correct *today*, not when last touched.
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on push, PR, and a 06:00 UTC nightly: `zig build verify` → `zig build` → the game (vendor raylib, `zig build test`, build, play 600 frames under Xvfb) → `astro build` → `npm run e2e` → push `web/dist` to `gh-pages` (main only, only if all passed). The nightly is the point — it proves the docs are correct *today*, not when last touched.
 
 - Pages is served from the **`gh-pages` branch**. Do not switch to `actions/deploy-pages` without also changing the repo Pages source, or the live site silently stops updating.
 - Both `gh-deploy.sh` and CI publish as a fresh **orphan commit** of `web/dist`, so anything else on that branch is deleted.
