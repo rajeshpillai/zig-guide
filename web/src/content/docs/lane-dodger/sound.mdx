@@ -10,65 +10,55 @@ import GameSource from "../../../components/GameSource.astro";
 There are no audio files in this project. The five effects are arithmetic,
 generated when the game starts.
 
-That is a deliberate trade and worth stating before the code. Recording or
-licensing five blips is faster than writing a synthesiser. What it costs is a
-folder of binaries nobody can diff, a licence question attached to each one, and
-a tuning loop that runs through an audio editor. Six hundred lines of arithmetic
-gives sounds you change by changing a number, and keeps the whole game a text
-tree, which is the same reason the graphics here are shapes rather than sprites.
+Recording or licensing five blips is faster than writing a synthesiser. It costs
+a folder of binaries nobody can diff, a licence question on each one, and a
+tuning loop that runs through an audio editor. Six hundred lines of arithmetic
+gives sounds you change by changing a number.
 
 ## One oscillator with an envelope
 
-Everything is built from stacking these.
-
 <GameSource file="src/audio/synth.zig" decl="Layer" />
 
-A frequency sweep from `from` to `to`, an amplitude envelope, and an optional
-low pass to take the fizz off noise. `delay` staggers a layer, which is how the
-arpeggios are made without any sequencing code.
+A frequency sweep, an amplitude envelope, and an optional low pass to take the
+fizz off noise. `delay` staggers a layer, which is how the arpeggios are built
+with no sequencing code.
 
-The coin is two layers, a triangle and a quieter sine an octave above it:
+The coin is two layers, a triangle and a quieter sine an octave up:
 
 <GameSource file="src/audio/synth.zig" decl="coin" />
 
-The crash is six, and the last three are the falling triad that plays over the
-game over screen:
+The crash is six. The last three are the falling triad that plays over the game
+over screen:
 
 <GameSource file="src/audio/synth.zig" decl="crash" />
 
-That is one sound rather than two, and it is the more interesting decision. The
-alternative is playing the thud on impact and the sting when the retry prompt
-appears, which means the game has to remember whether it has played the sting
-yet, for a run it has already lost. Layers take a delay, so the pause lives in
-the waveform instead and no state is needed.
+That is one sound, not two. Playing the thud on impact and the sting when the
+retry prompt appears means the game has to remember whether it has played the
+sting yet, for a run it has already lost. Layers take a delay, so the pause is
+in the waveform and no state is needed.
 
 ## The renderer
 
 <GameSource file="src/audio/synth.zig" decl="render" />
 
-The sweep is exponential rather than linear, so a slide from 900 Hz to 1350 Hz
-is even in pitch rather than even in hertz. Pitch is logarithmic and a linear
-sweep sounds like it accelerates.
+The sweep is exponential, not linear. Pitch is logarithmic, so a linear sweep
+sounds like it accelerates.
 
-Layers are summed and then soft clipped with `tanh` rather than clamped. Stacked
+Layers are summed and soft clipped with `tanh` rather than clamped. Stacked
 layers overshoot, and clamping shears the peaks flat, which is audible as
-distortion. `tanh` bends them.
+distortion.
 
 ## The envelope, and the click
 
 <GameSource file="src/audio/synth.zig" decl="envelope" />
 
-The envelope reaches exactly zero at both ends of every layer, and this is the
-detail most worth taking from this chapter.
+The envelope reaches exactly zero at both ends of every layer.
 
 A clip that begins at full amplitude begins with a step from silence to whatever
 the waveform happened to be at. A step is a broadband impulse. It is a click,
-and it is louder and more irritating than the effect it is attached to. The same
-is true at the end. Four milliseconds of fade in is enough, and the decay is
-shaped so that it lands on zero rather than being cut off there.
-
-This is the sort of thing that is obvious in one second of listening and
-invisible in a diff, which makes it a good thing to test.
+and it is louder and more annoying than the effect it belongs to. The same
+applies at the end. Four milliseconds of fade in is enough, and the decay lands
+on zero rather than being cut off there.
 
 ## Testing a waveform
 
@@ -78,56 +68,44 @@ because CI has no speakers.
 
 <GameSource file="src/audio/synth.zig" decl="no sound begins or ends with a click" />
 
-Then the mix. Absolute frequencies are a matter of taste and are allowed to
-move. What must not move is the arrangement: the crash is the low long loud one,
-and the lane tick, which fires on every single input, must not shout over a
-pickup.
+Then the mix. Absolute frequencies are taste and can move. The arrangement
+cannot: the crash is the low long loud one, and the lane tick fires on every
+input and must not shout over a pickup.
 
 <GameSource file="src/audio/synth.zig" decl="the sounds sit in the right places against each other" />
 
-Brightness there is zero crossings per second, a crude pitch estimate that is
-more than good enough to tell a chime from a thud.
+Brightness there is zero crossings per second. It is a crude pitch estimate and
+good enough to tell a chime from a thud.
 
-Measured, the five come out as intended: the coin at about 1130 Hz over 85 ms,
-the crash 900 ms long with 81 percent of its energy below 500 Hz, the lane tick
-shortest and quietest. `zig build sounds` writes them all out as `.wav` so they
-can be listened to without playing the game up to the point that triggers each
-one.
+Measured, the five come out as intended. The coin sits at about 1130 Hz over
+85 ms. The crash runs 900 ms with 81 percent of its energy below 500 Hz. The
+lane tick is shortest and quietest. `zig build sounds` writes them all out as
+`.wav` for listening to.
 
 ## Playing them
 
 <GameSource file="src/platform/audio.zig" decl="Voice" />
 
-raylib restarts a sound that is already playing, so one handle can only ever
-make one note. Coins arrive in quick succession, and a combo that silences
-itself is worse than no sound at all. Aliases share the sample data and carry
-their own playback position.
+raylib restarts a sound that is already playing, so one handle makes one note.
+Coins arrive in quick succession, and a combo that silences itself is worse than
+no sound. Aliases share the sample data and keep their own playback position.
 
 The combo ladder is a pitch multiplier on the one coin sound rather than eight
 recordings:
 
 <GameSource file="src/platform/audio.zig" decl="onEvent" />
 
-## Optional at runtime, on purpose
+## Optional at runtime
 
-A machine with no sound card, a container with no ALSA, a browser tab nobody has
-clicked in yet: all of those leave the device unopened, and every call above
-turns into nothing.
+No sound card, no ALSA in the container, no click in the browser tab yet: all of
+those leave the device unopened, and every call above turns into nothing.
 
 <GameSource file="src/platform/audio.zig" decl="init" />
 
-A game that refuses to start because it could not open a mixer is a worse game
-than a silent one. This is checked by running the real binary with a deliberately
-broken ALSA configuration and asserting it still exits cleanly.
+A game that refuses to start because it could not open a mixer is worse than a
+silent one. The real binary is run with a deliberately broken ALSA configuration
+to check it still exits cleanly.
 
-## What this chapter is really about
-
-Sound was added to this game after it was finished and playing well. It changed
-no rule, and it could not have, because it reads the same
-[event stream](/learn/lane-dodger/entities/) the particles read and the
-simulation cannot see it.
-
-That is the payoff for the separation the
-[first chapter](/learn/lane-dodger/what-we-are-building/) described. The
-fifty-five tests were all still green afterwards, and not one of them needed a
-speaker.
+Sound changed no rule in this game, because it reads the same
+[event stream](/learn/lane-dodger/entities/) the particles read. The fifty-five
+tests were still green afterwards, and none of them needed a speaker.

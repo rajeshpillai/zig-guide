@@ -250,10 +250,21 @@ pub fn main() void {
 }
 
 fn run() void {
-    rl.SetConfigFlags(rl.FLAG_VSYNC_HINT | rl.FLAG_WINDOW_RESIZABLE | rl.FLAG_MSAA_4X_HINT);
+    // A resizable window on the desktop, and deliberately not on the web.
+    //
+    // raylib's web resize callback sets the canvas backing store to
+    // `window.innerWidth` by `window.innerHeight`: the whole browser window,
+    // not the element the canvas actually occupies. On a page where the canvas
+    // is one column of a chapter, the buffer ends up several times wider than
+    // the box it is displayed in. The letterbox here then centres the field
+    // inside that buffer and CSS squashes the result, so the game renders as a
+    // narrow strip down the middle. Leaving the flag off keeps the buffer the
+    // size `InitWindow` asked for, and the page scales it with CSS.
+    const resizable = if (web) 0 else rl.FLAG_WINDOW_RESIZABLE;
+    rl.SetConfigFlags(rl.FLAG_VSYNC_HINT | rl.FLAG_MSAA_4X_HINT | resizable);
     rl.SetTraceLogLevel(rl.LOG_WARNING);
     rl.InitWindow(540, 960, "Lane Dodger");
-    rl.SetWindowMinSize(320, 480);
+    if (!web) rl.SetWindowMinSize(320, 480);
 
     // Entropy is the platform's job, not the simulation's. raylib seeds its
     // own generator from the clock during InitWindow, and this is the one

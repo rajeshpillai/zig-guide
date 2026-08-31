@@ -33,7 +33,7 @@
     <canvas id="canvas" tabindex="0" aria-label="Lane Dodger"></canvas>
     <p id="status">loading…</p>
   </div>
-<script type="module">
+<script>
   const canvas = document.getElementById("canvas");
   const status = document.getElementById("status");
 
@@ -46,14 +46,23 @@
     if (swallow.has(event.code)) event.preventDefault();
   }, { passive: false });
 
-  try {
-    const { default: createLaneDodger } = await import("./lane-dodger.js");
-    await createLaneDodger({ canvas });
-    status.textContent = "A / D or arrow keys · space to start";
-    canvas.focus();
-  } catch (error) {
-    status.textContent = "This game needs WebGL 2. " + error;
-  }
+  const script = document.createElement("script");
+  script.src = "./lane-dodger.js";
+  script.onload = () => {
+    createLaneDodger({ canvas }).then(
+      () => {
+        status.textContent = "A / D or arrow keys \u00b7 space to start";
+        canvas.focus();
+      },
+      (error) => {
+        status.textContent = "This game needs WebGL 2. " + error;
+      },
+    );
+  };
+  script.onerror = () => {
+    status.textContent = "Could not load lane-dodger.js";
+  };
+  document.head.append(script);
 </script>
 </body>
 </html>

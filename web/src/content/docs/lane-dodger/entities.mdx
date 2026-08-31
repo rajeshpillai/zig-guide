@@ -8,31 +8,29 @@ order: 40
 import GameSource from "../../../components/GameSource.astro";
 
 Blocks and coins are created off the top of the screen and destroyed as they
-leave the bottom, several times a second, for as long as the game runs. Two
-things follow from that, and the second one is the interesting one.
+leave the bottom, several times a second, for as long as the game runs.
 
-## No allocator
+## Storage is a fixed array
 
-Storage is a fixed array. A run of any length allocates exactly once, at
-startup, and never again. There is no allocator in the simulation at all, which
-is also what lets it be a module that imports nothing.
+A run of any length allocates once, at startup, and never again. There is no
+allocator in the simulation, which is also what lets it import nothing.
 
-Forty-eight slots is comfortably more than the field can hold. At the tightest
-spacing and the highest speed there are about nine rows on screen of at most
-three entities each, and the tests assert the peak stays under capacity and
-above six, so a change that quietly stops spawning shows up.
+Forty-eight slots is more than the field can hold. At the tightest spacing and
+the highest speed there are about nine rows on screen of at most three entities
+each. A test asserts the peak stays under capacity and above six, so a change
+that quietly stops spawning shows up.
 
-## The problem with an index
+## An index is not enough
 
-The obvious way to refer to an entity is its index. It is also the way that
-produces a bug you will not reproduce.
+The obvious way to refer to an entity is its index. It produces a bug you will
+not reproduce.
 
 An event says "coin 12 was collected". A frame later, slot 12 has been freed and
-handed to a newly spawned block. Anything still holding 12 now reads a block and
-believes it is a coin. Nothing crashes. The score is occasionally wrong, once an
-hour, and never in front of you.
+given to a newly spawned block. Anything still holding 12 now reads a block and
+believes it is a coin. Nothing crashes. The score is wrong once an hour, never
+in front of you.
 
-A pointer has the same problem wearing better clothes.
+A pointer has the same problem in better clothes.
 
 ## Generational handles
 
@@ -47,27 +45,26 @@ counter answers both "which occupant" and "is anyone home". Generation zero is
 never handed out, which gives a null handle for free.
 
 `create` returns an optional rather than asserting. A full pool is not an error
-here; the spawner treats it as back pressure and skips the spawn, which is
-always safe because the course stays solvable either way.
+here. The spawner treats it as back pressure and skips the spawn, which is safe
+because the course stays solvable either way.
 
-The test that matters is the one that describes the bug:
+The test names the bug:
 
 <GameSource
   file="src/sim/pool.zig"
   decl="a stale handle does not resolve to the slot's new occupant"
 />
 
-The first assertion is as important as the second. It proves the slot really was
+The first assertion matters as much as the second. It proves the slot really was
 reused, so the test is exercising the dangerous case rather than passing by
 accident.
 
 ## One pool, two users
 
-The pool is generic because it is genuinely general. The particle system uses
-the same one, with a capacity of 256 and a different element type. Particles are
-not part of the simulation; they are the renderer's business. Writing the pool
-once meant the renderer got fixed-capacity storage with no allocator without
-anybody deciding it should.
+The pool is generic because it is general. The particle system uses the same
+one, with a capacity of 256 and a different element type. Particles belong to
+the renderer, not the simulation. Writing the pool once meant the renderer got
+fixed-capacity storage with no allocator for free.
 
 ## Events
 
@@ -76,34 +73,27 @@ about it.
 
 <GameSource file="src/sim/sim.zig" decl="Event" />
 
-Events accumulate in a fixed buffer, drained once per frame by the caller. The
+Events accumulate in a fixed buffer and the caller drains it once per frame. The
 buffer counts what it had to drop, and a test asserts that count is zero across
-forty thousand ticks, because a silently truncated event stream shows up as
-occasional missing particles and nothing else.
+forty thousand ticks. A truncated event stream would show up as occasional
+missing particles and nothing else.
 
 The whole reaction to a tick is one function:
 
 <GameSource file="src/main.zig" decl="react" />
 
-That is where a coin becomes ten amber dots and a small kick of screen shake,
-and where the crash becomes debris. The simulation knows about none of it.
+A coin becomes ten amber dots and a small kick of screen shake. A crash becomes
+debris. The simulation knows about none of it.
 
-## Why the indirection earns its place
+## What the seam buys
 
-This design pays for itself the moment you add something.
-
-Sound was added to this game after it was finished and playing. It required no
-change to any rule, because it hooks the same event stream that the particles
-already used.
+Sound was added to this game after it was finished and playing. It changed no
+rule, because it reads the same events the particles read.
 
 <GameSource file="src/platform/audio.zig" decl="onEvent" />
 
-An event system is easy to over-build. Six variants in a tagged union, a fixed
-buffer, and one loop is not an architecture; it is a seam in the one place a
-seam was needed. The test is whether adding a reaction requires touching the
-thing that caused it. Here it does not, and that is checked by the fact that the
-[difficulty tests](/learn/lane-dodger/fair-by-design/) run the entire game with
-no renderer, no audio device, and no window.
-
-Next: [difficulty](/learn/lane-dodger/fair-by-design/), which is the chapter
-where the tests start finding things.
+Event systems are easy to over-build. Six variants in a tagged union, a fixed
+buffer and one loop is not an architecture. The test is whether adding a
+reaction means touching the thing that caused it. Here it does not, which is why
+[the difficulty tests](/learn/lane-dodger/fair-by-design/) run the entire game
+with no renderer, no audio device and no window.

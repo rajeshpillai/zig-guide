@@ -173,11 +173,24 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       button.disabled = true;
       button.textContent = "Loading…";
       try {
-        const source = button.dataset.src!;
-        const { default: createLaneDodger } = await import(/* @vite-ignore */ source);
+        /*
+         * A plain <script> tag, not `import()`. Vite rewrites a dynamic import
+         * even for a file it is only serving out of `public/`: it appends
+         * `?import` and then fails trying to transform a 190 KB Emscripten
+         * bundle. `@vite-ignore` does not prevent it. The built site happened
+         * to work and `astro dev` did not, which is the worst version of that
+         * bug. A script tag is not a module and no bundler rewrites it.
+         */
+        await new Promise<void>((resolve, reject) => {
+          const tag = document.createElement("script");
+          tag.src = button.dataset.src!;
+          tag.onload = () => resolve();
+          tag.onerror = () => reject(new Error("could not load the game"));
+          document.head.append(tag);
+        });
         canvas.hidden = false;
         poster.hidden = true;
-        await createLaneDodger({ canvas });
+        await (window as any).createLaneDodger({ canvas });
         canvas.focus();
       } catch (error) {
         canvas.hidden = true;

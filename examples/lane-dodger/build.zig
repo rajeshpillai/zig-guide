@@ -228,8 +228,14 @@ fn addWeb(
         "-sALLOW_MEMORY_GROWTH=1",
         // A factory function instead of a global `Module`, so the page can
         // start the game when it wants and hand it its own canvas.
+        //
+        // Deliberately not an ES6 module. The guide embeds this in a page built
+        // by Vite, and Vite rewrites `import()` even for a file it is only
+        // serving from `public/`, appending `?import` and then failing to
+        // transform a 190 KB Emscripten bundle. A classic script that defines
+        // one global is loaded by a plain `<script>` tag, which no bundler
+        // touches.
         "-sMODULARIZE=1",
-        "-sEXPORT_ES6=1",
         "-sEXPORT_NAME=createLaneDodger",
         // The loop is driven by emscripten_set_main_loop, so none of the
         // stack-unwinding machinery is needed.

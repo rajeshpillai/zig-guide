@@ -1,108 +1,105 @@
 ---
 title: Difficulty You Can Prove
-description: A row spacing derived from what is physically possible, a bot that proves the course is solvable, and a reaction time model that says whether a person can play it.
+description: Row spacing derived from what is physically possible, a bot that proves the course is solvable, and a reaction time model that says whether a person can play it.
 section: Lane Dodger
 order: 50
 ---
 
 import GameSource from "../../../components/GameSource.astro";
 
-The course generator has one job: lay down rows of blocks that get harder and
-stay possible. Getting that wrong is the worst kind of bug in a game, because it
-does not look like a bug. Every row still leaves a lane open. The game just
-becomes unwinnable, and the only report is that people stop playing.
+The course generator lays down rows of blocks. They have to get harder and stay
+possible.
 
-## The floor under the spacing
+Getting that wrong does not look like a bug. Every row still leaves a lane open.
+The game just becomes unwinnable, and the only report is that people stop
+playing.
+
+## There is a floor under the spacing
 
 Between one row arriving and the next, a player may have to cross the whole
-board. That costs two lane changes. They also cannot begin while the current row
-is level with them, because moving sideways into a block that is beside you is a
-crash.
+board. That costs two lane changes. They also cannot start while the current row
+is level with them, because moving sideways into a block beside you is a crash.
 
-So the tightest spacing that is still winnable is the sum of those two, and it
-is not a matter of taste:
+The tightest spacing that is still winnable is the sum of those two.
 
 <GameSource file="src/sim/sim.zig" decl="fairnessFloor" />
 
-The second term falls as the game speeds up, because a row that is moving faster
-spends less time beside you. The first term does not move at all.
+The second term shrinks as the game speeds up: a faster row spends less time
+beside you. The first term never moves.
 
-## Deriving the spacing instead of tuning it
+## Derive the spacing, do not tune it
 
-The first version of this had two hand-picked constants, an easy spacing and a
-hard one, and interpolated between them. It worked, and it was wrong in a way
-that only shows up later: three numbers had to agree with each other, and
-nothing said so. Change the lane change time and the hard spacing silently
-becomes unreachable.
+The first version had two hand-picked constants, an easy spacing and a hard one,
+interpolated between. It worked. It was also wrong in a way that surfaces later:
+three numbers had to agree, and nothing said so. Change the lane change time and
+the hard spacing silently becomes unreachable.
 
-So the spacing is computed from the floor and decays towards it.
+Now the spacing is computed from the floor and decays towards it.
 
 <GameSource file="src/sim/sim.zig" decl="rowGapSeconds" />
 
-The approach is exponential and never arrives. That is the second thing this
-fixed. The earlier curve reached its hardest setting at sixty seconds and then
-held, which means a good enough player never loses, and an endless runner nobody
-can lose has no score worth chasing.
+The decay never arrives. That fixed the second problem. The earlier curve
+reached its hardest setting at sixty seconds and held, so a good player never
+lost, and an endless runner nobody can lose has no score worth chasing.
 
-The margin above unwinnable is now a named constant with a reason attached,
-rather than an accident of two endpoints agreeing with a third.
+The margin above unwinnable is now one named constant.
 
 <GameSource file="src/sim/config.zig" decl="gap_safety" />
 
-## Proving it, by playing it
+## Prove it by playing it
 
-An argument about four constants is worth exactly as much as the argument is
-careful. The proof is a program that plays the game.
+An argument about four constants is worth as much as the argument is careful. A
+program that plays the game is worth more.
 
 <GameSource file="src/sim/bot.zig" decl="targetLane" />
 
-The policy looks at the next two rows, picks a lane that is open in the first,
-refuses a crossing there is not time to finish, and refuses a path that would
-slide through a block currently level with it. Then a test runs it for four
-minutes of simulated time at every seed.
+The policy looks at the next two rows, picks a lane open in the first, refuses a
+crossing it cannot finish in time, and refuses a path that would slide through a
+block currently level with it.
+
+Then a test runs it for four minutes of game time at every seed.
 
 <GameSource file="src/sim/tests.zig" decl="solvable course: the bot survives a long run at every seed" />
 
-That test failed the first time it ran, at seed 21, after 8.2 seconds.
+It failed the first time it ran. Seed 21, after 8.2 seconds.
 
 ## What it found
 
-The bot was steering into blocks it believed it had already passed. It filtered
-out anything whose centre was behind the player's centre, using the block's own
-half height. The right number is the sum of both half heights: a block whose
-centre is 41 units behind you is still overlapping you when both bodies are 26
-units tall.
+The bot was steering into blocks it believed it had passed. It discarded
+anything whose centre was behind the player's centre, measured with the block's
+own half height. The right number is the sum of both half heights. A block whose
+centre is 41 units behind you still overlaps you when both bodies are 26 units
+tall.
 
 <GameSource file="src/sim/bot.zig" decl="reach" />
 
-A test for it now states the case in its title:
+The regression test states the case in its title:
 
 <GameSource
   file="src/sim/bot.zig"
   decl="the bot will not slide into a block that is still level with it"
 />
 
-This is the argument for testing a game by playing it rather than by checking
-its parts. Every unit test passed. The collision code was right, the generator
-was right, the spacing was right. The bug was in the reasoning that connected
-them, and the only thing that exercises reasoning is a run.
+Every unit test passed while this bug existed. The collision code was right, the
+generator was right, the spacing was right. The bug was in the reasoning that
+joined them, and only a run exercises that.
 
-## The test that says whether a person can play it
+## Solvable is not the same as playable
 
 A bot with no reaction time surviving a course proves the course is solvable. It
-says nothing about whether it is playable, and those are different claims.
+says nothing about whether a person can play it.
 
 So the same policy runs again with a delay in front of it.
 
 <GameSource file="src/sim/tests.zig" decl="Human" />
 
-Pure latency: the decision made from the world as it looked some number of ticks
-ago is the one acted on now. An earlier version counted down a timer and reset
-it whenever the ideal lane changed, which livelocked whenever the policy was
-torn between two lanes, and made the game look far harder than it is. Measuring
-the wrong thing carefully is worse than not measuring it.
+Pure latency: the decision made from the world as it looked some ticks ago is
+the one acted on now. An earlier version counted down a timer and reset it
+whenever the ideal lane changed. That livelocked whenever the policy was torn
+between two lanes, and made the game look far harder than it is. Measuring the
+wrong thing carefully is worse than not measuring.
 
-The numbers this produces are the difficulty curve, stated plainly:
+The numbers it produces are the difficulty curve:
 
 | Reaction | Mean run |
 | --- | --- |
@@ -113,31 +110,29 @@ The numbers this produces are the difficulty curve, stated plainly:
 | 300 ms | 24 s |
 
 Half a minute for an unhurried player, a minute for a sharp one, and everybody
-loses eventually. The test asserts the shape rather than the values, so a
-designer can move the numbers and still be told when the game has stopped being
-a game.
+loses eventually.
+
+The test asserts the shape, not the values, so the numbers can be tuned without
+rewriting it.
 
 <GameSource file="src/sim/tests.zig" decl="a run lasts about as long as a hyper casual run should" />
 
-The last assertion in there is the one that caught the flat difficulty curve. A
-sharp player was averaging the full three hundred second cap, and every other
-test was green.
+The last assertion is the one that caught the flat difficulty curve. A sharp
+player was averaging the full three hundred second cap, and every other test was
+green.
 
-## Two smaller things the tests pinned
+## Two smaller things
 
 **The opening is gentle.** Modelling a 200 ms player gave a mean of 30 seconds
-and a worst seed of 3.9. Some openings happened to demand a two lane crossing
-before anyone had settled in, and a game that can kill you in four seconds on
-your first go does not get a second one. Inside a grace window, no row blocks
-more than one lane.
+and a worst seed of 3.9. Some openings demanded a two lane crossing before
+anyone had settled in. A game that can kill you in four seconds does not get a
+second try. Inside a grace window, no row blocks more than one lane.
 
 <GameSource file="src/sim/config.zig" decl="grace_seconds" />
 
-**Coins mark the safe lane.** A coin is only ever placed in a lane its own row
-leaves open. When a row blocks two of three lanes, the coin is sitting in the
-one gap, so following the coins and playing correctly are the same thing. That
-is the entire tutorial for this game, and it is four lines in the spawner.
+**Coins mark the safe lane.** A coin only ever goes in a lane its own row leaves
+open. When a row blocks two of three lanes, the coin sits in the one gap, so
+following the coins and playing correctly are the same thing. That is the whole
+tutorial for this game, and it is four lines in the spawner.
 
 <GameSource file="src/sim/sim.zig" decl="spawnRow" />
-
-Next: [sound](/learn/lane-dodger/sound/), which is arithmetic rather than files.
