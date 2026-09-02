@@ -10,9 +10,15 @@
  *
  * GitHub Pages serves static files and cannot issue a 301, so Astro emits a
  * small HTML page per old address carrying `<meta http-equiv="refresh">` at
- * zero delay, `<meta name="robots" content="noindex">`, and a canonical link
- * to the destination. Google treats that as a redirect and passes the signals
- * on. It is the only mechanism this host has.
+ * zero delay and a canonical link to the destination. Google treats that as a
+ * redirect and passes the signals on. It is the only mechanism this host has.
+ *
+ * Astro's template also carries `<meta name="robots" content="noindex">`, and
+ * that tag is stripped after the build by plugins/indexable-redirects.mjs.
+ * Read that file before putting it back: on a host that could issue a 301 the
+ * tag would never be seen, but here the body is the redirect, and telling
+ * Google not to index the page is telling it to drop the address rather than
+ * pass on what the address earned.
  *
  * Two rules build the map, and the second overrides the first:
  *

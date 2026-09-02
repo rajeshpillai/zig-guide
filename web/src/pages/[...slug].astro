@@ -129,8 +129,8 @@ const indexModified = entry
 const schema = entry
   ? {
       "@type": "TechArticle",
-      headline: entry.data.title,
-      description: entry.data.description,
+      headline: entry.data.seoTitle ?? entry.data.title,
+      description: entry.data.seoDescription ?? entry.data.description,
       inLanguage: "en",
       author: { "@type": "Person", name: AUTHOR },
       publisher: { "@type": "Organization", name: SITE_NAME },
@@ -154,11 +154,11 @@ const schema = entry
 
 <Base
   title={section ? section.title : group ? group.title : entry.data.title}
-  seoTitle={meta?.seoTitle}
+  seoTitle={meta?.seoTitle ?? entry?.data.seoTitle}
   description={meta?.description ??
     (section || group
       ? `${indexCount} chapters on ${(section ?? group).title}.`
-      : entry.data.description)}
+      : (entry.data.seoDescription ?? entry.data.description))}
   crumbs={crumbs}
   schema={schema}
   markdown={entry ? `${pageHref(entry.id).replace(/\/$/, "")}.md` : undefined}

@@ -1009,8 +1009,23 @@ for (const [from, to] of legacy) {
     failures.push(`legacy URL ${PREFIX}${from}/ redirects to ${refresh ?? "nothing"}, want ${to}`);
     continue;
   }
-  if (!/name="robots" content="noindex"/.test(html)) {
-    failures.push(`legacy URL ${PREFIX}${from}/ is a redirect Google would index`);
+  // The opposite of what this used to assert, and the reason is in
+  // plugins/indexable-redirects.mjs: `noindex` on a page whose whole purpose
+  // is to be followed tells Google to drop the old address rather than pass
+  // what it earned to the new one. On a host that could issue a 301 the tag
+  // would never be read. This one cannot, so the tag has to go, and the
+  // canonical is what does the consolidating instead.
+  if (/name="robots" content="noindex"/.test(html)) {
+    failures.push(
+      `legacy URL ${PREFIX}${from}/ still carries noindex, so Google will drop ` +
+        `it instead of passing its ranking to ${to}`,
+    );
+  }
+  const canonical = html.match(/rel="canonical" href="([^"]+)"/)?.[1];
+  if (!canonical?.endsWith(to)) {
+    failures.push(
+      `legacy URL ${PREFIX}${from}/ has canonical ${canonical ?? "(none)"}, want one naming ${to}`,
+    );
   }
   destinations.add(to);
   redirectsChecked++;
