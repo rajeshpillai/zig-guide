@@ -1,0 +1,377 @@
+# Zig Guide Live
+
+> A Zig tutorial and cookbook where every snippet is compiled and run against current Zig master on every build, and runs in your browser as WebAssembly.
+
+Every snippet on this site is compiled and executed by CI against current
+Zig master on every build, including a nightly run against that day's
+compiler. Code here that no longer compiles fails the build and is fixed,
+so it does not go stale the way a tutorial pinned to an old release does.
+This tracks Zig master, not a tagged release, and it is an unofficial
+community guide with no affiliation to the Zig Software Foundation.
+
+Each chapter link below is the Markdown source. Replace `.md` with a
+trailing slash for the HTML page, which additionally runs the snippets in
+the browser as WebAssembly.
+
+- [Full guide as one file](https://www.ziglang.in/llms-full.txt): every chapter concatenated, code included.
+- [Chapter index](https://www.ziglang.in/learn/): the same list as HTML.
+
+## Foundations
+
+The language and the library it ships with. Start here.
+
+### Getting Started
+
+Install a Zig master build, compile and run your first program, run tests, and catch up on what changed since the last tagged release.
+
+- [Installation](https://www.ziglang.in/learn/getting-started/installation.md): Getting a Zig master build, and why this guide needs one.
+- [Hello World](https://www.ziglang.in/learn/getting-started/hello-world.md): Your first Zig program, and why main now takes an argument.
+- [Running Tests](https://www.ziglang.in/learn/getting-started/running-tests.md): Tests are part of the language.
+- [Coming from an Older Zig](https://www.ziglang.in/learn/getting-started/coming-from-older-zig.md): What changed between the last stable releases and the master this guide targets.
+
+### Language
+
+Zig language chapters you can run: integers, floats, pointers, slices, optionals, error unions, structs, unions, enums, switch, loops, comptime and vectors.
+
+- [Assignment](https://www.ziglang.in/learn/language-basics/assignment.md): const by default, var only when you must mutate.
+- [Arrays](https://www.ziglang.in/learn/language-basics/arrays.md): Fixed-length sequences whose length is part of the type.
+- [If Expressions](https://www.ziglang.in/learn/language-basics/if-expressions.md): No truthiness: if takes a bool.
+- [While Loops](https://www.ziglang.in/learn/language-basics/while-loops.md): Conditions, continue expressions, and loops that produce values.
+- [For Loops](https://www.ziglang.in/learn/language-basics/for-loops.md): Iterate over sequences and ranges, never a bare counter.
+- [Functions](https://www.ziglang.in/learn/language-basics/functions.md): Immutable parameters and explicit discards.
+- [Defer](https://www.ziglang.in/learn/language-basics/defer.md): Cleanup that runs on every path out of a scope.
+- [Errors](https://www.ziglang.in/learn/language-basics/errors.md): Errors are values in a union, not exceptions.
+- [Switch](https://www.ziglang.in/learn/language-basics/switch.md): Exhaustive by construction.
+- [Runtime Safety](https://www.ziglang.in/learn/language-basics/runtime-safety.md): Checked illegal behaviour, and where the checks go.
+- [Pointers](https://www.ziglang.in/learn/language-basics/pointers.md): Single-item pointers that are never null.
+- [Pointer Sized Integers](https://www.ziglang.in/learn/language-basics/pointer-sized-integers.md): usize, isize, and why they are not just u64.
+- [Many-item Pointers](https://www.ziglang.in/learn/language-basics/many-item-pointers.md): [*]T: a pointer to an unknown number of items.
+- [Slices](https://www.ziglang.in/learn/language-basics/slices.md): A pointer and a length, together.
+- [Enums](https://www.ziglang.in/learn/language-basics/enums.md): Named values, fixed tags, and methods.
+- [Structs](https://www.ziglang.in/learn/language-basics/structs.md): Layout, defaults, and methods.
+- [Unions](https://www.ziglang.in/learn/language-basics/unions.md): One of several types, sharing one allocation.
+- [Integer Rules](https://www.ziglang.in/learn/language-basics/integer-rules.md): Arbitrary widths, explicit narrowing, chosen overflow behaviour.
+- [Floats](https://www.ziglang.in/learn/language-basics/floats.md): IEEE-754 types and explicit conversions.
+- [Labelled Blocks](https://www.ziglang.in/learn/language-basics/labelled-blocks.md): Blocks that produce a value.
+- [Labelled Loops](https://www.ziglang.in/learn/language-basics/labelled-loops.md): Break or continue an outer loop by name.
+- [Loops as Expressions](https://www.ziglang.in/learn/language-basics/loops-as-expressions.md): else supplies the value when nothing breaks.
+- [Payload Captures](https://www.ziglang.in/learn/language-basics/payload-captures.md): The |value| syntax that unwraps everything.
+- [Optionals](https://www.ziglang.in/learn/language-basics/optionals.md): Zig's answer to null, checked by the compiler.
+- [Comptime](https://www.ziglang.in/learn/language-basics/comptime.md): Ordinary Zig, executed by the compiler.
+- [Inline Loops](https://www.ziglang.in/learn/language-basics/inline-loops.md): Unrolled loops where each iteration can differ in type.
+- [Opaque](https://www.ziglang.in/learn/language-basics/opaque.md): Types with unknown size, used through pointers only.
+- [Anonymous Structs](https://www.ziglang.in/learn/language-basics/anonymous-structs.md): Inferred struct literals, and tuples.
+- [Sentinel Termination](https://www.ziglang.in/learn/language-basics/sentinel-termination.md): Sequences that end in a known marker.
+- [Vectors](https://www.ziglang.in/learn/language-basics/vectors.md): SIMD with ordinary operators.
+- [Imports](https://www.ziglang.in/learn/language-basics/imports.md): Files are structs, and pub controls the boundary.
+- [Array Recipes](https://www.ziglang.in/learn/language-basics/array-recipes.md): Grids, comptime lookup tables, and getting an array back out of a slice.
+- [Slice Recipes](https://www.ziglang.in/learn/language-basics/slice-recipes.md): Reverse, rotate, shift and search a slice, in place and without an allocator.
+
+### Standard Library
+
+Zig std by example: allocators, ArrayList, hash maps, JSON, the Io interface, readers and writers, threads, crypto, formatting and sorting.
+
+- [The Io Interface](https://www.ziglang.in/learn/standard-library/io-interface.md): Anything that can block takes an Io; the caller picks how.
+- [Allocators](https://www.ziglang.in/learn/standard-library/allocators.md): Explicit memory management, passed as a value.
+- [ArrayList](https://www.ziglang.in/learn/standard-library/arraylist.md): The growable array, now unmanaged.
+- [Hash Maps](https://www.ziglang.in/learn/standard-library/hash-maps.md): Key-value storage, and the getOrPut pattern.
+- [Stacks](https://www.ziglang.in/learn/standard-library/stacks.md): ArrayList from one end, or no allocator at all.
+- [PriorityQueue](https://www.ziglang.in/learn/standard-library/priority-queue.md): A binary heap where the comparator is part of the type.
+- [MultiArrayList](https://www.ziglang.in/learn/standard-library/multi-array-list.md): Struct of arrays, laid out for the cache.
+- [Bit Sets and Enum Collections](https://www.ziglang.in/learn/standard-library/bit-sets.md): A set of small integers in a word, and containers keyed by enums.
+- [Strings](https://www.ziglang.in/learn/standard-library/strings.md): Search, trim, split, join. All of it lives in std.mem.
+- [Unicode](https://www.ziglang.in/learn/standard-library/unicode.md): A string is bytes until you opt in to UTF-8.
+- [Formatting](https://www.ziglang.in/learn/standard-library/formatting.md): Format strings checked at compile time.
+- [Advanced Formatting](https://www.ziglang.in/learn/standard-library/advanced-formatting.md): Custom format methods, and the specifiers that changed.
+- [Parsing and Encoding](https://www.ziglang.in/learn/standard-library/parsing-and-encoding.md): Text to numbers, and bytes to hex or base64.
+- [String Recipes](https://www.ziglang.in/learn/standard-library/string-recipes.md): Padding, runtime concatenation, and the std.mem and std.ascii calls the Strings chapter left out.
+- [Unicode Recipes](https://www.ziglang.in/learn/standard-library/unicode-recipes.md): Truncate on a character boundary, decode one codepoint, and cross to UTF-16.
+- [Readers and Writers](https://www.ziglang.in/learn/standard-library/readers-and-writers.md): The post-writergate I/O interfaces.
+- [JSON](https://www.ziglang.in/learn/standard-library/json.md): Parsing into real types, and back out again.
+- [Filesystem](https://www.ziglang.in/learn/standard-library/filesystem.md): Every disk operation now takes an Io.
+- [Command-Line Arguments](https://www.ziglang.in/learn/standard-library/command-line.md): Reading argv and the environment through std.process.
+- [Sorting](https://www.ziglang.in/learn/standard-library/sorting.md): In-place sorts with an explicit comparator.
+- [Iterators](https://www.ziglang.in/learn/standard-library/iterators.md): A convention, not an interface.
+- [Random Numbers](https://www.ziglang.in/learn/standard-library/random-numbers.md): Seeded generators, passed explicitly.
+- [Crypto](https://www.ziglang.in/learn/standard-library/crypto.md): Hashes, MACs, and constant-time comparison.
+- [Time](https://www.ziglang.in/learn/standard-library/time.md): Clocks behind the Io interface; constants and calendars in std.time.
+- [Logging](https://www.ziglang.in/learn/standard-library/logging.md): One log function, chosen at the root and known at compile time.
+- [Threads](https://www.ziglang.in/learn/standard-library/threads.md): Real OS threads, and why this page cannot run in your browser.
+- [Concurrency](https://www.ziglang.in/learn/standard-library/concurrency.md): async, Future, and Group, all through the Io interface.
+- [Cancellation](https://www.ziglang.in/learn/standard-library/cancellation.md): Stopping a running task, and the cancellation points that make it possible.
+- [Queues](https://www.ziglang.in/learn/standard-library/queues.md): Io.Queue as a bounded channel between tasks, with close and back pressure.
+- [Select](https://www.ziglang.in/learn/standard-library/select.md): Waiting for whichever task finishes first, and cancelling the rest.
+- [Locks and Semaphores](https://www.ziglang.in/learn/standard-library/locks.md): RwLock, Semaphore and Condition, past the point where a Mutex is enough.
+- [Choosing an Io](https://www.ziglang.in/learn/standard-library/choosing-an-io.md): Threaded, the evented implementations, and building one yourself.
+- [Testing](https://www.ziglang.in/learn/standard-library/testing.md): The assertions past expect, and the allocator that catches leaks.
+
+### Data Structures
+
+Building containers in Zig: a linked list with an allocator you own, generic containers as comptime type functions, the intrusive lists std actually ships, a binary search tree, AVL rotations, and a hash map with open addressing.
+
+- [A Linked List by Hand](https://www.ziglang.in/learn/data-structures/linked-list.md): The smallest structure that needs an allocator, an optional pointer and a deinit that gets the order right.
+- [Making It Generic](https://www.ziglang.in/learn/data-structures/generic-list.md): Zig has no generics syntax. A generic container is a function that takes a type and returns a type, evaluated at compile time.
+- [The Lists in std Are Intrusive](https://www.ziglang.in/learn/data-structures/std-lists.md): std.SinglyLinkedList is not generic and does not hold your data. You embed its node in your struct and walk back out with @fieldParentPtr.
+- [A Binary Search Tree](https://www.ziglang.in/learn/data-structures/bst.md): Two pointers instead of one buys ordered iteration and O(log n) lookup, on a condition the structure does nothing to enforce.
+- [Keeping It Balanced](https://www.ziglang.in/learn/data-structures/avl.md): Store a height, check it after every insert, repair it with a local rotation. Four cases, none longer than five lines.
+- [A Hash Map from Scratch](https://www.ziglang.in/learn/data-structures/hash-map.md): Open addressing with linear probing, growth at 75%, and the tombstone that looks like a hack until you delete without one.
+
+## Groundwork
+
+What the machine is doing, from zero. No C and no prior systems work assumed.
+
+### Systems from Scratch
+
+Learn what a systems programmer knows, starting from nothing: bytes and types, integer sizes and overflow, addresses, the stack, who owns memory, bounds and build modes, strings as bytes, struct layout and padding, errors as values, and the system call boundary. Every idea has one complete program you can run in the page.
+
+- [Everything Is Bytes](https://www.ziglang.in/learn/systems-from-scratch/everything-is-bytes.md): A type is not a property of the bytes. It is an agreement about how to read them.
+- [Numbers Have a Size](https://www.ziglang.in/learn/systems-from-scratch/numbers-have-a-size.md): A u8 counts to 255 and stops. What happens next is a decision you make.
+- [Memory Is Numbered](https://www.ziglang.in/learn/systems-from-scratch/memory-is-numbered.md): An address is an ordinary number, and a pointer is a variable holding one.
+- [The Stack](https://www.ziglang.in/learn/systems-from-scratch/the-stack.md): Where locals live, and why a pointer to one stops being safe the moment the call returns.
+- [Who Owns This Memory](https://www.ziglang.in/learn/systems-from-scratch/who-owns-this-memory.md): Memory that outlives a call has to be asked for, and somebody has to give it back.
+- [Off the End](https://www.ziglang.in/learn/systems-from-scratch/off-the-end.md): A length is a value, and the difference between languages is who is made to check it.
+- [When the Checks Are Off](https://www.ziglang.in/learn/systems-from-scratch/when-checks-are-off.md): What undefined behaviour actually is, and what each build mode promises.
+- [Strings Are Bytes](https://www.ziglang.in/learn/systems-from-scratch/strings-are-bytes.md): There is no string type. A literal is bytes, with a zero on the end.
+- [Structs Are Layout](https://www.ziglang.in/learn/systems-from-scratch/structs-are-layout.md): Fields sit next to each other, and the size is not the sum of the parts.
+- [Errors Are Values](https://www.ziglang.in/learn/systems-from-scratch/errors-are-values.md): There is no exception mechanism underneath you, so failure has to be part of what a function returns.
+- [Talking to the Operating System](https://www.ziglang.in/learn/systems-from-scratch/talking-to-the-os.md): Your program is handed streams it did not open, and owes a status back.
+
+## Systems
+
+Zig against the world outside the process: networks, builds, C, wasm, and pixels.
+
+### Operating System
+
+Talking to the operating system from Zig: file descriptors, the standard streams, the environment, spawning a child process, pipes, signal handlers, and what exit does to your defers.
+
+- [A File Descriptor Is a Number](https://www.ziglang.in/learn/os/file-descriptors.md): Everything the operating system hands you to read or write is an integer.
+- [The Three Standard Streams](https://www.ziglang.in/learn/os/standard-streams.md): Buffering belongs to your writer, not to the descriptor underneath it.
+- [The Environment](https://www.ziglang.in/learn/os/environment.md): A string-to-string map the parent process chose, handed over at startup.
+- [Spawning a Process](https://www.ziglang.in/learn/os/spawning.md): A child is a program, an argument list, and a status code coming back.
+- [Pipes Are the Child's Streams](https://www.ziglang.in/learn/os/pipes.md): A pipe is a descriptor at each end and an end-of-file in the middle.
+- [Signals](https://www.ziglang.in/learn/os/signals.md): A handler interrupts you between two instructions. Set a flag and return.
+- [Exiting](https://www.ziglang.in/learn/os/exiting.md): exit is the process stopping, not your program returning.
+
+### Networking
+
+Network programming in Zig from the socket up: message framing, short reads, text and binary protocols, byte order, serving many clients through std.Io, TCP, UDP and HTTP.
+
+- [What a Socket Is](https://www.ziglang.in/learn/networking/what-is-a-socket.md): An address, a mode, and a handle you read and write like a file.
+- [A TCP Round Trip](https://www.ziglang.in/learn/networking/tcp-echo.md): Listen, connect, and echo through std.Io.net, all in one process.
+- [Bytes Have No Edges](https://www.ziglang.in/learn/networking/short-reads.md): A read returning 7 bytes tells you nothing about where a message ends.
+- [Three Ways to Frame](https://www.ziglang.in/learn/networking/framing.md): Length prefix, delimiter, self-describing, and what each one costs.
+- [A Text Protocol, Both Directions](https://www.ziglang.in/learn/networking/text-protocols.md): Parse a command out of bytes, render a reply back into bytes.
+- [Binary Protocols and Byte Order](https://www.ziglang.in/learn/networking/binary-protocols.md): A struct is not a wire format. Write the fields, and say which end first.
+- [Serving Many Clients](https://www.ziglang.in/learn/networking/many-clients.md): One handler per connection through Io, so the same source runs either way.
+- [Failure Is Ordinary](https://www.ziglang.in/learn/networking/network-errors.md): End of stream is not an error, and a truncated message can look like a good one.
+- [UDP Datagrams](https://www.ziglang.in/learn/networking/udp-message.md): Bound sockets and discrete messages, no connection anywhere.
+- [When Datagrams Go Missing](https://www.ziglang.in/learn/networking/packet-loss.md): Loss, duplication and reordering, produced on demand so you can watch them.
+- [Sequence Numbers and Acks](https://www.ziglang.in/learn/networking/sequence-numbers.md): One counter turns invisible loss into a detected gap, and one reply turns it into the sender's problem.
+- [Retransmission and the Window](https://www.ziglang.in/learn/networking/retransmission.md): A timeout recovers what the network lost, and a window keeps traffic moving while it does.
+- [An HTTP Round Trip](https://www.ziglang.in/learn/networking/http-roundtrip.md): A std.http.Server on a thread, a std.http.Client fetching from it, no dependencies.
+
+### Build System
+
+build.zig by example: build modes, cross-compilation, declaring dependencies in build.zig.zon, and generating documentation.
+
+- [Build Modes](https://www.ziglang.in/learn/build-system/build-modes.md): Four modes, and what each one trades.
+- [Emitting an Executable](https://www.ziglang.in/learn/build-system/emitting-an-executable.md): Building without a build.zig.
+- [Cross-compilation](https://www.ziglang.in/learn/build-system/cross-compilation.md): Every target, out of the box.
+- [Zig Build](https://www.ziglang.in/learn/build-system/zig-build.md): The build system is a Zig program.
+- [Dependencies](https://www.ziglang.in/learn/build-system/dependencies.md): Declaring, fetching, and wiring a package with build.zig.zon.
+- [Generating Documentation](https://www.ziglang.in/learn/build-system/generating-documentation.md): Doc comments and the generated site.
+
+### Working with C
+
+Calling C from Zig and exposing Zig to C: @cImport and translate-c, C pointer types, C primitive types, and the C ABI.
+
+- [ABI](https://www.ziglang.in/learn/working-with-c/abi.md): extern and packed, for layouts you can rely on.
+- [C Primitive Types](https://www.ziglang.in/learn/working-with-c/c-primitive-types.md): Types whose width follows the target's C ABI.
+- [C Pointers](https://www.ziglang.in/learn/working-with-c/c-pointers.md): [*c]T: the escape hatch, and why to leave it at the door.
+- [Importing C](https://www.ziglang.in/learn/working-with-c/cimport.md): @cImport, and calling C without bindings.
+
+### WebAssembly
+
+Compiling Zig to WebAssembly: freestanding modules, calling Zig from JavaScript, passing data across the boundary, loading wasm in the browser, and building a WASI command.
+
+- [What WebAssembly Is](https://www.ziglang.in/learn/webassembly/what-is-wasm.md): A portable binary target for a sandboxed stack machine, and how Zig reaches it.
+- [Recipe: A WASI Command](https://www.ziglang.in/learn/webassembly/wasi-command.md): Compile a Zig program to wasm and run it from a shell under any WASI runtime.
+- [Recipe: Calling Zig from JavaScript](https://www.ziglang.in/learn/webassembly/export-to-js.md): Build a reactor module with exported functions and call them by name from a host.
+- [Recipe: Passing Data Across the Boundary](https://www.ziglang.in/learn/webassembly/linear-memory.md): Move strings and buffers between JavaScript and wasm through shared linear memory.
+- [Recipe: A Freestanding Module](https://www.ziglang.in/learn/webassembly/freestanding.md): The smallest wasm target, with no WASI and no libc, and the memory builtins that replace them.
+- [Recipe: Loading wasm in the Browser](https://www.ziglang.in/learn/webassembly/browser-instantiate.md): Fetch, instantiate, wire up imports and exports, and let a module call back into JavaScript.
+
+### Graphics
+
+Software rendering and image processing in Zig with no graphics library: framebuffers, rasterizing lines, circles and triangles, alpha blending, antialiasing, brightness and contrast, gaussian blur, Sobel edges, colour matrices, histogram equalization, median filters, and image scaling.
+
+- [A Framebuffer Is an Array](https://www.ziglang.in/learn/graphics/pixel-buffers.md): Row-major layout, top-left origin, packed pixels, and a clipping putPixel.
+- [Writing an Image File](https://www.ziglang.in/learn/graphics/image-files.md): PPM, the image format you can write without a library, and the one rule that will bite you.
+- [Lines](https://www.ziglang.in/learn/graphics/lines.md): Bresenham's algorithm: one add and one compare per pixel, integers only.
+- [Circles](https://www.ziglang.in/learn/graphics/circles.md): Compare squared distances, loop over the bounding box, and let putPixel clip.
+- [Alpha Blending](https://www.ziglang.in/learn/graphics/blending.md): Source-over compositing in integers, why the /255 matters, and why order still does.
+- [Rasterizing Triangles](https://www.ziglang.in/learn/graphics/triangles.md): Edge functions decide inside from outside, and the same three numbers interpolate across the face.
+- [Antialiasing](https://www.ziglang.in/learn/graphics/antialiasing.md): Coverage is alpha. Sample the inside test sixteen times per pixel and the staircase goes away.
+- [Per-Pixel Transforms](https://www.ziglang.in/learn/graphics/per-pixel.md): Brightness, contrast, threshold and invert are all one table lookup, and the add that does brightness is where Zig has an opinion.
+- [Convolution](https://www.ziglang.in/learn/graphics/convolution.md): Blur, sharpen and Sobel are one loop with different numbers in it. The two bugs are always the border and the buffer.
+- [Colour Matrices](https://www.ziglang.in/learn/graphics/color-matrix.md): Grayscale, sepia and saturation are one 3x3 matrix, and a chain of them multiplies into a single matrix before the image is touched.
+- [Histograms and Levels](https://www.ziglang.in/learn/graphics/histogram.md): Count what the image contains, and the lookup table that fixes it falls out of the counts. Auto-levels, equalization, and why you apply them to luma.
+- [Median and Rank Filters](https://www.ziglang.in/learn/graphics/median.md): A convolution cannot ignore a value. Sorting the neighbourhood gives one function that is a denoiser, an eroder and a dilator depending on the index.
+- [Scaling and Resampling](https://www.ziglang.in/learn/graphics/resample.md): Nearest, bilinear and box filtering, the half-pixel bug that shifts your whole image, and why downscaling without a filter turns detail into a solid bar.
+- [Bitmap Text](https://www.ziglang.in/learn/graphics/font.md): A glyph is a small rectangle of bits, and drawing text is copying them.
+- [Sprites and Transparency](https://www.ziglang.in/learn/graphics/sprite.md): Copying a rectangle is easy. Deciding which pixels not to copy is the feature.
+- [A Scene Graph](https://www.ziglang.in/learn/graphics/scene.md): Position a thing once, relative to its parent, and moving the parent moves everything.
+- [A Bar Chart](https://www.ziglang.in/learn/graphics/chart.md): Turning numbers into pixels is one division, and getting it wrong is a lie.
+- [A Canvas Is a View](https://www.ziglang.in/learn/graphics/sub-canvas.md): Four fields instead of a slice, and every routine draws inside a region without knowing it is one.
+- [Texture Mapping](https://www.ziglang.in/learn/graphics/texture.md): The triangle already interpolates. Point it at a second image and it interpolates coordinates into that instead of colours.
+- [Transforms](https://www.ziglang.in/learn/graphics/transform.md): Moving, turning and resizing are one operation, and composing them is a multiply whose order you do not get to choose freely.
+- [Onto the Screen](https://www.ziglang.in/learn/graphics/on-screen.md): The same buffer, handed to X11 through translate-c, and what changes on Wayland.
+
+## Cookbook
+
+Task-shaped recipes, each a complete program CI compiled and ran.
+
+### How-To
+
+A Zig cookbook of runnable recipes: JSON, SQLite, the PostgreSQL wire protocol, Redis RESP, threads and atomics, SIMD, compression and binary formats.
+
+- [Recipe: Word Frequencies](https://www.ziglang.in/learn/how-to/word-frequency.md): Count occurrences with a hash map, then rank them with a sort.
+- [Recipe: Loading a JSON Config](https://www.ziglang.in/learn/how-to/json-config.md): Defaults for what's missing, validation for what's wrong, clean errors for the rest.
+- [Recipe: A Custom JSON Serializer](https://www.ziglang.in/learn/how-to/json-custom.md): Give a struct a jsonStringify method to rename fields and add computed ones.
+- [Recipe: A Binary Wire Format](https://www.ziglang.in/learn/how-to/binary-roundtrip.md): Serialize a struct to explicit bytes and back, safely.
+- [Recipe: JSON vs Binary, by Size](https://www.ziglang.in/learn/how-to/serialization-size.md): The same 100,000 records as JSON and as packed bytes, measured exactly.
+- [Recipe: A File-Backed To-Do Store](https://www.ziglang.in/learn/how-to/todo-store.md): Fixed-size records on disk, updated in place by id with positional reads and writes.
+- [Recipe: Compressing with zlib](https://www.ziglang.in/learn/how-to/zlib-compress.md): One-shot compress and decompress through the system zlib, linked from Zig.
+- [Recipe: Catching Memory Leaks](https://www.ziglang.in/learn/how-to/catching-leaks.md): Make the test suite prove that every allocation is freed.
+- [Recipe: Printing Any Struct](https://www.ziglang.in/learn/how-to/struct-printer.md): Comptime reflection builds a debug printer that works for every struct type.
+- [Recipe: Overflow Without Panics](https://www.ziglang.in/learn/how-to/checked-math.md): Handling arithmetic that might not fit, without undefined behavior and without crashing.
+- [Recipe: The std.math Toolbox](https://www.ziglang.in/learn/how-to/math-functions.md): Constants, trig, powers, roots, rounding, and comparing floats safely.
+- [Recipe: A SIMD Dot Product](https://www.ziglang.in/learn/how-to/simd-sum.md): Using @Vector to process four elements per operation, tail included.
+- [Recipe: SIMD Byte Scanning](https://www.ziglang.in/learn/how-to/simd-scan.md): The five-step pattern that turns a byte-at-a-time loop into a register-wide scan.
+- [Recipe: Vector Algebra](https://www.ziglang.in/learn/how-to/vector-algebra.md): Dot, length, normalize, and cross on @Vector, written like math instead of loops.
+- [Recipe: Keeping the Last N Items](https://www.ziglang.in/learn/how-to/ring-buffer.md): A generic fixed-capacity ring buffer built with a type function.
+- [Recipe: Set Operations on the Cheap](https://www.ziglang.in/learn/how-to/bitsets.md): A static bit set turns membership, intersection, and union into single instructions.
+- [Recipe: Reproducible Randomness](https://www.ziglang.in/learn/how-to/seeded-random.md): Seeded generators make random worlds, tests, and replays repeatable.
+- [Recipe: Splitting Work Across Threads](https://www.ziglang.in/learn/how-to/parallel-sum.md): Divide a slice among threads with no locks and one join.
+- [Recipe: An Atomic Work Index](https://www.ziglang.in/learn/how-to/work-index.md): Dynamic load balancing with fetchAdd instead of locks or chunking.
+- [Recipe: A Producer/Consumer Queue](https://www.ziglang.in/learn/how-to/worker-queue.md): std.Io.Queue as a bounded channel, with close() as the shutdown protocol.
+- [Recipe: Struct Memory Layout](https://www.ziglang.in/learn/how-to/memory-layout.md): Read the size, alignment, and field offsets a struct actually gets, and control them.
+
+**Databases**
+
+- [Recipe: SQLite From Zig](https://www.ziglang.in/learn/how-to/databases/sqlite-basic.md): Open a database, create a table, insert with a prepared statement, and query, over the C API.
+- [Recipe: A Redis RESP Round Trip](https://www.ziglang.in/learn/how-to/databases/redis-resp.md): Speak Redis's RESP protocol over a socket, with a tiny server and client in one process.
+- [Recipe: The PostgreSQL Wire Protocol](https://www.ziglang.in/learn/how-to/databases/postgres-wire.md): Speak Postgres directly, framing a startup handshake and a query by hand.
+
+## From Scratch
+
+Rebuild the tools you use every day, one program at a time, using nothing you did not write.
+
+### Survive the Terminal
+
+Build the primitives a shell needs before it can exist: string length, comparison, copying and trimming written out by hand, a command-line tokenizer, and the read-eval-print loop itself.
+
+- [String Primitives](https://www.ziglang.in/learn/terminal/strings.md): strlen, compare, copy and trim, written out. The off-by-one lives here.
+- [Tokenizing a Command Line](https://www.ziglang.in/learn/terminal/tokenize.md): Turning "ls -la /tmp" into the argv a shell needs, without copying anything.
+- [The Read-Eval-Print Loop](https://www.ziglang.in/learn/terminal/repl.md): Four steps and two ways to stop, which is the part people get wrong.
+
+### Unix Tools
+
+Rebuild the standard Unix toolbox in Zig, one complete program per chapter: cat, wc, grep, sort, cut, printf and make. Each one runs in the page, and each explains the technique it exists to teach.
+
+- [cat](https://www.ziglang.in/learn/unix-tools/cat.md): A loop around one fixed buffer, which is why it can copy a file larger than memory.
+- [wc](https://www.ziglang.in/learn/unix-tools/wc.md): Counting words means counting the moments you enter one.
+- [grep](https://www.ziglang.in/learn/unix-tools/grep.md): Search is a loop over start positions, and the exit code is the answer.
+- [sort](https://www.ziglang.in/learn/unix-tools/sort.md): Sorting lines is easy. Owning them is the part that costs you something.
+- [cut](https://www.ziglang.in/learn/unix-tools/cut.md): Splitting on a delimiter, and the edge cases that decide whether it is correct.
+- [printf](https://www.ziglang.in/learn/unix-tools/printf.md): Turning a number into text, digit by digit, backwards.
+- [make](https://www.ziglang.in/learn/unix-tools/make.md): A dependency graph, a topological order, and a comparison of timestamps.
+
+### Tiny Language
+
+Build a small language from nothing: a lexer, a recursive descent parser, a tree-walking interpreter, call frames, a bytecode compiler and the virtual machine that runs it. Every stage runs in the page.
+
+- [A Lexer](https://www.ziglang.in/learn/tiny-lang/lexer.md): Characters in, tokens out, with one character of lookahead and no backtracking.
+- [A Parser](https://www.ziglang.in/learn/tiny-lang/parser.md): One function per precedence level, each calling the tighter one.
+- [A Tree-Walking Interpreter](https://www.ziglang.in/learn/tiny-lang/interpreter.md): Evaluate a node by evaluating its children. That is the whole idea.
+- [Functions and Frames](https://www.ziglang.in/learn/tiny-lang/functions.md): A call needs somewhere to put its own variables, and a way to come back.
+- [A Bytecode Compiler](https://www.ziglang.in/learn/tiny-lang/compiler.md): The same tree, walked once at compile time instead of once per execution.
+- [A Virtual Machine](https://www.ziglang.in/learn/tiny-lang/vm.md): Fetch, decode, execute. A loop over an array, with no tree in sight.
+- [A Calling Convention](https://www.ziglang.in/learn/tiny-lang/calls.md): Where the arguments go, who cleans up, and how the machine finds its way back.
+
+### Web Server
+
+Parse an HTTP request by hand, format a response, and serve it over a real socket. The protocol is text, the framing is a blank line, and none of it needs a framework.
+
+- [Parsing an HTTP Request](https://www.ziglang.in/learn/web-server/request.md): A request line, some headers, a blank line. The blank line is the hard part.
+- [An HTTP Server](https://www.ziglang.in/learn/web-server/server.md): The parser from the last chapter, with a socket in front of it.
+- [Serving Files Safely](https://www.ziglang.in/learn/web-server/static.md): Decode first, then check. Doing it the other way round is the bug.
+- [Routing and Query Strings](https://www.ziglang.in/learn/web-server/routes.md): Everything after the question mark, and the dispatch table that ignores it.
+- [Form Bodies](https://www.ziglang.in/learn/web-server/forms.md): The same encoding as a query string, arriving somewhere it can be much larger.
+- [Cookies and Sessions](https://www.ziglang.in/learn/web-server/sessions.md): A cookie is a string the client stores and hands back. Everything else is policy.
+- [A Template Engine](https://www.ziglang.in/learn/web-server/templates.md): Substitution is the easy half. Escaping by default is the half that matters.
+- [File Uploads](https://www.ziglang.in/learn/web-server/multipart.md): A format where the client picks the delimiter, and the filename is a lie until proven otherwise.
+
+### Data and Storage
+
+How storage engines actually work: an append-only record log, the lost update two writers cause, indexes that turn a scan into a lookup, and a write-ahead log that survives a crash.
+
+- [An Append-Only Record Store](https://www.ziglang.in/learn/storage/flatdb.md): Never modify what is written. Deleting is something you add.
+- [Two Writers, One File](https://www.ziglang.in/learn/storage/filelock.md): What a lost update looks like, and the lock that prevents it.
+- [An Index Over the Log](https://www.ziglang.in/learn/storage/indexes.md): A second structure, derived from the first, that you now have to keep in step.
+- [A Write-Ahead Log](https://www.ziglang.in/learn/storage/kvstore.md): Write down what you are about to do, then do it. Recovery is replaying the note.
+- [A Query Engine](https://www.ziglang.in/learn/storage/minidb.md): Parsing asks what. Planning asks how, and that is where a database does its real work.
+
+### The Browser
+
+The pipeline behind every page: an HTML parser that cannot fail, a CSS parser and selector matcher, a layout engine that turns a tree into boxes, and a renderer that turns boxes into pixels.
+
+- [An HTML Parser](https://www.ziglang.in/learn/browser/html.md): A format with no parse errors, because the browsers that shipped first decided so.
+- [A Stylesheet and the Cascade](https://www.ziglang.in/learn/browser/css.md): Matching is easy. Deciding which match wins is what cascading means.
+- [Layout](https://www.ziglang.in/learn/browser/layout.md): Widths flow down from the parent. Heights add up from the children.
+- [Painting](https://www.ziglang.in/learn/browser/render.md): A rectangle of memory, filled back to front. The last write wins.
+- [A Scripting Engine](https://www.ziglang.in/learn/browser/script.md): The language knows nothing about documents. The host is what connects them.
+- [The Whole Pipeline](https://www.ziglang.in/learn/browser/browser.md): Bytes, tree, styles, boxes, pixels. Five stages, in one direction.
+
+## Projects
+
+One library at a time, designed in the open, one decision per chapter.
+
+### An Ecto-Style ORM
+
+An Ecto-style ORM in Zig: schemas as types, a typed query builder, migrations as data, transactions with errdefer, and an adapter seam over SQLite and PostgreSQL.
+
+- [What Is an Ecto-Style ORM?](https://www.ziglang.in/learn/orm/what-is-ecto.md): The Elixir design these chapters borrow from, explained for people who never wrote Elixir.
+- [A Type Function as the Front Door](https://www.ziglang.in/learn/orm/schema-to-sql.md): The core move of a Zig library: take the caller's type, return a richer one.
+- [A Typed Query Builder](https://www.ziglang.in/learn/orm/query-builder.md): Compile-time field checking and injection-proof rendering, with no allocator.
+- [Validation from Declarations](https://www.ziglang.in/learn/orm/validation-rules.md): Optional capabilities discovered with @hasDecl, the convention-over-configuration of Zig.
+- [Writing Rows](https://www.ziglang.in/learn/orm/insert-update.md): INSERT and UPDATE statements derived from the schema, with values as a typed array.
+- [The Adapter Seam](https://www.ziglang.in/learn/orm/adapters.md): One query renderer, several SQL dialects, resolved at compile time.
+- [Migrations as Data](https://www.ziglang.in/learn/orm/migrations.md): Schema history as an append-only list, and applying it as a pure plan.
+- [The Repo](https://www.ziglang.in/learn/orm/repo.md): The composition root, and the fake driver that makes the whole ORM testable.
+- [Transactions and errdefer](https://www.ziglang.in/learn/orm/transactions.md): COMMIT on success, ROLLBACK on every error path, enforced by four lines.
+
+### A URL Shortener
+
+A CRUD web service in Zig with no framework and no database driver: the PostgreSQL wire protocol spoken directly, base62 slugs, HTTP handlers that take bytes and return bytes, and one file that runs against a real database.
+
+- [What We Are Building](https://www.ziglang.in/learn/url-shortener/what-we-are-building.md): A URL shortener with real storage, and the two decisions that shape every chapter after this one.
+- [A Postgres Client](https://www.ziglang.in/learn/url-shortener/pg-client.md): Startup, password auth, a row iterator and error recovery, tested against scripted bytes.
+- [Slugs Are Arithmetic](https://www.ziglang.in/learn/url-shortener/slugs.md): Base62 over the row id, and the validation that keeps a redirect service honest.
+- [Routes Over a Seam](https://www.ziglang.in/learn/url-shortener/routes.md): All five CRUD routes as one pure function, tested against an in-memory store.
+- [The Server](https://www.ziglang.in/learn/url-shortener/the-server.md): The client, the slugs and the routes assembled into one file, run against a real Postgres.
+
+### Lane Dodger
+
+A complete hyper casual game in Zig and raylib, playable in the page. Vendoring raylib's C so a dependency cannot break your build, a fixed timestep loop, an entity pool with generational handles, a difficulty curve derived from what is possible rather than guessed at, and sound effects synthesised in code. Fifty-five tests, none of which opens a window.
+
+- [A Game You Can Test](https://www.ziglang.in/learn/lane-dodger/what-we-are-building.md): A three lane endless runner you can play here, and the one rule that makes the rest testable.
+- [Vendoring raylib](https://www.ziglang.in/learn/lane-dodger/the-build.md): How to add raylib to a Zig project, why this one depends on the C source, and how the same game reaches a browser canvas.
+- [The World](https://www.ziglang.in/learn/lane-dodger/the-world.md): A field measured in its own units, a player that slides between lanes, and the order the tick does things in.
+- [The Loop Takes No dt](https://www.ziglang.in/learn/lane-dodger/the-loop.md): A fixed timestep, an accumulator, interpolation for the leftover, and the split needed for the browser build.
+- [Handles, Not Pointers](https://www.ziglang.in/learn/lane-dodger/entities.md): A fixed-capacity pool with generational handles, plus the event stream used by particles and sound.
+- [Drawing It](https://www.ziglang.in/learn/lane-dodger/drawing.md): Field units mapped onto a window, the road, the entities, and a particle system that holds no raylib types.
+- [Input](https://www.ziglang.in/learn/lane-dodger/input.md): Presses latched once per frame and handed to exactly one tick, and why a held key must not cross the board.
+- [Difficulty You Can Prove](https://www.ziglang.in/learn/lane-dodger/fair-by-design.md): Row spacing derived from what is physically possible, a bot that proves the course is solvable, and a reaction time model for playability.
+- [Sound Without Sound Files](https://www.ziglang.in/learn/lane-dodger/sound.md): Five effects synthesised at startup from oscillators and envelopes, with waveform tests that run without an audio device.
+- [Build It From Scratch](https://www.ziglang.in/learn/lane-dodger/build-it.md): The order to write the files in, the two points where you can stop and check, and what to do when it does not build.

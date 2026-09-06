@@ -1,0 +1,225 @@
+# A Virtual Machine
+
+> Fetch, decode, execute. A loop over an array, with no tree in sight.
+
+The compiler produced an array of instructions. This chapter runs it, and the
+program that does so is the smallest one in the section.
+
+There is an instruction pointer, an index into the array. Read the instruction
+it points at, move it forward, do what the instruction says, repeat. That loop
+is called **fetch, decode, execute**, and it is what a physical processor does
+too. That is why this one is called a virtual machine rather than an
+interpreter.
+
+Everything the machine needs is a stack and a table of slots. Instructions
+never name their operands: they take them from the top of the stack and put
+the result back.
+
+## The program
+
+```zig
+const std = @import("std");
+const lex = @import("lexer.zig");
+const ast = @import("parser.zig");
+const comp = @import("compiler.zig");
+
+pub const Error = error{
+    StackOverflow,
+    StackUnderflow,
+    DivideByZero,
+    WriteFailed,
+};
+
+pub const Vm = struct {
+    chunk: *const comp.Chunk,
+    out: *std.Io.Writer,
+
+    stack: [64]i64 = undefined,
+    top: usize = 0,
+    /// One value per slot the compiler allocated. Reading a variable is an
+    /// array index now; the name it had is not present anywhere.
+    globals: [32]i64 = @splat(0),
+    /// Instructions executed, so the cost of the loop is visible.
+    steps: usize = 0,
+
+    fn push(vm: *Vm, value: i64) Error!void {
+        if (vm.top == vm.stack.len) return error.StackOverflow;
+        vm.stack[vm.top] = value;
+        vm.top += 1;
+    }
+
+    fn pop(vm: *Vm) Error!i64 {
+        if (vm.top == 0) return error.StackUnderflow;
+        vm.top -= 1;
+        return vm.stack[vm.top];
+    }
+
+    pub fn run(vm: *Vm) Error!void {
+        // The instruction pointer is an index, not a pointer, and moving it is
+        // the only control flow this machine has. A jump is an assignment.
+        var ip: usize = 0;
+
+        while (true) {
+            const instr = vm.chunk.code[ip];
+            ip += 1;
+            vm.steps += 1;
+
+            switch (instr.op) {
+                .push => try vm.push(instr.arg),
+                .load => try vm.push(vm.globals[@intCast(instr.arg)]),
+                .store => vm.globals[@intCast(instr.arg)] = try vm.pop(),
+                .neg => try vm.push(-(try vm.pop())),
+                // Order matters: the right operand was pushed last, so it
+                // comes off first. Getting this backwards makes `+` look
+                // correct and `-` silently wrong.
+                .add, .sub, .mul, .div, .lt, .eq => {
+                    const right = try vm.pop();
+                    const left = try vm.pop();
+                    try vm.push(switch (instr.op) {
+                        .add => left + right,
+                        .sub => left - right,
+                        .mul => left * right,
+                        .div => if (right == 0) return error.DivideByZero else @divTrunc(left, right),
+                        .lt => @intFromBool(left < right),
+                        else => @intFromBool(left == right),
+                    });
+                },
+                .print => try vm.out.print("{d}\n", .{try vm.pop()}),
+                .jmp => ip = @intCast(instr.arg),
+                .jmp_if_false => if (try vm.pop() == 0) {
+                    ip = @intCast(instr.arg);
+                },
+                .halt => return,
+            }
+        }
+    }
+};
+
+fn execute(source: []const u8, out: *std.Io.Writer) !usize {
+    var tokens: [256]lex.Token = undefined;
+    var nodes: [256]ast.Node = undefined;
+    var code: [128]comp.Instr = undefined;
+
+    var chunk: comp.Chunk = .{ .code = &code };
+    try comp.compileSource(source, &tokens, &nodes, &chunk);
+
+    var vm: Vm = .{ .chunk = &chunk, .out = out };
+    try vm.run();
+    return vm.steps;
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [4096]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &stdout_writer.interface;
+
+    try out.writeAll("source -> bytecode -> answer\n");
+    const loop =
+        \\let total = 0;
+        \\while (total < 10) {
+        \\  total = total + 3;
+        \\}
+        \\print total;
+    ;
+    const steps = try execute(loop, out);
+    try out.print("{d} instructions executed\n", .{steps});
+
+    // The same programs the tree-walking interpreter ran, for comparison.
+    try out.writeAll("\nsum of squares 1..5\n");
+    _ = try execute(
+        \\let total = 0;
+        \\let i = 1;
+        \\while (i < 6) {
+        \\  total = total + i * i;
+        \\  i = i + 1;
+        \\}
+        \\print total;
+        \\if (total == 55) { print 1; } else { print 0; }
+    , out);
+
+    try out.writeAll("\narithmetic\n");
+    _ = try execute("print 1 + 2 * 3; print (1 + 2) * 3; print 1 - 2 - 3; print (0 - 7) / 2;", out);
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`17-tiny-lang.vm`)*
+
+## What just happened
+
+**The answers match the tree-walking interpreter exactly.** 55 and 1 for the
+sum of squares, the same arithmetic results. That is the point worth stopping
+on: compiling and interpreting are not two computations. They are the same
+computation with the decisions made at different times. Anything else would
+mean one of them has a bug.
+
+**A jump is an assignment.** `ip = instr.arg`, and that is the entire
+implementation of `while`, `if` and `else`. All the structure the parser
+carefully found is gone: the tree became a flat array where control flow is
+arithmetic on an index. This is what "lowering" means, and it is why a
+disassembly is hard to read and fast to run.
+
+**Operand order is the bug waiting in this loop.** The right operand was pushed
+last, so it must be popped first. Get it backwards and `+` and `*` still look
+correct, because they commute, while `-` and `/` are silently wrong. A test
+suite of `2 + 3` would pass.
+
+**45 instructions for a four-line program.** The count is printed so the cost is
+visible rather than assumed. Each one is a switch dispatch, which is the price
+of a bytecode VM: real ones use computed goto or a JIT precisely because this
+switch runs billions of times.
+
+Nothing in the running program knows a variable was ever given a name. That is
+why a stripped binary gives you a stack trace full of addresses, and why debug
+information is a separate thing you choose to keep.
+
+## The state of this language
+
+This VM has no `call` and no `ret`, so a program using functions compiles to
+bytecode that silently leaves them out. That is deliberate for one more
+chapter. A calling convention is four separate decisions: where arguments
+live, how a frame is addressed, who restores the instruction pointer, and who
+cleans up the arguments. Each has alternatives worth seeing.
+
+[A Calling Convention](https://www.ziglang.in/learn/tiny-lang/calls/) makes those decisions and runs
+`fact(5)` through compiled bytecode. Read this VM first: it is the same
+dispatch loop with two fewer opcodes.
+
+## Check yourself
+
+The VM checks for stack overflow and underflow on every push and pop. A real
+one usually does not. Why is that safe?
+
+Because the compiler is the one producing the bytecode, and it only emits
+sequences that balance. `add` is only ever emitted after two operands, so a
+correct compiler cannot produce an `add` that underflows. Real VMs move the
+check to the moment bytecode is *loaded*, verifying it once rather than on
+every instruction. That is exactly what the JVM's bytecode verifier does, and
+why it exists. The checks are here because they are cheap at this size and
+because a hand-written bad chunk should say so rather than read memory it does
+not own.
+
+## If you have written C
+
+The dispatch loop is a switch, and the standard trick to make it faster is
+computed goto. It is a GCC extension where each instruction ends by jumping
+directly to the next handler, instead of returning to the top of the switch.
+It helps because the branch predictor gets one indirect jump per opcode rather
+than one shared one, and it is the single most common optimisation in real
+interpreters.
+
+The difference is that pushing past the end in C reads and writes past the
+array with no complaint. This chapter's whole subject is a loop that runs
+millions of times, so a bug there corrupts something far away and much later.
+
+## Where to go next
+
+That is the pipeline: characters to tokens, tokens to a tree, the tree walked
+or lowered to instructions, and the instructions run. Every compiler and every
+interpreter you use is this, with more cases.
+
+If you want the machine underneath rather than the language on top,
+[Groundwork](https://www.ziglang.in/learn/systems-from-scratch/) covers what a byte, an address and
+a stack frame actually are. If you would rather keep building tools, [the Unix
+toolbox](https://www.ziglang.in/learn/unix-tools/) is seven more programs in the same spirit.

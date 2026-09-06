@@ -1,0 +1,130 @@
+# cut
+
+> Splitting on a delimiter, and the edge cases that decide whether it is correct.
+
+`cut -d: -f2` pulls the second field out of each line. It is the smallest tool
+here and the one whose correctness lives entirely in its edge cases, which
+makes it a good place to be precise about what "splitting" means.
+
+Split `a:b:c` on `:` and you get three fields. The rule that makes every other
+case fall out is: **n delimiters produce n+1 fields, always.** No exceptions,
+no collapsing, no skipping. Adopt that and the awkward inputs answer
+themselves. Adopt anything else and you spend the rest of the tool's life
+patching it.
+
+## The program
+
+```zig
+const std = @import("std");
+
+/// Field `n` of `line`, counting from 1 the way cut does. Returns null when
+/// the line has fewer fields, which is different from the field being empty
+/// and has to stay different.
+fn field(line: []const u8, delimiter: u8, n: usize) ?[]const u8 {
+    if (n == 0) return null;
+
+    var it = std.mem.splitScalar(u8, line, delimiter);
+    var i: usize = 1;
+    while (it.next()) |part| : (i += 1) {
+        if (i == n) return part;
+    }
+    return null;
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &stdout_writer.interface;
+
+    const rows = [_][]const u8{
+        "alice:30:london",
+        "bob:25:paris",
+        // An empty field in the middle: two delimiters with nothing between.
+        "carol::berlin",
+        // Fewer fields than asked for.
+        "dave",
+    };
+
+    for ([_]usize{ 1, 2 }) |n| {
+        try out.print("--- field {d}\n", .{n});
+        for (rows) |row| {
+            if (field(row, ':', n)) |value| {
+                try out.print("{s} -> \"{s}\"\n", .{ row, value });
+            } else {
+                try out.print("{s} -> (no such field)\n", .{row});
+            }
+        }
+        try out.writeAll("\n");
+    }
+
+    // Splitting never invents or loses a field: n delimiters give n+1 fields,
+    // even when some of them are empty.
+    var it = std.mem.splitScalar(u8, "carol::berlin", ':');
+    var parts: usize = 0;
+    while (it.next()) |_| parts += 1;
+    try out.print("\"carol::berlin\" has {d} fields\n", .{parts});
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`16-unix-tools.cut`)*
+
+## What just happened
+
+**`carol::berlin` has three fields, and the middle one is empty.** Two
+delimiters, three fields, exactly as the rule says. This is the case that
+separates a correct splitter from a plausible one. It is tempting to treat a
+run of delimiters as one, because that is what splitting on whitespace feels
+like it should do. For a delimited data format it is wrong, and it is wrong in
+the worst way, because it silently shifts every field after it. Field 3 of a
+CSV row becomes field 2 and the data is corrupted rather than rejected.
+
+**An empty field and a missing field printed differently.** `carol::berlin`
+field 2 is `""`; `dave` field 2 is `(no such field)`. That distinction is the
+reason the function returns `?[]const u8` rather than `[]const u8`. An empty
+string is a value that was there and was empty. Null is the absence of a
+field. Collapse them and a caller cannot tell "this record has no email" from
+"this record's email is blank". That difference matters as soon as anyone acts
+on it.
+
+Each field is a slice of the line it came from. That is the same trick as the
+last chapter, and the reason `cut` runs at the speed of the disk.
+
+## Check yourself
+
+The real `cut` treats a line with no delimiter at all specially: `cut -d: -f2`
+prints nothing for it, but `cut -d: -f1` prints the whole line. Does the rule
+above explain that, or is it an exception?
+
+It follows from the rule. Zero delimiters means one field, and that field is
+the whole line. So field 1 exists and is everything; field 2 does not exist.
+The program above agrees: `dave` gives `"dave"` for field 1 and no field 2.
+What actual `cut` adds on top is a flag, `-s`, to suppress such lines
+entirely, because "this line was not in the format I expected" is often what
+you meant.
+
+## If you have written C
+
+C has `strtok`, and it is worth knowing why not to reach for it:
+
+```c
+char *field = strtok(line, ":");
+while (field) field = strtok(NULL, ":");
+```
+
+Three problems. It **modifies the input**, writing `\0` over each delimiter,
+so the line you were handed is destroyed and you cannot use the original
+afterwards. It **collapses runs of delimiters**, so `carol::berlin` gives two
+fields, not three, which is the exact bug described above baked into the
+standard library. And it keeps its position in a **static variable**, so it is
+not reentrant and two loops using it at once corrupt each other.
+
+`strtok_r` fixes only the third. The collapsing behaviour is by design,
+because `strtok` was written for whitespace, and using it on a data format is
+one of those habits that gets passed down.
+
+Zig's `splitScalar` returns slices of the original, changes nothing, and
+collapses nothing. Same job, and none of the three problems.
+
+Next: [printf](https://www.ziglang.in/learn/unix-tools/printf/), where a number has to become text.

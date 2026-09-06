@@ -1,0 +1,119 @@
+# Generating Documentation
+
+> Doc comments and the generated site.
+
+Zig generates HTML documentation from doc comments.
+
+```bash
+zig build-lib src/root.zig -femit-docs
+zig build docs        # if your build.zig declares it
+```
+
+## The comment forms
+
+| Syntax | Attaches to |
+| --- | --- |
+| `///` | the declaration that follows |
+| `//!` | the enclosing file/module (must be at the top) |
+| `//` | ordinary comment, not documentation |
+
+```zig
+//! A module for working with points.
+
+/// A point in two dimensions.
+pub const Point = struct {
+    /// Horizontal position, in pixels.
+    x: i32,
+};
+```
+
+Doc comments are Markdown, and only `pub` declarations appear in the output.
+
+A `///` comment in a position where it cannot attach to anything is a compile
+error, not a warning, so they cannot silently drift away from what they
+describe.
+
+## What comes out
+
+The generator does one thing: it lifts the signature out of the source and
+puts your `///` text underneath it.
+
+```
+Source
+
+  /// Adds two integers.
+  pub fn add(a: i32, b: i32) i32 { ... }
+
+        │
+        │  zig build-lib -femit-docs
+        ▼
+
+Generated page
+
+  add(a: i32, b: i32) i32
+  Adds two integers.
+```
+
+That picture is the whole argument of the next section. The signature is
+already there, generated from the code and correct by construction. Anything
+your comment spends on restating it is a line that can go stale while the
+generated half above it stays right.
+
+## In `build.zig`
+
+```zig
+const docs = b.addInstallDirectory(.{
+    .source_dir = lib.getEmittedDocs(),
+    .install_dir = .prefix,
+    .install_subdir = "docs",
+});
+b.step("docs", "Generate documentation").dependOn(&docs.step);
+```
+
+## What to write in one
+
+The generated page already shows the signature, so repeating it in prose is
+waste. What it cannot show is everything a caller actually needs to know, and
+that is the list worth working through:
+
+- **Who owns the return value.** If it allocates, say which allocator frees it
+  and when. This is the single most useful sentence in most doc comments.
+- **What the errors mean.** The error set is visible; what causes each member is
+  not.
+- **The constraints the type cannot express.** That a slice must be sorted, that
+  two lengths must match, that a pointer must stay alive for the call.
+- **What it costs**, when it is not obvious. O(n) versus O(1) changes how the
+  function is used.
+
+Applied to the example above, "Adds two integers" fails the test: the reader
+can see that from `add(a: i32, b: i32) i32`. What the signature cannot say is
+that the addition is checked and will panic on overflow rather than wrap. That
+sentence is worth writing; the other one is not.
+
+## Only `pub` appears
+
+That makes the doc build a check on your interface. Generate the docs and you
+may find a type you meant to keep private, or a helper with no comment sitting
+in the public list. That is a review of the boundary that would otherwise
+never happen.
+
+The output is a static site: HTML, plus the source, plus a search index. It
+needs no server and can be published anywhere files can be, which is what
+`addInstallDirectory` above is arranging.
+
+## Doctests
+
+Because tests are ordinary language constructs, a `test` block next to a
+function serves as both a test and an example. Unlike a comment, it cannot go
+stale without the build noticing. That is the same principle this entire guide
+is built on.
+
+Naming a test after the function it exercises, `test myFunction { ... }`,
+associates the two, so the example travels with the documentation rather than
+sitting in a separate file that nobody updates.
+
+This is worth taking seriously as the primary form of documentation rather
+than a supplement to it. A prose example in a comment is a claim about how the
+function behaves, unchecked, written against whatever the signature was on the
+day it was typed. A test making the same claim is checked on every build. When
+the two disagree, and eventually they do, the test is the one that is right.

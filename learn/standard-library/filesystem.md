@@ -1,0 +1,181 @@
+# Filesystem
+
+> Every disk operation now takes an Io.
+
+Zig 0.16 moved the filesystem API onto `std.Io`. This is the change most
+likely to make older filesystem examples fail to compile.
+
+```zig
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+    const gpa = std.heap.page_allocator;
+
+    var buf_out: [128]u8 = undefined;
+    var stdout = std.Io.File.stdout().writerStreaming(io, &buf_out);
+    const out = &stdout.interface;
+
+    // `std.fs.cwd()` is now `std.Io.Dir.cwd()`, and every operation that
+    // touches the disk takes the io instance explicitly.
+    var dir = std.Io.Dir.cwd();
+
+    // Create, write, close.
+    const file = try dir.createFile(io, "example.txt", .{});
+    defer file.close(io);
+
+    var buf: [128]u8 = undefined;
+    var writer = file.writerStreaming(io, &buf);
+    try writer.interface.writeAll("written by zig\n");
+    try writer.interface.flush();
+
+    // Read the whole thing back.
+    const contents = try dir.readFileAlloc(io, "example.txt", gpa, .limited(1 << 20));
+    defer gpa.free(contents);
+    std.debug.assert(std.mem.eql(u8, contents, "written by zig\n"));
+    try out.print("read back {d} bytes\n", .{contents.len});
+
+    // Walk a directory. The entry count is whatever happens to be in the
+    // working directory, so count only the one file this program created:
+    // anything derived from the directory's real contents would differ
+    // between your machine and the build that verified this page.
+    var iterable = try dir.openDir(io, ".", .{ .iterate = true });
+    defer iterable.close(io);
+    var it = iterable.iterate();
+    var found = false;
+    while (try it.next(io)) |entry| {
+        if (std.mem.eql(u8, entry.name, "example.txt")) found = true;
+    }
+    try out.print("example.txt listed in cwd: {}\n", .{found});
+
+    try dir.deleteFile(io, "example.txt");
+    try out.flush();
+}
+
+// Marked `//! native`: CI builds this for the host and runs it against a real
+// filesystem, so the round trip above is actually checked. It is the browser
+// that cannot run it, because the WASI sandbox has no preopened directories.
+```
+
+*Built and run natively by CI against a real filesystem, so the round trip is checked. The browser WASI sandbox has no preopened directories. (`03-standard-library.filesystem`)*
+
+## What moved
+
+| Was | Now |
+| --- | --- |
+| `std.fs.cwd()` | `std.Io.Dir.cwd()` |
+| `std.fs.File` | `std.Io.File` |
+| `dir.openFile(path, .{})` | `dir.openFile(io, path, .{})` |
+| `file.close()` | `file.close(io)` |
+
+The pattern is uniform: anything that can block takes the `io` instance as its
+first argument. You get that instance from `main`:
+
+```zig
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+```
+
+## Why
+
+It is the same argument as `Allocator`. A function's signature now tells you
+whether it performs I/O. The *caller* decides how that I/O is executed,
+threaded or evented or something else, instead of the standard library
+choosing on your behalf.
+
+## Reading a whole file
+
+```zig
+const contents = try dir.readFileAlloc(io, path, gpa, .limited(1 << 20));
+defer gpa.free(contents);
+```
+
+The limit is mandatory, not optional. There is no API that reads an unbounded
+amount of untrusted input into memory by accident.
+
+## Why this page does not run
+
+Every other snippet on this site executes in your browser. This one cannot:
+WASI programs can only touch directories the host explicitly preopens, and the
+playground grants none. CI still compiles it, so if the filesystem API changes
+again this page turns the build red. It just cannot be executed here.
+
+[A File Descriptor Is a Number](https://www.ziglang.in/learn/os/file-descriptors/) is that side of
+it, and it does run in the browser. The descriptors a WASI program starts with
+are handed to it rather than opened.
+
+## Directories are handles, not strings
+
+`std.Io.Dir` is an open directory, and paths are resolved relative to it. That
+is not merely tidier than joining strings. A path resolved against an open
+handle cannot be changed underneath you between the check and the use, which
+is the shape of a whole family of security bugs.
+
+The practical version is that you open the directory once and do everything
+through it:
+
+```zig
+var dir = try std.Io.Dir.cwd().openDir(io, "data", .{ .iterate = true });
+defer dir.close(io);
+
+var it = dir.iterate();
+while (try it.next()) |entry| {
+    if (entry.kind != .file) continue;
+    // entry.name is valid until the next next()
+}
+```
+
+Note `.iterate = true` in the open options. A directory opened without it
+cannot be walked, because on some platforms that requires different
+permissions, and Zig makes you say which you wanted rather than asking for the
+superset.
+
+`entry.name` points into the iterator's buffer and is replaced on the next
+iteration, the same borrowed-view rule as everywhere else. Keeping a name
+means copying it.
+
+For a recursive walk, `walk` does the descent for you and yields paths
+relative to the starting directory. It needs an allocator, because the depth
+is not known in advance.
+
+## Errors are the interesting part
+
+Filesystem calls fail for reasons that are ordinary rather than exceptional,
+and the error set is the list of them. `error.FileNotFound`,
+`error.AccessDenied`, `error.IsDir`, `error.NoSpaceLeft`: each is a case a
+real program handles differently, and switching on the error is how you do it.
+
+The one worth designing around is that a check followed by an action is not
+atomic. `if (exists) open()` can fail between the two lines. Attempt the
+operation and handle the error instead; `openFile` returning
+`error.FileNotFound` is the check, done atomically, for free.
+
+## Writing a file safely
+
+Writing directly into the destination means that a crash halfway through
+leaves a truncated file where a valid one used to be. The fix is the same
+everywhere: write a temporary file in the same directory, flush it, then
+rename it over the target. Rename is atomic within a filesystem, so a reader
+sees either the old contents or the new ones and never a half-written mixture.
+
+`dir.rename(io, "config.json.tmp", "config.json")` is the last step, and it is
+worth doing for anything a user would be upset to lose. Same directory
+matters: a rename across filesystems is a copy and not atomic.
+
+There is no `AtomicFile` helper in the standard library on master; older code
+that used one is writing the three steps by hand now. That is four lines, and
+writing them yourself makes the flush visible, which is the step most likely
+to be missing.
+
+## Paths
+
+`std.Io.Dir.path` holds the pure string manipulation, no `Io` instance needed:
+`join`, `dirname`, `basename`, `extension`, `isAbsolute`. It is
+separator-aware, so `join` produces backslashes on Windows and forward slashes
+elsewhere, which is why building a path by concatenation is worse than it
+looks. Older code spells this `std.fs.path`, which moved with the rest of the
+filesystem API.
+
+There is a second reason to prefer it. `join` allocates and returns a slice
+you free, which forces you to answer the lifetime question, rather than
+leaving a path in a stack buffer that outlives its frame.

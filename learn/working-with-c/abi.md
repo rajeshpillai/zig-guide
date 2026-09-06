@@ -1,0 +1,208 @@
+# ABI
+
+> extern and packed, for layouts you can rely on.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+// `extern struct` guarantees C layout: declaration order, C padding rules.
+const CPoint = extern struct {
+    x: i32,
+    y: i32,
+};
+
+// `packed struct` is bit-level and backed by an integer, with no padding.
+const Flags = packed struct {
+    a: bool,
+    b: bool,
+    rest: u6,
+};
+
+// A plain struct may be reordered and padded however the compiler likes.
+const Loose = struct {
+    small: u8,
+    big: u64,
+};
+
+test "extern struct follows C layout" {
+    try expect(@sizeOf(CPoint) == 8);
+    try expect(@offsetOf(CPoint, "x") == 0);
+    try expect(@offsetOf(CPoint, "y") == 4);
+}
+
+test "packed struct is exactly its bits" {
+    try expect(@bitSizeOf(Flags) == 8);
+    try expect(@sizeOf(Flags) == 1);
+
+    const f = Flags{ .a = true, .b = false, .rest = 0 };
+    // Packed structs convert to their backing integer.
+    try expect(@as(u8, @bitCast(f)) == 1);
+}
+
+test "plain structs make no layout promise" {
+    // Zig is free to order these for packing, so do not assume offsets.
+    try expect(@sizeOf(Loose) >= 9);
+}
+
+test "extern union and enum" {
+    const E = extern union { i: i32, f: f32 };
+    try expect(@sizeOf(E) == 4);
+
+    // An enum with a C ABI tag type.
+    const Colour = enum(c_int) { red, green, blue };
+    try expect(@intFromEnum(Colour.green) == 1);
+}
+
+// `callconv(.c)` makes a Zig function callable from C.
+export fn addFromC(a: c_int, b: c_int) callconv(.c) c_int {
+    return a + b;
+}
+
+test "exported function is callable from Zig too" {
+    try expect(addFromC(2, 3) == 5);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`05-working-with-c.abi`)*
+
+A plain Zig `struct` makes **no layout promise**. Fields may be reordered and
+padded however the compiler prefers. That is a feature (it lets the optimiser
+pack things), but it means you cannot hand one to C.
+
+## The three layouts
+
+| Declaration | Layout | Use for |
+| --- | --- | --- |
+| `struct` | unspecified | ordinary Zig code |
+| `extern struct` | C ABI: declaration order, C padding | C interop |
+| `packed struct` | exact bits, no padding, integer-backed | wire formats, registers |
+
+```zig
+const CPoint = extern struct { x: i32, y: i32 };   // offsets 0 and 4
+const Flags = packed struct { a: bool, b: bool, rest: u6 };  // exactly 8 bits
+```
+
+A `packed struct` converts to and from its backing integer with `@bitCast`,
+which makes it the natural way to describe hardware registers and protocol
+headers.
+
+## Verifying, not assuming
+
+`@sizeOf`, `@offsetOf`, and `@bitSizeOf` are comptime values, so a layout
+assumption can be asserted at compile time:
+
+```zig
+comptime {
+    std.debug.assert(@offsetOf(CPoint, "y") == 4);
+}
+```
+
+Worth doing at any real C boundary: it turns a silent mismatch into a build
+failure.
+
+## Calling conventions
+
+`callconv(.c)` gives a function the C calling convention, and `export` gives
+it an unmangled symbol name:
+
+```zig
+export fn add(a: c_int, b: c_int) callconv(.c) c_int {
+    return a + b;
+}
+```
+
+That is all it takes for C to call Zig. Going the other way, declare the C
+function with `extern`:
+
+```zig
+extern "c" fn abs(n: c_int) c_int;
+```
+
+## What "ABI" means
+
+The application binary interface is the set of agreements two separately
+compiled pieces of code need in order to call each other. Where a struct's
+fields sit. Which registers hold which arguments. Who cleans up the stack. How
+a name appears in the symbol table. None of it is in the source language. All
+of it is decided by the platform, and both sides have to already agree,
+because by the time they meet there is no type information left to check.
+
+That is why the mistakes here are quiet. A mismatched field offset is not a
+compile error in either language; it is a program that reads the wrong four
+bytes and keeps going.
+
+## Verifying, not assuming
+
+`@sizeOf`, `@offsetOf`, and `@bitSizeOf` are comptime values, so a layout
+assumption can be asserted at compile time:
+
+```zig
+comptime {
+    std.debug.assert(@offsetOf(CPoint, "y") == 4);
+}
+```
+
+Worth doing at any real C boundary: it turns a silent mismatch into a build
+failure.
+
+The stronger version of the same idea is to not hand-write the declaration at
+all. `@cImport` reads the header and produces the struct, so there is nothing
+to get out of step; see [importing C](https://www.ziglang.in/learn/working-with-c/cimport/).
+Hand-written `extern` declarations are for the cases where no header exists,
+and those are exactly the cases that need the assertions.
+
+## Bit order is not portable
+
+`packed struct` gives you exact bit positions, which is what a hardware
+register or a protocol header needs. What it does not give you is agreement
+with a C compiler's bitfields. C leaves the ordering of bits within a unit
+implementation-defined, so two compilers can lay out the same header
+differently.
+
+For a wire format, that is fine and even an advantage, because you are
+defining the layout rather than matching someone else's. For matching a C
+bitfield exactly, check it against the C compiler you care about rather than
+assuming.
+
+Byte order is a separate question again, and `packed struct` says nothing
+about it. A protocol header read from a socket needs `std.mem.bigToNative` or
+an explicit byte-by-byte decode; `@bitCast` gives you the host's order.
+
+## Calling conventions
+
+`callconv(.c)` gives a function the C calling convention, and `export` gives
+it an unmangled symbol name:
+
+```zig
+export fn add(a: c_int, b: c_int) callconv(.c) c_int {
+    return a + b;
+}
+```
+
+That is all it takes for C to call Zig. Going the other way, declare the C
+function with `extern`:
+
+```zig
+extern "c" fn abs(n: c_int) c_int;
+```
+
+The two halves are independent and both are needed. `callconv(.c)` decides how
+arguments are passed, and `export` decides what the symbol is called. A
+function that is `export` without `callconv(.c)` is findable by the linker and
+called incorrectly. That fails in a way that looks like memory corruption
+rather than like a linker error.
+
+One more thing does not cross the boundary: Zig errors. An `export` function
+returning `!void` has no C representation, so a function meant to be called
+from C returns a status code and keeps its error handling inside.
+
+## Do not `extern` everything
+
+`extern struct` costs you the packing the optimiser would otherwise do. Use it
+at the boundary, and use ordinary structs inside.
+
+It also freezes your layout as part of the interface. A plain struct can gain
+a field with no consequence beyond a recompile. An `extern struct` that C code
+allocates is a promise about size that you cannot change without breaking
+whatever was compiled against it.

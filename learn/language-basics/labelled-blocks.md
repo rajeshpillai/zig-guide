@@ -1,0 +1,129 @@
+# Labelled Blocks
+
+> Blocks that produce a value.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "block as an expression" {
+    // `break :label value` yields a value from the labelled block, so a
+    // multi-step computation can still produce a single const.
+    const count = blk: {
+        var sum: u32 = 0;
+        for (0..10) |i| sum += i;
+        break :blk sum;
+    };
+    try expect(count == 45);
+    try expect(@TypeOf(count) == u32);
+}
+
+test "labels also name scopes for shadowing" {
+    const outer_value: u32 = 1;
+    const result = blk: {
+        const outer_value_inner: u32 = 2;
+        break :blk outer_value + outer_value_inner;
+    };
+    try expect(result == 3);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.labelled-blocks`)*
+
+Label a block and `break` out of it with a value:
+
+```zig
+const count = blk: {
+    var sum: u32 = 0;
+    for (0..10) |i| sum += i;
+    break :blk sum;
+};
+```
+
+The name `blk` is arbitrary. What matters is that a multi-statement
+computation still produces a single `const`, so the intermediate `var` cannot
+leak into the surrounding scope or be accidentally reused later.
+
+This is the Zig answer to "I need a few lines to compute this, but I want the
+result to be immutable". Without it, people reach for a mutable variable with
+a wider scope than it deserves, or a function used once.
+
+## The label is what makes it an expression
+
+An unlabelled block is a statement. It groups code and opens a scope, and it
+has no value. The label is what gives `break` something to name, and `break
+:blk x` is what gives the block a type. Leave the label off and there is no
+way to get `x` out.
+
+The reverse is also checked. A label nobody breaks to is an error:
+
+```
+error: unused block label
+```
+
+which is the same treatment [labelled
+loops](https://www.ziglang.in/learn/language-basics/labelled-loops/) get, and for the same reason: a
+leftover label is usually the leftover of control flow that has since been
+deleted.
+
+## `break :blk` is not `return`
+
+They are easy to confuse in a block that sits inside a function, and they do
+different things. `break :blk x` ends the block and hands `x` to whatever the
+block was assigned to. `return x` ends the *function*. In a block used to
+compute one field of a struct, the difference is between filling that field in
+and abandoning the whole construction.
+
+Blocks nest, and a `break` names the block it leaves, so an inner block can
+break to an outer label and skip everything in between. That is the one place
+this construct gets hard to read, and the fix is a well-chosen label name
+rather than a comment.
+
+## The block is a scope
+
+The second test in the snippet is about that. Everything declared inside the
+braces stops existing at the closing brace, including the `var` that did the
+work. Only the value that was broken out survives, and it survives as a
+`const`.
+
+That containment is the actual reason to reach for this. The alternative
+shape:
+
+```zig
+var sum: u32 = 0;
+for (0..10) |i| sum += i;
+// sum is mutable, in scope, and still writable fifty lines later
+```
+
+leaves a mutable variable alive for the rest of the function with no
+indication that it is finished being written. Someone editing that function
+later has to read the whole thing to know whether `sum` is still being
+accumulated. In the block form the answer is visible at the closing brace.
+
+## Where it shows up in real code
+
+Three places, mostly:
+
+- **Computing a `const` that takes more than an expression.** Parsing a value,
+  picking a default, summing a table.
+- **Switch arms that need statements.** A `switch` used as an expression needs
+  each arm to produce a value, and an arm that needs three lines becomes a
+  labelled block.
+- **Comptime tables.** Put `comptime` in front and the whole block runs during
+  compilation, so a lookup table can be generated rather than typed out:
+
+  ```zig
+  const squares = comptime blk: {
+      var t: [5]u32 = undefined;
+      for (&t, 0..) |*e, i| e.* = @intCast(i * i);
+      break :blk t;
+  };
+  ```
+
+  `squares` is a `[5]u32` baked into the binary. Nothing runs at startup, and
+  the loop that built it does not exist in the compiled program.
+
+If you have written C, this is the standardised version of GCC's statement
+expressions. If you have written JavaScript, it replaces the
+immediately-invoked function that exists only to give a computation a private
+scope, with no function and no call.

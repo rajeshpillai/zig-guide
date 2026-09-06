@@ -1,0 +1,96 @@
+# Handles, Not Pointers
+
+> A fixed-capacity pool with generational handles, plus the event stream used by particles and sound.
+
+Blocks and coins are created above the screen and destroyed after they leave the
+bottom. That happens several times a second for as long as the game runs.
+
+## Storage is a fixed array
+
+A run of any length allocates once at startup, then never again. There is no
+allocator in the simulation, which is part of how it imports nothing.
+
+Forty-eight slots is more than the field can hold. At the tightest spacing and
+the highest speed there are about nine rows on screen, with at most three
+entities each. A test asserts the peak stays under capacity and above six, so a
+change that quietly stops spawning shows up.
+
+## An index is not enough
+
+The obvious way to refer to an entity is its index. That creates the kind of bug
+you almost never reproduce on purpose.
+
+An event says "coin 12 was collected". A frame later, slot 12 has been freed and
+given to a newly spawned block. Anything still holding 12 now reads a block and
+believes it is a coin. Nothing crashes. The score is just wrong about once an
+hour, and never while you are looking.
+
+Storing a pointer instead of an index does not help, since the slot is reused
+either way.
+
+## Generational handles
+
+A handle carries the slot index and the generation that slot was on when the
+handle was made. Freeing a slot bumps its generation, so every handle to the old
+occupant stops resolving.
+
+<GameSource file="src/sim/pool.zig" decl="Pool" />
+
+The generation is odd while a slot is live and even while it is free. One
+counter answers both "which occupant" and "is anyone home". Generation zero is
+never handed out, so a zeroed handle is a null handle.
+
+`create` returns an optional rather than asserting. A full pool is not an error
+here. The spawner treats it as back pressure and skips that spawn. That is safe
+because the course stays solvable either way.
+
+The test names the bug:
+
+<GameSource
+  file="src/sim/pool.zig"
+  decl="a stale handle does not resolve to the slot's new occupant"
+/>
+
+The first assertion is there to prove the slot really was reused. Without it the
+test could pass because the pool handed out a fresh slot, which is not the case
+worth checking.
+
+## One pool, two users
+
+The pool is generic because it is general. The particle system uses the same one
+with a capacity of 256 and a different element type, even though particles
+belong to the renderer rather than the simulation. Writing it once meant the
+renderer got fixed-capacity storage with no allocator for free.
+
+## Events
+
+The simulation reports what happened. It does not know what anything will do
+about it.
+
+<GameSource file="src/sim/sim.zig" decl="Event" />
+
+Events accumulate in a fixed buffer, and the caller drains it once per frame.
+The buffer counts what it had to drop. A test asserts that count is zero across
+forty thousand ticks. A truncated event stream would show up as occasional
+missing particles and nothing else.
+
+The whole reaction to a tick is one function:
+
+<GameSource file="src/main.zig" decl="react" />
+
+A coin becomes ten amber dots and a small kick of screen shake. A crash becomes
+debris. None of that is visible to the simulation.
+
+## What this split buys
+
+Sound was added after the game was already playable. It changed no rule, because
+it reads the same events the particles read.
+
+<GameSource file="src/platform/audio.zig" decl="onEvent" />
+
+Event systems are easy to over-build. Six variants in a tagged union, a fixed
+buffer and one loop are enough here. The useful question is whether adding a
+reaction means touching the thing that caused it. Here it does not. The same
+property lets
+[the difficulty tests](https://www.ziglang.in/learn/lane-dodger/fair-by-design/) run the entire game
+with no renderer and no audio device.

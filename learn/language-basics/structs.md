@@ -1,0 +1,149 @@
+# Structs
+
+> Layout, defaults, and methods.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+const Vec3 = struct {
+    x: f32 = 0, // default value
+    y: f32 = 0,
+    z: f32 = 0,
+
+    pub fn dot(a: Vec3, b: Vec3) f32 {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+
+    // Taking `*Vec3` lets the method mutate the receiver.
+    pub fn scale(self: *Vec3, factor: f32) void {
+        self.x *= factor;
+        self.y *= factor;
+        self.z *= factor;
+    }
+};
+
+test "construct and read" {
+    const v = Vec3{ .x = 1, .y = 2, .z = 3 };
+    try expect(v.y == 2);
+}
+
+test "defaults fill in the rest" {
+    const v = Vec3{ .x = 5 };
+    try expect(v.y == 0 and v.z == 0);
+}
+
+test "methods" {
+    const a = Vec3{ .x = 1, .y = 2, .z = 3 };
+    const b = Vec3{ .x = 4, .y = 5, .z = 6 };
+    try expect(Vec3.dot(a, b) == 32);
+    try expect(a.dot(b) == 32); // same call, method syntax
+}
+
+test "mutating methods need a mutable receiver" {
+    var v = Vec3{ .x = 1, .y = 1, .z = 1 };
+    v.scale(3);
+    try expect(v.x == 3);
+}
+
+test "field order is not guaranteed" {
+    // Zig may reorder fields for packing unless you say otherwise with
+    // `extern struct` (C ABI) or `packed struct` (bit-level layout).
+    try expect(@sizeOf(Vec3) == 12);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.structs`)*
+
+## Defaults
+
+Fields may declare a default, so a literal only mentions what differs:
+
+```zig
+const v = Vec3{ .x = 5 };   // y and z default to 0
+```
+
+A field with no default must be supplied; there is no zero-initialisation by
+fiat. When every field has one, `.{}` constructs the whole thing, which is why
+options structs in the standard library are usually called with `.{}` and one
+override.
+
+Defaults are evaluated at compile time, once, per declaration. A field
+defaulting to an empty list gets the same empty value every time, not a shared
+mutable one, because the default is a value rather than a constructor call.
+
+## Methods and the receiver
+
+A method taking `self: Vec3` gets a copy; one taking `self: *Vec3` can mutate
+the original. Calling a `*Vec3` method requires a mutable value: `v` must be a
+`var`, and Zig takes the address for you.
+
+Choose the receiver deliberately: `Vec3` for small value types you want
+copied, `*const Vec3` for large ones you only read, `*Vec3` to mutate.
+
+There is nothing special about a method. `v.length()` is `Vec3.length(v)`, and
+the only rule is that the first parameter is the receiver. That means no
+dynamic dispatch, no vtable and no hidden `this`: the function that runs is
+decided by the type at the call site, at compile time, always.
+
+A struct can also hold declarations that are not methods, which is how a type
+carries its own constants and nested types:
+
+```zig
+const Vec3 = struct {
+    x: f32 = 0, y: f32 = 0, z: f32 = 0,
+
+    pub const zero: Vec3 = .{};
+    pub const Axis = enum { x, y, z };
+};
+```
+
+`@This()` inside the body refers to the struct being declared, which is what
+makes that work in a file-level struct or an anonymous one that has no name to
+write.
+
+## Structs are how generics are written
+
+A function that returns a type is a generic container:
+
+```zig
+fn Stack(comptime T: type) type {
+    return struct {
+        items: []T,
+        len: usize = 0,
+        pub fn push(self: *@This(), v: T) void { ... }
+    };
+}
+
+const IntStack = Stack(i32);
+```
+
+`Stack(i32)` and `Stack(u8)` are separate types, produced by calling a
+function at compile time. Every generic type in the standard library is this
+shape, which is why `std.ArrayList(u8)` reads like a call: it is one.
+
+## Layout is not guaranteed
+
+A plain `struct` may have its fields reordered and padded however the compiler
+sees fit. When the layout matters, say so:
+
+| Declaration | Layout |
+| --- | --- |
+| `struct` | unspecified; optimiser's choice |
+| `extern struct` | C ABI compatible |
+| `packed struct` | bit-level, well-defined, backed by an integer |
+
+Reaching for `extern` or `packed` "just in case" costs you the packing the
+optimiser would otherwise do, so use them only at real boundaries.
+
+The practical consequences of "unspecified" are worth stating plainly. Do not
+assume `@sizeOf` is the sum of the field sizes. Do not copy a plain struct
+into a file and expect to read it back with a different compiler version. Do
+not rely on the order of fields when writing bytes out. If any of those is
+what you want, that is what `extern` and `packed` are for. See [struct
+layout](https://www.ziglang.in/learn/systems-from-scratch/structs-are-layout/) for what the padding
+is actually doing.
+
+A struct with no fields has size zero, and so does an array of them. That is
+not a curiosity: it is how a type carries only behaviour, and how a hash map
+with no values costs nothing per entry beyond its keys.

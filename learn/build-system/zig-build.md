@@ -1,0 +1,131 @@
+# Zig Build
+
+> The build system is a Zig program.
+
+`build.zig` is not a configuration file. It is a Zig program that constructs a
+graph of steps, which `zig build` then executes.
+
+```zig
+const std = @import("std");
+
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOption(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    const exe = b.addExecutable(.{
+        .name = "myapp",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    b.installArtifact(exe);
+
+    const run = b.addRunArtifact(exe);
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run.step);
+}
+```
+
+## Note the module indirection
+
+`addExecutable` takes a `root_module`, not a source file directly. Older
+examples pass `.root_source_file`, `.target`, and `.optimize` straight to
+`addExecutable`; that form is gone. Build the module first.
+
+## Steps and options
+
+```bash
+zig build              # the default step
+zig build run          # a step you declared
+zig build --help       # lists your steps and options
+zig build -Dtarget=wasm32-wasi -Doptimize=ReleaseSmall
+```
+
+`b.option(...)` declares your own flags, which then appear in `--help`.
+
+## Configure time vs run time
+
+This is the distinction that causes the most confusion. `build()` runs
+**once** to construct the graph; the steps run afterwards. Anything `build()`
+observes directly (reading a directory, checking whether a file exists) is
+invisible to the caching layer.
+
+If you do that, say so:
+
+```zig
+b.graph.poisonCache();
+```
+
+Without it, the configuration is cached and your `build()` will not re-run
+when the thing it observed changes. This guide's own `build.zig` discovers
+snippets by walking a directory, and needs exactly this call: adding a snippet
+was silently ignored until it was added.
+
+## Why a program and not a config file
+
+The usual objection is that a build script should be declarative. The usual
+answer is that every declarative build system grows an escape hatch, and the
+escape hatch is where the difficulty ends up. Make has shell, CMake has its
+own language, npm has scripts. Zig skips the intermediate step.
+
+What you get for it is that everything you already know applies. A loop is a
+loop, a function is a function, a `switch` on the target is a `switch`. This
+site's own build walks a directory, classifies each file by reading its first
+lines, and creates a compile step and a run step per snippet. That is thirty
+lines of ordinary Zig, and in a declarative system it would be a plugin.
+
+The cost is that a build script can do anything, including things that are
+slow or that break caching, which is what the next section is about.
+
+## Configure time vs run time
+
+This is the distinction that causes the most confusion. `build()` runs
+**once** to construct the graph; the steps run afterwards. Anything `build()`
+observes directly (reading a directory, checking whether a file exists) is
+invisible to the caching layer.
+
+If you do that, say so:
+
+```zig
+b.graph.poisonCache();
+```
+
+Without it, the configuration is cached and your `build()` will not re-run
+when the thing it observed changes. This guide's own `build.zig` discovers
+snippets by walking a directory, and needs exactly this call: adding a snippet
+was silently ignored until it was added.
+
+The general rule that avoids the problem: express inputs as files the graph
+knows about rather than as things `build()` looks at. `b.path("src/main.zig")`
+is tracked, and a step depending on it re-runs when it changes.
+`std.fs.cwd().openFile(...)` inside `build()` is not tracked, and nothing will
+notice.
+
+## Steps are a graph, not a list
+
+`dependOn` is the only sequencing mechanism, and everything else follows.
+Independent steps run in parallel across cores automatically, because nothing
+declared an order between them. A step runs at most once per build no matter
+how many things depend on it. And `zig build test` runs exactly the subgraph
+that step needs, not the whole file.
+
+That is why the answer to "how do I make this run before that" is always an
+edge, never a position in the file. The order declarations appear in `build()`
+has no meaning at all.
+
+## Dependencies
+
+`build.zig.zon` declares them; `b.dependency("name", .{})` retrieves one in
+`build.zig`. Fetching is content-addressed and hash-verified.
+
+`zig fetch --save <url>` adds an entry and records the hash, which is the
+command to use rather than editing the file by hand. Because the hash covers
+the contents, a dependency that changes underneath you fails the build instead
+of being fetched, and packages land in a global cache shared between projects.
+
+A dependency's own `build.zig` runs as part of yours, so it can expose modules
+(`dep.module("name")`) and artifacts (`dep.artifact("name")`) that you wire
+into your own targets. There is no separate package manifest format and no
+install step: fetching, building and linking are all the one graph.

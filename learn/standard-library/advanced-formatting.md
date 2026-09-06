@@ -1,0 +1,162 @@
+# Advanced Formatting
+
+> Custom format methods, and the specifiers that changed.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+const Point = struct {
+    x: i32,
+    y: i32,
+
+    // A `format` method taking `*std.Io.Writer` is used by the `{f}`
+    // specifier. Older Zig passed a fmt string and options too; that
+    // signature no longer applies.
+    pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+        try writer.print("({d}, {d})", .{ self.x, self.y });
+    }
+};
+
+const Colour = enum { red, green, blue };
+
+test "{f} calls a custom format method" {
+    var buf: [64]u8 = undefined;
+    const text = try std.mem.print(&buf, "{f}", .{Point{ .x = 1, .y = 2 }});
+    try expect(std.mem.eql(u8, text, "(1, 2)"));
+}
+
+test "{t} prints an enum tag name" {
+    var buf: [64]u8 = undefined;
+    const text = try std.mem.print(&buf, "{t}", .{Colour.green});
+    try expect(std.mem.eql(u8, text, "green"));
+}
+
+test "{any} falls back to a structural dump" {
+    var buf: [128]u8 = undefined;
+    const text = try std.mem.print(&buf, "{any}", .{[_]u8{ 1, 2, 3 }});
+    // Exact spelling is not contractual, but it contains the elements.
+    try expect(std.mem.find(u8, text, "1") != null);
+}
+
+test "format strings are checked at compile time" {
+    // Passing the wrong number of arguments, or a specifier the type does
+    // not support, is a compile error, not a runtime surprise.
+    var buf: [32]u8 = undefined;
+    const ok = try std.mem.print(&buf, "{d} {s}", .{ 1, "two" });
+    try expect(std.mem.eql(u8, ok, "1 two"));
+}
+
+test "writing to a list" {
+    const gpa = std.testing.allocator;
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    defer out.deinit();
+
+    try out.writer.print("{f}", .{Point{ .x = 3, .y = 4 }});
+    try expect(std.mem.eql(u8, out.written(), "(3, 4)"));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`03-standard-library.advanced-formatting`)*
+
+## Custom `format` methods changed shape
+
+Zig 0.15 rewrote this. The method now takes just a writer:
+
+```zig
+pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+    try writer.print("({d}, {d})", .{ self.x, self.y });
+}
+```
+
+The old signature (which also received the format string and an options
+struct) no longer applies. If you find a tutorial showing `format(self,
+comptime fmt: []const u8, options: FormatOptions, writer: anytype)`, it
+predates the change.
+
+The reason for the change is worth knowing, because it explains the rest of
+this page. Under the old design, every type's `format` had to parse the format
+string itself and decide what `{d:>8}` meant for it. So every implementation
+was slightly different, and most ignored the options entirely. Now a type says
+how it prints, once, and the specifiers that control width and alignment are
+the formatter's job rather than yours.
+
+## `{f}` calls it
+
+A custom `format` method is **not** used by `{}` or `{any}`. You must ask for
+it with `{f}`:
+
+```zig
+try writer.print("{f}", .{point});   // (1, 2)
+```
+
+This is the other half of the same change, and it is the one that surprises
+people mid-port. Under the old scheme `{}` found your method, so a type with a
+`format` printed nicely everywhere by accident. Now `{}` prints the struct the
+way the compiler sees it and `{f}` asks for yours. The upside is that you can
+see, at the call site, whether you are getting the type's own rendering or the
+generic dump, which used to be invisible.
+
+## The specifiers worth knowing
+
+| Specifier | Prints |
+| --- | --- |
+| `{d}` | a number in decimal |
+| `{x}` / `{X}` | hex, lower or upper; also works on byte slices |
+| `{b}` / `{o}` | binary, octal |
+| `{s}` | a string, meaning a `[]const u8` printed as text |
+| `{c}` | one byte as a character |
+| `{any}` | the generic dump, whatever the type |
+| `{f}` | the type's own `format` method |
+| `{t}` | an enum tag name or an error name |
+| `{!}` | an error union, as `error.Name` |
+| `{*}` | a pointer's address |
+
+Width, fill and alignment come after a colon: `{d:0>4}` pads with zeros to
+four characters, `{s:<20}` left-aligns in twenty. `{d:.2}` sets decimal places
+on a float.
+
+Every one of these is checked at compile time against the tuple you passed. A
+`{d}` aimed at a string, or four specifiers with three arguments, is a build
+error rather than a runtime one. The format string has to be a comptime value
+for exactly that reason.
+
+## `{t}` for tag names
+
+`{t}` prints an enum's tag name or an error's name, replacing the older
+practice of calling `@tagName` at every call site:
+
+```zig
+try writer.print("{t}", .{Colour.green});   // green
+```
+
+## Composing writers
+
+`std.Io.Writer.Allocating` gives you a growable in-memory writer, which is the
+usual way to build a string from formatted pieces:
+
+```zig
+var out: std.Io.Writer.Allocating = .init(gpa);
+defer out.deinit();
+try out.writer.print("{f}", .{point});
+out.written();   // []const u8
+```
+
+For a bounded string where you know the maximum size, `std.mem.print` writes
+into a stack buffer and returns the slice it filled. No allocator is involved,
+and it returns an error if the text does not fit. That is the right tool for
+formatting a number into a fixed field. `Allocating` is the right tool when
+the length depends on the data.
+
+```zig
+var buf: [32]u8 = undefined;
+const text = try std.mem.print(&buf, "{d}%", .{percent});
+```
+
+If you have seen `std.fmt.bufPrint` and `std.fmt.allocPrint`, those are what
+this replaced: they are `std.mem.print` and `Allocator.print` now.
+
+Both are the same underlying `std.Io.Writer` interface that a file or a socket
+implements. That is why the same `print` call works against all of them, and
+why a function taking a `*std.Io.Writer` can be tested by handing it a buffer.
+See [readers and writers](https://www.ziglang.in/learn/standard-library/readers-and-writers/).

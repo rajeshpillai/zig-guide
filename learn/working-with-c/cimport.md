@@ -1,0 +1,184 @@
+# Importing C
+
+> @cImport, and calling C without bindings.
+
+Zig can parse C headers directly. There is no binding generator and no
+intermediate `.zig` file to maintain.
+
+```zig
+const c = @cImport({
+    @cDefine("_GNU_SOURCE", {});
+    @cInclude("stdio.h");
+    @cInclude("string.h");
+});
+
+pub fn main(init: std.process.Init) !void {
+    _ = init;
+    _ = c.printf("hello from C\n");
+    const len = c.strlen("abc");
+    ...
+}
+```
+
+Everything the header declares appears as a member of `c`.
+
+## Telling the build where to look
+
+```zig
+exe.linkLibC();
+exe.addIncludePath(b.path("vendor/include"));
+exe.linkSystemLibrary("sqlite3");
+```
+
+Or compile the C yourself. Zig includes a C compiler, so vendoring a
+dependency's sources is a reasonable option:
+
+```zig
+exe.addCSourceFile(.{ .file = b.path("vendor/thing.c"), .flags = &.{"-std=c99"} });
+```
+
+## A whole project, start to finish
+
+The pieces above only make sense together. Here is the smallest project that
+uses all of them: your Zig calling a C function you vendored, with no system
+library involved.
+
+```
+project/
+├── build.zig
+├── src/
+│   └── main.zig
+└── vendor/
+    ├── calc.c
+    └── calc.h
+```
+
+```c
+// vendor/calc.h
+int calc_add(int a, int b);
+```
+
+```c
+// vendor/calc.c
+#include "calc.h"
+int calc_add(int a, int b) { return a + b; }
+```
+
+```zig
+// src/main.zig
+const std = @import("std");
+const c = @cImport({
+    @cInclude("calc.h");
+});
+
+pub fn main(init: std.process.Init) !void {
+    _ = init;
+    std.debug.print("{d}\n", .{c.calc_add(2, 3)});
+}
+```
+
+```zig
+// build.zig
+const exe = b.addExecutable(.{
+    .name = "demo",
+    .root_module = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    }),
+});
+exe.linkLibC();
+exe.addIncludePath(b.path("vendor"));                 // so @cInclude finds calc.h
+exe.addCSourceFile(.{ .file = b.path("vendor/calc.c") }); // so the symbol exists
+b.installArtifact(exe);
+```
+
+Two separate jobs, and missing either one fails differently:
+
+```
+ vendor/calc.h
+       │
+       │ addIncludePath, read by @cImport at compile time
+       ▼
+  src/main.zig
+       │
+       │ addCSourceFile compiles vendor/calc.c
+       ▼
+ build.zig links both
+       │
+       ▼
+   executable
+```
+
+`addIncludePath` is what lets `@cInclude("calc.h")` resolve, and it only
+affects the declarations Zig can see. Forget it and you get a compile error
+naming the header. `addCSourceFile` is what puts the compiled function in the
+binary. Forget that one and the code compiles cleanly and fails at link time
+with an undefined symbol, which is the more confusing of the two errors and is
+worth recognising on sight.
+
+Swapping the vendored file for a system library changes one line:
+`linkSystemLibrary("sqlite3")` in place of `addCSourceFile`, with the header
+found on the system include path instead of yours.
+
+## What translates and what does not
+
+Types, functions, and simple `#define` constants translate cleanly.
+**Function-like macros do not**: they are C syntax, not C semantics, and Zig
+cannot always give them meaning. When one matters, reimplement it in Zig; `zig
+translate-c` shows you what the automatic translation produced, which is a
+useful starting point.
+
+## Strings
+
+C strings are `[*c]const u8` and null-terminated. Zig string literals are
+already null-terminated, so passing one to C needs no conversion. Coming back,
+`std.mem.span(ptr)` recovers a slice by scanning for the terminator.
+
+## What you are getting out of this
+
+The comparison worth making is with every other language's answer to the same
+problem. Python has ctypes and cffi and a generator; Rust has bindgen; Go has
+cgo with its own dialect of comments. All of them are a separate tool that
+reads the header and emits code in a third file, which then has to be
+regenerated and committed and kept in step.
+
+Zig parses the header during compilation. There is no generated file, nothing
+to regenerate, and no way for a binding to drift from the header it was made
+from, because it is remade on every build. Update the C library and a changed
+signature is a compile error the same day.
+
+That property is what lets this guide's X11 chapter link against the real
+system Xlib in CI. Nothing runs, but the header is parsed and the calls are
+type-checked, so a change in libX11 turns the build red rather than going
+unnoticed until someone reads the page.
+
+## Error handling across the boundary
+
+C reports failure by return value and by a global `errno`, and neither
+survives translation into anything meaningful. So the wrapper you write around
+a C library is also where its conventions become Zig errors:
+
+```zig
+pub fn open(path: [:0]const u8) !Handle {
+    const h = c.thing_open(path.ptr);
+    if (h == null) return error.OpenFailed;
+    return .{ .ptr = h.? };
+}
+```
+
+Doing that once per function is dull and it is the whole job. What you get is
+that the rest of the program uses `try`. No caller can forget to check a
+return code, because there is no return code to forget.
+
+Ownership is the other half. C libraries have their own rules about who frees
+what, and the wrapper is where those become `defer` and `errdefer` in the Zig
+caller's scope. A handle type with a `deinit` method is usually the right
+shape, so the pairing is visible.
+
+## Why this page has no Run button
+
+Unlike every other chapter here, this one shows no runnable snippet.
+`@cImport` needs real C headers and a libc for the target, and the wasm
+sandbox these pages execute in has neither. The code above is illustrative
+rather than CI-verified, the only page in this guide of which that is true.

@@ -1,0 +1,460 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Zig Guide Live</title>
+    <link>https://www.ziglang.in/learn/</link>
+    <description>A Zig tutorial and cookbook where every snippet is compiled and run against current Zig master on every build, and runs in your browser as WebAssembly.</description>
+    <language>en</language>
+    <atom:link href="https://www.ziglang.in/rss.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Dependencies</title>
+      <link>https://www.ziglang.in/learn/build-system/dependencies/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/build-system/dependencies/</guid>
+      <description>Declaring, fetching, and wiring a package with build.zig.zon.</description>
+      <category>Build System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Zig Build</title>
+      <link>https://www.ziglang.in/learn/build-system/zig-build/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/build-system/zig-build/</guid>
+      <description>The build system is a Zig program.</description>
+      <category>Build System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Installation</title>
+      <link>https://www.ziglang.in/learn/getting-started/installation/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/getting-started/installation/</guid>
+      <description>Getting a Zig master build, and why this guide needs one.</description>
+      <category>Getting Started</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Arrays</title>
+      <link>https://www.ziglang.in/learn/language-basics/arrays/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/arrays/</guid>
+      <description>Fixed-length sequences whose length is part of the type.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>For Loops</title>
+      <link>https://www.ziglang.in/learn/language-basics/for-loops/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/for-loops/</guid>
+      <description>Iterate over sequences and ranges, never a bare counter.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Functions</title>
+      <link>https://www.ziglang.in/learn/language-basics/functions/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/functions/</guid>
+      <description>Immutable parameters and explicit discards.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>If Expressions</title>
+      <link>https://www.ziglang.in/learn/language-basics/if-expressions/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/if-expressions/</guid>
+      <description>No truthiness: if takes a bool.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Optionals</title>
+      <link>https://www.ziglang.in/learn/language-basics/optionals/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/optionals/</guid>
+      <description>Zig's answer to null, checked by the compiler.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Pointer Sized Integers</title>
+      <link>https://www.ziglang.in/learn/language-basics/pointer-sized-integers/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/pointer-sized-integers/</guid>
+      <description>usize, isize, and why they are not just u64.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Slices</title>
+      <link>https://www.ziglang.in/learn/language-basics/slices/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/slices/</guid>
+      <description>A pointer and a length, together.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Switch</title>
+      <link>https://www.ziglang.in/learn/language-basics/switch/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/switch/</guid>
+      <description>Exhaustive by construction.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Exiting</title>
+      <link>https://www.ziglang.in/learn/os/exiting/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/os/exiting/</guid>
+      <description>exit is the process stopping, not your program returning.</description>
+      <category>Operating System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Signals</title>
+      <link>https://www.ziglang.in/learn/os/signals/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/os/signals/</guid>
+      <description>A handler interrupts you between two instructions. Set a flag and return.</description>
+      <category>Operating System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Spawning a Process</title>
+      <link>https://www.ziglang.in/learn/os/spawning/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/os/spawning/</guid>
+      <description>A child is a program, an argument list, and a status code coming back.</description>
+      <category>Operating System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Allocators</title>
+      <link>https://www.ziglang.in/learn/standard-library/allocators/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/allocators/</guid>
+      <description>Explicit memory management, passed as a value.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>ArrayList</title>
+      <link>https://www.ziglang.in/learn/standard-library/arraylist/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/arraylist/</guid>
+      <description>The growable array, now unmanaged.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Concurrency</title>
+      <link>https://www.ziglang.in/learn/standard-library/concurrency/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/concurrency/</guid>
+      <description>async, Future, and Group, all through the Io interface.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Formatting</title>
+      <link>https://www.ziglang.in/learn/standard-library/formatting/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/formatting/</guid>
+      <description>Format strings checked at compile time.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Io Interface</title>
+      <link>https://www.ziglang.in/learn/standard-library/io-interface/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/io-interface/</guid>
+      <description>Anything that can block takes an Io; the caller picks how.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>JSON</title>
+      <link>https://www.ziglang.in/learn/standard-library/json/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/json/</guid>
+      <description>Parsing into real types, and back out again.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Logging</title>
+      <link>https://www.ziglang.in/learn/standard-library/logging/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/logging/</guid>
+      <description>One log function, chosen at the root and known at compile time.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>MultiArrayList</title>
+      <link>https://www.ziglang.in/learn/standard-library/multi-array-list/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/multi-array-list/</guid>
+      <description>Struct of arrays, laid out for the cache.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Strings</title>
+      <link>https://www.ziglang.in/learn/standard-library/strings/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/strings/</guid>
+      <description>Search, trim, split, join. All of it lives in std.mem.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Importing C</title>
+      <link>https://www.ziglang.in/learn/working-with-c/cimport/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/working-with-c/cimport/</guid>
+      <description>@cImport, and calling C without bindings.</description>
+      <category>Working with C</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 02 Sep 2026 13:33:34 GMT</pubDate>
+    </item>
+    <item>
+      <title>Build It From Scratch</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/build-it/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/build-it/</guid>
+      <description>The order to write the files in, the two points where you can stop and check, and what to do when it does not build.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 11:37:59 GMT</pubDate>
+    </item>
+    <item>
+      <title>The World</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/the-world/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/the-world/</guid>
+      <description>A field measured in its own units, a player that slides between lanes, and the order the tick does things in.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 11:37:59 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Game You Can Test</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/what-we-are-building/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/what-we-are-building/</guid>
+      <description>A three lane endless runner you can play here, and the one rule that makes the rest testable.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 11:37:59 GMT</pubDate>
+    </item>
+    <item>
+      <title>Drawing It</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/drawing/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/drawing/</guid>
+      <description>Field units mapped onto a window, the road, the entities, and a particle system that holds no raylib types.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 11:03:42 GMT</pubDate>
+    </item>
+    <item>
+      <title>Handles, Not Pointers</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/entities/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/entities/</guid>
+      <description>A fixed-capacity pool with generational handles, plus the event stream used by particles and sound.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 11:03:42 GMT</pubDate>
+    </item>
+    <item>
+      <title>Difficulty You Can Prove</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/fair-by-design/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/fair-by-design/</guid>
+      <description>Row spacing derived from what is physically possible, a bot that proves the course is solvable, and a reaction time model for playability.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 11:03:42 GMT</pubDate>
+    </item>
+    <item>
+      <title>Input</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/input/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/input/</guid>
+      <description>Presses latched once per frame and handed to exactly one tick, and why a held key must not cross the board.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 11:03:42 GMT</pubDate>
+    </item>
+    <item>
+      <title>Sound Without Sound Files</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/sound/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/sound/</guid>
+      <description>Five effects synthesised at startup from oscillators and envelopes, with waveform tests that run without an audio device.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 11:03:42 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Loop Takes No dt</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/the-loop/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/the-loop/</guid>
+      <description>A fixed timestep, an accumulator, interpolation for the leftover, and the split needed for the browser build.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 11:03:42 GMT</pubDate>
+    </item>
+    <item>
+      <title>Vendoring raylib</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/the-build/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/the-build/</guid>
+      <description>How to add raylib to a Zig project, why this one depends on the C source, and how the same game reaches a browser canvas.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 31 Aug 2026 10:14:10 GMT</pubDate>
+    </item>
+    <item>
+      <title>Cancellation</title>
+      <link>https://www.ziglang.in/learn/standard-library/cancellation/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/cancellation/</guid>
+      <description>Stopping a running task, and the cancellation points that make it possible.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 27 Aug 2026 11:14:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Cross-compilation</title>
+      <link>https://www.ziglang.in/learn/build-system/cross-compilation/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/build-system/cross-compilation/</guid>
+      <description>Every target, out of the box.</description>
+      <category>Build System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 12:53:44 GMT</pubDate>
+    </item>
+    <item>
+      <title>Emitting an Executable</title>
+      <link>https://www.ziglang.in/learn/build-system/emitting-an-executable/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/build-system/emitting-an-executable/</guid>
+      <description>Building without a build.zig.</description>
+      <category>Build System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 12:53:44 GMT</pubDate>
+    </item>
+    <item>
+      <title>Generating Documentation</title>
+      <link>https://www.ziglang.in/learn/build-system/generating-documentation/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/build-system/generating-documentation/</guid>
+      <description>Doc comments and the generated site.</description>
+      <category>Build System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 12:53:44 GMT</pubDate>
+    </item>
+    <item>
+      <title>Runtime Safety</title>
+      <link>https://www.ziglang.in/learn/language-basics/runtime-safety/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/runtime-safety/</guid>
+      <description>Checked illegal behaviour, and where the checks go.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 12:53:44 GMT</pubDate>
+    </item>
+    <item>
+      <title>What Is an Ecto-Style ORM?</title>
+      <link>https://www.ziglang.in/learn/orm/what-is-ecto/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/orm/what-is-ecto/</guid>
+      <description>The Elixir design these chapters borrow from, explained for people who never wrote Elixir.</description>
+      <category>An Ecto-Style ORM</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 12:53:44 GMT</pubDate>
+    </item>
+    <item>
+      <title>What We Are Building</title>
+      <link>https://www.ziglang.in/learn/url-shortener/what-we-are-building/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/url-shortener/what-we-are-building/</guid>
+      <description>A URL shortener with real storage, and the two decisions that shape every chapter after this one.</description>
+      <category>A URL Shortener</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 12:53:44 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Postgres Client</title>
+      <link>https://www.ziglang.in/learn/url-shortener/pg-client/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/url-shortener/pg-client/</guid>
+      <description>Startup, password auth, a row iterator and error recovery, tested against scripted bytes.</description>
+      <category>A URL Shortener</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 09:31:23 GMT</pubDate>
+    </item>
+    <item>
+      <title>Routes Over a Seam</title>
+      <link>https://www.ziglang.in/learn/url-shortener/routes/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/url-shortener/routes/</guid>
+      <description>All five CRUD routes as one pure function, tested against an in-memory store.</description>
+      <category>A URL Shortener</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 09:31:23 GMT</pubDate>
+    </item>
+    <item>
+      <title>Slugs Are Arithmetic</title>
+      <link>https://www.ziglang.in/learn/url-shortener/slugs/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/url-shortener/slugs/</guid>
+      <description>Base62 over the row id, and the validation that keeps a redirect service honest.</description>
+      <category>A URL Shortener</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 09:31:23 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Server</title>
+      <link>https://www.ziglang.in/learn/url-shortener/the-server/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/url-shortener/the-server/</guid>
+      <description>The client, the slugs and the routes assembled into one file, run against a real Postgres.</description>
+      <category>A URL Shortener</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 09:31:23 GMT</pubDate>
+    </item>
+    <item>
+      <title>When Datagrams Go Missing</title>
+      <link>https://www.ziglang.in/learn/networking/packet-loss/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/networking/packet-loss/</guid>
+      <description>Loss, duplication and reordering, produced on demand so you can watch them.</description>
+      <category>Networking</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 09:31:17 GMT</pubDate>
+    </item>
+    <item>
+      <title>Retransmission and the Window</title>
+      <link>https://www.ziglang.in/learn/networking/retransmission/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/networking/retransmission/</guid>
+      <description>A timeout recovers what the network lost, and a window keeps traffic moving while it does.</description>
+      <category>Networking</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 09:31:17 GMT</pubDate>
+    </item>
+    <item>
+      <title>Sequence Numbers and Acks</title>
+      <link>https://www.ziglang.in/learn/networking/sequence-numbers/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/networking/sequence-numbers/</guid>
+      <description>One counter turns invisible loss into a detected gap, and one reply turns it into the sender's problem.</description>
+      <category>Networking</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 09:31:17 GMT</pubDate>
+    </item>
+    <item>
+      <title>UDP Datagrams</title>
+      <link>https://www.ziglang.in/learn/networking/udp-message/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/networking/udp-message/</guid>
+      <description>Bound sockets and discrete messages, no connection anywhere.</description>
+      <category>Networking</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 17 Aug 2026 09:31:17 GMT</pubDate>
+    </item>
+    <item>
+      <title>Stacks</title>
+      <link>https://www.ziglang.in/learn/standard-library/stacks/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/stacks/</guid>
+      <description>ArrayList from one end, or no allocator at all.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Tue, 11 Aug 2026 08:47:29 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

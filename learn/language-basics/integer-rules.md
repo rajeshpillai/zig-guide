@@ -1,0 +1,137 @@
+# Integer Rules
+
+> Arbitrary widths, explicit narrowing, chosen overflow behaviour.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "arbitrary bit widths" {
+    // Any width from u0/i0 up to u65535 is a real type.
+    const small: u3 = 7;
+    try expect(@as(u8, small) == 7);
+    try expect(std.math.maxInt(u3) == 7);
+}
+
+test "widening is implicit, narrowing is not" {
+    const a: u8 = 200;
+    const b: u16 = a; // always safe, so allowed
+    try expect(b == 200);
+
+    // `const c: u8 = b;` would not compile. Say what you mean:
+    const c: u8 = @intCast(b); // checked in safety builds
+    try expect(c == 200);
+}
+
+test "wrapping and saturating operators" {
+    const max: u8 = 255;
+    // Plain `max + 1` is illegal behaviour (a panic in safety builds).
+    try expect(max +% 1 == 0); // wrapping
+    try expect(max +| 1 == 255); // saturating
+}
+
+test "overflow can be detected instead" {
+    const max: u8 = 255;
+    const result = @addWithOverflow(max, 1);
+    try expect(result[0] == 0); // wrapped value
+    try expect(result[1] == 1); // overflow bit set
+}
+
+test "comptime_int has no width" {
+    // Literals are arbitrary precision until they are given a type.
+    const big = 1 << 100;
+    try expect(big > 0);
+    try expect(@TypeOf(1 + 1) == comptime_int);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.integer-rules`)*
+
+## Any width you like
+
+`u3`, `i7`, `u64`, `u1000` are all real types. `u8` is not special, it is just
+the one that happens to be a byte. Packed structs use this to describe
+bitfields exactly.
+
+The width is part of the type and never depends on the platform. There is no
+`int` whose size changes with the compiler, no integer promotion rules to
+remember, and no difference between what your machine does and what the CI
+machine does. The one target-dependent integer type is `usize`, and it is
+target-dependent on purpose, because it is the width of a pointer. See
+[pointer-sized integers](https://www.ziglang.in/learn/language-basics/pointer-sized-integers/).
+
+`@sizeOf(u3)` is 1, because memory is addressed in bytes. Inside a `packed
+struct` the same `u3` occupies exactly three bits. Odd widths are for
+describing layout and for expressing a bound, not for saving memory on their
+own.
+
+## Widening is free, narrowing is not
+
+`u8` → `u16` is always safe, so Zig does it implicitly. The reverse can lose
+data, so it must be written:
+
+```zig
+const c: u8 = @intCast(b);
+```
+
+In a safety-enabled build `@intCast` panics if the value does not fit. In
+`ReleaseFast` it is illegal behaviour. Either way, the cast is visible in the
+source, so you cannot lose the top bits by accident.
+
+Signedness counts as information. `i8` to `u8` is a narrowing in Zig's sense
+even though the widths match, because a negative value has nowhere to go, and
+it needs `@intCast` too. `@bitCast` is the other conversion, reinterpreting
+the same bits with a different reading, and it never checks anything because
+nothing can go wrong at the bit level. Which of the two you want depends on
+whether you mean "this number" or "these bits".
+
+## Overflow is a decision
+
+Plain `+` on integers **traps** on overflow rather than wrapping. If you want
+different behaviour, ask for it:
+
+| Operator | On overflow |
+| --- | --- |
+| `+` `-` `*` | illegal behaviour (panics in safety builds) |
+| `+%` `-%` `*%` | wrap around |
+| `+\|` `-\|` `*\|` | saturate at the type's limit |
+
+Or detect it: `@addWithOverflow(a, b)` returns a tuple of the wrapped result
+and an overflow bit.
+
+This is C's biggest silent-corruption source turned into an explicit choice.
+
+Each of the three has a domain where it is the right answer. Wrapping is
+correct for hashes, checksums and counters that are meant to cycle. Saturating
+is correct for pixel arithmetic and audio mixing, where the answer above the
+limit really is the limit. The trapping default is correct for everything
+else. A number that has outgrown its type is a bug, not a value, and finding
+out immediately beats finding out three functions later.
+
+The one that trips people up is unsigned subtraction. `a - b` where `b > a` is
+an overflow, not a negative number, and it panics. Counting down from `.len`
+needs the decrement written where it cannot run at zero.
+
+## Division and shifts have rules too
+
+`/` on signed integers requires the result to be exact or the operands to be
+non-negative, so `@divTrunc`, `@divFloor` and `@divExact` exist to say which
+rounding you meant. `%` likewise pairs with `@rem` and `@mod`, which differ on
+negative operands. Being made to choose is the point: C's answer to `-7 / 2`
+was implementation-defined for twenty years.
+
+Shifting by more than the width is illegal behaviour, not a platform-specific
+surprise. The shift amount's type is also narrowed to just enough bits to
+express a legal shift, so `x << 8` on a `u8` will not compile.
+
+## `comptime_int`
+
+Literals have no width until they are assigned one. `1 << 100` is fine at
+compile time; it only needs to fit once it becomes a runtime value.
+
+`comptime_int` is genuinely arbitrary precision, unlike `comptime_float`,
+which is `f128` underneath. So compile-time integer arithmetic is exact at any
+magnitude, and the error only arrives when the result has to be stored
+somewhere with a size. That is why a `var` cannot hold one, and why
+`std.math.maxInt(T)` and `minInt(T)` are the right way to talk about a type's
+limits rather than writing the constant out.

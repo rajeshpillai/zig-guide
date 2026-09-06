@@ -1,0 +1,105 @@
+# Recipe: Set Operations on the Cheap
+
+> A static bit set turns membership, intersection, and union into single instructions.
+
+## The problem
+
+You need sets of small integers and set arithmetic over them: which hours two
+calendars are both free, which of 64 seats are taken, which permissions two
+roles share. A hash set works, but it allocates, chases pointers, and turns
+"intersect two sets" into a loop with lookups.
+
+When the set of possible members is small and known (hours 0 to 23, seats 0 to
+63), a bit set does the same job as one integer and some bitwise operations.
+
+## The plan
+
+1. Pick the universe size at compile time: `std.bit_set.Static(24)` for hours
+   of a day. At 24 bits the whole set is a single `u24`; no allocator
+   exists anywhere in this recipe.
+2. Start from the `empty` constant and `set` the members.
+3. Combine with `intersectWith` and `unionWith`, which return new sets, or
+   their in-place cousins `setIntersection` and `setUnion`.
+4. Ask questions with `isSet`, `count`, and `iterator`.
+
+```zig
+const std = @import("std");
+
+const Hours = std.bit_set.Static(24);
+
+fn setHours(set: *Hours, hours: []const u5) void {
+    for (hours) |h| set.set(h);
+}
+
+fn printHours(out: *std.Io.Writer, label: []const u8, set: Hours) !void {
+    try out.print("{s} ({d} free):", .{ label, set.count() });
+    var it = set.iterator(.{});
+    while (it.next()) |h| try out.print(" {d}", .{h});
+    try out.print("\n", .{});
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [1024]u8 = undefined;
+    var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &file_writer.interface;
+
+    // Two calendars, each a set of free hours in a day. 24 possible
+    // members, so the whole set is one u24 under the hood; every
+    // operation below is a bitwise instruction or two.
+    var ana: Hours = .empty;
+    var raj: Hours = .empty;
+    setHours(&ana, &.{ 9, 10, 11, 14, 15, 16 });
+    setHours(&raj, &.{ 10, 11, 13, 15, 19 });
+
+    try printHours(out, "ana", ana);
+    try printHours(out, "raj", raj);
+
+    // Overlap: the hours where a meeting can happen.
+    try printHours(out, "both free", ana.intersectWith(raj));
+
+    // Union answers the opposite question.
+    try printHours(out, "either free", ana.unionWith(raj));
+
+    // Single-membership checks are one bit test.
+    try out.print("raj free at 14: {}\n", .{raj.isSet(14)});
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`06-cookbook.bitsets`)*
+
+## What changed in the API
+
+Older material constructs these with `initEmpty()` and `initFull()`. Those
+methods are gone on current master; the type now exposes `empty` and `full`
+declaration constants instead, used with the `.empty` enum-literal-style
+syntax:
+
+```zig
+var hours: std.bit_set.Static(24) = .empty;
+```
+
+The same pattern (`.empty` replacing `init` functions) applies across the
+standard library's containers, so it is worth internalizing once.
+
+## Why this beats a hash set here
+
+The intersection in the snippet compiles to an `and` instruction on a u24.
+`count()` is a popcount. Iteration visits set bits directly rather than
+scanning buckets. And because `Static` picks its representation from the size
+(a single integer up to pointer width, an array of words beyond it), a set for
+the days of a year works identically, just across several words.
+
+The trade is that members must be small integers you can enumerate at compile
+time. The moment keys are strings or unbounded, you are back to [hash
+maps](https://www.ziglang.in/learn/standard-library/hash-maps/).
+
+## Variations
+
+- **Runtime-sized universes:** `std.bit_set.DynamicManaged` takes an allocator and a
+  length chosen at runtime.
+- **Difference and complement:** `differenceWith` answers "free for ana but
+  not raj"; `complement()` flips the whole set.
+- **First fit:** `findFirstSet()` returns the lowest member, useful for
+  "earliest common hour" without iterating.

@@ -1,0 +1,131 @@
+# Vectors
+
+> SIMD with ordinary operators.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "element-wise arithmetic" {
+    const a: @Vector(4, i32) = .{ 1, 2, 3, 4 };
+    const b: @Vector(4, i32) = .{ 10, 20, 30, 40 };
+    const sum = a + b; // one operation across all lanes
+    try expect(sum[0] == 11);
+    try expect(sum[3] == 44);
+}
+
+test "reduce across lanes" {
+    const v: @Vector(4, i32) = .{ 1, 2, 3, 4 };
+    try expect(@reduce(.Add, v) == 10);
+    try expect(@reduce(.Max, v) == 4);
+}
+
+test "splat fills every lane" {
+    const v: @Vector(4, i32) = @splat(7);
+    try expect(@reduce(.Add, v) == 28);
+}
+
+test "comparisons produce a vector of bools" {
+    const a: @Vector(4, i32) = .{ 1, 5, 3, 7 };
+    const b: @Vector(4, i32) = .{ 4, 4, 4, 4 };
+    const mask = a > b; // @Vector(4, bool)
+    try expect(@reduce(.Or, mask));
+    try expect(!@reduce(.And, mask));
+
+    // Select lane-wise between two vectors.
+    const picked = @select(i32, mask, a, b);
+    try expect(picked[0] == 4 and picked[1] == 5);
+}
+
+test "vectors and arrays convert" {
+    const arr = [_]i32{ 1, 2, 3, 4 };
+    const v: @Vector(4, i32) = arr;
+    const back: [4]i32 = v;
+    try expect(back[2] == 3);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.vectors`)*
+
+`@Vector(N, T)` is a SIMD vector of `N` lanes. Arithmetic operators work
+element-wise across all lanes at once, compiling to real vector instructions
+where the target has them:
+
+```zig
+const sum = a + b;   // one operation, four lanes
+```
+
+SIMD means "single instruction, multiple data": one machine instruction that
+does the same arithmetic to several values at the same time. A 128-bit
+register holds four `i32`s, and one add instruction adds all four. That is the
+whole idea, and Zig exposes it as a type rather than as a library of
+intrinsics with names like `_mm_add_epi32`.
+
+## The supporting builtins
+
+| Builtin | Does |
+| --- | --- |
+| `@splat(x)` | fill every lane with `x` |
+| `@reduce(.Add, v)` | collapse lanes to one value |
+| `@select(T, mask, a, b)` | pick lane-wise between two vectors |
+| `@shuffle` | rearrange lanes |
+
+Comparisons produce a `@Vector(N, bool)` mask rather than a single `bool`,
+which is why `@reduce(.Or, mask)` or `@select` is how you act on the result.
+
+The mask is the part to get used to, because it replaces branching. A scalar
+loop says "if this element matches, do the thing". A vector version computes
+the condition for every lane at once and then uses the mask to choose between
+two already-computed answers. There is no per-lane branch to take, which is
+exactly why it is fast, and also why work that genuinely differs per element
+does not vectorise.
+
+## Choosing N
+
+`std.simd.suggestVectorLength(T)` asks the target how many lanes of `T` fit in
+its widest register, and returns null when the target has no SIMD at all. Code
+that wants to be portable uses it rather than hardcoding 4 or 8, and handles
+the null by falling back to a scalar loop.
+
+That null is worth taking seriously on this site. WebAssembly's SIMD is an
+optional feature, so the four chapters that teach vectors are compiled with it
+turned on explicitly, and everything else is not. Without that, the function
+returns null and the vector path silently compiles out, leaving a page that
+claims to show SIMD while shipping a scalar loop.
+
+## Vectors and arrays interconvert
+
+```zig
+const v: @Vector(4, i32) = arr;   // array -> vector
+const back: [4]i32 = v;           // vector -> array
+```
+
+Same data, different type. Keep values in vector form through a computation
+and convert at the edges.
+
+The conversion is free in that no arithmetic happens. It is not free in that
+nothing happens. The values may move between ordinary registers and vector
+registers, and doing that inside a loop can cost more than the vector
+arithmetic saves. Load once, compute, store once.
+
+Vectors are not arrays and do not have `.len` in the same sense, do not
+bounds-check, and index only with comptime-known values in most useful cases.
+When you want a sequence, use an array or a slice. When you want lanes, use a
+vector.
+
+## When to bother
+
+Zig will often auto-vectorise a plain loop. Explicit vectors are for when you
+need the guarantee, or when the operation does not map onto a simple loop. If
+the target lacks SIMD, the code still works. The compiler lowers it to scalar
+operations.
+
+The honest ordering is: write the scalar loop, measure, and only then reach
+for vectors. A vectorised version of a loop that was never the bottleneck is
+slower to read, harder to change, and exactly as fast as before. Where it does
+pay, it tends to pay by a lot, which is why the two recipes below are both
+about processing a large buffer in one pass.
+
+Two how-to recipes put these builtins to work: [a SIMD dot
+product](https://www.ziglang.in/learn/how-to/simd-sum/) for arithmetic and [SIMD byte
+scanning](https://www.ziglang.in/learn/how-to/simd-scan/) for searching.

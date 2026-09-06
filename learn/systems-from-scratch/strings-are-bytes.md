@@ -1,0 +1,125 @@
+# Strings Are Bytes
+
+> There is no string type. A literal is bytes, with a zero on the end.
+
+Chapter one said everything is bytes. Text is where that stops feeling like a
+technicality and starts costing you something.
+
+In the language you came from, a string is a thing. It knows its own length,
+it compares with `==`, and asking for its length gives you the number of
+letters you would count by eye. All of that is a service someone built for
+you, and down here nobody built it.
+
+What exists is a run of bytes. Which raises the question C had to answer
+first: if you are handed the address of some text, **how do you know where it
+ends?**
+
+C's answer was to put a zero byte after the last character. Cheap: one byte
+per string, and a pointer is all you need to pass. The cost is that finding
+the length means reading the whole thing, looking for that zero. If the zero
+is ever missing, the reading does not stop where the text does.
+
+Zig keeps the zero, for talking to C, and does not rely on it.
+
+## The program
+
+```zig
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &stdout_writer.interface;
+
+    const greeting = "hello";
+
+    // The type is the whole story: a pointer to five bytes, with a zero after
+    // them that the length does not count.
+    try out.print("\"hello\" is a {s}\n", .{@typeName(@TypeOf(greeting))});
+    try out.print("greeting.len       = {d}\n", .{greeting.len});
+    try out.print("the array occupies = {d} bytes\n\n", .{@sizeOf(@TypeOf(greeting.*))});
+
+    // Indexing gives a number, because that is all that is stored.
+    try out.print("greeting[0] = {d}, which prints as '{c}'\n\n", .{ greeting[0], greeting[0] });
+
+    // Two separate literals with the same contents. `==` on slices compares
+    // where they point, which is not the question you meant to ask.
+    const a: []const u8 = "cat";
+    const b: []const u8 = "cat";
+    try out.print("std.mem.eql(a, b) = {}\n\n", .{std.mem.eql(u8, a, b)});
+
+    // A length in bytes is not a count of characters, and on this string the
+    // difference is visible.
+    const word = "héllo";
+    try out.print("\"héllo\".len = {d} bytes\n", .{word.len});
+    try out.print("codepoints  = {d}\n", .{try std.unicode.utf8CountCodepoints(word)});
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`15-groundwork.strings-are-bytes`)*
+
+## What just happened
+
+**The type printed as `*const [5:0]u8`, and it says everything.** A pointer, to
+an array of 5 bytes, with a sentinel `0` after them. Not "a string": a
+specific number of specific bytes at a specific place.
+
+**`.len` was 5 and the array was 6 bytes.** The terminator is really there,
+occupying memory, and it is deliberately not counted. So Zig knows the length
+without walking anything, and can still hand the pointer to a C function that
+expects the zero. You get both answers to the question above rather than
+choosing one.
+
+**Indexing gave 104, not `'h'`.** They are the same byte. `104` is what is
+stored and `'h'` is a way of printing it, which is chapter one's point
+arriving in a place where it matters.
+
+**Comparing needed `std.mem.eql`.** `==` on two slices asks whether they point
+at the same place, which is a real question and not the one you meant. This is
+the single most common mistake for someone arriving from a managed language,
+and it is worth over-learning: **compare contents with `std.mem.eql`, never
+with `==`.**
+
+**`"héllo".len` was 6 for five letters.** UTF-8 spends one byte on the letters
+in ASCII and two to four on everything else, so `é` costs two. A byte count
+and a character count are different questions with different answers. `.len`
+answers the byte one, because that is the one the machine can answer without
+inspecting anything.
+
+## Check yourself
+
+You have a `[]const u8` and you want its third character. What is wrong with
+`text[2]`?
+
+Nothing, if the text is ASCII. If it might not be, `text[2]` is the third
+*byte*, which could be the middle of a two-byte character, and you would get
+half of one. The honest version is to iterate codepoints with
+`std.unicode.Utf8View`, which is what
+[Unicode](https://www.ziglang.in/learn/standard-library/unicode/) covers. Most of the time you do
+not want a character at an index at all: you want to search, split, or
+compare, and those all work on bytes.
+
+## If you have written C
+
+You already know the terminator and what it costs:
+
+```c
+char *name = "hello";
+strlen(name);            /* walks the string every time you ask */
+if (name == "hello")     /* compares pointers, and compiles without complaint */
+strcpy(dest, name);      /* writes until the zero, wherever that turns out to be */
+```
+
+The third line is the one that has caused real damage. `strcpy` trusts a
+terminator it cannot verify, and a missing one means it keeps writing.
+
+Zig's slice carries the length next to the pointer, so functions do not have
+to trust anything. `[:0]const u8` is the type for the case where a C function
+needs the zero as well. The full set, including how to get a C string back
+out, is in [Sentinel
+Termination](https://www.ziglang.in/learn/language-basics/sentinel-termination/).
+
+Next: [Structs Are Layout](https://www.ziglang.in/learn/systems-from-scratch/structs-are-layout/),
+which is what happens when you put several values together.

@@ -1,0 +1,121 @@
+# Structs Are Layout
+
+> Fields sit next to each other, and the size is not the sum of the parts.
+
+Put a few values together under one name and you have a struct. In a managed
+language that is the end of the story. Here there is a second half: those
+values have to go somewhere, in some order, and the machine has an opinion
+about where.
+
+The opinion is called **alignment**. A processor reads memory in chunks, and a
+four-byte number that starts at an address divisible by four can be read in
+one go. One that straddles the boundary takes two reads and some assembly, and
+on some processors it is not allowed at all. So the rule is that a value of
+size N starts at an address divisible by N.
+
+Follow that rule through a struct whose fields are different sizes and
+something falls out that surprises people: **the struct is bigger than its
+fields**. The gaps inserted to keep each field aligned are called **padding**,
+and you are paying for them whether or not you know they are there.
+
+## The program
+
+```zig
+const std = @import("std");
+
+// `extern` means C's layout: fields in the order written, padded so each one
+// starts at an address the machine likes. That is the layout to understand
+// first, because it is the one another language or a file format agrees to.
+const Row = extern struct {
+    flag: u8,
+    count: u32,
+    tag: u8,
+};
+
+// The same three fields, largest first.
+const Packed = extern struct {
+    count: u32,
+    flag: u8,
+    tag: u8,
+};
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &stdout_writer.interface;
+
+    try out.print("the fields hold {d} bytes of data\n", .{@sizeOf(u8) + @sizeOf(u32) + @sizeOf(u8)});
+    try out.print("but @sizeOf(Row) = {d}\n\n", .{@sizeOf(Row)});
+
+    // Where each field actually starts. The gaps are the padding.
+    try out.print("flag  starts at byte {d}\n", .{@offsetOf(Row, "flag")});
+    try out.print("count starts at byte {d}\n", .{@offsetOf(Row, "count")});
+    try out.print("tag   starts at byte {d}\n\n", .{@offsetOf(Row, "tag")});
+
+    // Nothing changed except the order they were written in.
+    try out.print("same fields, largest first: {d} bytes\n", .{@sizeOf(Packed)});
+
+    // And what Zig does when you do not ask for C's layout: it is free to
+    // arrange the fields however it likes, which is usually the small one.
+    const Auto = struct { flag: u8, count: u32, tag: u8 };
+    try out.print("Zig's own layout for them:  {d} bytes\n", .{@sizeOf(Auto)});
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`15-groundwork.structs-are-layout`)*
+
+## What just happened
+
+**Six bytes of data occupied twelve.** `u8`, `u32`, `u8`. The offsets say why:
+`flag` at 0, `count` at **4**, `tag` at 8. `count` could not start at byte 1,
+because 1 is not divisible by 4, so three bytes went unused. Then the struct
+itself is padded to 12 so that an array of them keeps every `count` aligned
+too.
+
+**The same fields, largest first, took eight.** Nothing was removed. `count` at
+0, `flag` at 4, `tag` at 5, and two bytes of tail padding. Field order is a
+size decision, and in C it is entirely yours to get right. Four bytes on one
+struct is nothing; four bytes on ten million rows is 40 MB.
+
+**Zig's own layout also gave eight.** This is the part that differs from C.
+A plain `struct` in Zig has **no guaranteed layout**: the compiler may order
+the fields however it likes, and it generally packs them for you. `extern
+struct` is how you ask for C's rules. Ask for them when the layout has to
+match something outside your program: a C library, a file format, a network
+packet. Inside your own program, let the compiler do it.
+
+## Check yourself
+
+If you added a `u64` field to `Packed`, what would `@sizeOf` become?
+
+16. The `u64` needs an address divisible by 8, and the four bytes already used
+by `count` plus the two by `flag` and `tag` come to 6, so it starts at 8 and
+ends at 16. The struct's own alignment also rises to 8, because a struct is
+aligned to its largest field, which is what makes arrays of it work. Adding
+one 8-byte field to a 8-byte struct cost 8 bytes, and that is the ordinary
+case rather than a surprise.
+
+## If you have written C
+
+Same rules, same padding, same arithmetic. Two differences are worth knowing.
+
+C guarantees the declaration order, so you can reason about a struct's layout
+from its source and rely on it. Zig only guarantees that for `extern struct`
+and `packed struct`; a plain struct is the compiler's business. That is the
+better default. Most structs never leave your program, and packing them is
+free performance. It is the wrong default in exactly one place: the moment you
+assume otherwise at a boundary with C. Reach for `extern struct` there and the
+two languages agree.
+
+C also gives you `offsetof` from `<stddef.h>`; Zig's `@offsetOf` is a builtin
+and needs no include. The program above used it to show the gaps rather than
+asking you to take them on trust.
+
+The rest of the layout controls, `align`, `packed struct` for bit fields, and
+the C ABI in detail, are in the [memory layout](https://www.ziglang.in/learn/how-to/memory-layout/)
+recipe.
+
+Next: [Errors Are Values](https://www.ziglang.in/learn/systems-from-scratch/errors-are-values/),
+which is about what a function returns when it cannot do what you asked.

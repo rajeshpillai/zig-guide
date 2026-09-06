@@ -1,0 +1,112 @@
+# What Is an Ecto-Style ORM?
+
+> The Elixir design these chapters borrow from, explained for people who never wrote Elixir.
+
+This group builds a miniature ORM in the style of **Ecto**, the database
+library of the Elixir world. Most readers here have never written Elixir,
+so this page explains what that style is and why it is worth copying,
+before the following chapters build it in Zig.
+
+## The idea in one sentence
+
+Ecto splits database work into pieces that are plain data and pure
+functions, and funnels every actual database interaction through one
+explicit gateway called the **Repo**.
+
+## What that looks like
+
+In Ecto, an application defines a schema, builds queries as values, and
+hands them to the Repo:
+
+```elixir
+# Elixir (Ecto), for flavor only
+defmodule User do
+  schema "users" do
+    field :name, :string
+    field :age, :integer
+  end
+end
+
+query = from u in User, where: u.age > 18
+adults = Repo.all(query)
+```
+
+Three separable ideas are hiding in those lines:
+
+1. **The schema is a declaration**, not a class with behavior. It states
+   the shape of a row and nothing else.
+2. **A query is a value.** Building it runs no SQL; it can be composed,
+   passed around, and inspected. Only handing it to the Repo touches the
+   database.
+3. **The Repo is the only gateway.** There is no `user.save()`; records
+   do not know how to persist themselves. One object owns the
+   connection, and everything goes through it.
+
+## Why this maps so well to Zig
+
+Each of those ideas lands on a Zig feature almost exactly:
+
+| Ecto idea | Zig mechanism |
+| --- | --- |
+| schema as declaration | a plain struct, read by `@typeInfo` at compile time |
+| query as a value | a builder struct; chaining is just functions returning it |
+| Repo as the gateway | `Repo(Adapter)`, a type function with one stateful field |
+| validations on the schema | a `rules` declaration, discovered with `@hasDecl` |
+
+Zig even improves on the original in one respect: what Ecto checks when
+the query runs, Zig can check when the query **compiles**. A misspelled
+field in a filter is a compile error in the
+[query builder chapter](https://www.ziglang.in/learn/orm/query-builder/), not a
+runtime database error.
+
+## Why not Active Record?
+
+The other famous ORM shape is Active Record (Rails, Django): the record
+is an object that saves itself, `user.save()` and `User.find(1)`. The
+difference between the two designs is one thing only, and it is worth
+drawing.
+
+```
+Active Record
+
+  user.save()
+       │
+       └── the object knows about the database
+
+Ecto style
+
+  User        Query
+   │            │
+   └──── data ──┘
+         │
+        Repo
+         │
+      Database
+```
+
+The difference is where database behaviour lives. In Active Record, the
+record knows how to persist itself, so a `User` carries a connection
+with it wherever it goes. In the design these chapters build, a `User`
+stays data. It has no methods that touch a socket and no idea a database
+exists. `Repo` owns persistence, and it is the only thing that does.
+
+That sounds like extra plumbing, and it is. What you buy with it is that
+every piece can be tested alone: a schema is a struct, a query is a
+value you can inspect without running it, and the Repo is the single
+seam you swap in a test. The [Repo chapter](https://www.ziglang.in/learn/orm/repo/) exploits
+exactly that with a recording driver that never opens a connection.
+Active Record's convenience is real, and the bill arrives as a test
+suite that needs a live database to check a validation rule.
+
+## Where each idea lives in this group
+
+- Schema as declaration: [A Type Function as the Front Door](https://www.ziglang.in/learn/orm/schema-to-sql/)
+- Query as a value: [A Typed Query Builder](https://www.ziglang.in/learn/orm/query-builder/)
+- Declared validations: [Validation from Declarations](https://www.ziglang.in/learn/orm/validation-rules/)
+- Deriving writes from the schema: [Writing Rows](https://www.ziglang.in/learn/orm/insert-update/)
+- One gateway, faked in tests: [The Repo](https://www.ziglang.in/learn/orm/repo/)
+- Bracketing user code safely: [Transactions and errdefer](https://www.ziglang.in/learn/orm/transactions/)
+
+The Elixir snippet above is the only unverified code in this group; it
+is here as a reference point, not as something to run. Every Zig snippet
+that follows is compiled and executed by CI.

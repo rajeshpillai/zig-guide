@@ -1,0 +1,200 @@
+# Vendoring raylib
+
+> How to add raylib to a Zig project, why this one depends on the C source, and how the same game reaches a browser canvas.
+
+raylib is a C library for windows, drawing and sound. This chapter wires it into
+a Zig project.
+
+## The one line version, and why it fails
+
+raylib ships a `build.zig`. Using it should be one line:
+
+```zig
+const raylib = b.dependency("raylib", .{ .target = target, .optimize = optimize });
+```
+
+On Zig master today that line does not compile. Not the library. The line.
+
+```
+raylib/build.zig:95:10: error: member function expected 1 argument(s), found 2
+raylib/build.zig:762:23: error: no field named 'build_root' in struct 'Build'
+```
+
+Naming a package in `build.zig.zon` makes the build runner import that package's
+`build.zig`. Every dependency's build script is compiled before any of your code
+is. So a dependency whose build script has not caught up with Zig master fails
+your build before it reaches you.
+
+Both errors are in raylib's Wayland detection, which this project does not use.
+That makes no difference. The whole build script has to type-check before your
+code is reached.
+
+`raylib-zig`, the usual binding, is further behind. It pins raylib 5.5 and calls
+three standard library functions that no longer exist on master.
+
+Neither project is doing something wrong. They track releases. This guide tracks
+master. That gap is where the breakage lives, and it is better to know that
+before you take the dependency.
+
+## Depend on the C instead
+
+raylib's C changes far more slowly than Zig's build API. So this project depends
+on the C.
+
+### 1. Fetch the source
+
+Clone raylib at a pinned commit into a directory the build can read. Pin it: an
+unpinned dependency changes under you.
+
+```bash
+git init vendor/raylib
+git -C vendor/raylib remote add origin https://github.com/raysan5/raylib.git
+git -C vendor/raylib fetch --depth 1 origin <commit>
+git -C vendor/raylib checkout FETCH_HEAD
+```
+
+Keep `src/` and the licence. Delete the rest. raylib's `examples/` directory is
+72 MB by itself, and none of it gets compiled. `fetch-raylib.sh` in this project
+does those steps and records the commit it fetched.
+
+Add `vendor/` to `.gitignore`. The script is the record. The vendored copy is
+not.
+
+### 2. Do not declare it in `build.zig.zon`
+
+This is the part that matters. `vendor/raylib` stays a plain directory of C
+files. The build runner imports the build script of every declared package and
+never looks at a plain directory, so raylib's `build.zig` sits there unread.
+
+### 3. Compile the C
+
+```zig
+const mod = b.createModule(.{
+    .target = target,
+    .optimize = optimize,
+    .link_libc = true,
+});
+const lib = b.addLibrary(.{ .name = "raylib", .linkage = .static, .root_module = mod });
+
+mod.addCMacro("PLATFORM_DESKTOP_GLFW", "");
+mod.addCMacro("GRAPHICS_API_OPENGL_33", "");
+mod.addCMacro("_GLFW_X11", "");
+
+mod.addIncludePath(b.path("vendor/raylib/src/platforms"));
+mod.addIncludePath(b.path("vendor/raylib/src/external/glfw/include"));
+mod.addCSourceFiles(.{
+    .root = b.path("vendor/raylib/src"),
+    .files = &.{ "rcore.c", "rshapes.c", "rtextures.c", "rtext.c", "raudio.c", "rglfw.c" },
+    .flags = &.{"-std=gnu99"},
+});
+
+for ([_][]const u8{ "GL", "X11", "Xrandr", "Xinerama", "Xi", "Xcursor" }) |name| {
+    mod.linkSystemLibrary(name, .{});
+}
+```
+
+That is seven C files. `rglfw.c` is raylib's bundled GLFW, the windowing layer.
+The rest are raylib's modules, switched on and off by the `SUPPORT_MODULE_*`
+macros.
+
+On Debian or Ubuntu the system libraries come from:
+
+```bash
+sudo apt-get install libx11-dev libxrandr-dev libxinerama-dev \
+                     libxi-dev libxcursor-dev libgl1-mesa-dev
+```
+
+No ALSA package. raylib's audio backend loads libasound at runtime rather than
+including its header, so the game compiles without it and stays silent where
+there is no device.
+
+### 4. Turn `raylib.h` into a Zig module
+
+`@cImport` was removed from the language. C headers now arrive through a build
+step.
+
+```zig
+const translated = b.addTranslateC(.{
+    .root_source_file = b.path("vendor/raylib/src/raylib.h"),
+    .target = target,
+    .optimize = optimize,
+    .link_libc = true,
+});
+const rl = translated.createModule();
+rl.linkLibrary(lib);
+
+exe_mod.addImport("rl", rl);
+```
+
+### 5. Use it
+
+```zig
+const rl = @import("rl");
+
+pub fn main() void {
+    rl.InitWindow(540, 960, "Lane Dodger");
+    defer rl.CloseWindow();
+
+    while (!rl.WindowShouldClose()) {
+        rl.BeginDrawing();
+        rl.ClearBackground(rl.RAYWHITE);
+        rl.DrawText("hello", 20, 20, 24, rl.BLACK);
+        rl.EndDrawing();
+    }
+}
+```
+
+Names come through translate-c unchanged, so raylib's own documentation applies
+directly.
+
+## The whole thing
+
+<GameSource file="build.zig" decl="raylibModule" />
+
+The macros are copied from raylib's own build script. That is the cost of this
+approach. When raylib changes its configuration, this function has to follow. It
+is about forty lines, and a mismatch fails at compile time rather than quietly
+producing a different library.
+
+## The same source, on a canvas
+
+The platform choice reaches two places: the raylib module below, and a separate
+`addWeb` step that runs `emcc`.
+
+Desktop is `PLATFORM_DESKTOP_GLFW` with OpenGL 3.3 and raylib's bundled GLFW.
+Web is `PLATFORM_WEB` with GLES 3, and `rglfw.c` is not compiled at all, because
+Emscripten supplies its own GLFW bound to the canvas.
+
+Zig compiles the game and raylib to a static library for `wasm32-emscripten`.
+`emcc` does the link. The JavaScript glue, the GL context and the canvas setup
+come from Emscripten.
+
+<GameSource file="build.zig" decl="addWeb" />
+
+Two flags there prevent silent failures.
+
+`-sMIN_WEBGL_VERSION=2`. GLES 3 emits `#version 300 es` shaders, which need a
+WebGL 2 context. Emscripten creates a WebGL 1 one unless told otherwise. The
+symptom is a game that loads, runs, reports no error, and compiles not one
+shader.
+
+`.sanitize_c = .off` on the raylib module. Zig instruments C with UBSan in the
+debug modes and links its own runtime to catch the reports. That runtime comes
+with a Zig link, and this link is done by `emcc`, so the instrumentation leaves
+dozens of undefined `__ubsan_*` symbols behind.
+
+## Running it
+
+```bash
+cd examples/lane-dodger
+./fetch-raylib.sh
+zig build run -Doptimize=ReleaseFast
+```
+
+The browser build is a 200 KB `.wasm` plus about the same amount of JavaScript.
+It needs the Emscripten SDK:
+
+```bash
+zig build web -Doptimize=ReleaseFast
+python3 -m http.server -d zig-out/web 8080
+```

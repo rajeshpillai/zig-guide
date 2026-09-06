@@ -1,0 +1,160 @@
+# Installation
+
+> Getting a Zig master build, and why this guide needs one.
+
+This guide tracks **Zig master**, not a tagged release. Every snippet here is
+compiled and executed against a fresh master build nightly, which is what
+keeps it correct. It also means a stable release will not compile some of
+these examples.
+
+## The whole path
+
+```
+1. Download Zig master
+        │
+        ▼
+2. Put zig on PATH
+        │
+        ▼
+3. Run zig version
+        │
+        ▼
+4. Install a matching ZLS
+        │
+        ▼
+5. Write hello world
+```
+
+Steps 1 and 2 are the only ones that differ by platform. The rest are the same
+everywhere, and step 5 is
+[hello world](https://www.ziglang.in/learn/getting-started/hello-world/), the next chapter.
+
+## Getting master
+
+The simplest route is a prebuilt tarball from
+[ziglang.org/download](https://ziglang.org/download/). Take the one under
+**master**, not the latest release. Unpack it anywhere and put that directory
+on your `PATH`.
+
+<details>
+<summary>Linux</summary>
+
+```bash
+curl -L https://ziglang.org/builds/zig-x86_64-linux-0.17.0-dev.tar.xz -o zig.tar.xz
+tar xf zig.tar.xz -C ~/.local
+echo 'export PATH="$HOME/.local/zig-x86_64-linux-0.17.0-dev:$PATH"' >> ~/.bashrc
+```
+
+The exact filename changes with every master build, so copy the current one
+from the download page rather than pasting this URL.
+
+</details>
+
+<details>
+<summary>macOS</summary>
+
+```bash
+brew install zig --HEAD
+```
+
+Homebrew's `--HEAD` tracks master. If you would rather not build from source,
+take the `aarch64-macos` tarball from the download page and put it on `PATH`
+the same way as the Linux instructions above.
+
+</details>
+
+<details>
+<summary>Windows</summary>
+
+```powershell
+winget install zig.zig
+```
+
+`winget` installs the tagged release, which is not what this guide targets.
+For master, take the `x86_64-windows` zip from the download page, unpack it,
+and add that folder to `Path` under System Properties, Environment Variables.
+
+</details>
+
+If you switch versions often, a version manager saves the manual step and
+works the same on all three:
+
+```bash
+# zvm
+zvm install master && zvm use master
+
+# asdf
+asdf install zig master && asdf global zig master
+```
+
+## Check it
+
+```bash
+zig version
+# 0.17.0-dev.xxxx+xxxxxxxxx
+```
+
+A version without `-dev` in it is a tagged release, and several chapters here
+will not build against it. If `zig` is not found at all, step 2 is the one
+that did not take.
+
+## Which version is this site?
+
+The exact compiler that built and verified every snippet on this site is shown
+in the footer. If your local `zig version` differs, expect small divergences:
+master moves daily.
+
+## An editor
+
+[ZLS](https://github.com/zigtools/zls) is the language server, and it must
+match your compiler version reasonably closely. Build it from source against
+your Zig if you are on master; a ZLS built for an older release will report
+spurious errors on current syntax.
+
+## Why master, and what it costs you
+
+Zig has not had a 1.0 release, and the language is still changing in ways that
+break code. Writing against a tagged release means the examples are stable and
+wrong within a year; writing against master means they are correct today and
+may need a fix tomorrow. This guide takes the second trade and pays for it
+with a nightly build that recompiles and reruns every snippet against a fresh
+compiler.
+
+What that means for you as a reader: if something here does not compile on
+your machine, check `zig version` first. A mismatch of a few weeks is usually
+harmless, a mismatch across a tagged release usually is not.
+
+If you would rather be on a release, that is a reasonable choice for shipping
+software. [Coming from an older
+Zig](https://www.ziglang.in/learn/getting-started/coming-from-older-zig/) lists what differs, so you
+can still read this guide.
+
+## Keeping it current
+
+Master moves daily. Updating weekly is a habit worth having. The changes then
+arrive in small pieces that are each easy to absorb. Six months of them
+arriving at once is a project.
+
+```bash
+zvm install master && zvm use master
+```
+
+When an update does break your code, the error message is usually the whole
+explanation: a renamed function, a new parameter, a moved namespace. The
+[what's new](https://www.ziglang.in/whats-new/) page records the changes that affected this guide,
+which is a reasonable proxy for the ones likely to affect you.
+
+## Nothing else required
+
+Zig is a single binary. It ships its own C compiler, cross-compiles to every
+supported target out of the box, and needs no separate build tool (`zig build`
+is part of it). There is no toolchain to assemble.
+
+There is also no package manager to install and no formatter to configure:
+`zig fmt` is built in and has no options to argue about. Debugging needs no
+special setup either. Point your existing debugger at the binary. The download
+is the environment.
+
+Disk space is the one thing to be aware of: the tarball is several hundred
+megabytes, mostly libc sources and headers for every supported target. That is
+the price of the cross-compilation story, and it is paid once.

@@ -1,0 +1,139 @@
+# Difficulty You Can Prove
+
+> Row spacing derived from what is physically possible, a bot that proves the course is solvable, and a reaction time model for playability.
+
+The course generator lays down rows of blocks. The rows have to get harder and
+stay possible.
+
+Getting that wrong does not look like a bug from the outside. Every row still
+leaves a lane open. The game still runs. Nothing fails. It has just become
+unwinnable, and the only report is that people stop playing.
+
+## There is a floor under the spacing
+
+Between one row arriving and the next, the player may have to cross the whole
+board. That costs two lane changes. The player also cannot start while the
+current row is level with them, because moving sideways into a block beside you
+is a crash.
+
+The tightest spacing that is still winnable is the sum of those two.
+
+<GameSource file="src/sim/sim.zig" decl="fairnessFloor" />
+
+The second term shrinks as the game speeds up, because a faster row spends less
+time beside you. The first term does not change with speed at all.
+
+## Derive the spacing, do not tune it
+
+The first version had two hand-picked constants: an easy spacing and a hard one.
+The game interpolated between them. It worked, but it left three numbers that
+had to agree with each other, with nothing anywhere saying so. Change the lane
+change time and the hard spacing quietly becomes unreachable.
+
+Now the spacing is computed from the floor and decays towards it.
+
+<GameSource file="src/sim/sim.zig" decl="rowGapSeconds" />
+
+The decay never arrives, which fixes a second problem. The earlier curve reached
+its hardest setting at sixty seconds and then held there. A good enough player
+never lost at all.
+
+The margin above unwinnable is now one named constant.
+
+<GameSource file="src/sim/config.zig" decl="gap_safety" />
+
+## Prove it by playing it
+
+All of that is still an argument about four constants. Arguments about constants
+are wrong more often than anyone expects, so a program plays the game instead.
+
+<GameSource file="src/sim/bot.zig" decl="targetLane" />
+
+The policy looks at the next two rows. It picks a lane open in the first row,
+refuses a crossing it cannot finish in time, and refuses a path that would slide
+through a block currently level with it.
+
+Then a test runs it for four minutes of game time at every seed.
+
+<GameSource file="src/sim/tests.zig" decl="solvable course: the bot survives a long run at every seed" />
+
+The test failed the first time it ran, at seed 21, after 8.2 seconds of play.
+
+## What it found
+
+The bot was steering into blocks it believed it had passed. It discarded
+anything whose centre was behind the player's centre, measured with the block's
+own half height. The right number is the sum of both half heights. A block whose
+centre is 41 units behind you still overlaps you when both bodies are 26 units
+tall.
+
+<GameSource file="src/sim/bot.zig" decl="reach" />
+
+The regression test states the case in its title:
+
+<GameSource
+  file="src/sim/bot.zig"
+  decl="the bot will not slide into a block that is still level with it"
+/>
+
+Every unit test passed while this bug existed. The collision code was correct on
+its own, and so were the generator and the spacing. What was wrong was the
+reasoning that joined them together, and the only thing that exercises that is a
+run.
+
+## Solvable is not the same as playable
+
+A bot with no reaction time surviving a course proves the course is solvable. It
+says nothing about whether a person can play it.
+
+So the same policy runs again with a delay in front of it.
+
+<GameSource file="src/sim/tests.zig" decl="Human" />
+
+It models pure latency. The decision made from the world as it looked some ticks
+ago is the one acted on now. An earlier version counted down a timer and reset
+it whenever the ideal lane changed. That livelocked whenever the policy was torn
+between two lanes. The model reported the game as far harder than it was, and it
+took a while to notice the model was at fault rather than the game.
+
+The numbers it produces are the difficulty curve:
+
+| Reaction | Mean run |
+| --- | --- |
+| 100 ms | 58 s |
+| 150 ms | 46 s |
+| 200 ms | 30 s |
+| 250 ms | 26 s |
+| 300 ms | 24 s |
+
+That gives half a minute for an unhurried player and a minute for a sharp one.
+Everybody loses eventually, which is the part that took the most work to get
+right.
+
+The test asserts the shape rather than the values, so the numbers can be tuned
+without rewriting it.
+
+<GameSource file="src/sim/tests.zig" decl="a run lasts about as long as a hyper casual run should" />
+
+The last assertion caught the flat difficulty curve. A sharp player was
+averaging the full three hundred second cap, and every other test was green.
+
+## Two smaller things
+
+**The opening is gentle.** Inside a grace window, no row blocks more than one
+lane. A single nudge answers everything the game asks in the first few seconds.
+
+This one is a judgement call rather than a measurement. The reaction time model
+already knows the controls perfectly, so it cannot show what a player still
+hunting for the keys runs into. Turning the window off moves the modelled 200 ms
+average by three tenths of a second.
+
+<GameSource file="src/sim/config.zig" decl="grace_seconds" />
+
+**Coins mark the safe lane.** A coin only ever goes in a lane its own row leaves
+open. When a row blocks two of three lanes, the coin sits in the one gap. A
+player chasing coins is being steered through the course without being told
+anything. It is four lines in the spawner, and it is the only tutorial the game
+has.
+
+<GameSource file="src/sim/sim.zig" decl="spawnRow" />
