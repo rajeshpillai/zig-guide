@@ -1,0 +1,20 @@
+appending 1..16
+  append  1: capacity  1, copied  0
+  append  2: capacity  2, copied  1
+  append  3: capacity  4, copied  2
+  append  5: capacity  8, copied  4
+  append  9: capacity 16, copied  8
+16 appends: 5 growths, 15 values copied in total
+
+copies < 2 * appends -> true
+
+len=16 capacity=16 last=16
+after reserving 64, then 23 more appends:
+  len=39 capacity=64 growths=6
+  buffer moved during those 23 appends -> false
+
+pop() -> 39, len is now 38
+toOwnedSlice: caller holds 38 values, array is len=0 capacity=0
+
+reaching 39 values took 6 buffer allocations
+the same values in a linked list take one allocation each

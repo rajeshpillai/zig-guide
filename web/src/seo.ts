@@ -263,20 +263,24 @@ export const SECTIONS: Record<string, SectionMeta> = {
   "data-structures": {
     seoTitle: "Zig Data Structures from Scratch",
     description:
-      "Building containers in Zig: a linked list with an allocator you own, " +
+      "Building containers in Zig: a growable array and the doubling that makes " +
+      "append cheap, a linked list with an allocator you own, " +
       "generic containers as comptime type functions, the intrusive lists std " +
       "actually ships, a binary search tree, AVL rotations, and a hash map with " +
       "open addressing.",
     lede:
       "The standard library hands you an ArrayList and a hash map. These chapters " +
-      "build them. A linked list first, because it is the smallest structure that " +
-      "forces you to answer who allocates and who frees. Then the same list made " +
+      "build them. The growable array first, because a length, a capacity and a " +
+      "doubling rule are the whole of it, and every container after it assumes " +
+      "one. Then a linked list, the smallest structure that forces you to answer " +
+      "who allocates and who frees. Then the same list made " +
       "generic by a comptime type function, which is all Zig's generics are. Then " +
       "the intrusive lists std actually ships today, which look nothing like the " +
       "ones in older tutorials. Then a binary search tree, the sorted input that " +
       "ruins it, and the rotations that fix it. Finally a hash map, where deleting " +
       "without a tombstone quietly loses your keys.",
     takeaways: [
+      "Doubling the buffer on growth is what makes append amortised O(1). Growing by a fixed number of slots makes building n values cost O(n^2).",
       "Who allocates and who frees is decided once per container, and then it shows up in every signature that container has.",
       "A generic container is a comptime function that takes a type and returns a type. `ArrayList(u8)` is a call.",
       "The lists std ships today are intrusive: the node lives inside your struct. Tutorials written a year ago show a different API.",
