@@ -31,6 +31,30 @@ test "width, alignment and fill" {
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:0>5}", .{42}), "00042"));
 }
 
+test "a width makes a signed integer carry its sign" {
+    var buf: [64]u8 = undefined;
+
+    // The same width against three types. A literal is `comptime_int` and
+    // prints bare, which is what the tests above are quietly relying on.
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{42}), "   42"));
+
+    // A signed value prints a leading `+` once a width is given. The sign
+    // belongs to the number, so the fill goes in front of it rather than
+    // between the sign and the digits.
+    const signed: i32 = 42;
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{signed}), "  +42"));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:<5}", .{signed}), "+42  "));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:0>5}", .{signed}), "00+42"));
+
+    // An unsigned value has no sign to print, so a width pads as expected.
+    const unsigned: u32 = 42;
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{unsigned}), "   42"));
+
+    // Drop the width and the `+` goes away, which is why this is easy to
+    // miss until a column of numbers is being lined up.
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d}", .{signed}), "42"));
+}
+
 test "float precision" {
     var buf: [64]u8 = undefined;
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:.2}", .{3.14159}), "3.14"));

@@ -52,6 +52,30 @@ Recipes](/learn/standard-library/string-recipes/).
 
 Escape a literal brace by doubling it: `{{` and `}}`.
 
+## A width makes a signed integer show its sign
+
+Those outputs are what a literal gives you, and a literal is `comptime_int`.
+Give the same width to a signed value and a `+` appears in front of it:
+
+```zig
+const signed: i32 = 42;
+"{d:5}"    // "  +42"
+"{d:<5}"   // "+42  "
+"{d:0>5}"  // "00+42"
+"{d}"      // "42"     no width, no sign
+```
+
+An unsigned value has nothing to sign, so `{d:5}` on a `u32` pads to `"   42"`
+the way the table above says. The `+` counts towards the width, and the fill
+goes in front of it rather than between the sign and the digits, which is what
+turns `00042` into `00+42`.
+
+The bug this causes survives a review. The format string is right and the type
+is right, and the column is simply one character narrower than the numbers
+going into it. It shows up when a heading stops lining up with a table printed
+from an `i64`, and the fix is a cast to the unsigned type when the value
+cannot be negative.
+
 ## `bufPrint` and `allocPrint` moved
 
 If you have written any Zig before, you know the first two rows of that table

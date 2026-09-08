@@ -523,8 +523,9 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "one, because a snippet here runs under WASI in a browser tab, so each " +
       "chapter embeds its input as text and parses it the way it would parse a " +
       "file. The algorithm is unaffected. What the browser buys in exchange is " +
-      "that every program prints the steps it took, and the trace printed in " +
-      "the chapter is the trace CI diffed against the compiler this morning.",
+      "that every program prints the steps it took, and the trace quoted in " +
+      "the chapter is the trace CI diffed against the compiler the footer " +
+      "names.",
     takeaways: [
       "Binary search is a shrinking window, not a clever midpoint. Every index that could be the answer stays inside `items[lo..hi]`, and the loop ends when nothing is left to look at.",
       "The classic off-by-one does not return a wrong index. It stops returning, because a window of one has a middle equal to its own start.",
