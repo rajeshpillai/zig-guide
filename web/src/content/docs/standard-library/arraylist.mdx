@@ -57,14 +57,36 @@ is amortised rather than free.
 invalidates any slice you were holding. Take `.items` when you need it; do not
 stash it across mutations.
 
-This is the bug to internalise, because nothing catches it. The old slice is
-still a valid pointer and a valid length; it just points into memory that has
-been freed. It reads plausible data or crashes, depending on what the
-allocator did next. The same applies to a pointer to an element:
-`&list.items[0]` is invalid after any append that grows.
+Left alone, nothing catches this. The old slice is still a valid pointer and
+a valid length; it just points into memory that has been freed. It reads
+plausible data or crashes, depending on what the allocator did next. The same
+applies to a pointer to an element: `&list.items[0]` is invalid after any
+append that grows.
 
 Iterating while appending is the common instance. Collect what you want to add
 into a second list, then append it after the loop.
+
+## Locking the buffer in place
+
+`lockPointers` and `unlockPointers` mark a region where the buffer is not
+allowed to move. Inside it, an operation that would reallocate or free panics
+rather than invalidating a pointer you are still holding:
+
+```zig
+list.lockPointers();
+const first = &list.items[0];
+first.* += 10;
+list.unlockPointers();
+```
+
+It fires on the invalidation, not on the call. An `append` that fits in the
+existing capacity moves nothing and passes; the same `append` panics on the
+iteration that has to grow the buffer. Methods that always invalidate assert
+directly, `insert`, `swapRemove` and `toOwnedSlice` among them.
+
+The field behind it is a `std.debug.SafetyLock`, which checks nothing outside
+a safety build. Debug and ReleaseSafe have it. ReleaseFast and ReleaseSmall do
+not, and the wasm behind the Run button on this page is ReleaseSmall.
 
 ## Preallocate when you can
 

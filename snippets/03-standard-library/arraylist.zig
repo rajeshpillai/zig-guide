@@ -64,3 +64,21 @@ test "take ownership of the buffer" {
     defer gpa.free(slice);
     try expect(std.mem.eql(u8, slice, "owned"));
 }
+
+test "lock the buffer in place while holding a pointer into it" {
+    const gpa = std.testing.allocator;
+    var list: std.ArrayList(u32) = .empty;
+    defer list.deinit(gpa);
+
+    try list.appendSlice(gpa, &.{ 1, 2, 3 });
+
+    // Between these two calls the buffer may not move, so a pointer into
+    // it stays good. Anything that would reallocate panics in a safety
+    // build instead of quietly invalidating `first`.
+    list.lockPointers();
+    const first = &list.items[0];
+    first.* += 10;
+    list.unlockPointers();
+
+    try expect(list.items[0] == 11);
+}
