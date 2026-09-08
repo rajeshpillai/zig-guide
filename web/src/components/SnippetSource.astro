@@ -1,0 +1,51 @@
+---
+/**
+ * One declaration out of a snippet, quoted for review rather than for running.
+ *
+ * `<Playground>` shows a whole program under a Run button, which is the right
+ * shape for a program a reader meets once. A chapter that walks through a
+ * program a piece at a time wants the pieces on the page too, and pasting them
+ * into the prose would put a second copy of verified code where nothing checks
+ * it. This reads the piece out of the same file the manifest points at, so the
+ * lines above the Run button and the lines beside the explanation cannot
+ * disagree.
+ *
+ * The name is the snippet slug, so an unknown one fails the build the way a
+ * bad `<Playground name>` does, and an unknown declaration fails the way a bad
+ * `<GameSource decl>` does.
+ */
+import SourceQuote from "./SourceQuote.astro";
+import { findSnippet, snippetSource } from "../snippets";
+import { extractDecl } from "../source-quote";
+import { REPO_URL } from "../seo";
+
+interface Props {
+  /** Snippet slug, e.g. `23-competitive.binary-search`. */
+  name: string;
+  /** One declaration out of it. Omit for the whole file. */
+  decl?: string;
+  /** For a struct that carries methods: show the fields and stop. */
+  fields?: boolean;
+}
+
+const { name, decl, fields = false } = Astro.props;
+
+// `snippetSource` strips the `//!` header, which is metadata for `build.zig`
+// rather than anything a reader is meant to see. Doing it before the cut also
+// keeps a header line out of a declaration quoted from the top of a file.
+const entry = await findSnippet(name);
+const text = await snippetSource(entry);
+const code = decl ? extractDecl(text, decl, entry.source, fields, "SnippetSource") : text;
+
+// `main` rather than a commit, for the same reason `GameSource` does it: the
+// deployed site is built from `main`, so the link shows the revision the block
+// above was read from.
+const href = `${REPO_URL}/blob/main/${entry.source}`;
+---
+
+<SourceQuote
+  code={code}
+  path={entry.source}
+  href={href}
+  label={decl && `${decl}${fields ? " fields" : ""}`}
+/>

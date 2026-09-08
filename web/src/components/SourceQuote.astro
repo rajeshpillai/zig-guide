@@ -1,0 +1,78 @@
+---
+/**
+ * A read-only block of real source, with a caption naming the file it came
+ * from and linking to it on GitHub.
+ *
+ * The presentation half of `GameSource` and `SnippetSource`. Both read code off
+ * disk at build time and both want the same frame around it, so the frame is
+ * here: a caption that drifted from one component to the other would be two
+ * kinds of quoted code on the same page looking like two different things.
+ */
+import { Code } from "astro:components";
+
+/**
+ * The same pair `astro.config.mjs` gives fenced blocks in prose, repeated for
+ * the same reason `Playground.astro` repeats it: `<Code>` takes its themes as a
+ * prop and does not read the markdown config.
+ */
+const CODE_THEMES = {
+  light: "github-light-high-contrast",
+  dark: "github-dark-high-contrast",
+} as const;
+
+interface Props {
+  /** The code, already read and already cut down. */
+  code: string;
+  /** Path from the repository root, shown in the caption. */
+  path: string;
+  /** Link to that path on GitHub. */
+  href: string;
+  /** Named to the right of the path when only part of the file is shown. */
+  label?: string;
+  /** Highlighting language. Zig unless the file is a shell script. */
+  lang?: "zig" | "bash";
+}
+
+const { code, path, href, label, lang = "zig" } = Astro.props;
+---
+
+<figure class="source-quote">
+  <figcaption>
+    <a href={href} rel="noopener">{path}</a>
+    {label && <span class="decl">{label}</span>}
+  </figcaption>
+  <Code code={code} lang={lang} themes={CODE_THEMES} defaultColor={false} />
+</figure>
+
+<style>
+  .source-quote {
+    margin: 1.5rem 0;
+  }
+
+  .source-quote figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .source-quote figcaption a {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+    color: inherit;
+    text-decoration-color: var(--border);
+    text-underline-offset: 0.2em;
+  }
+
+  .source-quote figcaption a:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
+  }
+
+  .decl::before {
+    content: "·";
+    margin-right: 0.5rem;
+  }
+</style>

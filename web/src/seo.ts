@@ -511,6 +511,28 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "needs the Emscripten SDK, which CI does not carry, so the playable " +
       "artefacts on this page are built by hand and committed.",
   },
+  "competitive-programming": {
+    seoTitle: "Zig for Competitive Programming: Algorithms That Print Their Working",
+    description:
+      "Contest algorithms written in Zig, one complete program per chapter. " +
+      "Binary search first: the half-open window, the invariant that keeps it " +
+      "correct, the off-by-one that stops the loop ending, and the two bounds " +
+      "the standard library already ships.",
+    lede:
+      "A contest problem reads its input from stdin. Nothing on this site has " +
+      "one, because a snippet here runs under WASI in a browser tab, so each " +
+      "chapter embeds its input as text and parses it the way it would parse a " +
+      "file. The algorithm is unaffected. What the browser buys in exchange is " +
+      "that every program prints the steps it took, and the trace printed in " +
+      "the chapter is the trace CI diffed against the compiler this morning.",
+    takeaways: [
+      "Binary search is a shrinking window, not a clever midpoint. Every index that could be the answer stays inside `items[lo..hi]`, and the loop ends when nothing is left to look at.",
+      "The classic off-by-one does not return a wrong index. It stops returning, because a window of one has a middle equal to its own start.",
+      "`(lo + hi) / 2` adds two indices that are each valid and whose sum need not be. `lo + (hi - lo) / 2` costs nothing and cannot overflow.",
+      "Two bounds answer more than one search does. Where a value starts and where it ends is a count, and getting it needs no scan.",
+      "`std.sort.lowerBound` passes the key first and the element second. A comparator written the other way round compiles and returns a plausible wrong index.",
+    ],
+  },
 };
 
 /** Copy for a group index (a body of work that lives one directory deeper). */

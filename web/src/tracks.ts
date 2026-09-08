@@ -96,6 +96,14 @@ export const TRACKS: Track[] = [
     // the same one the other two teach, applied where it is least expected.
     sections: ["orm", "url-shortener", "lane-dodger"],
   },
+  {
+    title: "Practice",
+    blurb: "The algorithms a contest problem assumes you already have, each one printing the steps it took.",
+    // Last, because it is the one track that is not building towards
+    // anything. A reader arrives with a problem and leaves with an
+    // algorithm, and the chapters can be read in any order.
+    sections: ["competitive-programming"],
+  },
 ];
 
 /**

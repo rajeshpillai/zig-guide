@@ -2,21 +2,12 @@
 /**
  * A block of the game's real source, read off disk at build time.
  *
- * See `src/game-source.ts` for why the chapters quote nothing by hand.
+ * See `src/game-source.ts` for why the chapters quote nothing by hand, and
+ * `SourceQuote.astro` for the frame drawn around it.
  */
-import { Code } from "astro:components";
+import SourceQuote from "./SourceQuote.astro";
 import { gameSource } from "../game-source";
 import { REPO_URL } from "../seo";
-
-/**
- * The same pair `astro.config.mjs` gives fenced blocks in prose, repeated for
- * the same reason `Playground.astro` repeats it: `<Code>` takes its themes as a
- * prop and does not read the markdown config.
- */
-const CODE_THEMES = {
-  light: "github-light-high-contrast",
-  dark: "github-dark-high-contrast",
-} as const;
 
 interface Props {
   /** Path under `examples/lane-dodger/`, e.g. `src/sim/pool.zig`. */
@@ -31,49 +22,17 @@ interface Props {
 
 const { file, decl, fields = false, lang = "zig" } = Astro.props;
 const code = await gameSource(file, decl, fields);
+const path = `examples/lane-dodger/${file}`;
 
 // `main` rather than a commit: the deployed site is built from `main`, so the
 // link shows the same revision the block above was read from.
-const source = `${REPO_URL}/blob/main/examples/lane-dodger/${file}`;
+const href = `${REPO_URL}/blob/main/${path}`;
 ---
 
-<figure class="game-source">
-  <figcaption>
-    <a href={source} rel="noopener">examples/lane-dodger/{file}</a>
-    {decl && <span class="decl">{decl}{fields && " fields"}</span>}
-  </figcaption>
-  <Code code={code} lang={lang} themes={CODE_THEMES} defaultColor={false} />
-</figure>
-
-<style>
-  .game-source {
-    margin: 1.5rem 0;
-  }
-
-  .game-source figcaption {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    align-items: baseline;
-    margin-bottom: 0.4rem;
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
-
-  .game-source figcaption a {
-    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
-    color: inherit;
-    text-decoration-color: var(--border);
-    text-underline-offset: 0.2em;
-  }
-
-  .game-source figcaption a:hover {
-    color: var(--accent);
-    text-decoration-color: currentColor;
-  }
-
-  .decl::before {
-    content: "·";
-    margin-right: 0.5rem;
-  }
-</style>
+<SourceQuote
+  code={code}
+  path={path}
+  href={href}
+  label={decl && `${decl}${fields ? " fields" : ""}`}
+  lang={lang}
+/>
