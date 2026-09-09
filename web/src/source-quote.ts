@@ -54,6 +54,16 @@ export function extractDecl(
     // A declaration with no body ends on its own line.
     if (!lines[i].includes("{")) return lines.slice(start, i + 1).join("\n");
 
+    // So does one whose braces open and close on the same line, which is what
+    // a short array literal looks like. Without this the scan below runs
+    // straight past it hunting for a closing brace at this indentation, finds
+    // the end of some later declaration, and quotes everything in between.
+    // It fails silently, which is the reason it is worth a special case: the
+    // chapter renders, the build passes, and the block is simply wrong.
+    const opens = (lines[i].match(/\{/g) ?? []).length;
+    const closes = (lines[i].match(/\}/g) ?? []).length;
+    if (opens === closes) return lines.slice(start, i + 1).join("\n");
+
     const closer = `${indent}}`;
     for (let j = i + 1; j < lines.length; j++) {
       if (lines[j] === closer || lines[j].startsWith(`${closer};`)) {
