@@ -1,0 +1,54 @@
+12 packages, 4 days
+    5  3  8  2  9  4  7  6  1  8  3  5
+  heaviest 9, total 61
+
+search range: [9, 61], 53 candidates
+
+capacity 35, packed in arrival order
+  day 1:  5  3  8  2  9  4                    load 31
+  day 2:  7  6  1  8  3  5                    load 30
+  2 days against a limit of 4 -> feasible
+
+binary search over the capacities
+  step   lo   hi  mid  days  ok   window after
+     1    9   61   35     2  yes  [  9, 35]  27 left
+     2    9   35   22     4  yes  [  9, 22]  14 left
+     3    9   22   15     6  no   [ 16, 22]  7 left
+     4   16   22   19     4  yes  [ 16, 19]  4 left
+     5   16   19   17     4  yes  [ 16, 17]  2 left
+     6   16   17   16     4  yes  [ 16, 16]  1 left
+  window closed after 6 steps on capacity 16
+  plain firstFeasible agrees -> true
+
+either side of the boundary
+capacity 15, packed in arrival order
+  day 1:  5  3                                load  8
+  day 2:  8  2                                load 10
+  day 3:  9  4                                load 13
+  day 4:  7  6  1                             load 14
+  day 5:  8  3                                load 11
+  day 6:  5                                   load  5
+  6 days against a limit of 4 -> too slow
+
+capacity 16, packed in arrival order
+  day 1:  5  3  8                             load 16
+  day 2:  2  9  4                             load 15
+  day 3:  7  6  1                             load 14
+  day 4:  8  3  5                             load 16
+  4 days against a limit of 4 -> feasible
+
+every capacity from 9 to 61, '#' means feasible
+    9 .......############################################## 61
+  first '#' at 16, binary search said 16, agree -> true
+  the predicate flips 1 time, so it is monotonic
+  predicate calls: 53 scanning, 6 searching
+
+with the high bound set to total / days = 15
+  the search returns 15 and feasible(15) = no
+  6 days needed there, limit 4
+
+now require every day to fill at least half the hold
+    9 .......####...####....#############.................# 61
+  the predicate flips 7 times, so there is no boundary
+  binary search returns 31, first '#' is at 16
+  feasibleAndFull(31) = true, and 8 smaller capacities pass too

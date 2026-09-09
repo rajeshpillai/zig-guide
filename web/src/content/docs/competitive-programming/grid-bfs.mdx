@@ -1,0 +1,200 @@
+---
+title: Breadth-First Search on a Grid
+seoTitle: "Zig BFS on a Grid: Fewest Moves, and the Marking Bug"
+description: The distance field printed as the frontier expands, and the one line whose position decides whether a cell can enter the queue twice.
+seoDescription: Breadth-first search on a grid in Zig, with the distance field printed as the frontier fills it. Why a queue finds the fewest moves when every move costs one, why marking a cell as it leaves the queue instead of as it enters turns 94 pushes into 143, how to size the queue at the cell count and never grow it, and how to take one off a row index without overflowing a usize.
+section: Competitive Programming
+order: 70
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+Nothing about a queue promises a shortest path. It hands cells back in the order
+they went in, and on a grid where every move costs one step, that ordering turns
+out to be the entire argument.
+
+The map here is 9 rows by 13 columns, with a wall down column 6, more of them
+scattered through the left half, and four sealing one cell off. The program
+finds the fewest moves from `S` to `T` and prints the field while it fills. Then
+it runs the same search with one line moved and counts what the move costs.
+
+<Playground name="23-competitive.grid-bfs" />
+
+## A shortest route, and the one a deep walk finds
+
+```
+the shortest route: 24 moves through 25 cells
+        0  1  2  3  4  5  6  7  8  9 10 11 12
+  r0    S  .  .  .  .  .  #  .  .  .  .  .  .
+  r1    o  .  .  .  .  .  #  .  .  .  #  .  .
+  r2    o  .  .  .  .  .  #  .  .  #  .  #  .
+  r3    o  o  o  o  o  o  #  .  .  .  #  .  .
+  r4    .  .  #  #  #  o  #  .  .  .  .  .  .
+  r5    .  .  #  o  o  o  #  .  .  .  .  .  .
+  r6    .  .  #  o  #  #  #  #  #  .  .  .  .
+  r7    .  .  #  o  .  .  .  .  .  .  .  .  .
+  r8    .  .  #  o  o  o  o  o  o  o  o  o  T
+```
+
+Twenty of those moves are unavoidable: the target sits eight rows down and
+twelve columns across. The other four pay for the block at rows 4 to 6. The
+route steps left twice to get round it, and each step left is charged again on
+the way right.
+
+A depth-first walk uses a stack. It takes the cell it saw most recently and
+keeps going until that direction runs out.
+
+<SnippetSource name="23-competitive.grid-bfs" decl="dfsFirstPath" />
+
+It marks a cell on the way in and never unmarks it, so it visits each cell once
+and stops the first time it stands on the target. The playground above draws the
+route it settles for on the same map, wandering through most of the grid:
+
+```
+the first route a depth-first walk finds: 68 moves, against 24
+```
+
+Sixty-eight moves, on a grid whose furthest cell is 31 away. Nothing in the walk
+keeps the answer short, so reordering `moves` gives a different route.
+
+## The two moves that leave the grid
+
+<SnippetSource name="23-competitive.grid-bfs" decl="step" />
+
+Rows and columns are `usize` because they index. Moving up from row 0 asks for
+row -1, which a `usize` cannot hold: `p.r - 1` at row zero overflows, panicking
+in a safety build and undefined in the ReleaseSmall build this page ships.
+Neither outcome is a neighbour a bounds test can reject.
+
+So the arithmetic runs in `isize`, where -1 is an ordinary value, and narrows
+back only after both ends are checked. Testing `p.r > 0` before subtracting
+says the same thing with a branch per direction.
+
+```
+  move    dr  dc     r     c  on the grid
+  up      -1   0    -1     0  no
+  down     1   0     1     0  yes
+  left     0  -1     0    -1  no
+  right    0   1     0     1  yes
+```
+
+From the corner, `up` and `left` are rejected before either one indexes
+anything. The same two comparisons handle the far edges.
+
+## Why coming out in order is enough
+
+<SnippetSource name="23-competitive.grid-bfs" decl="bfsMarkOnPush" />
+
+A queue holds at most two distances at a time. Every cell at distance `d` is
+pushed while the cells at `d - 1` expand. All of them wait before any comes out,
+and nothing at `d + 1` is handed back until the last `d` is:
+
+```
+  distance 4 is out of the queue, and the 6 cells at distance 5 are in it
+        0  1  2  3  4  5  6  7  8  9 10 11 12
+  r0    0  1  2  3  4  5 ##  .  .  .  .  .  .
+  r1    1  2  3  4  5  . ##  .  .  . ##  .  .
+  r2    2  3  4  5  .  . ##  .  . ##  . ##  .
+  r3    3  4  5  .  .  . ##  .  .  . ##  .  .
+  r4    4  5 ## ## ##  . ##  .  .  .  .  .  .
+  r5    5  . ##  .  .  . ##  .  .  .  .  .  .
+  r6    .  . ##  . ## ## ## ## ##  .  .  .  .
+  r7    .  . ##  .  .  .  .  .  .  .  .  .  .
+  r8    .  . ##  .  .  .  .  .  .  .  .  .  .
+```
+
+The 5s are the frontier. Behind them the field is settled.
+
+The ordering is what makes a first arrival the best one. Whichever cell marks a
+neighbour first holds the smallest distance of anything touching that
+neighbour, so the number written is the smallest available. Any later route
+comes from a cell at least as far out and cannot improve it. `dist` is written
+once per cell, with no comparison against a value already sitting there.
+
+```
+  the finished field
+        0  1  2  3  4  5  6  7  8  9 10 11 12
+  r0    0  1  2  3  4  5 ## 29 28 29 30 31 30
+  r1    1  2  3  4  5  6 ## 28 27 28 ## 30 29
+  r2    2  3  4  5  6  7 ## 27 26 ##  . ## 28
+  r3    3  4  5  6  7  8 ## 26 25 24 ## 26 27
+  r4    4  5 ## ## ##  9 ## 25 24 23 24 25 26
+  r5    5  6 ## 12 11 10 ## 24 23 22 23 24 25
+  r6    6  7 ## 13 ## ## ## ## ## 21 22 23 24
+  r7    7  8 ## 14 15 16 17 18 19 20 21 22 23
+  r8    8  9 ## 15 16 17 18 19 20 21 22 23 24
+```
+
+Nothing on the right of the map is over 20 straight-line steps away, and every
+cell there reads 21 or more. The two walls leave one way through, under both, so
+the right half is entered from row 7 and the numbers climb back up its columns.
+
+The dot at r2c10 is the sealed cell: 95 cells open, 94 reached, 1 sealed off.
+
+## Mark it going in, not coming out
+
+Every cell entering the queue above is marked in the same breath as the push.
+Move the mark to the pop, where a lot of people first write it, and the answers
+do not change:
+
+<SnippetSource name="23-competitive.grid-bfs" decl="bfsMarkOnPop" />
+
+The distances come out identical, cell for cell. The bill does not:
+
+```
+what each marking rule costs on this grid
+  marked  pushes  pops  repeat pops  most waiting
+  on push     94    94            0             7
+  on pop     143   143           49            12
+  94 cells reached out of 95, so marking on push never fills a queue of 117
+  marking on pop in a queue of 117 slots: QueueFull after 117 pushes
+  same distance to the target either way, 24 and 24 -> true
+```
+
+Marking on push takes a cell out of circulation before anything else can see it,
+so 94 reachable cells cost 94 pushes and no more.
+
+Marking on pop leaves a window open. Between a cell's first push and the pop
+that marks it, every other neighbour that expands still sees it unmarked and
+pushes it again. Forty-nine of the 143 pops in the second run are cells already
+finished, thrown away by the `seen` test at the top of the loop. The queue held
+12 at its fullest instead of 7.
+
+The guard keeps the answers right, and it also hides the problem. Nothing
+crashes and no number comes out wrong. The search just does more work than it
+looks like it does.
+
+<SnippetSource name="23-competitive.grid-bfs" decl="Queue" />
+
+The cost lands on the queue. This one is an array with two indices, and `pop`
+never reclaims the slot behind it. The slots it needs are one per push, not one
+per waiting cell. Marking on push caps the pushes at the number of cells:
+117 slots, reserved once, no growth and no wraparound. Marking on pop has no
+such cap, and fills those 117 slots on a grid of 95 open cells.
+
+On a grid the waste is a constant factor: four neighbours means at most four
+pushes per cell and `4n` slots. The general bound is the edges rather than the
+cells. On a graph where a vertex has hundreds of neighbours, the queue grows
+with the edges and the work goes quadratic in the vertices. A circular buffer
+would recycle slots and never fill up here, leaving the extra pushes to cost
+with nothing to point at.
+
+`std.Io.Queue` is a different tool for a different job, a bounded channel that
+tasks block on, and [Queues](/learn/standard-library/queues/) covers it. Where
+no cell count is known up front, a `std.ArrayList` with a head index does the
+same work. [A Growable Array](/learn/data-structures/growable-array/) has what
+that costs when it runs out of room.
+
+A third implementation, sharing no code with either search, checks the answers.
+It sweeps the grid over and over, lowering any cell a neighbour can improve, and
+stops when a sweep changes nothing:
+
+```
+repeated relaxation agrees on every cell -> true
+  13 sweeps of the whole grid, 4940 neighbours looked at, against 376 from the queue
+```
+
+Thirteen sweeps for the same answers, at thirteen times the reading. Give one of
+the four moves a different cost and the order the queue produces is gone, along
+with the argument that a first visit is the best one.

@@ -1,0 +1,193 @@
+---
+title: Binary Search on the Answer
+seoTitle: "Zig Binary Search on the Answer: Monotonic Predicates and Bounds"
+description: Searching a range of possible answers instead of an array, with a greedy pack as the predicate and a brute-force scan checking the boundary.
+seoDescription: Binary search on the answer in Zig, with the program printing every capacity it tries. The monotonic predicate that makes a range searchable, minimum ship capacity in D days packed day by day, where the two bounds come from, the wrong bound that fails silently, O(n log range) against a scan of the whole range, and what the same loop returns when the predicate is not monotonic.
+section: Competitive Programming
+order: 60
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+A shipping company loads packages onto a boat in the order they arrive, and it
+wants the queue gone in four days. The number you have to produce is the size
+of the hold, and that number appears nowhere in the input. There is no array to
+search.
+
+Every capacity answers the same question, though. At this size, does everything
+ship in four days? Nine tonnes says no. Sixty-one says yes, and so does every
+size above it, because a bigger hold never forces an extra day. The answers
+flip once, from no to yes, and finding where they flip is a binary search over
+the capacities themselves.
+
+<Playground name="23-competitive.binary-search-answer" />
+
+## The question you can afford to ask
+
+<SnippetSource name="23-competitive.binary-search-answer" decl="feasible" />
+
+Packages are loaded in arrival order, so one capacity settles the whole plan.
+Keep adding to today's load until the next package would overflow the hold,
+then start tomorrow. Nothing is left to choose, and two runs of the packer at
+the same capacity produce the same days.
+
+`daysNeeded` returns null when a single package outweighs the hold. Such a
+capacity cannot load that package at all, so there is no day count to compare
+against the limit, and `feasible` reads the null as a no.
+
+<SnippetSource name="23-competitive.binary-search-answer" decl="daysNeeded" />
+
+One call, printed in full:
+
+```
+capacity 35, packed in arrival order
+  day 1:  5  3  8  2  9  4                    load 31
+  day 2:  7  6  1  8  3  5                    load 30
+  2 days against a limit of 4 -> feasible
+```
+
+Thirty-five tonnes finishes with two days spare. The search takes one bit out
+of all that: yes. Every call walks the weights once, and that walk is the `n`
+in the cost at the end of this page.
+
+## Both ends come from the input
+
+The low bound is the heaviest package. Nine tonnes has to go somewhere, and
+only a hold of nine or more can take it, so no capacity below nine is worth a
+call. The high bound is the total. Sixty-one tonnes is a single day of
+loading, and a deadline of one day or more accepts that, so the answer is at
+or below it.
+
+Both ends are read off the input rather than picked, and both stay right when
+the input changes. A bound chosen by feel is where this pattern goes wrong,
+and nothing reports it. The average load per day, `total / days`, has the shape
+of a ceiling:
+
+```
+with the high bound set to total / days = 15
+  the search returns 15 and feasible(15) = no
+  6 days needed there, limit 4
+```
+
+Fifteen comes back looking exactly like a real answer. The loop behaved
+perfectly. No capacity in its window was feasible, so it narrowed to the top of
+the window and stopped there, holding a number that needs six days for a
+four-day deadline. Two assertions at the end of a solve catch this every time:
+the answer must be feasible, and the value one below it must not be.
+
+## The same loop, with a function in place of the array
+
+<SnippetSource name="23-competitive.binary-search-answer" decl="firstFeasible" />
+
+[Binary Search](/learn/competitive-programming/binary-search/) works through
+the half-open window and the invariant that keeps these four lines correct. One
+comparison changed. `items[mid] < key` meant that `mid` is too small to be the
+answer, and `!pred(ship, mid)` says the same about a capacity, so `lo = mid + 1`
+discards it along with everything below. The other branch leaves `mid` a
+candidate and keeps it.
+
+Written this way, `firstFeasible` is `lowerBound` with the array swapped for a
+function. The indices were already the numbers under search. The array was only
+supplying values to compare against, and the predicate supplies them now.
+
+```
+binary search over the capacities
+  step   lo   hi  mid  days  ok   window after
+     1    9   61   35     2  yes  [  9, 35]  27 left
+     2    9   35   22     4  yes  [  9, 22]  14 left
+     3    9   22   15     6  no   [ 16, 22]  7 left
+     4   16   22   19     4  yes  [ 16, 19]  4 left
+     5   16   19   17     4  yes  [ 16, 17]  2 left
+     6   16   17   16     4  yes  [ 16, 16]  1 left
+  window closed after 6 steps on capacity 16
+```
+
+Fifty-three candidates, six calls. Step three is the only no in the table, and
+it is the one that lifts the floor: 15 needs six days, so 15 and everything
+under it leave the window at once.
+
+## Either side of the boundary
+
+```
+capacity 15, packed in arrival order
+  day 1:  5  3                                load  8
+  day 2:  8  2                                load 10
+  day 3:  9  4                                load 13
+  day 4:  7  6  1                             load 14
+  day 5:  8  3                                load 11
+  day 6:  5                                   load  5
+  6 days against a limit of 4 -> too slow
+```
+
+The deadline rejects that plan. One extra tonne of hold rewrites it:
+
+```
+capacity 16, packed in arrival order
+  day 1:  5  3  8                             load 16
+  day 2:  2  9  4                             load 15
+  day 3:  7  6  1                             load 14
+  day 4:  8  3  5                             load 16
+  4 days against a limit of 4 -> feasible
+```
+
+Six days become four, not five. The packer does not adjust the old plan. It
+repacks from the first package, so every later day boundary moves along with
+the first one that changed.
+
+## The scan that has to agree
+
+<SnippetSource name="23-competitive.binary-search-answer" decl="writeScan" />
+
+Fifty-three candidates are few enough to ask about every one of them and draw
+the answers, one character per capacity:
+
+```
+every capacity from 9 to 61, '#' means feasible
+    9 .......############################################## 61
+  first '#' at 16, binary search said 16, agree -> true
+  the predicate flips 1 time, so it is monotonic
+  predicate calls: 53 scanning, 6 searching
+```
+
+Seven dots, then hashes to the end. The picture shows the precondition
+directly, and the flip count is how to check it on a small case: exactly one
+change of answer across the range means there is a boundary to find.
+
+Six calls against fifty-three is not much of a win. Change the numbers and it
+becomes the whole solution. A limit of a billion tonnes gives a range of a
+billion, and thirty calls cover it, because the window halves every step and
+2^30 is a little over a billion. Each call is one pass over the `n` packages, so
+the search costs O(n log range) while the scan beside it pays O(n) for every
+capacity in the range. A billion of those passes does not finish inside a time
+limit.
+
+## When the predicate flickers
+
+<SnippetSource name="23-competitive.binary-search-answer" decl="feasibleAndFull" />
+
+Requiring every day to fill at least half the hold sounds like the same problem
+with a tidy plan attached. It removes the property the search is built on. A
+hold big enough to finish early leaves the last day nearly empty, so growing
+the capacity can turn a yes back into a no:
+
+```
+now require every day to fill at least half the hold
+    9 .......####...####....#############.................# 61
+  the predicate flips 7 times, so there is no boundary
+  binary search returns 31, first '#' is at 16
+  feasibleAndFull(31) = true, and 8 smaller capacities pass too
+```
+
+Seven flips, four separate runs of hashes, and the loop ran over them without
+complaint. It returned 31, which does satisfy the predicate. It is not the
+smallest capacity that does, and eight smaller ones are sitting to its left in
+the picture. Nothing in the loop can see them: each step looks at one candidate
+and throws away half the range on the strength of it.
+
+The check before you write the loop is the argument, not the picture. Give the
+capacity one more tonne and every day ends at least as far along the list as it
+did before, by induction from the first day, so the day count cannot rise. The
+half-full rule has no such argument behind it. Where the argument is not
+obvious, print the picture on a small case and count the flips before trusting
+six calls over fifty-three.

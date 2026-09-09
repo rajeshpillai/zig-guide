@@ -1,0 +1,99 @@
+9 rows by 13 columns, 117 cells, start at r0c0, target at r8c12
+        0  1  2  3  4  5  6  7  8  9 10 11 12
+  r0    S  .  .  .  .  .  #  .  .  .  .  .  .
+  r1    .  .  .  .  .  .  #  .  .  .  #  .  .
+  r2    .  .  .  .  .  .  #  .  .  #  .  #  .
+  r3    .  .  .  .  .  .  #  .  .  .  #  .  .
+  r4    .  .  #  #  #  .  #  .  .  .  .  .  .
+  r5    .  .  #  .  .  .  #  .  .  .  .  .  .
+  r6    .  .  #  .  #  #  #  #  #  .  .  .  .
+  r7    .  .  #  .  .  .  .  .  .  .  .  .  .
+  r8    .  .  #  .  .  .  .  .  .  .  .  .  T
+
+the four moves from the start, in signed arithmetic
+  move    dr  dc     r     c  on the grid
+  up      -1   0    -1     0  no
+  down     1   0     1     0  yes
+  left     0  -1     0    -1  no
+  right    0   1     0     1  yes
+
+the distance field as the frontier expands
+  distance 4 is out of the queue, and the 6 cells at distance 5 are in it
+        0  1  2  3  4  5  6  7  8  9 10 11 12
+  r0    0  1  2  3  4  5 ##  .  .  .  .  .  .
+  r1    1  2  3  4  5  . ##  .  .  . ##  .  .
+  r2    2  3  4  5  .  . ##  .  . ##  . ##  .
+  r3    3  4  5  .  .  . ##  .  .  . ##  .  .
+  r4    4  5 ## ## ##  . ##  .  .  .  .  .  .
+  r5    5  . ##  .  .  . ##  .  .  .  .  .  .
+  r6    .  . ##  . ## ## ## ## ##  .  .  .  .
+  r7    .  . ##  .  .  .  .  .  .  .  .  .  .
+  r8    .  . ##  .  .  .  .  .  .  .  .  .  .
+
+  distance 17 is out of the queue, and the 2 cells at distance 18 are in it
+        0  1  2  3  4  5  6  7  8  9 10 11 12
+  r0    0  1  2  3  4  5 ##  .  .  .  .  .  .
+  r1    1  2  3  4  5  6 ##  .  .  . ##  .  .
+  r2    2  3  4  5  6  7 ##  .  . ##  . ##  .
+  r3    3  4  5  6  7  8 ##  .  .  . ##  .  .
+  r4    4  5 ## ## ##  9 ##  .  .  .  .  .  .
+  r5    5  6 ## 12 11 10 ##  .  .  .  .  .  .
+  r6    6  7 ## 13 ## ## ## ## ##  .  .  .  .
+  r7    7  8 ## 14 15 16 17 18  .  .  .  .  .
+  r8    8  9 ## 15 16 17 18  .  .  .  .  .  .
+
+  the queue never handed back a shorter distance -> true
+
+  the finished field
+        0  1  2  3  4  5  6  7  8  9 10 11 12
+  r0    0  1  2  3  4  5 ## 29 28 29 30 31 30
+  r1    1  2  3  4  5  6 ## 28 27 28 ## 30 29
+  r2    2  3  4  5  6  7 ## 27 26 ##  . ## 28
+  r3    3  4  5  6  7  8 ## 26 25 24 ## 26 27
+  r4    4  5 ## ## ##  9 ## 25 24 23 24 25 26
+  r5    5  6 ## 12 11 10 ## 24 23 22 23 24 25
+  r6    6  7 ## 13 ## ## ## ## ## 21 22 23 24
+  r7    7  8 ## 14 15 16 17 18 19 20 21 22 23
+  r8    8  9 ## 15 16 17 18 19 20 21 22 23 24
+
+how many cells sit at each distance
+  distance  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+  cells     1  2  3  4  5  6  5  4  3  2  1  1  1  1  1  2
+  distance 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+  cells     2  2  2  2  2  3  4  6  7  4  4  3  4  3  3  1
+  95 open cells, 94 reached in at most 31 moves, 1 sealed off by walls
+
+the shortest route: 24 moves through 25 cells
+        0  1  2  3  4  5  6  7  8  9 10 11 12
+  r0    S  .  .  .  .  .  #  .  .  .  .  .  .
+  r1    o  .  .  .  .  .  #  .  .  .  #  .  .
+  r2    o  .  .  .  .  .  #  .  .  #  .  #  .
+  r3    o  o  o  o  o  o  #  .  .  .  #  .  .
+  r4    .  .  #  #  #  o  #  .  .  .  .  .  .
+  r5    .  .  #  o  o  o  #  .  .  .  .  .  .
+  r6    .  .  #  o  #  #  #  #  #  .  .  .  .
+  r7    .  .  #  o  .  .  .  .  .  .  .  .  .
+  r8    .  .  #  o  o  o  o  o  o  o  o  o  T
+
+the first route a depth-first walk finds: 68 moves, against 24
+        0  1  2  3  4  5  6  7  8  9 10 11 12
+  r0    S  o  o  o  o  .  #  .  o  o  o  o  .
+  r1    o  o  o  o  o  .  #  .  o  .  #  o  o
+  r2    o  o  o  o  o  .  #  .  o  #  .  #  o
+  r3    o  o  o  o  o  o  #  .  o  o  #  .  o
+  r4    o  o  #  #  #  o  #  .  .  o  .  .  o
+  r5    o  o  #  o  o  o  #  .  .  o  .  .  o
+  r6    o  o  #  o  #  #  #  #  #  o  .  .  o
+  r7    o  o  #  o  o  o  o  o  o  o  .  .  o
+  r8    o  o  #  o  o  o  o  o  o  .  .  .  T
+
+what each marking rule costs on this grid
+  marked  pushes  pops  repeat pops  most waiting
+  on push     94    94            0             7
+  on pop     143   143           49            12
+  94 cells reached out of 95, so marking on push never fills a queue of 117
+  marking on pop in a queue of 117 slots: QueueFull after 117 pushes
+  same distance to the target either way, 24 and 24 -> true
+
+repeated relaxation agrees on every cell -> true
+  13 sweeps of the whole grid, 4940 neighbours looked at, against 376 from the queue
