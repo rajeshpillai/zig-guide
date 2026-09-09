@@ -82,10 +82,9 @@ statement, so two simultaneous visitors cannot lose an update.
 
 ## Quoting is a defense with a known edge
 
-`sqlQuote` doubles every `'` and the demo stores an O'Reilly URL to
-prove it. Understand what that buys and what it does not. It stops a
-value from terminating its own string literal, which is the classic
-injection. It is also the method the simple query protocol forces,
+`sqlQuote` doubles every `'`. Understand what that buys and what it
+does not. It stops a value from terminating its own string literal,
+which is the classic injection. It is also the method the simple query protocol forces,
 and keeping it correct forever is exactly the burden real drivers
 refuse: they use the extended protocol, where values travel in
 separate messages and are never part of the SQL text at all. That

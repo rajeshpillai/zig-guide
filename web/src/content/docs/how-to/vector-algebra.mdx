@@ -57,14 +57,15 @@ two specific input lanes. That is why it takes `@Vector(3, f32)` explicitly
 and indexes with `a[1]`, `a[2]`, and so on. `Right × Up = Forward` in a
 right-handed frame, which the snippet prints as `(0, 0, 1)`.
 
-## Why the output is rounded
+## The length comes back exactly one, and that is luck
 
-The result prints `normal = (0.000, 0.600, 0.800) (len 1.000)`. The length
-reads as exactly one only because the output is rounded to three places.
-`0.6` and `0.8` are not exactly representable in `f32`, so the true squared
-sum is a hair above one and its square root a hair below. This is normal
-float behavior, not a bug in the vector path. When you compare vector
-lengths, compare against a tolerance rather than testing equality with `1.0`.
+The result prints `normal = (0.000, 0.600, 0.800) (len 1.000)`, and here the
+length really is exactly `1.0`, not a rounded `0.999`. 3, 4, 5 is a
+Pythagorean triple, so even though `0.6` and `0.8` are not exactly
+representable in `f32`, their squares sum back to exactly one. Do not read a
+rule into that. Normalize two thousand random vectors and about a third of
+them come back a bit or two off. When you compare vector lengths, compare
+against a tolerance rather than testing equality with `1.0`.
 
 ## Variations
 

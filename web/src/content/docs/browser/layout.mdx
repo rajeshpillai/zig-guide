@@ -35,9 +35,9 @@ it has 5 of margin and 5 of padding, taking 20 more, so its children get 360.
 No child was consulted at any point.
 
 **Heights accumulate going up.** The two paragraphs inside `.box` are 20 each,
-so `.box` is 40. `#page` contains a 40-tall `h1`, that 40-tall box plus its
-margins, and a 20-tall footer, and comes out at 120. Nothing could have known
-that before laying the children out.
+so `.box` is 40. `#page` contains a 40-tall `h1`, then that box at 40 tall plus
+5 of margin and 5 of padding on each side, and a 20-tall footer: 40 plus 60
+plus 20 is 120. Nothing could have known that before laying the children out.
 
 **`h1` was given an explicit height of 40 and kept it.** Its text is 20 tall.
 An explicit height overrides the measured one, which is why content can
@@ -87,7 +87,7 @@ needs its parent's width. One pass would have to move in both directions at
 once. Splitting into two passes with opposite directions is what makes each
 one simple.
 
-Real engines do exactly this, and call the second pass *reflow*. It is why a
+Real engines run both passes and call the whole thing *reflow*. It is why a
 change that affects one element's height forces a recomputation up the whole
 ancestor chain. Layout thrashing, where reading a computed height from
 JavaScript forces a synchronous reflow, is this algorithm being run again

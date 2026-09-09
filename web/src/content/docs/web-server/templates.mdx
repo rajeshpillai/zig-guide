@@ -53,14 +53,17 @@ page trying to find a `}}` that is not there.
 
 ## Check yourself
 
-The escaper is correct for HTML text and attributes. Where is it wrong?
+The escaper is correct for HTML text and for quoted attribute values. Where is
+it wrong?
 
 Inside a `<script>` block and inside a URL. `<a href="{{link}}">` with a value
 of `javascript:alert(1)` is escaped perfectly and still executes, because the
 characters were never the problem there: the *scheme* is. And a value
 substituted into JavaScript needs JavaScript escaping, where `</script>`
 inside a string literal ends the block regardless of how the quotes are
-handled.
+handled. It is also wrong in an unquoted attribute: `<a href={{link}}>` ends
+the value at the first space, so a value like `x onmouseover=alert(1)` becomes
+new markup without involving one of the five escaped characters.
 
 This is why real engines are **context-aware**. They parse enough of the HTML
 to know whether a hole sits in text, an attribute, a URL or a script, and
@@ -76,7 +79,8 @@ to write in the language, because everything is a length and an offset.
 
 The escaping is where it gets unpleasant, and the reason is sizing. The
 escaped form of a string is longer than the input, by up to six times if it is
-all apostrophes, so the output buffer cannot be the input's length. You either
+all double quotes, since `&quot;` is six characters, so the output buffer
+cannot be the input's length. You either
 compute the size in a first pass, grow as you go, or write straight to the
 socket. The version above writes to the writer directly, which sidesteps the
 question entirely and is usually the right answer: the escaped text never

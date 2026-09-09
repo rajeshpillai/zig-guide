@@ -40,7 +40,7 @@ is what it agrees to store. A stored `javascript:` URL turns the
 redirect into script execution in the visitor's browser. Control
 characters could let a stored URL smuggle extra bytes into the HTTP
 response that carries the redirect. So the check allows exactly two
-schemes and refuses anything below a space, and the
+schemes and refuses the space, everything below it, and DEL. The
 [routes chapter](/learn/url-shortener/routes/) runs it on create and
 update both, before anything touches storage.
 

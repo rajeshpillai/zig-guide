@@ -35,7 +35,7 @@ library author:
 - A rule for a nonexistent field: `@field(value, "nmae")` cannot resolve.
 - A `min_len` rule on an integer field: `v.len` does not exist on `u8`.
 
-This is the deep reason to prefer declarations over registration functions. A
+Prefer declarations over registration functions for that reason. A
 runtime `registerValidator("name", ...)` call can only fail at runtime; a
 declaration is analyzed against the schema while both are open in the
 compiler.

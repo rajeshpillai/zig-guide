@@ -45,8 +45,8 @@ of them.
 
 **`Zebra` sorted before `apple`.** Not a bug: byte order. `Z` is 90 and `a` is
 97, so every capital letter sorts before every lower-case one. This is what
-`sort` does by default too, and it is why `LC_ALL=C sort` and `sort` can
-disagree on the same file. Anything friendlier than byte order is a locale
+`LC_ALL=C sort` does. Plain `sort` follows the locale's collation instead,
+which puts `apple` first, and that is why the two disagree on the same file. Anything friendlier than byte order is a locale
 question, not a sorting one.
 
 **Both copies of `apple` survived.** Sorting does not deduplicate. `sort -u`

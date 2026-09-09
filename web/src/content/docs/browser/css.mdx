@@ -32,13 +32,14 @@ unpredictable comes from misremembering the first one.
 
 ## What just happened
 
-**`<p class="warning" id="urgent">` got `color: crimson`.** Four rules matched
-it, saying black, orange, red and crimson. `#urgent` won because an id beats
-any number of classes, and that is specificity doing its job.
+**`<p class="warning" id="urgent">` got `color: crimson`.** Every rule in the
+sheet matched it, and four of them set a colour: black, orange, red and
+crimson. `#urgent` won because an id beats any number of classes, and that is
+specificity doing its job.
 
-**The same element got `margin: 8`, from `p.warning`.** Only two rules mention
-margin: `p` at specificity 0,0,1 and `p.warning` at 0,1,1. The class component
-decides it.
+**The same element got `margin: 8`, from `p.warning`.** Three rules set
+margin, and two of them are the plain `p` at specificity 0,0,1. `p.warning` at
+0,1,1 beats both, and the class component is what decides it.
 
 **The plain `<p>` got `margin: 4`, from the last rule.** Two rules with the
 identical selector `p` both set margin. Specificity ties, so source order

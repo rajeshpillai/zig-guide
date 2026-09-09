@@ -69,7 +69,7 @@ The test failed the first time it ran, at seed 21, after 8.2 seconds of play.
 The bot was steering into blocks it believed it had passed. It discarded
 anything whose centre was behind the player's centre, measured with the block's
 own half height. The right number is the sum of both half heights. A block whose
-centre is 41 units behind you still overlaps you when both bodies are 26 units
+centre is 41 units behind you still overlaps you when each body is 52 units
 tall.
 
 <GameSource file="src/sim/bot.zig" decl="reach" />
@@ -138,7 +138,7 @@ average by three tenths of a second.
 **Coins mark the safe lane.** A coin only ever goes in a lane its own row leaves
 open. When a row blocks two of three lanes, the coin sits in the one gap. A
 player chasing coins is being steered through the course without being told
-anything. It is four lines in the spawner, and it is the only tutorial the game
-has.
+anything. It is four statements in the spawner, and it is the only tutorial the
+game has.
 
 <GameSource file="src/sim/sim.zig" decl="spawnRow" />

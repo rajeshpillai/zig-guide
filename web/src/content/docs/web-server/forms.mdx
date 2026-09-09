@@ -56,7 +56,8 @@ a file upload send instead, and why can it not use this encoding?
 `multipart/form-data`, which is a completely different format: each field
 becomes a section separated by a boundary string the client chooses and
 announces in the `Content-Type` header. It exists because urlencoding a
-megabyte of binary would inflate it by roughly a third. And because a file has
+megabyte of binary would roughly triple it: every byte that is not a letter,
+a digit or one of `*-._` becomes three characters. And because a file has
 a filename and a content type of its own, which the encoding has nowhere to
 put.
 

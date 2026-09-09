@@ -26,10 +26,11 @@ says what is in front of what.
 
 ## What just happened
 
-**Four fills, in order, and you can read the order off the picture.** `#page`
-covered its area with `-`, `h1` covered part of that with `=`, `.box` covered
-a lower part with `o`, and the text was written over the top. Each stage
-overwrote the last, and nothing checked whether it was about to.
+**Three fills and three runs of text, in order, and you can read the order off
+the picture.** `#page` covered its area with `-`, `h1` covered part of that
+with `=`, `.box` covered a lower part with `o`, and the text was written over
+the top. The paragraphs have no `background` rule, so they never filled. Each
+stage overwrote the last, and nothing checked whether it was about to.
 
 **The canvas is an array.** A real framebuffer is four bytes per pixel instead
 of one character, and the fill loop writes RGBA rather than a letter. Nothing

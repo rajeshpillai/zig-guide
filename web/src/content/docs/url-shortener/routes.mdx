@@ -19,9 +19,8 @@ The fix is the same seam the
 [ORM's Repo chapter](/learn/orm/repo/) built: put storage behind an
 interface, and hand the handler whichever implementation the moment
 calls for. Here the handler takes request bytes and a store, and
-returns response bytes. With the in-memory store it needs no server,
-no socket and no database, which is why this chapter runs in your
-browser.
+returns response bytes. The in-memory store needs no server, no socket
+and no database. That is why this chapter runs in your browser.
 
 ## The plan
 
@@ -38,21 +37,21 @@ browser.
 
 ## Read the trace as a contract
 
-The demo is the service's specification, one exchange per case: create
-answers 201 with the slug, the bad scheme answers 400 before storage
-hears about it, the redirect answers 302 and counts the hit, update
-changes where the same slug points, delete answers 204, and the slug
-that no longer exists answers 404. When the final chapter swaps the
-store for SQL, this trace is what must still be true.
+The demo is the service's specification, one exchange per case.
+Create answers 201 with the slug. The bad scheme answers 400 before
+storage hears about it. The redirect answers 302 and counts the hit.
+Update changes where the same slug points, and delete answers 204. A
+slug that no longer exists answers 404. When the final chapter swaps
+the store for SQL, this trace is what must still be true.
 
 ## The routing order is load-bearing
 
 `/links` and `/links/{slug}` are matched before the catch-all slug
 route, which means a link whose slug is literally `links` could never
 be reached. The slugs chapter's alphabet makes that collision
-impossible today (`links` decodes to a huge id, not an early one), but
-route shadowing is the kind of bug that arrives silently when someone
-adds `/stats` next to a growing slug space. Keeping every reserved
+impossible today: `links` decodes to a huge id, not an early one. But
+route shadowing arrives silently. Someone adds `/stats` next to a
+growing slug space and nothing complains. Keeping every reserved
 path under one prefix, as `/links/...` does, is the cheap insurance.
 
 ## Variations

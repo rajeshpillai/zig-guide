@@ -30,8 +30,8 @@ keywords to pin them down when it matters.
 `Padded` is declared `a: u8, b: u64, c: u32`. A C programmer expects `a` at
 offset 0, seven bytes of padding, `b` at 8, `c` at 16, for 24 bytes. Zig's
 default layout is unspecified, and the current compiler uses that freedom. It
-places `id` at 0, `name` at 8, and `age` at 12, for a total of 16 bytes.
-Putting the largest field first removes the padding a naive order would need.
+places `b` at 0, `c` at 8, and `a` at 12, for a total of 16 bytes. Putting
+the largest field first cuts the padding from eleven bytes to three.
 
 The lesson is not the specific numbers, which belong to this compiler and this
 target. It is that you must not depend on the field order of an `auto` struct.

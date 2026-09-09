@@ -49,6 +49,8 @@ functions: `printf` cannot clean up arguments it was never told the number of.
 ## What just happened
 
 **`square`'s body is four instructions.** `load_local 0` twice, `mul`, `ret`.
+The `push 0` after them in the listing is the epilogue every function gets,
+for the case where control reaches the end without a `return`.
 Look at what is absent: no name, no lookup, no argument copying. The parameter
 `n` became slot 0 at compile time, and reading it at run time is one array
 index off the frame base.
@@ -73,9 +75,10 @@ The compiler resolves a name to a local slot only if it is a parameter of the
 enclosing function. What happens to `let x = 1;` written inside a function
 body?
 
-It becomes a **global**, shared by every call. That is wrong, and it is the
-limitation this compiler still has. Real locals need a scope resolver that
-walks the body first, collects every declaration, and assigns each one a slot
+It becomes a **global**, shared by every call. That is wrong, and it is one of
+the limitations this compiler still has. The same silent `else` prong drops
+`while` loops and compiles `/` as an equality test. Real locals need a scope
+resolver that walks the body first, collects every declaration, and assigns each one a slot
 above the parameters. The frame is then sized to hold both, and the base
 pointer addresses all of it uniformly.
 
@@ -111,4 +114,5 @@ every call. This VM checks, which it can afford because it is already paying
 for a switch dispatch.
 
 Next: [the virtual machine chapter](/learn/tiny-lang/vm/) if you skipped it,
-since this one is that dispatch loop with two more opcodes.
+since this one is that dispatch loop with `load_local`, `call` and `ret`
+added, and `div` and `neg` dropped.

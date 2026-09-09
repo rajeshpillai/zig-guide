@@ -98,7 +98,7 @@ for ([_][]const u8{ "GL", "X11", "Xrandr", "Xinerama", "Xi", "Xcursor" }) |name|
 }
 ```
 
-That is seven C files. `rglfw.c` is raylib's bundled GLFW, the windowing layer.
+That is six C files. `rglfw.c` is raylib's bundled GLFW, the windowing layer.
 The rest are raylib's modules, switched on and off by the `SUPPORT_MODULE_*`
 macros.
 
@@ -157,9 +157,9 @@ directly.
 <GameSource file="build.zig" decl="raylibModule" />
 
 The macros are copied from raylib's own build script. That is the cost of this
-approach. When raylib changes its configuration, this function has to follow. It
-is about forty lines, and a mismatch fails at compile time rather than quietly
-producing a different library.
+approach. When raylib changes its configuration, this function has to follow.
+The macro list is a dozen lines, and a mismatch fails at compile time rather
+than quietly producing a different library.
 
 ## The same source, on a canvas
 

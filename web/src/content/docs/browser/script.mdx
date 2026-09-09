@@ -77,7 +77,8 @@ Because host objects are ordinary objects as far as the language is concerned.
 Calling a missing method on one fails the same way calling a missing method on
 any object fails. The engine does not know that `document` is special; it
 knows that the thing named `document` has no property called
-`queryselectorAll` and that calling `undefined` is an error.
+`queryselectorAll`, because you misspelled `querySelectorAll`, and that calling
+`undefined` is an error.
 
 This is why the error messages are usually so unhelpful about what you
 actually did wrong. The engine reporting them has no concept of a document to

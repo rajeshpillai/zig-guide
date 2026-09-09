@@ -34,16 +34,17 @@ order. It falls out of visiting dependencies first and appending each target
 only on the way back out. That is depth-first post-order, and it is what
 "topological sort" means when you write it rather than name it.
 
-**Only `main.o` needed rebuilding.** Its source is newer than it is. The output is newer than its source, so it was skipped. That is the whole
+**Only `main.o` needed rebuilding.** Its source is newer than it is. `util.o`
+is newer than its source, so it was skipped. That is the whole
 value proposition. On a large project almost everything is up to date, and the
 comparison that establishes it is one integer against another.
 
-**The `visiting` flag is not bookkeeping, it is the cycle check.** Each target
-is marked while its dependencies are being visited and marked again when it is
-done. Meeting a target that is still in the first state means the graph loops,
-and the program returns `error.CircularDependency` rather than recursing until
-the stack runs out. Real `make` reports exactly this, and now you know what it
-noticed.
+**The `state` array is not bookkeeping, it is the cycle check.** Each target is
+marked 1 while its dependencies are being visited and 2 when it is done.
+Meeting a target still on 1 means the graph loops, and the program returns
+`error.CircularDependency` rather than recursing until the stack runs out. Real
+`make` notices the same thing, prints `Circular b <- a dependency dropped`, and
+carries on with the edge removed.
 
 **What the program does not model** is worth naming: once `main.o` is rebuilt,
 its timestamp becomes *now*, which makes `app` stale in turn. Real `make`

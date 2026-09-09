@@ -36,15 +36,17 @@ drops it rather than inventing an empty value.
 
 **The second line kept its inner spaces.** `  spaced = value ` produced a name
 of `spaced ` and a value of ` value`, spaces included, because whitespace is
-trimmed around each *pair* and not inside it. That is what the specification
-says, browsers never send it, and being strict here is deliberate. A parser
+trimmed around each *pair* and not inside it. The grammar does not allow those
+spaces at all and browsers never send them, so being strict here costs
+nothing. A parser
 that trims inside the pair accepts things a stricter one downstream will not.
 Two parsers disagreeing about the same bytes is the shape of a security bug
 that has appeared in this section twice already.
 
 A fixed seed is what makes this output identical on every build. It is also
 exactly what a real server must never do: predictable ids mean anyone can
-compute a valid session. `std.crypto.random` is the one to reach for. Sixteen
+compute a valid session. `std.Random.IoSource`, which fills bytes from the
+operating system through the `Io` interface, is the one to reach for. Sixteen
 bytes is 128 bits, which is the point at which guessing stops being a strategy
 rather than a number chosen for looking large.
 
@@ -52,12 +54,15 @@ rather than a number chosen for looking large.
 specific:
 
 - `HttpOnly` stops JavaScript reading it, so a cross-site scripting bug cannot
-  steal the session
+  copy the id out. Script on the page can still act as the user while the page
+  is open, so this is not a fix for XSS
 - `Secure` stops it travelling over plain HTTP, where anything on the path can
   read it
 - `SameSite=Lax` stops it being sent on cross-site POSTs, which is most of
   cross-site request forgery
-- `Max-Age` gives the thing an end, so a stolen cookie stops working
+- `Max-Age` gives the cookie an end, so the browser stops sending it. A stolen
+  id stops working only when the server expires it, and that half is yours to
+  build
 
 A cookie without them is not a weaker session, it is a session with several
 well-known ways to take it.
@@ -88,8 +93,10 @@ in real products more than once. The correct source is `/dev/urandom` or
 `getrandom()`, and the reason people reach for `rand()` anyway is that it is
 one call and needs no error handling.
 
-`std.crypto.random` is the same one call, and it is the cryptographic one by
-default, which is the useful direction for a default to point.
+Zig does not offer that shortcut. `std.crypto.random` was removed, so the
+secure source is passed in like any other capability: `std.Random.IoSource`
+over the `Io` you already have. That costs a line of setup and leaves no
+convenient wrong answer to fall into.
 
 Next: [a template engine](/learn/web-server/templates/), so the HTML stops
 living in string literals.

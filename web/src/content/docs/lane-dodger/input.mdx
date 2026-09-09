@@ -48,8 +48,8 @@ The same poll reads the mouse, and splits the window down the middle.
 
 Tapping the left half steers left, tapping the right half steers right, and
 either counts as the confirm that starts a run. That is the whole control scheme
-on a phone, and it needed four lines because the simulation already thought in
-lanes rather than in keys.
+on a phone, and it needed one extra branch in `poll`, because the simulation
+already thought in lanes rather than in keys.
 
 ## What the platform layer does not do
 

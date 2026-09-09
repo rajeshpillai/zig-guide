@@ -59,7 +59,7 @@ and it is why grouping works for any expression: it restarts the chain.
 left-associative, and the loop is what makes it so: each level consumes
 operators in a `while`, folding the result so far into the left side. Had it
 recursed on the right instead, the same grammar would produce the other tree
-and the answer would be -4 rather than 2. Right-associative operators, like
+and the answer would be 2 rather than -4. Right-associative operators, like
 exponentiation in languages that have it, are written exactly that way on
 purpose.
 
@@ -87,7 +87,7 @@ stops there on its own, because a brace is not an operator it recognises. What
 the parentheses give you is a better error message when the condition is
 malformed. They also keep the grammar unambiguous if you later add a construct
 where an expression could be followed by a brace that means something else.
-Rust requires the braces and forbids the parentheses for exactly this reason.
+Rust requires the braces and warns on the parentheses for exactly this reason.
 
 ## If you have written C
 
@@ -104,7 +104,7 @@ And C's union payload would be untagged in practice, with the `kind` field
 telling you which member is live and nothing checking that you agreed. That is
 the classic source of a compiler bug that only shows up on one node type. Zig
 has tagged unions for exactly this. The version above sidesteps the question
-by giving every node the same fields, which is fine at ten node kinds and
-would not be at fifty.
+by giving every node the same fields, which is fine at thirteen node kinds
+and would not be at fifty.
 
 Next: an interpreter, which walks this tree and produces an answer.

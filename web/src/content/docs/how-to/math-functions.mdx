@@ -29,9 +29,10 @@ short reference.
 `std.math.sin`, `cos`, and `tan` take radians, like almost every language's
 math library. `degreesToRadians` does the conversion, so `sin(degreesToRadians(90))`
 is the readable way to get 1.0. The snippet prints `1.0000` rather than a bare
-`1` only because of the `{d:.4}` format; the underlying `f32` result is a hair
-under one, which the rounding hides. If you print it at full precision you will
-see the epsilon.
+`1` because of the `{d:.4}` format, and at `f32` the result really is exactly
+one. Do not read a rule into that. For most whole-degree angles the `f32` sine
+differs in the last bit from the correctly rounded value, which is why the
+comparison below uses a tolerance.
 
 ## `pow` is typed, `sqrt` is not
 

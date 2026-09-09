@@ -49,8 +49,9 @@ means the rest of the document ends up nested inside an image.
 ignored. It is not an error and it is not a guess: the rule is to look for a
 matching open element and do nothing if there isn't one.
 
-**`id=main` had no quotes**, and is legal. Attribute values only need quoting
-when they contain a space or a quote.
+**`id=main` had no quotes**, and is legal. Attribute values need quoting when
+they are empty or contain a space, a quote, `=`, `<`, `>` or a backtick.
+Anything else may go unquoted.
 
 **The stack is what builds the tree.** There is no recursion here, unlike the
 language parser. Elements are pushed when opened and popped when closed, and
@@ -83,13 +84,13 @@ It is the tree. Every node needs children, and children come and go as the
 parser repairs nesting. So C reaches for one allocation per node and a linked
 list per child list, and then owns freeing all of it when the document is
 thrown away. The version here uses indices into one flat array. The whole
-document is freed by dropping the array, and a node is 64 bytes with no
-allocation at all.
+document is freed by dropping the array, and a node is one fixed-size struct
+with no allocation at all.
 
 The other thing worth knowing is that real HTML parsers are enormous. The
 specification's tokenizer has around 80 states, and the tree construction
-stage has a dozen "insertion modes" with different rules each. That is not
-complexity anybody wanted: it is the cost of specifying, byte by byte, what
+stage has more than twenty "insertion modes" with different rules each. That
+is not complexity anybody wanted: it is the cost of specifying, byte by byte, what
 twenty years of accumulated browser behaviour actually did.
 
 Next: a stylesheet, which decides what these nodes should look like.

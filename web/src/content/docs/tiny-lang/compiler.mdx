@@ -97,7 +97,8 @@ It has **registers**, so a value can stay in one across several operations
 instead of being pushed and popped. Deciding which values live in which
 registers is register allocation, and it is where a large part of a real
 compiler's complexity lives. A stack machine skips the problem entirely, which
-is why bytecode VMs are stack machines and why they are slower.
+is why so many bytecode VMs are stack machines and why they are slower. Lua
+and Dalvik went the other way and allocate registers.
 
 And it optimises, which is possible because the bytecode is now a data
 structure you can rewrite. `push 1, push 2, add` can become `push 3` before

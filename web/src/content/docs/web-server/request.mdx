@@ -57,8 +57,9 @@ security property, not fussiness.
 request is a view over the buffer the socket filled, so parsing allocates
 nothing and the whole thing is valid exactly as long as that buffer is.
 
-**Four malformed requests were rejected.** A missing blank line, too many parts
-in the request line, a header with no colon, and a truncated request. Each is
+**Four malformed requests were rejected.** A request line with no version, too
+many parts in the request line, a header with no colon, and a request that
+stops before the blank line. Each is
 an error rather than a guess.
 
 ## Check yourself
@@ -68,9 +69,11 @@ matter more than it looks?
 
 Because it means this page can run it. The same property is what lets the
 parser be unit-tested without a network, fuzzed with a corpus of malformed
-requests, and reused by a client to parse
-*responses*, which have the same shape. A parser that reads from a socket can be tested only by starting a
-server.
+requests, and reused by a client, because a
+*response* has the same shape: a status line, headers, a blank line, a body.
+The status line needs its own split, since this parser wants exactly three
+fields and a reason phrase like `Not Found` has a space in it. A parser that
+reads from a socket can be tested only by starting a server.
 
 This is the rule [CLAUDE.md](https://github.com/rajeshpillai/zig-guide) states
 for all the protocol code in this guide, and it is the reason most of the

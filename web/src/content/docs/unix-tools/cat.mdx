@@ -25,7 +25,7 @@ bufferful.
 
 **The buffer is four bytes, and it still copied 44.** That number is there to
 make the point unmissable: the buffer size is a decision about memory and
-syscall count, not about correctness. Real `cat` uses something like 64 KB
+syscall count, not about correctness. Real `cat` reads 128 KB at a time
 because each read is a trip into the kernel and you want fewer of them, not
 because a smaller one would be wrong.
 

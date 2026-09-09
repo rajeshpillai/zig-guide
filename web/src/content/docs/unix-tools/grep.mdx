@@ -16,8 +16,9 @@ position: do the bytes match, one by one, until the pattern runs out? If the
 pattern ran out, that is a match. If a byte disagreed, give up and try the next
 starting position. That is O(n×m) in the worst case, and the worst case needs
 input like `aaaaaaaaab` searched for `aaab`, which does not happen to a line of
-text. There are cleverer algorithms, Boyer-Moore and friends, and they exist
-because the naive one is genuinely good enough almost always.
+text. There are cleverer algorithms, Boyer-Moore and friends, and they matter less
+here than you would expect, because the naive one is genuinely good enough on
+a line of text.
 
 ## The program
 

@@ -41,9 +41,10 @@ between a REPL and a batch program. A batch program that meets bad input
 should usually stop; a REPL that exits on a typo is unusable. Same input,
 opposite correct behaviour, decided entirely by whether a human is waiting.
 
-That is what makes this page possible at all. The loop takes a reader, so the
-demo hands it a string instead of a terminal, and nothing in the loop knows
-the difference. It is also how you test a REPL, which is otherwise one of the
+That is what makes this page possible at all. The loop reads through a
+`std.Io.Reader`, and here that reader is built over a string rather than over
+a terminal. Move where the reader comes from and the rest of the loop is
+unchanged. It is also how you test a REPL, which is otherwise one of the
 more annoying things to test.
 
 ## Check yourself

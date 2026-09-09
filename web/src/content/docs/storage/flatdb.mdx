@@ -75,10 +75,11 @@ single atomic operation, so two processes appending to the same file cannot
 interleave a record. Without it you would seek, then write, and the next
 chapter's problem arrives immediately.
 
-That atomicity has a limit worth knowing. It holds for a single write up to
-the pipe buffer size, and a record split across two calls can be interleaved
-with somebody else's. Which is why records here are built in memory and
-written once.
+That atomicity has two limits worth knowing. A `write` can return having
+written fewer bytes than you asked for, and the rest is a second call that
+another writer can get in front of. On NFS it does not hold at all: the
+protocol has no append, so the client simulates it and the race comes back.
+Which is why records here are built in memory and written once.
 
 Next: [what happens when two writers meet](/learn/storage/filelock/), which is
 the problem `O_APPEND` was quietly solving.

@@ -43,7 +43,7 @@ last, so it must be popped first. Get it backwards and `+` and `*` still look
 correct, because they commute, while `-` and `/` are silently wrong. A test
 suite of `2 + 3` would pass.
 
-**45 instructions for a four-line program.** The count is printed so the cost is
+**45 instructions for a five-line program.** The count is printed so the cost is
 visible rather than assumed. Each one is a switch dispatch, which is the price
 of a bytecode VM: real ones use computed goto or a JIT precisely because this
 switch runs billions of times.
@@ -61,8 +61,9 @@ live, how a frame is addressed, who restores the instruction pointer, and who
 cleans up the arguments. Each has alternatives worth seeing.
 
 [A Calling Convention](/learn/tiny-lang/calls/) makes those decisions and runs
-`fact(5)` through compiled bytecode. Read this VM first: it is the same
-dispatch loop with two fewer opcodes.
+`fact(5)` through compiled bytecode. Read this VM first: the calling one is
+the same dispatch loop with `load_local`, `call` and `ret` added, and `div`
+and `neg` dropped.
 
 ## Check yourself
 

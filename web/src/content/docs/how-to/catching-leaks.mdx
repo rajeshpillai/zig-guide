@@ -44,15 +44,17 @@ test that fails each allocation in turn.
 
 ## Why this works in ReleaseFast too
 
-Leak detection here is a property of the allocator, not of a build mode. The
-testing allocator wraps a debug allocator regardless of how the code under
-test is compiled, so CI catches leaks without shipping a debug build.
+Leak detection here is a property of the allocator, not of a build mode.
+`std.testing.allocator` is a `std.heap.SafeAllocator`, which keeps its own
+record of every live allocation regardless of how the code under test is
+compiled, so CI catches leaks without shipping a debug build.
 
 ## Variations
 
-- **Whole-program leak checking:** `std.heap.GeneralPurposeAllocator` (the
-  debug allocator) reports leaks from `deinit` at process exit; return code
-  and stderr tell you what was left.
+- **Whole-program leak checking:** run the whole program on a
+  `std.heap.SafeAllocator` and call `deinit` at exit. It returns the number of
+  leaks and logs where each one was allocated. (`GeneralPurposeAllocator` is
+  gone from master, and `DebugAllocator` is deprecated in favour of this one.)
 - **Exhaustive failure injection:** `std.testing.checkAllAllocationFailures`
   runs a function once per allocation it makes, failing a different one each
   time. It automates the `fail_index` sweep this recipe does by hand.

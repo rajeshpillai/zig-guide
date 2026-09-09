@@ -53,8 +53,9 @@ character by CI, so determinism is not optional here.
 ## Variations
 
 - **Top N of a large set:** sorting everything to take five is wasteful at
-  scale; `std.sort.heap` a bounded heap, or `std.mem.sort` a partial
-  selection, once profiling says so.
+  scale. `std.PriorityQueue` gives you the heap; keep it at five by popping the
+  smallest on every push. The standard library sorts whole slices only, so the
+  partial selection itself is code you write. Do either once profiling says so.
 - **Unicode:** `std.ascii.lowerString` is ASCII-only by design. Real
   case-folding needs a Unicode library, and
   [Unicode Recipes](/learn/standard-library/unicode-recipes/) names one; the standard library deliberately

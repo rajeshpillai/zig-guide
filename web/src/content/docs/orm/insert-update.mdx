@@ -29,9 +29,9 @@ already has the information to do.
 
 ## The statement and its values cannot drift
 
-The deep property here: `insert_sql`'s placeholders and `bind`'s output are
-generated from one walk over one list of fields. Add a column to the struct
-and both change together at the next compile. The classic ORM bug (a statement
+`insert_sql`'s placeholders and `bind`'s output are generated from one walk
+over one list of fields. Add a column to the struct and both change together
+at the next compile. The classic ORM bug (a statement
 with four placeholders fed five values) is not caught here; it is
 unrepresentable.
 

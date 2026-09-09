@@ -45,15 +45,15 @@ last chapter, and the reason `cut` runs at the speed of the disk.
 ## Check yourself
 
 The real `cut` treats a line with no delimiter at all specially: `cut -d: -f2`
-prints nothing for it, but `cut -d: -f1` prints the whole line. Does the rule
-above explain that, or is it an exception?
+prints the whole line rather than nothing. Does the rule above explain that,
+or is it an exception?
 
-It follows from the rule. Zero delimiters means one field, and that field is
-the whole line. So field 1 exists and is everything; field 2 does not exist.
-The program above agrees: `dave` gives `"dave"` for field 1 and no field 2.
-What actual `cut` adds on top is a flag, `-s`, to suppress such lines
-entirely, because "this line was not in the format I expected" is often what
-you meant.
+It is an exception. By the rule, zero delimiters means one field, so field 1
+is everything and field 2 does not exist. The program above answers the rule:
+`dave` gives `"dave"` for field 1 and no field 2. POSIX makes `cut` pass an
+undelimited line through intact whatever field you asked for, on the grounds
+that dropping a line you did not parse is worse than passing it on. `-s` is
+the flag that turns the exception off.
 
 ## If you have written C
 

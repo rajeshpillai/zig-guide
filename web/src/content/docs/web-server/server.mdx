@@ -54,9 +54,9 @@ there is no way to know how many are coming.
 has no idea the body ended, so it waits, and the request appears to hang. The
 alternative is to close the connection and let end-of-stream mark the end,
 which is what `Connection: close` announces and what the client here relies
-on. Those two mechanisms are the only ways HTTP/1.1 has to end a body. Chunked
-encoding is the third, and it exists because neither works for a response
-whose length is not known when the headers are sent.
+on. Chunked encoding is the third way, and it exists because neither of the other
+two works for a response whose length is not known when the headers are
+sent.
 
 **The routing is one `eql`.** `/` gets HTML, everything else gets a 404. That
 is genuinely all routing is at this level: a comparison against the target,

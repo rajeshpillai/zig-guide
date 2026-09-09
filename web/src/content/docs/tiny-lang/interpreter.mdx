@@ -27,9 +27,9 @@ follows that split exactly:
 - `eval` takes a node and returns an `i64`. Expressions produce values.
 - `exec` takes a node and returns nothing. Statements produce effects.
 
-Keeping them apart means the type system enforces the distinction the language
-already made. `print` is a statement, so it cannot appear inside an expression,
-and nothing has to check for that at run time.
+Keeping them apart means a statement can never stand in for a value, because
+`exec` has nothing to return. The grammar is what stops `print` appearing
+inside an expression, so nothing has to check for that at run time.
 
 ## The program
 

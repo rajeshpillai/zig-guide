@@ -66,8 +66,14 @@ absolute path as absolute and discards the prefix. That is exactly what
 `path.join` does in several languages, including Python's `os.path.join` and
 Node's `path.resolve`, and it turns a "harmless" absolute path into a full
 filesystem read. The guard should not be the only thing standing between a
-request and the disk. Opening relative to a directory handle, so the kernel
-enforces the boundary, is the belt to this braces.
+request and the disk, but a directory handle is not a second guard. `openat`
+resolves `..` like any other path, and it ignores the directory entirely when
+the path is absolute. `std.Io.Dir` does offer `resolve_beneath` on its open
+options, documented to turn an escaping path into `error.AccessDenied`, and
+also documented to be ignored where the operating system does not support it.
+Linux is one of those: the flag it is built on is a BSD `O_` flag, while Linux
+spells the same idea as an `openat2` resolve flag, so the option is silently
+inert there. Passing it and opening `../outside.txt` still opens the file.
 
 ## If you have written C
 
@@ -89,9 +95,10 @@ decoded path silently truncates it. That is the reason the guard above rejects
 a nul rather than shrugging at it. In Zig the slice keeps its length, but the
 moment the path crosses into C the length stops travelling with it.
 
-`openat` with a directory handle is the structural fix, and it is available in
-Zig as `dir.openFile`, which resolves relative to a `Dir` rather than the
-process's whole filesystem.
+`openat` with a directory handle is the usual shape, and in Zig it is
+`dir.openFile`, which resolves relative to a `Dir`. It is not a sandbox. `..`
+still climbs out of the directory and an absolute path ignores it, so the check
+above still has to run whatever the platform does with `resolve_beneath`.
 
 Next: [routing and query strings](/learn/web-server/routes/), which is the
 other half of what a target means.

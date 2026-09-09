@@ -16,9 +16,9 @@ A run of any length allocates once at startup, then never again. There is no
 allocator in the simulation, which is part of how it imports nothing.
 
 Forty-eight slots is more than the field can hold. At the tightest spacing and
-the highest speed there are about nine rows on screen, with at most three
-entities each. A test asserts the peak stays under capacity and above six, so a
-change that quietly stops spawning shows up.
+the highest speed there are about three rows on screen, with at most three
+entities each, so nine or so at once. A test asserts the peak stays under
+capacity and above six, so a change that quietly stops spawning shows up.
 
 ## An index is not enough
 

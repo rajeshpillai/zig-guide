@@ -82,9 +82,11 @@ The client promises the boundary does not appear in the data. What should a
 server do if it does anyway?
 
 Nothing special, and that is worth understanding. If the boundary appears
-inside a file, the parser splits that file in two at exactly that point. Both
-halves are valid parts as far as the format is concerned. There is no way to
-detect it, because there is no length anywhere to check against.
+inside a file, the parser splits that file at exactly that point and reads
+what follows as the head of another part. Most of the time that is a parse
+error rather than two files, and nothing tells you which it was, because there
+is no length anywhere to check against. If the file data also carries a
+`Content-Disposition` line and a blank line, the split is invisible.
 
 That is a real weakness of the design, and it is mitigated by boundaries being
 long and random rather than by any validation. Browsers generate a fixed

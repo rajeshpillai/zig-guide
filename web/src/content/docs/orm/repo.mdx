@@ -33,9 +33,9 @@ skeleton.
 
 ## The recording driver is the ORM's test suite
 
-This is the page's real lesson. `RecordingDriver` is twelve lines, and
-with it every feature of the library (inserts, transactions, migration
-execution) is testable as "given these calls, exactly this SQL, in
+`RecordingDriver` is thirteen lines, and with it every
+feature of the library (inserts, transactions, migration execution)
+is testable as "given these calls, exactly this SQL, in
 exactly this order". The database's behavior is not being tested; your
 library's is. A thin layer of integration tests against real SQLite and
 Postgres then covers the drivers themselves, and nothing else needs
