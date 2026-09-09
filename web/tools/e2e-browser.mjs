@@ -110,6 +110,7 @@ const markdownLinks = new Map();
 let playgrounds = 0;
 let expectedFailures = 0;
 let compileOnly = 0;
+let sourceQuotes = 0;
 
 /**
  * What a crawler and a link preview read. None of it is visible on the page,
@@ -206,6 +207,46 @@ async function checkHead(href) {
  * renders. Also assert the document did not scroll, which is how this would
  * break if someone reached for `scrollIntoView`.
  */
+/**
+ * A quoted declaration has to be the whole declaration.
+ *
+ * `SnippetSource` and `GameSource` cut a declaration out of a file by name, so
+ * a chapter cannot describe code that has been deleted. What neither of them
+ * can tell you is that the cut stopped in the wrong place. A half-quoted
+ * function renders, validates, links to the right file and reads as
+ * deliberate. Six chapters shipped a bare `fn advance(` with no body for
+ * weeks, because the extractor read a signature broken across lines as a
+ * declaration that had no body at all.
+ *
+ * Nothing here knows what the right lines are. It knows that a declaration
+ * ends on a closing brace or a semicolon, and that a block stopping anywhere
+ * else was cut short. The `fields` form ends `};` and passes.
+ */
+async function checkSourceQuotes(href) {
+  const blocks = await page.evaluate(() =>
+    [...document.querySelectorAll("figure.source-quote")].map((figure) => ({
+      decl: figure.querySelector(".decl")?.textContent?.trim() ?? "",
+      last: (figure.querySelector("pre")?.textContent ?? "")
+        .trimEnd()
+        .split("\n")
+        .pop()
+        .trim(),
+    })),
+  );
+
+  for (const block of blocks) {
+    sourceQuotes += 1;
+    // A whole file ends wherever it ends. `fetch-raylib.sh` finishes on an
+    // `echo`, and only a declaration cut out of a file can stop early.
+    if (!block.decl) continue;
+    if (block.last.endsWith("}") || block.last.endsWith(";")) continue;
+    failures.push(
+      `${href} quotes ${block.decl} but the block stops at ` +
+        `"${block.last}", so it was cut short`,
+    );
+  }
+}
+
 async function checkSidebarSync(href) {
   const state = await page.evaluate(() => {
     const sidebar = document.querySelector(".sidebar");
@@ -243,6 +284,7 @@ for (const href of chapters) {
   }
   await checkHead(href);
   await checkSidebarSync(href);
+  await checkSourceQuotes(href);
   compileOnly += await page.locator(".pg-static").count();
 
   pagers.set(
@@ -1274,6 +1316,7 @@ console.log(
     `picker: ${pickerChecks}  js-off: ${jsOffChecks}  ` +
     `editor: ${editorLooks}  code tokens: ${codeTokens}  ` +
     `header widths: ${headerWidths}  ` +
+    `source quotes: ${sourceQuotes}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
     `legacy redirects: ${redirectsChecked}  ` +

@@ -51,18 +51,24 @@ export function extractDecl(
     let start = i;
     while (start > 0 && lines[start - 1].trim().startsWith("///")) start--;
 
-    // A declaration with no body ends on its own line.
-    if (!lines[i].includes("{")) return lines.slice(start, i + 1).join("\n");
-
-    // So does one whose braces open and close on the same line, which is what
-    // a short array literal looks like. Without this the scan below runs
-    // straight past it hunting for a closing brace at this indentation, finds
-    // the end of some later declaration, and quotes everything in between.
-    // It fails silently, which is the reason it is worth a special case: the
-    // chapter renders, the build passes, and the block is simply wrong.
-    const opens = (lines[i].match(/\{/g) ?? []).length;
-    const closes = (lines[i].match(/\}/g) ?? []).length;
-    if (opens === closes) return lines.slice(start, i + 1).join("\n");
+    // Does the declaration finish on the line it starts on? Two shapes do:
+    // one with no body at all, ending in a semicolon, and one whose braces
+    // open and close right there, which is what a short array literal or a
+    // one-line function looks like.
+    //
+    // Everything else runs on and is closed by the brace matched below,
+    // including a signature broken across several lines. Both halves of this
+    // test were once wrong and both failed silently, which is why the shapes
+    // are spelled out rather than inferred from a single brace. Testing only
+    // for the absence of a brace truncated every multi-line signature to its
+    // first line, and testing only for balance ran a short array literal on
+    // into the end of the next declaration.
+    const line = lines[i].trimEnd();
+    const opens = (line.match(/\{/g) ?? []).length;
+    const closes = (line.match(/\}/g) ?? []).length;
+    if (opens === closes && (line.endsWith(";") || line.endsWith("}"))) {
+      return lines.slice(start, i + 1).join("\n");
+    }
 
     const closer = `${indent}}`;
     for (let j = i + 1; j < lines.length; j++) {
