@@ -1,0 +1,176 @@
+---
+title: Two Pointers
+seoTitle: "Zig Two Pointers: The Converging Walk Over Sorted Data"
+description: Two indices starting at opposite ends, and the argument that says which one of them has to move.
+seoDescription: The converging two-pointer walk in Zig, with the program printing every step. Two-sum on a sorted array, why the comparison decides which index moves, why the walk costs one pass instead of n squared, the same movement over bytes for a palindrome, and the discard argument behind container with most water.
+section: Competitive Programming
+order: 20
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+A sorted array and a target sum. Two of the values add up to it, and finding
+which two by trying every pair costs about half of n squared comparisons. At a
+hundred thousand values the judge stops the program long before the answer
+arrives.
+
+The array is sorted, and that already pays for something cheaper. Put one index
+at each end and add the two values. Whatever the comparison says, one of those
+two indices is finished and can be dropped.
+
+The program below prints the pair it holds at every step, with the discarded
+part of the array drawn as dots.
+
+<Playground name="23-competitive.two-pointers" />
+
+## Only one index can move
+
+<SnippetSource name="23-competitive.two-pointers" decl="twoSum" />
+
+`lo` and `hi` bracket the values still in play. Everything outside
+`items[lo..hi + 1]` has been ruled out already. Take the sum of the two values
+they point at. Three things can happen and none of them leaves a choice.
+
+The sum equals the target, and the search is over.
+
+The sum is below the target. Everything above `hi` is already gone, so
+`items[hi]` is the largest partner `lo` has left, and even that pairing came up
+short. No pair containing `lo` reaches the target. `lo` is finished, and
+`lo += 1` drops it.
+
+The sum is above the target. The mirror image holds. `items[lo]` is the
+smallest partner `hi` has left and the sum is still too big, so `hi` belongs to
+no pair either and `hi -= 1` drops it.
+
+Every step removes exactly one index, and no index ever comes back. `hi - lo`
+starts at `items.len - 1` and falls by one per step. The loop therefore runs
+fewer times than the array has values. One comparison per index, against one
+comparison per pair.
+
+The argument leans on the sorting twice, once at each end, and an unsorted
+array breaks both halves at once: a large value sitting in the middle is
+exactly what the reasoning assumed could not be there. Nothing in the function
+checks, so sort first.
+[Sorting](/learn/standard-library/sorting/) covers `std.mem.sort` and the
+comparator it takes.
+
+Both indices here move towards each other and stop when they meet. Two indices
+moving the same way, with a contiguous stretch of the array held between them,
+answer a different family of questions and rest on a different argument:
+[Sliding Window](/learn/competitive-programming/sliding-window/).
+
+## What the search throws away
+
+<SnippetSource name="23-competitive.two-pointers" decl="traceTwoSum" />
+
+`>` sits at `lo`, `<` sits at `hi`, and a dot is an index the walk has already
+finished with:
+
+```
+  step 1   2 + 24 =  26  too big    >  2   3   5   8  11  17  20 24<
+  step 2   2 + 20 =  22  too small  >  2   3   5   8  11  17 20<   .
+  step 3   3 + 20 =  23  too small     .>  3   5   8  11  17 20<   .
+  step 4   5 + 20 =  25  match         .   .>  5   8  11  17 20<   .
+```
+
+Step one drops 24 from the right. Step two overshoots in the other direction
+and drops 2 from the left. The live range closes from whichever side the last
+comparison pointed at, which is why the dots at the two ends do not grow at the
+same rate.
+
+Running the same walk for every target on the second input line gives the cost
+of each search:
+
+```
+  target    pair    values  steps
+      25   2, 6    5 + 20      4
+       5   0, 1    2 +  3      7
+      44   6, 7   20 + 24      7
+      31   4, 6   11 + 20      6
+     100     -          -      7
+       4     -          -      7
+```
+
+Nothing costs more than seven steps over eight values, including the two
+targets with no answer. The array cannot make a sum below 5 or above 44, so 4
+and 100 are out of reach. A failing search learns that the way a successful one
+finds its pair, by walking until the indices meet.
+
+## The same walk over bytes
+
+<SnippetSource name="23-competitive.two-pointers" decl="isPalindrome" />
+
+Swap the sum for an equality test and the movement carries over to a string
+read from both ends. A match settles two positions at once, so both indices
+move and the untested middle loses two bytes per step:
+
+```
+  step 1  r = r  >r  a  c  e  c  a  r<
+  step 2  a = a   . >a  c  e  c  a< .
+  step 3  c = c   .  . >c  e  c< .  .
+  3 steps, nothing left to pair
+```
+
+Seven bytes and three steps. The `e` in the middle needs no partner, and
+`while (lo < hi)` walks past it without a case of its own.
+
+A mismatch is an answer by itself:
+
+```
+  step 1  z ! g  >z  i  g<
+```
+
+The pair that failed appears in every reading of the string, so no later
+comparison can rescue it, and the function returns on the spot.
+
+The comparison is a byte comparison. For ASCII the byte pairs and the character
+pairs are the same pairs. `été` reads the same in both directions and its five
+bytes do not, because the leading byte of a two-byte character never equals the
+byte that follows it. Anything beyond ASCII needs the string decoded first.
+
+## Throwing a candidate away needs an argument
+
+<SnippetSource name="23-competitive.two-pointers" decl="maxArea" />
+
+Read the numbers as walls standing on a flat floor. Water poured between two of
+them reaches the height of the shorter wall and spans the gap. The area is
+`@min(heights[lo], heights[hi]) * (hi - lo)`.
+
+The ends of the array are the widest pair available, and every later pair is
+narrower. A step is only worth taking if it buys height in exchange, and that
+settles which wall to drop. Take the shorter of the two. Any other pair
+containing that wall is narrower than the pair just measured and no taller
+than the wall itself. Its area is therefore below the number already recorded.
+The shorter wall cannot appear in the answer, so dropping it costs nothing:
+
+```
+  step   lo   hi  h[lo]  h[hi]  width  area  best  moved
+     1    0    8     1     7      8     8     8  lo
+     2    1    8     8     7      7    49    49  hi
+     3    1    7     8     3      6    18    49  hi
+     4    1    6     8     8      5    40    49  hi
+```
+
+Step two records 49, and the four rows the program prints after these never
+beat it. Note step four, where the two walls are the same height. The argument then applies to both of
+them, so either one may go, and the code drops `hi` only because `<` had to be
+written one way round.
+
+Dropping the taller wall instead would compile and would sometimes agree. There
+is no argument behind it, and the pair it discards can be the answer.
+
+## The input is four lines of the file
+
+<SnippetSource name="23-competitive.two-pointers" decl="readRow" />
+
+There is no standard input under WASI in a browser tab. The lines a judge would
+pipe in sit in the snippet as a string, and the parser reads them through a
+`std.Io.Reader` built over it. The third line holds words rather than numbers,
+so `readRow` sits on top of a smaller `readLine` that hands back the raw line.
+
+None of the algorithms above see any of that. Each one takes a slice, so the
+parsing is the only code that knows where the bytes came from, and the same
+`readRow` pointed at a file on a judge feeds them unchanged.
+[Readers and Writers](/learn/standard-library/readers-and-writers/) has the
+interface and the buffer it reads through.

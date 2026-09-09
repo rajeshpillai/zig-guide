@@ -514,10 +514,11 @@ export const SECTIONS: Record<string, SectionMeta> = {
   "competitive-programming": {
     seoTitle: "Zig for Competitive Programming: Algorithms That Print Their Working",
     description:
-      "Contest algorithms written in Zig, one complete program per chapter. " +
-      "Binary search first: the half-open window, the invariant that keeps it " +
-      "correct, the off-by-one that stops the loop ending, and the two bounds " +
-      "the standard library already ships.",
+      "Contest algorithms written in Zig, one complete program per chapter, " +
+      "each printing the steps it took. Binary search and the off-by-one that " +
+      "stops the loop ending, the converging two-pointer walk and the " +
+      "comparison that dictates its next move, and the sliding window that " +
+      "costs one addition and one subtraction per step.",
     lede:
       "A contest problem reads its input from stdin. Nothing on this site has " +
       "one, because a snippet here runs under WASI in a browser tab, so each " +
@@ -531,6 +532,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "The classic off-by-one does not return a wrong index. It stops returning, because a window of one has a middle equal to its own start.",
       "`(lo + hi) / 2` adds two indices that are each valid and whose sum need not be. `lo + (hi - lo) / 2` costs nothing and cannot overflow.",
       "Two bounds answer more than one search does. Where a value starts and where it ends is a count, and getting it needs no scan.",
+      "Two pointers converging on sorted data never get a choice about the next move. One index retires per step, so a walk that reads like a search costs one pass.",
+      "A sliding window adds the value entering and subtracts the value leaving. Every index enters once and leaves once, so a loop inside a loop is still linear, and the shrink rule stops holding the moment a value can be negative.",
       "`std.sort.lowerBound` passes the key first and the element second. A comparator written the other way round compiles and returns a plausible wrong index.",
     ],
   },

@@ -1,0 +1,45 @@
+10 values parsed from the input
+  idx    0   1   2   3   4   5   6   7   8   9
+  val    2   7   1   9   4   3   8   5   6   2
+
+largest sum of 4 consecutive values
+  move     enter leave   sum  window
+  first        .     .    19  [ 2   7   1   9]  4   3   8   5   6   2
+  slide        4     2    21    2 [ 7   1   9   4]  3   8   5   6   2
+  slide        3     7    17    2   7 [ 1   9   4   3]  8   5   6   2
+  slide        8     1    24    2   7   1 [ 9   4   3   8]  5   6   2
+  slide        5     9    20    2   7   1   9 [ 4   3   8   5]  6   2
+  slide        6     4    22    2   7   1   9   4 [ 3   8   5   6]  2
+  slide        2     3    21    2   7   1   9   4   3 [ 8   5   6   2]
+  best 24, traced 24, re-summed 24
+  16 additions sliding, 28 re-summing every window
+
+shortest run of values summing to 19 or more
+  move     value   sum   len  window
+  grow         2     2     1  [ 2]  7   1   9   4   3   8   5   6   2
+  grow         7     9     2  [ 2   7]  1   9   4   3   8   5   6   2
+  grow         1    10     3  [ 2   7   1]  9   4   3   8   5   6   2
+  grow         9    19     4  [ 2   7   1   9]  4   3   8   5   6   2
+  shrink       2    19     4  [ 2   7   1   9]  4   3   8   5   6   2
+  grow         4    21     4    2 [ 7   1   9   4]  3   8   5   6   2
+  shrink       7    21     4    2 [ 7   1   9   4]  3   8   5   6   2
+  grow         3    17     4    2   7 [ 1   9   4   3]  8   5   6   2
+  grow         8    25     5    2   7 [ 1   9   4   3   8]  5   6   2
+  shrink       1    25     5    2   7 [ 1   9   4   3   8]  5   6   2
+  shrink       9    24     4    2   7   1 [ 9   4   3   8]  5   6   2
+  grow         5    20     4    2   7   1   9 [ 4   3   8   5]  6   2
+  shrink       4    20     4    2   7   1   9 [ 4   3   8   5]  6   2
+  grow         6    22     4    2   7   1   9   4 [ 3   8   5   6]  2
+  shrink       3    22     4    2   7   1   9   4 [ 3   8   5   6]  2
+  shrink       8    19     3    2   7   1   9   4   3 [ 8   5   6]  2
+  grow         2    13     3    2   7   1   9   4   3   8 [ 5   6   2]
+  answer: items[6..9], 3 values summing to 19
+  window and every-start agree -> true
+  17 moves over 10 values, ceiling 2n = 20
+  34 additions to try every starting index instead
+
+the same window on an array with a negative value
+  val    2  -1   2   3
+  window says      items[0..4], 4 values summing to 6
+  every start says items[2..4], 2 values summing to 5
+  largest sum of 2 consecutive values is still 5
