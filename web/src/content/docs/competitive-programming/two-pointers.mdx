@@ -19,8 +19,8 @@ The array is sorted, and that already pays for something cheaper. Put one index
 at each end and add the two values. Whatever the comparison says, one of those
 two indices is finished and can be dropped.
 
-The program below prints the pair it holds at every step, with the discarded
-part of the array drawn as dots.
+Every step of that walk is in the trace below. The two indices carry markers,
+and the stretch either one has finished with fades to dots.
 
 <Playground name="23-competitive.two-pointers" />
 
@@ -153,24 +153,9 @@ The shorter wall cannot appear in the answer, so dropping it costs nothing:
 ```
 
 Step two records 49, and the four rows the program prints after these never
-beat it. Note step four, where the two walls are the same height. The argument then applies to both of
-them, so either one may go, and the code drops `hi` only because `<` had to be
-written one way round.
+beat it. Note step four, where the two walls are the same height. The argument
+then applies to both of them, so either one may go, and the code drops `hi`
+only because `<` had to be written one way round.
 
 Dropping the taller wall instead would compile and would sometimes agree. There
 is no argument behind it, and the pair it discards can be the answer.
-
-## The input is four lines of the file
-
-<SnippetSource name="23-competitive.two-pointers" decl="readRow" />
-
-There is no standard input under WASI in a browser tab. The lines a judge would
-pipe in sit in the snippet as a string, and the parser reads them through a
-`std.Io.Reader` built over it. The third line holds words rather than numbers,
-so `readRow` sits on top of a smaller `readLine` that hands back the raw line.
-
-None of the algorithms above see any of that. Each one takes a slice, so the
-parsing is the only code that knows where the bytes came from, and the same
-`readRow` pointed at a file on a judge feeds them unchanged.
-[Readers and Writers](/learn/standard-library/readers-and-writers/) has the
-interface and the buffer it reads through.
