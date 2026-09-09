@@ -29,7 +29,7 @@ denoiser are the same loop with a different index. And because the choice is
 comptime, each one compiles to its own specialised function rather than a
 branch in the inner loop.
 
-The output confirms the morphology at the end: the block and discs cover 153
+The output confirms the morphology at the end: the block covers 153
 pixels brighter than 200, which erosion cuts to 105 and dilation grows to 209.
 Bright regions shrink and grow by a pixel of boundary. Running one then the
 other is opening and closing, which is how small specks get removed without
@@ -100,15 +100,15 @@ while (i < window.len) : (i += 1) {
 
 The quadratic bound does not matter at this size, and insertion sort has
 almost no constant overhead. Production implementations go further and use a
-fixed sorting network: 19 compare-and-swap operations for nine elements, in
-straight-line code with no loop and no data-dependent branches at all. That
-matters because a mispredicted branch per pixel is expensive, and a sorting
-network has none. It is also directly vectorisable, which the loop above is
-not.
+fixed compare-exchange network, in straight-line code with no loop and no
+data-dependent branches at all. That matters because a mispredicted branch per
+pixel is expensive, and a network has none. It is also directly vectorisable,
+which the loop above is not.
 
-If you only need the median rather than the full order, you can stop early:
-selection needs fewer comparisons than a sort. The 19-operation network is
-already close enough to the floor that most code does not bother.
+The size of the network depends on what you ask for. Sorting nine elements
+takes 25 compare-exchanges, but the median alone takes 19, because a selection
+network may leave the rest of the window in any order it likes. You only need
+the middle value, so you only pay for the middle value.
 
 ## Sort whole pixels, not channels
 

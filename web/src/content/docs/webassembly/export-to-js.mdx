@@ -76,7 +76,8 @@ something from the host, that object is where you supply it, which the
   fit in a wasm value. They cross through linear memory as an offset and a
   length. The [next recipe](../linear-memory/) is that handshake.
 - **Naming exports differently:** when the Zig name and the name the host should
-  see differ, use `@export(&foo, .{ .name = "bar" })` instead of `export fn`, and
+  see differ, use `@export(&foo, .{ .name = "bar" })` and give `foo` a
+  `callconv(.c)`, since `@export` does not add one the way `export fn` does.
   `bar` is what lands in the export table.
 - **Many instances:** each `WebAssembly.instantiate` gives a fresh instance with
   its own memory, so calling the same module from two workers keeps their state

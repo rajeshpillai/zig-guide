@@ -15,8 +15,8 @@ about where.
 The opinion is called **alignment**. A processor reads memory in chunks, and a
 four-byte number that starts at an address divisible by four can be read in
 one go. One that straddles the boundary takes two reads and some assembly, and
-on some processors it is not allowed at all. So the rule is that a value of
-size N starts at an address divisible by N.
+on some processors it is not allowed at all. So the rule for a number is that
+it starts at an address divisible by its own size.
 
 Follow that rule through a struct whose fields are different sizes and
 something falls out that surprises people: **the struct is bigger than its
@@ -53,10 +53,10 @@ If you added a `u64` field to `Packed`, what would `@sizeOf` become?
 
 16. The `u64` needs an address divisible by 8, and the four bytes already used
 by `count` plus the two by `flag` and `tag` come to 6, so it starts at 8 and
-ends at 16. The struct's own alignment also rises to 8, because a struct is
-aligned to its largest field, which is what makes arrays of it work. Adding
-one 8-byte field to a 8-byte struct cost 8 bytes, and that is the ordinary
-case rather than a surprise.
+ends at 16. The struct's own alignment also rises to 8, because a struct takes
+the alignment of its most demanding field, which is what makes arrays of it
+work. Adding one 8-byte field to an 8-byte struct cost 8 bytes, and that is the
+ordinary case rather than a surprise.
 
 ## If you have written C
 

@@ -43,16 +43,16 @@ the size of what it needed.
 upward. On most machines you will use they run downward, which is why you will
 read "the stack grows down" everywhere. It is a detail of the target, the
 program cannot observe it without going looking, and nothing above depends on
-the answer. It is in the output because the honest thing to print is what
-actually happened rather than what the textbook says.
+the answer. The program prints it because this target happens to disagree with
+the textbook.
 
 **The second call to `outer` landed on the same address as the first.** This is
 the line to remember. The first call finished, the mark went back, and the
 next call to need that much room was handed exactly the same bytes. The old
 values were still sitting there right up until they were overwritten.
 
-So if `outer` had returned a pointer to its local, that pointer would still
-look perfectly fine. It would point at real, readable memory. It would just be
+So if a pointer to `outer`'s local escaped the call, it would still look
+perfectly fine. It would point at real, readable memory. It would just be
 memory that now belongs to somebody else, and reading it would give you a
 number that used to mean something. Writing through it would corrupt whatever
 call is using that frame now.
@@ -85,13 +85,14 @@ int *broken(void) {
 }
 ```
 
-C compilers usually warn about that exact shape. Neither language stops you
-from doing it in a less obvious way, for example by storing the address in a
-struct field and returning the struct. Zig will not catch it either, and it is
-one of the few places where Zig's answer is "be careful" rather than a check.
-The [Pointers](/learn/language-basics/pointers/) chapter says so directly: a
-slice of a local array must not outlive that array, and the compiler will not
-tell you.
+C compilers usually warn about that exact shape. Zig refuses it outright:
+`error: returning address of expired local variable`. What neither language
+catches is the same bug written less obviously, for example by storing the
+address in a struct field and returning the struct. There the answer is "be
+careful" rather than a check. The
+[Pointers](/learn/language-basics/pointers/) chapter says so directly: a slice
+of a local array must not outlive that array, and the compiler will not tell
+you.
 
 What Zig gives you instead is [`defer`](/learn/language-basics/defer/) and the
 ownership rules in the next chapter. Between them, "who owns this and how long

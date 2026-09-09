@@ -25,9 +25,9 @@ src = (dst + 0.5) * scale - 0.5
 
 Both halves matter. `dst + 0.5` moves from the output pixel's index to its
 centre; `- 0.5` moves from the input's centre back to its index. Drop them and
-you get `src = dst * scale`, which aligns the two images by their top-left
-corners rather than their centres and shifts the result by half a source
-pixel.
+you get `src = dst * scale`, which lines the two grids up at their first pixel
+centre instead of at the image corners, and shifts the result by
+`0.5 * (1 - scale)` source pixels.
 
 The snippet upscales four pixels to eight, with and without the correction:
 
@@ -41,7 +41,7 @@ The snippet upscales four pixels to eight, with and without the correction:
 
 The correct version puts a symmetric two-sample ramp across the edge. The
 buggy one puts a one-sample ramp starting later, and the whole image sits half
-a source pixel to the left of where it should. On a 2x upscale that is a
+an output pixel to the left of where it should. On a 2x upscale that is a
 visible offset, and it is the single most common resampling bug. Easy to
 write, hard to see in a single image, and obvious the moment you blend the
 result against the original.

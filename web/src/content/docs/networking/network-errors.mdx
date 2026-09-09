@@ -42,7 +42,8 @@ to check.
 That is not a bug in the standard library. It is documented:
 
 > End-of-stream is treated equivalent to a delimiter, unless it would result
-> in a length 0 return value, in which case `null` is returned instead.
+> in a length 0 return value, in which case `error.EndOfStream` is returned
+> instead.
 
 That behaviour is right for a text file, where the last line often has no
 trailing newline. It is wrong for a socket, where the absence of the delimiter

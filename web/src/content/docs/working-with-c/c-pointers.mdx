@@ -10,7 +10,7 @@ import Playground from "../../../components/Playground.astro";
 <Playground name="05-working-with-c.c-pointers" />
 
 `[*c]T` is Zig's model of C's `T*`. It exists almost entirely so that
-`@cImport` can translate headers automatically.
+translate-c can convert headers automatically.
 
 ## It gives up everything
 
@@ -27,18 +27,6 @@ pointer types without complaint. That is convenient at a C boundary and
 harmful anywhere else, because it silently discards the guarantees the rest of
 the language is built on.
 
-## Convert at the boundary
-
-The moment you know the length, produce a slice and never look back:
-
-```zig
-const slice: []i32 = c_ptr[0..count];
-```
-
-Now you have bounds checks, `for` iteration, and `.len`. If the pointer might
-be null, check once and turn it into an optional rather than propagating the
-uncertainty.
-
 ## Why it has to exist
 
 A C header cannot tell the translator which of the three things a `T*` is.
@@ -47,7 +35,7 @@ together and concludes `data` is an array of `n`. Given `int *out`, a human
 reads the name and concludes it is one item written through. The declaration
 itself says the same thing in both cases.
 
-So `@cImport` cannot choose, and `[*c]T` is the type that means "whichever of
+So translate-c cannot choose, and `[*c]T` is the type that means "whichever of
 these it turns out to be". Every safe pointer type would have been a guess,
 and a wrong guess would have been worse than no guess.
 
@@ -95,7 +83,7 @@ the header, rather than at every call site.
 
 ## Rule of thumb
 
-If you did not get it from `@cImport` or an `extern` declaration, you should
+If you did not get it from translate-c or an `extern` declaration, you should
 not be writing `[*c]`. Use `*T` for one item, `[*]T` for many, `[]T` when you
 know the count, and `?` when it may be absent.
 

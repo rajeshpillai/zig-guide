@@ -51,13 +51,14 @@ node --experimental-wasi-unstable-preview1 run.mjs   # via node:wasi
 ```
 
 The Node path is what CI and this page's Run button use. The runner
-(`tools/run-wasi.mjs` in this repo) is about forty lines: it opens the module,
-builds a WASI import object, and calls `_start`.
+(`tools/run-wasi.mjs` in this repo) is about a hundred lines: it opens the
+module, builds a WASI import object, and calls `_start`.
 
 ## What WASI is doing
 
-The program calls `writeStreamingAll` to print. On a native build that lowers to
-a `write` syscall. On `wasm32-wasi` it lowers to a call to an imported function,
+The program prints through a buffered writer over stdout. On a native build
+the flush lowers to a `write` syscall. On `wasm32-wasi` it lowers to a call to
+an imported function,
 `fd_write`, that the module does not contain. The runtime supplies it at
 instantiation. Swap the runtime and stdout goes somewhere else (a real terminal
 under wasmtime, a captured buffer under this page's shim) with the module byte
@@ -70,9 +71,11 @@ That refusal is the sandbox from the [overview](../what-is-wasm/) made concrete.
 ## Variations
 
 - **Arguments and env:** WASI passes `argv` and environment variables when the
-  runtime chooses to. `std.process.argsAlloc` reads them exactly as on native.
-- **Files:** `std.fs` works, but only inside directories the runtime preopened.
-  Nothing else on disk is reachable, by construction.
+  runtime chooses to. You read them off the `std.process.Init` that `main`
+  receives, the same way as on native. On WASI the argument iterator needs an
+  allocator, so reach for `Args.Iterator.initAllocator`.
+- **Files:** `std.Io.Dir` works, but only inside directories the runtime
+  preopened. Nothing else on disk is reachable, by construction.
 - **Exit status:** returning an error from `main` sets a non-zero exit code, and
   the runtime reports it, so wasm commands compose in shell pipelines like any
   other tool.

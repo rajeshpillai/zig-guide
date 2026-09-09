@@ -29,7 +29,7 @@ const Connection = struct {
 ```
 
 The transport is missing on purpose. `handle` reads bytes and writes bytes and
-never learns where they came from, which is why this page runs with no network
+never learns where they came from, so this page runs with no network
 underneath it. Put a `std.Io.net.Server` in front of the same function and it
 is [the TCP round trip](/learn/networking/tcp-echo/).
 
@@ -54,8 +54,8 @@ them inline. **The source does not change**, which is why
 this one is.
 
 If you are arriving from an older Zig looking for `async` and `await` as
-keywords: they were removed. This is what replaced them, and it is a library,
-not syntax. [Concurrency](/learn/standard-library/concurrency/) covers the
+keywords: they were removed. `io.async` replaced them, as a library rather
+than syntax. [Concurrency](/learn/standard-library/concurrency/) covers the
 shape in general.
 
 ## A Group so nothing outlives the scope
@@ -75,7 +75,7 @@ fn handle(conn: *Connection, counter: *usize, mutex: *std.Io.Mutex, io: std.Io) 
 
 Note the `void`. There is nobody to return an error to: the caller has moved
 on to the next connection. So a per-connection failure has to become part of
-that connection's reply, which is the same conclusion the [text protocol
+that connection's reply, the same conclusion the [text protocol
 chapter](/learn/networking/text-protocols/) reached from the other direction.
 One client sending garbage must not affect any other client.
 

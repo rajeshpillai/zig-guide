@@ -35,9 +35,9 @@ does not change is the **spacing**, and the spacing is what the page is about.
 apart because a `u32` is four bytes wide, and an array puts its elements
 directly against each other with no gap. This is why `row[2]` can be found
 without searching for it: the machine computes the address of `row[0]` plus
-two times four, and goes straight there. That is the reason reading
-`row[999999]` of an array costs the same as reading `row[0]`, which is not
-true of every data structure you will meet.
+two times four, and goes straight there. Finding element 999,999 of a large
+array takes the same arithmetic as finding element 0, which is not true of
+every data structure you will meet.
 
 **`@intFromPtr` did nothing.** It performs no work and produces no new
 information. A pointer is already a number, and `@intFromPtr` is how you ask
@@ -60,7 +60,7 @@ If the array held `u8` values instead of `u32` values, what would the four
 offsets be?
 
 0, 1, 2 and 3. Each box now holds one byte, so the boxes sit one apart. The
-addresses did not become smaller. The values did, so more of them fit in the
+addresses did not become smaller. The boxes did, so more of them fit into the
 same stretch of street.
 
 ## If you have written C

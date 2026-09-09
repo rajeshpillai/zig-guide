@@ -38,8 +38,9 @@ const px = x * scale + 2 * sx + 1;
 ```
 
 The `+ 1` is the half-sub-pixel offset. Sampling at the corners instead
-(dropping it) biases the whole edge by half a pixel, which is small,
-systematic, and visible when two antialiased shapes are meant to meet.
+(dropping it) biases the whole edge by half a sub-pixel, an eighth of a pixel
+here, which is small, systematic, and visible when two antialiased shapes are
+meant to meet.
 
 ## What this costs
 

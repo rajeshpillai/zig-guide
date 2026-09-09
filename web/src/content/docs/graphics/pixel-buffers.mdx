@@ -46,9 +46,9 @@ const r: u8 = @intCast((x * 255) / (width - 1));
 but the last, because integer division truncates. This is the most common bug
 in integer scaling code, and it is invisible until you look at the output.
 
-**`width - 1`, not `width`.** With `width` the last column stops one short of
-255. Nobody sees that in a gradient. It matters the moment the value is used as
-an index.
+**`width - 1`, not `width`.** With `width` the last column stops short: at 64
+wide it reaches 251, not 255. Nobody sees that in a gradient. It matters the
+moment the value is used as an index.
 
 No floats appear anywhere in this section unless a chapter says otherwise.
 Integers are exact for this work, and exactness is worth a lot when you are
@@ -65,7 +65,7 @@ type, and the `@intCast` at the point of use is the price.
 The bounds check in `putPixel` is doing more than safety. It is **clipping**:
 once "off-screen" is a legal thing to ask for, every shape routine can be
 written without an edge case for the edges. That is why the circle in
-[Circles](../circles/) is a handful of lines even when it hangs off three
+[Circles](../circles/) is a handful of lines even when it hangs off two
 sides of the buffer at once.
 
 `putPixel` is also the slow way to draw. A real renderer writes whole spans of

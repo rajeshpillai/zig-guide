@@ -47,8 +47,9 @@ spawned, and you choose which block that is when you spawn it. Leave it null
 and the child gets the parent's.
 
 The direction that surprises people is the one that does not work. There is no
-call that lets a program change its parent's environment. It is the only way.
-The environment was copied at fork time, and the copies were never connected.
+call that lets a program change its parent's environment. A tool that wants to
+alter your shell prints something for the shell to evaluate instead. The
+environment was copied at fork time, and the copies were never connected.
 
 ## Keys have two rules
 

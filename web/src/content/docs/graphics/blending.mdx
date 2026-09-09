@@ -80,7 +80,7 @@ because a fully transparent pixel still contributes its colour to the average.
 loses a multiply:
 
 ```
-out = src + dst * (255 - a)
+out = src + dst * (255 - a) / 255
 ```
 
 Compositing systems that scale or filter (a GPU, a compositor, a browser) use

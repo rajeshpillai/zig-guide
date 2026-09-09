@@ -38,9 +38,10 @@ just an offset into this array. There is no other memory the module can touch.
 
 ## Only numbers cross a call
 
-A wasm function signature can only mention four types: `i32`, `i64`, `f32`,
-`f64`. That is the entire boundary vocabulary. There is no string type, no
-struct, no array that a call can pass or return.
+The types a call can carry are `i32`, `i64`, `f32` and `f64`. Later proposals
+added `v128` for SIMD and reference types for host objects, but a JavaScript
+host still passes numbers. There is no string type, no struct, no array that a
+call can pass or return.
 
 Anything larger travels as bytes in linear memory, referred to by an `i32`
 offset and (usually) an `i32` length. A Zig `[]const u8` slice becomes a

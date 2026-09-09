@@ -59,16 +59,16 @@ look at. A wall receding into the distance is a trapezoid on the screen, so
 texture coordinates vary non-linearly across it. Interpolating them linearly
 is what produced the wobbling floors in games of the mid nineties. The fix is
 to interpolate the reciprocals along with the coordinates and divide at each
-pixel. That is what "perspective correct" means, and why it cost more than the
+pixel. "Perspective correct" names that fix, and it cost more than the
 hardware of the day wanted to spend.
 
 ## Why a texture is not a canvas
 
 `Texture` here is its own type, with `pixels`, `width` and `height` and no
-`stride`. That is a deliberate difference from [the
-canvas](/learn/graphics/sub-canvas/), and it says something true. Nothing in
-this program samples a rectangle out of the middle of a larger image, so there
-is no second width to carry.
+`stride`. The missing `stride` is a deliberate difference from [the
+canvas](/learn/graphics/sub-canvas/). Nothing in this program samples a
+rectangle out of the middle of a larger image, so there is no second width to
+carry.
 
 It buys a real guarantee. `Texture` has no `set`, and its pixels are `[]const
 u32`, so the direction of travel is in the type rather than in a comment.
@@ -85,30 +85,29 @@ The sampler floors the scaled coordinate to pick a texel. What happens at
 exactly `u = 1.0` with wrapping turned off?
 
 `u * 8` is `8`, flooring gives `8`, and the texture's last valid index is `7`.
-The clamp catches it and returns texel 7, which is why the branch reads
-`@min(w - 1, tx)` and not `@min(w, tx)`.
+The clamp catches it and returns texel 7. The branch reads `@min(w - 1, tx)`
+for that reason, not `@min(w, tx)`.
 
-No pixel in this program actually reaches it. `u` is exactly 1 only where the
-weight of the `u = 0` corner is exactly 0, which is the line through the other
-two corners, and for the left square that line is `x = 26`. Pixel centres sit
+No pixel in this program actually reaches it. `u` is exactly 1 only on the
+line through the other two corners, where the weight of the `u = 0` corner
+falls to 0, and for the left square that line is `x = 26`. Pixel centres sit
 at half-integers, so they miss it by half a pixel every time.
 
-That is worth knowing rather than reassuring. The guard is never exercised by
-the picture above, so nothing here would notice if it were wrong. The snippet
-you are looking at also ships with the bounds check compiled out. Move one
-vertex to a half-integer and the read goes off the end of the texture. That is
-a caught panic in a safety build, and a pixel of whatever follows it in memory
-in this one.
+So the guard is never exercised by the picture above, and nothing here would
+notice if it were wrong. The snippet you are looking at also ships with the
+bounds check compiled out. Move one vertex to a half-integer and the read goes
+off the end of the texture. A safety build catches that with a panic. This one
+returns a pixel of whatever follows the texture in memory.
 
 ## If you have written C
 
-The rasteriser is the shape you would write in C, with one difference worth
-naming: `@mod` rather than `%`.
+The rasteriser is the shape you would write in C, with one difference: `@mod`
+rather than `%`.
 
 C's `%` keeps the sign of the dividend, so `-1 % 8` is `-1`, and a texture
 coordinate that drifts slightly negative indexes backwards out of the array.
-The symptom is a single wrong row or column along one edge, which is easy to
-mistake for an off-by-one in the geometry.
+The symptom is a single wrong row or column along one edge, easy to mistake
+for an off-by-one in the geometry.
 
 Zig does not let you write that by accident, and not because it picks the
 other answer. `%` on signed integers is a compile error:
@@ -119,7 +118,7 @@ and floats must use @rem or @mod
 ```
 
 `@rem(-1, 8)` is `-1`, matching C. `@mod(-1, 8)` is `7`, taking the sign of
-the divisor, which is the wrapping a sampler wants. Both exist, neither is the
-default, and the operator that would have quietly chosen for you is gone.
+the divisor, the wrapping a sampler wants. Both exist, neither is the default,
+and the operator that would have quietly chosen for you is gone.
 
 Next: moving the shape rather than the pixels inside it.

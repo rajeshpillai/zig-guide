@@ -37,7 +37,7 @@ prints alongside the naive count.
 
 The reason this stays a three-line change is that `putPixel` clips. The
 bounding box of a circle near an edge runs off the buffer, and nothing in
-`fillCircle` checks for that. The last circle in the snippet hangs off three
+`fillCircle` checks for that. The last circle in the snippet hangs off two
 sides at once to show it. Without clipping in one place, every shape routine
 would need its own `@min`/`@max` against the buffer size, and one of them
 would eventually get it wrong.

@@ -46,8 +46,9 @@ the one the timeout policy itself adds.
 Message 1 is lost at tick 1 and resent at tick 4, because three ticks of
 silence was the deal. Nothing confirmed the loss; the sender bet that an
 ack this late was never coming. Both traces also show the bet's other
-face: message 3 arrives intact, its *ack* is lost, and the sender resends
-a message the receiver already has. The sender cannot tell those two
+face. In the first, message 3 arrives intact, its *ack* is lost, and the
+sender resends a message the receiver already has; in the second the
+message whose ack goes missing is 4. The sender cannot tell those two
 stories apart, ever. What makes the bet safe to lose is the receiver's
 duplicate check from the last chapter: the resend is shrugged off and
 the ack repeated. Retransmission does not need certainty, only a

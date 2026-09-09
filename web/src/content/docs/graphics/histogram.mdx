@@ -28,7 +28,7 @@ step, and everything on this page is derived from it.
 ## Reading the shape
 
 The histogram of the test picture is bunched into the low third. The
-background ramp lives between 16 and 63, and the block and discs are three
+background ramp lives between 13 and 68, and the block and discs are three
 isolated spikes higher up. Nothing at all occupies 80 to 95 or 112 to 143. The
 picture is using about half the range it has.
 
@@ -79,7 +79,7 @@ structure.
 Look at the equalized histogram in the output. It is flatter, but it still has
 empty buckets, and one bucket holds 300 pixels while another holds 77.
 
-Equalization redistributes values; it cannot invent them. If 821 pixels share
+Equalization redistributes values; it cannot invent them. If 153 pixels share
 a single luma value, they still share a single luma value afterwards. It moves
 that spike to wherever the CDF puts it and leaves the gaps on either side. A
 perfectly flat histogram is only achievable with as many distinct input values

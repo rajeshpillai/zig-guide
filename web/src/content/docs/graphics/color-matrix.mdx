@@ -132,9 +132,11 @@ to the last bit. A table maps bytes to bytes and there is nowhere for an error
 to hide. A matrix carries fractions, and rounding them earlier or later gives
 different answers.
 
-Off by one per channel is below what anyone can see, and it is the composed
-version that is more accurate, since it rounds once instead of twice. Worth
-knowing anyway, because it means "same filter, different order of operations"
+Off by one per channel is below what anyone can see, and the two-pass version
+is the closer of the two. Composing truncates the nine matrix entries
+themselves, and each of those errors is then multiplied by a channel value as
+large as 255. Rounding twice on the way through costs less than rounding the
+matrix once. It matters because "same filter, different order of operations"
 does not give bit-identical output, and a test that compares images byte for
 byte will fail on it.
 

@@ -46,9 +46,6 @@ result. One comparison bought that.
 
 ## About that last line
 
-This is the honest part, and it is worth more to you than a tidier page would
-be.
-
 When you write `slice[i]` directly, Zig inserts that same comparison for you,
 and on failure the program stops with a message naming the index and the
 length. That check exists in Debug and ReleaseSafe builds. It does not exist
@@ -74,9 +71,10 @@ was allowed, and stopped on the line that asked. Compare that with the silent
 wrong answer at the top of this page: the mistake is the same, and the
 difference is entirely in whether the check was compiled in.
 
-The run also says it cannot print a stack trace. That is WebAssembly, not Zig:
-there is no call stack here to walk. On your own machine the same panic comes
-with the chain of calls that led to it, file and line for each.
+The run also says it cannot print a stack trace, because debug info is
+unavailable for this target. The wasm sent to your browser carries no symbols,
+so there is nothing to turn a return address into a file and a line. On your
+own machine the same panic comes with the chain of calls that led to it.
 
 That message is not quoted from memory. Our build runs this program on every
 change and requires it to stop with exactly that text. If a future Zig worded

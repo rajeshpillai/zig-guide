@@ -18,11 +18,10 @@ carried the only way anything is carried: as a value, in the return.
 Which raises the question that decides how pleasant the language is to use:
 **what stops the caller from ignoring it?**
 
-That is not a rhetorical question. It is the actual difference between error
-handling that works and error handling that everybody agrees is important and
-nobody does. If ignoring a failure is a keystroke shorter than handling it, it
-gets ignored, and the program carries on with a number that means "this did
-not happen".
+The answer separates error handling that works from error handling everybody
+agrees is important and nobody does. If ignoring a failure is a keystroke
+shorter than handling it, it gets ignored, and the program carries on with a
+number that means "this did not happen".
 
 Zig's answer is to put the failure in the **type**. A function that can fail
 does not return a `u16`. It returns "either a `u16` or an error", and those
@@ -47,9 +46,9 @@ that was never produced.
 
 **`try` is the short way to pass it upward.** Inside `parsePort`, the line
 `try std.fmt.parseInt(...)` means: if that failed, return its error to my
-caller; otherwise give me the number. It is the everyday case, which is why it
-is three letters. Nothing is unwound and nothing is searched for. It is a
-return.
+caller; otherwise give me the number. The everyday case gets three letters.
+Nothing is unwound and nothing is searched for. The failure path is an
+ordinary return.
 
 **The errors were values.** `switch (err)` on them works like a switch on
 anything else. And there is **no `else` prong**. Slow down for that one. The

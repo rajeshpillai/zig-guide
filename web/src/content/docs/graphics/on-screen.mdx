@@ -87,7 +87,7 @@ registered from inside the first.
 
 **A surface is not a window.** A bare `wl_surface` is just a rectangle of
 pixels. It becomes a window by being wrapped in an `xdg_surface` and then an
-`xdg_toplevel`, which is what carries the title and the app id.
+`xdg_toplevel`. The toplevel carries the title and the app id.
 
 **The first commit carries no buffer.** It asks the compositor for the initial
 `configure`. Attaching a buffer before that handshake completes is a protocol
@@ -95,13 +95,12 @@ error. The `configure` handler acks the serial, attaches, damages, and
 commits, and that last commit is the moment the window appears.
 
 **You must answer `xdg_wm_base.ping` with `pong`.** It is the compositor's
-liveness check. Ignore it and your client is killed as unresponsive. This is
-the easiest thing in the protocol to forget, because nothing goes wrong until
-it does.
+liveness check. Ignore it and your client is killed as unresponsive.
+Forgetting it is easy, because nothing goes wrong until it does.
 
 **The shell protocol is not in the library.** `xdg-shell` ships as XML that
-`wayland-scanner` turns into a header plus glue at build time. That is a
-normal `addSystemCommand` step with `addOutputFileArg2`, so the generated
+`wayland-scanner` turns into a header plus glue at build time. A normal
+`addSystemCommand` step with `addOutputFileArg2` handles it, so the generated
 files can live in the Zig cache with nothing checked in.
 
 **There are no window decorations.** A compositor *may* offer to draw them via

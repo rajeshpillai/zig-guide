@@ -30,38 +30,6 @@ A `packed struct` converts to and from its backing integer with `@bitCast`,
 which makes it the natural way to describe hardware registers and protocol
 headers.
 
-## Verifying, not assuming
-
-`@sizeOf`, `@offsetOf`, and `@bitSizeOf` are comptime values, so a layout
-assumption can be asserted at compile time:
-
-```zig
-comptime {
-    std.debug.assert(@offsetOf(CPoint, "y") == 4);
-}
-```
-
-Worth doing at any real C boundary: it turns a silent mismatch into a build
-failure.
-
-## Calling conventions
-
-`callconv(.c)` gives a function the C calling convention, and `export` gives
-it an unmangled symbol name:
-
-```zig
-export fn add(a: c_int, b: c_int) callconv(.c) c_int {
-    return a + b;
-}
-```
-
-That is all it takes for C to call Zig. Going the other way, declare the C
-function with `extern`:
-
-```zig
-extern "c" fn abs(n: c_int) c_int;
-```
-
 ## What "ABI" means
 
 The application binary interface is the set of agreements two separately
@@ -90,7 +58,7 @@ Worth doing at any real C boundary: it turns a silent mismatch into a build
 failure.
 
 The stronger version of the same idea is to not hand-write the declaration at
-all. `@cImport` reads the header and produces the struct, so there is nothing
+all. translate-c reads the header and produces the struct, so there is nothing
 to get out of step; see [importing C](/learn/working-with-c/cimport/).
 Hand-written `extern` declarations are for the cases where no header exists,
 and those are exactly the cases that need the assertions.
@@ -130,11 +98,12 @@ function with `extern`:
 extern "c" fn abs(n: c_int) c_int;
 ```
 
-The two halves are independent and both are needed. `callconv(.c)` decides how
-arguments are passed, and `export` decides what the symbol is called. A
-function that is `export` without `callconv(.c)` is findable by the linker and
-called incorrectly. That fails in a way that looks like memory corruption
-rather than like a linker error.
+`export` does both jobs. It gives the function an unmangled symbol name and
+the C calling convention, so the `callconv(.c)` above spells out what `export`
+already implies. Writing it costs nothing and says what you meant.
+`@export(&add, .{ .name = "add" })` is the case where you supply the
+convention yourself, because it exports a function that keeps whatever
+convention it declared.
 
 One more thing does not cross the boundary: Zig errors. An `export` function
 returning `!void` has no C representation, so a function meant to be called

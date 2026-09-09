@@ -37,8 +37,8 @@ almost everything else you use and it has not changed:
 **Three streams were already open.** The program did not open them and cannot
 choose their numbers. Descriptor 0 is standard input, 1 is standard output,
 and 2 is standard error. That is true of every process on every Unix-derived
-system. It is why a shell can connect two programs together without either of
-them agreeing to it in advance.
+system. A shell relies on it to connect two programs together without either of
+them agreeing in advance.
 
 **A descriptor is an integer and nothing else.** It is not a handle object with
 methods hiding inside it. It is a number the kernel uses to look up what you
@@ -56,9 +56,8 @@ this wrong is why some tools are painful to script.
 
 **Returning from `main` reported 0.** A process ends with a status, and by
 convention 0 means success and anything else means a specific kind of failure.
-One small integer is not much to say with. That is exactly why programs also
-write to stderr. The status says *that* it failed. stderr says *what*
-happened.
+One small integer is not much to say with, so programs also write to stderr.
+The status says *that* it failed. stderr says *what* happened.
 
 ## Check yourself
 
@@ -66,29 +65,14 @@ This program ran in your browser, where there is no operating system, no
 process table and no kernel to call. So why did the descriptors print 0, 1 and
 2?
 
-Because the page runs it under **WASI**. That is an interface with the same
-shape as the real thing: the same numbering, the same calls, written in
-JavaScript against the browser instead of against a kernel.
+Because the page runs it under **WASI**, an interface with the same shape as
+the real thing: the same numbering, the same calls, written in JavaScript
+against the browser instead of against a kernel.
 
-The program cannot tell the difference. That is the point of an interface, and
-it is why most of the snippets in this guide can run on a page at all. The
-five chapters in [the OS section](/learn/os/) that genuinely need a kernel say
-so and do not offer a Run button.
-
-## If you have written C
-
-You have already met all of this, under the names `open`, `read`, `write`,
-`close`, and `exit`. Zig's `std.Io.File` is a descriptor and a couple of flag
-bits, and you can build one out of the number 1 by hand and write to standard
-output with it. The [file descriptors](/learn/os/file-descriptors/) chapter
-does exactly that.
-
-Two differences show up immediately. A failed call returns an error rather
-than setting a global `errno`, so it composes with `try` like everything else.
-And the ability to do I/O arrives as an argument: `main` receives an `init`,
-and `init.io` is what the writers above were built from. There is no global
-`stdout` to reach for, which means a function that does not take an `Io`
-cannot quietly touch the outside world.
+The program cannot tell the difference. An interface is exactly that promise,
+and most of the snippets in this guide run on a page because of it. Three
+chapters in [the OS section](/learn/os/) genuinely need a kernel: pipes,
+signals and spawning. They say so, and they do not offer a Run button.
 
 ## Where to go next
 
@@ -109,3 +93,18 @@ files, start processes, and connect pipes. And if you would rather learn by
 building, [Data Structures](/learn/data-structures/) starts with a linked
 list, the smallest program that makes you answer the ownership question from
 [chapter five](/learn/systems-from-scratch/who-owns-this-memory/) for real.
+
+## If you have written C
+
+You have already met all of this, under the names `open`, `read`, `write`,
+`close`, and `exit`. Zig's `std.Io.File` is a descriptor and a couple of flag
+bits, and you can build one out of the number 1 by hand and write to standard
+output with it. The [file descriptors](/learn/os/file-descriptors/) chapter
+does exactly that.
+
+Two differences show up immediately. A failed call returns an error rather
+than setting a global `errno`, so it composes with `try` like everything else.
+And the ability to do I/O arrives as an argument: `main` receives an `init`,
+and `init.io` is what the writers above were built from. There is no global
+`stdout` to reach for, which means a function that does not take an `Io`
+cannot quietly touch the outside world.

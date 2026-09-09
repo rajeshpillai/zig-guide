@@ -89,7 +89,7 @@ cost of not running on older ones.
 ## In `build.zig`
 
 ```zig
-const target = b.standardTargetOption(.{});
+const target = b.standardTargetOptions(.{});
 ```
 
 That exposes `-Dtarget=` to whoever runs your build, so users can
@@ -97,8 +97,8 @@ cross-compile your project without you doing anything else.
 
 ## Why this is unusual
 
-It is worth being explicit about how much work is missing here, because if you
-have cross-compiled C before, the absence is the surprising part.
+A lot of work is missing here. If you have cross-compiled C before, the
+absence is the surprising part.
 
 The traditional route needs a cross toolchain for each target, a sysroot
 containing that platform's headers and libraries, and a build system taught to

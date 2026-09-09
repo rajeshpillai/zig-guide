@@ -61,10 +61,9 @@ This is where Zig asks a question C does not.
 pixels. A rectangle inside a wider buffer is not contiguous. The slice
 returned runs from the region's first pixel to the last pixel of its bottom
 row. So it spans the region, and the gap at the end of each row belongs to the
-parent: It is worth being exact about what it buys, because it is easy to
-assume it buys more. Indexing past the end of the framebuffer is caught.
-Writing into the panel next door is not, because those pixels are inside the
-slice.
+parent. That bound buys less than it looks like it buys. Indexing past the end
+of the framebuffer is caught. Writing into the panel next door is not, because
+those pixels are inside the slice.
 
 What keeps the panels apart is the clip in `set`, comparing against the
 region's own `width` and `height`. Two different guarantees, from two

@@ -37,8 +37,9 @@ arrive whenever they arrive.
 
 ## No threads in this one, and why that works
 
-The snippet sends both messages before receiving either, on one thread.
-The kernel queues datagrams on the bound socket until someone reads them.
+The snippet sends a message, reads it, sends another, and reads that, all on
+one thread. Nothing has to be waiting when a datagram arrives, because the
+kernel queues datagrams on the bound socket until someone reads them.
 That decoupling is the actual model: sender and receiver do not
 rendezvous, they just share an address. (The queue is finite; when it
 overflows, datagrams are dropped, which is UDP behaving as documented.)

@@ -46,11 +46,12 @@ choosing one.
 stored and `'h'` is a way of printing it, which is chapter one's point
 arriving in a place where it matters.
 
-**Comparing needed `std.mem.eql`.** `==` on two slices asks whether they point
-at the same place, which is a real question and not the one you meant. This is
-the single most common mistake for someone arriving from a managed language,
-and it is worth over-learning: **compare contents with `std.mem.eql`, never
-with `==`.**
+**Comparing needed `std.mem.eql`.** Zig will not let you write `a == b` on two
+slices. The compiler rejects it: `operator == not allowed for type '[]const
+u8'`. Two pointers do compare with `==`, and the answer is whether they point
+at the same place. That is a real question, and not the one you meant. Coming
+from a managed language this is the trap to over-learn: **compare contents with
+`std.mem.eql`.**
 
 **`"héllo".len` was 6 for five letters.** UTF-8 spends one byte on the letters
 in ASCII and two to four on everything else, so `é` costs two. A byte count

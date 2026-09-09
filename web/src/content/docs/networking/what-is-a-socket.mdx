@@ -60,7 +60,7 @@ try writer.interface.flush();
 ```
 
 After the connection exists, nothing in the code is network-shaped. That is
-not a convenience: it is the reason the six chapters between here and UDP can
+not a convenience: it is the reason five of the chapters between here and UDP
 run in your browser with no sockets at all. A protocol parser written against
 `std.Io.Reader` works over a socket, over a file, and over a byte array in a
 test, and you never write it twice.

@@ -43,8 +43,8 @@ fn onUsr1(sig: std.posix.SIG) callconv(.c) void
 Every handler written before this change has the signature `fn (c_int)
 callconv(.C) void` and does not compile. That is the good outcome. An enum
 parameter also means a `switch` over the signal in a shared handler is
-checked. And `.int` cannot be confused with the integer 10 on one platform and
-30 on another.
+checked. And `.USR1` cannot be confused with the integer 10 on one platform
+and 30 on another.
 
 ## Set a flag. Do nothing else.
 
@@ -85,10 +85,10 @@ std.posix.sigprocmask(std.posix.SIG.UNBLOCK, &mask, null);
 
 A blocked signal is held pending until it is unblocked, and then delivered.
 This is how a program protects a section that must not be interrupted without
-losing the notification. It is also the mechanism behind `signalfd` and
-`pidfd`. Those block a signal permanently and then read it as data on a
-descriptor, turning an interruption into something a normal event loop can
-wait on. That is what most servers actually do.
+losing the notification. It is also the mechanism behind `signalfd`. Block a
+signal permanently, then read it as data on a descriptor, and an interruption
+becomes something a normal event loop can wait on. That is what most servers
+actually do.
 
 Pending is a bit, not a count. Ten `SIGUSR1`s raised while blocked deliver
 once. A handler that increments a counter is counting deliveries, not signals,

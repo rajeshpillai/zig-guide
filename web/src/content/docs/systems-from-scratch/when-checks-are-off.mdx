@@ -8,8 +8,8 @@ order: 7
 import Playground from "../../../components/Playground.astro";
 
 The last chapter ended on an awkward admission: the program you ran said its
-safety checks were absent. This chapter is why, and it is the idea that
-separates systems programming from everything above it.
+safety checks were absent. Why they were absent is the idea that separates
+systems programming from everything above it.
 
 A high-level language answers every question. Read past the end of a list and
 Python raises `IndexError`. Always, on every machine, in every configuration.
@@ -60,7 +60,7 @@ The four modes, and what each is promising:
 - **ReleaseSmall**: optimised for size, checks removed. Same promise.
 
 The snippets on this site are built ReleaseSmall, because they are downloaded
-by every reader, which is why the output above says `small` and `false`.
+by every reader. The output above says `small` and `false` for that reason.
 
 **The four operators did not care.** `+%`, `std.math.add`, `@addWithOverflow`
 and `+|` behave identically in all four modes, because each of them states in
@@ -70,9 +70,9 @@ matters, say what you mean and the build mode stops being part of the answer.
 
 ## The one that does depend on the build
 
-This is the same program as the last four lines above, using plain `+`. It is
-the one snippet on this page built ReleaseSafe rather than ReleaseSmall, so
-the check is still in it. Press **Run**.
+Here are the same two values as the four lines above, added with a plain `+`.
+It is the one snippet on this page built ReleaseSafe rather than ReleaseSmall,
+so the check is still in it. Press **Run**.
 
 <Playground name="15-groundwork.the-one-that-depends" />
 

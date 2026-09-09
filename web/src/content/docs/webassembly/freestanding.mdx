@@ -47,14 +47,16 @@ Everything OS-shaped, because there is no OS:
 
 - **No `main` / `_start`.** There is no entry point to call. The host reaches in
   through the exports.
-- **No stdout, no files, no clock, no sockets.** `std.fs`, `std.time`, and
-  friends have nothing to lower onto. Reaching for them is a compile error, not
-  a runtime surprise.
-- **No system allocator.** `std.heap.page_allocator` and the general-purpose
-  allocator assume an OS. You bring memory yourself.
+- **No stdout, files, clock or sockets.** Files and clocks live behind
+  `std.Io` now, and freestanding has no `Io` implementation to hand it. There
+  is nothing to lower onto, so reaching for them is a compile error rather
+  than a runtime surprise.
+- **No OS heap.** There is no `mmap` underneath. `std.heap.page_allocator`
+  still works, because on wasm it is backed by `@wasmMemoryGrow` rather than
+  by the OS, and the general-purpose allocator layers on top of it.
 
-The snippet handles the allocator by handing a `FixedBufferAllocator` a 64 KiB
-static array. That array lives in linear memory, which is the only memory
+The snippet takes the simpler route and hands a `FixedBufferAllocator` a 64
+KiB static array. That array lives in linear memory, which is the only memory
 there is. It never calls the OS because there is no OS to call.
 
 ## The memory builtins
