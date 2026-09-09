@@ -1,0 +1,170 @@
+---
+title: The Monotonic Stack
+seoTitle: "Zig Monotonic Stack: Next Greater Element in One Pass"
+description: A stack of the indices still waiting for an answer, and the two counters that show the inner loop is free.
+seoDescription: The monotonic stack in Zig, printing every push and every pop. Next greater element in one pass instead of a scan from each index, why a while loop nested inside a for loop is still linear when each index is pushed once and popped once, what the indices left on the stack mean, and the same run read backwards for the previous smaller element.
+section: Competitive Programming
+order: 50
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+Give each value in an array the first value to its right that is bigger than
+it. Some values find one next door. Some have to look most of the way to the
+far end, and some never find one at all.
+
+Walking right from each index answers the question, and reads like the only way
+to answer it. On an array that falls from left to right it looks at every pair.
+
+One pass is enough. The move is to stop asking which value answers index 5, and
+to ask instead which indices the value just read has answered. A stack keeps the
+ones still waiting.
+
+<Playground name="23-competitive.monotonic-stack" />
+
+## Scanning right from every index
+
+<SnippetSource name="23-competitive.monotonic-stack" decl="scanRight" />
+
+Most people write this one first and it is correct. `comparisons` counts the
+values it looks at, because the count is the only reason to write anything else.
+
+The count depends on the array. On `1 2 3 4 5` every index is answered by its
+neighbour, one comparison each. On `9 8 7 6 5` nothing is ever answered, every
+index walks to the end, and the total lands on `n(n - 1) / 2` comparisons.
+
+## The stack holds the indices still waiting
+
+<SnippetSource name="23-competitive.monotonic-stack" decl="nextGreater" />
+
+Turn the question around. When the loop reaches index `i` it makes no attempt to
+answer `i`. It answers the indices behind it, waiting for a value this size.
+
+Those are the indices below `i` holding a smaller value that nothing in between
+has answered. The stack holds exactly them, in decreasing order of value, so
+every index the arriving value can answer sits in one run at the top. The inner
+loop stops at the first index it cannot answer and never looks under it.
+
+Nothing maintains that order deliberately. After the pops every index left holds
+a value at least as large as `items[i]`, so pushing `i` on top leaves the stack
+falling from bottom to top again.
+
+The comparison is `>=` and not `>`. An equal value is not a greater value, so an
+index waiting on a 5 keeps waiting when a second 5 arrives.
+
+`out` is filled with null before the loop and an index is written only when it
+is popped. The indices still on the stack when the array runs out keep the null
+they started with, so having no answer costs no branch and no cleanup pass.
+
+The stack is a `std.ArrayList(usize)` used from one end.
+[Stacks](/learn/standard-library/stacks/) covers `append`, `pop` and `last`, and
+[Growable Array](/learn/data-structures/growable-array/) covers what it does when
+it runs out of room. A known bound would use a fixed array and a length instead,
+and not a line of the loop would change.
+
+## Watching it drain
+
+<SnippetSource name="23-competitive.monotonic-stack" decl="traceNextGreater" />
+
+Each row is one incoming value: the indices it resolved, then the stack it left
+behind, written as `index:value` from bottom to top.
+
+```
+   i  val  resolved (index -> answer)   stack after (bottom to top)
+   0    3  .                           0:3
+   1    1  .                           0:3 1:1
+   2    4  1 -> 4, 0 -> 4              2:4
+   3    1  .                           2:4 3:1
+   4    5  3 -> 5, 2 -> 5              4:5
+   5    9  4 -> 9                      5:9
+   6    2  .                           5:9 6:2
+   7    6  6 -> 6                      5:9 7:6
+   8    5  .                           5:9 7:6 8:5
+   9    3  .                           5:9 7:6 8:5 9:3
+  10    7  9 -> 7, 8 -> 7, 7 -> 7      5:9 10:7
+  2 indices never popped: 5:9 10:7
+```
+
+Step 2 is the first resolution. The 4 arrives, the two indices under it hold 1
+and 3, and both are answered at once. The stack empties and then takes index 2.
+
+Step 10 is the drain. The 7 clears indices 9, 8 and 7 in one pass of the inner
+loop, then stops at index 5, which holds a 9.
+
+Two indices survive to the end, holding 9 and 7. Each is the largest value from
+its own position rightwards, so nothing to their right is bigger. They come back
+as null at rows 5 and 10 of the answers table, which the program checks:
+
+```
+  stack and scan agree -> true
+```
+
+## A nested loop that stays linear
+
+<SnippetSource name="23-competitive.monotonic-stack" decl="writeCostRow" />
+
+A `while` inside a `for` invites you to multiply the two, and the multiplication
+is wrong here. The inner loop has no bound per pass. It has one bound for the
+whole call.
+
+Count the pushes. The outer loop runs `n` times and pushes exactly once per
+pass, so the pushes come to `n` and no more. Every pop removes an index that was
+pushed, and a popped index is never pushed again, so the pops cannot pass the
+pushes. Both counters are capped by `n` whatever the inner loop does on a pass:
+
+```
+  11 pushes, 9 pops over 11 values, ceiling 2n = 22
+```
+
+Eleven values is too few to make the scan look bad, and the totals say so.
+Nineteen comparisons against twenty moves is a loss for the stack. The rates
+separate them, so the table runs the pair over three arrays:
+
+```
+  array         n  scans  pushes  pops
+  the input    11     19      11     9
+  decreasing    9     36       9     0
+  increasing    9      8       9     8
+```
+
+The decreasing array is the scan's worst case and the stack's easiest one: 36
+comparisons for nine null answers, against nine pushes and nothing popped. The
+increasing array is the other way round, and the scan wins it outright, eight
+comparisons to seventeen moves. The stack's column is bounded by `2n` on both,
+and the scan's is free to grow with the square.
+
+## The same run, read from the survivor
+
+<SnippetSource name="23-competitive.monotonic-stack" decl="previousSmaller" />
+
+Two edits carry the method to the nearest smaller value on the left. The
+comparison flips, so the stack rises from bottom to top instead of falling, and
+the answer is read off whatever survives the pops:
+
+```
+  idx  val  prev smaller   at
+    0    3             .    .
+    1    1             .    .
+    2    4             1    1
+    3    1             .    .
+    4    5             1    3
+    5    9             5    4
+    6    2             1    3
+```
+
+Index 6 holds a 2. The 5 and the 9 above it are both too big to be its answer,
+so both are popped, and index 3 underneath holds a 1 that stops the loop. The
+two popped indices got nothing out of the step. They were dropped because
+nothing further right can reach them past the 2, which is smaller than both.
+
+Rows 1 and 3 are null for the plainest reason available. Both hold a 1, the
+smallest value in the array, so the stack is empty when the answer is read.
+
+```
+  11 pushes, 7 pops, same ceiling
+```
+
+Four questions sit in this family: nearest greater or nearest smaller, to the
+left or to the right. Each is this loop with the comparison and the reading
+direction chosen to match.

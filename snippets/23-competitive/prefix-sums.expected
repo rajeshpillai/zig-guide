@@ -1,0 +1,40 @@
+8 values parsed from the input
+  idx    0   1   2   3   4   5   6   7
+  val    3   1   4   1   5   9   2   6
+
+the prefix array holds 9 cells for 8 values
+  idx    0   1   2   3   4   5   6   7   8
+  pre    0   3   4   8   9  14  23  25  31
+
+5 range sums, each one a subtraction
+  range   pre[hi] pre[lo]   sum  values
+  [0,3)         8       0     8  [ 3   1   4]  1   5   9   2   6
+  [2,5)        14       4    10    3   1 [ 4   1   5]  9   2   6
+  [1,8)        31       3    28    3 [ 1   4   1   5   9   2   6]
+  [4,4)         9       9     0    3   1   4   1   5   9   2   6
+  [0,8)        31       0    31  [ 3   1   4   1   5   9   2   6]
+  every sum matches a loop over the same values -> true
+
+what the build costs, against what it saves
+  build once, then 5 lookups     8 adds
+  rebuild before each lookup    40 adds
+  no prefix array at all        21 adds
+
+3 range updates on a difference array
+  update          0   1   2   3   4   5   6   7   8
+  start           0   0   0   0   0   0   0   0   0
+  +5 on [0,3)     5   0   0  -5   0   0   0   0   0
+  -1 on [2,6)     5   0  -1  -5   0   0   1   0   0
+  +10 on [4,8)    5   0  -1  -5  10   0   1   0 -10
+
+one running sum turns those marks into values
+  idx    0   1   2   3   4   5   6   7
+  tot    5   5   4  -1   9   9  10  10
+  writing every cell of every range agrees -> true
+  6 writes for 3 updates, against 11 cells the slow way
+
+a running sum undoes a difference
+  val    3   1   4   1   5   9   2   6
+  diff   3  -2   3  -3   4   4  -7   4  -6
+  back   3   1   4   1   5   9   2   6
+  back equals val -> true
