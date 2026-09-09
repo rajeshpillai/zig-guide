@@ -10,22 +10,43 @@ order: 40
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Asking for the sum of a range is cheap once. Asking a hundred thousand times
-over a hundred thousand values is where a loop per question stops working:
-that can reach ten billion additions, and no judge waits that long.
+Suppose we have an array and need to answer many range-sum queries.
 
-Prepare the array in a single pass and any range sum afterwards is one
-subtraction, whatever its width.
+For one query, we can simply loop over the required values and add them.
+
+That is fine when there are only a few queries.
+
+But if we have 100,000 values and 100,000 queries, repeatedly scanning each range can require billions of additions.
+
+A prefix sum prepares the array once.
+
+After that, the sum of any range can be found with one subtraction.
 
 <Playground name="23-competitive.prefix-sums" />
 
-## The cell that holds nothing
+## Building the prefix array
 
 <SnippetSource name="23-competitive.prefix-sums" decl="buildPrefix" />
 
-`pre[i]` is the sum of the first `i` values. That definition gives `pre` one
-more cell than the array it summarises. `pre[0]` sums no values and comes out
-zero. `pre[8]` sums all eight:
+The prefix array stores cumulative sums.
+
+We define:
+
+`pre[i]`
+
+as the sum of the first `i` values.
+
+Because of this definition, the prefix array has one more cell than the original array.
+
+`pre[0]` is the sum of zero values, so it is 0.
+
+`pre[1]` contains the first value.
+
+`pre[2]` contains the sum of the first two values.
+
+And so on.
+
+For example:
 
 ```
   idx    0   1   2   3   4   5   6   7
@@ -36,21 +57,43 @@ the prefix array holds 9 cells for 8 values
   pre    0   3   4   8   9  14  23  25  31
 ```
 
-Read that second index row as boundaries rather than positions. `pre[3]` is 8
-because the three values sitting before index 3 add up to 8. Nothing sits
-behind the boundary at 0, and the whole array sits behind the one at 8.
+The prefix indices are easier to understand as boundaries.
 
-Drop the spare cell and everything works until a range starts at index 0. Then
-`pre[lo - 1]` runs off the front and the function grows a branch to catch it.
-Keeping the cell costs eight bytes here, and the branch never has to be written.
+`pre[3]` is 8 because the three values before index 3 are:
 
-## A range sum is a subtraction
+`3 + 1 + 4`
+
+`pre[0]` represents the boundary before the first value.
+
+`pre[8]` represents the boundary after the last value.
+
+The extra cell at index 0 is useful.
+
+Without it, a range starting at index 0 would need a special case.
+
+For example, code based on `pre[lo - 1]` would fail when `lo` is 0.
+
+By storing the extra zero at the beginning, the same formula works for every range.
+
+## Range sum with one subtraction
 
 <SnippetSource name="23-competitive.prefix-sums" decl="rangeSum" />
 
-`pre[hi]` counts everything below `hi` and `pre[lo]` counts everything below
-`lo`. Subtract, and the values below `lo` appear in both totals and cancel,
-leaving the stretch between the two boundaries:
+Suppose we want the sum of the half-open range:
+
+`[lo, hi)`
+
+`pre[hi]` contains the sum of everything before `hi`.
+
+`pre[lo]` contains the sum of everything before `lo`.
+
+So the range sum is:
+
+`pre[hi] - pre[lo]`
+
+Everything before `lo` appears in both values and cancels out.
+
+For example:
 
 ```
   range   pre[hi] pre[lo]   sum  values
@@ -61,27 +104,45 @@ leaving the stretch between the two boundaries:
   [0,8)        31       0    31  [ 3   1   4   1   5   9   2   6]
 ```
 
-Row three spans seven values and costs the same two reads as row one, which
-spans three. The empty range in row four asked for `pre[4] - pre[4]` and got
-zero, with no test for it anywhere. Row five reads the whole array as
-`pre[8] - pre[0]`, and neither cell would exist without the definition above.
+The important point is that the cost does not depend on the width of the range.
 
-The ranges are half-open, so `hi` is one past the last value included and the
-two prefix cells land on the two boundaries. Written inclusively the answer
-becomes `pre[hi + 1] - pre[lo]`, the same subtraction wearing an off-by-one.
-The last column brackets each range inside the array, and the program checks
-every sum against a loop over the same values.
+The range `[0,3)` has three values.
 
-## It stops paying when the array moves
+The range `[1,8)` has seven values.
+
+Both queries use the same two prefix-array reads and one subtraction.
+
+The empty range `[4,4)` also works naturally:
+
+`pre[4] - pre[4] = 0`
+
+No special case is required.
+
+The full array is:
+
+`pre[8] - pre[0]`
+
+which gives 31.
+
+Using half-open ranges also matches normal Zig slicing.
+
+If an inclusive range is used instead, the formula becomes:
+
+`pre[hi + 1] - pre[lo]`
+
+The idea is the same.
+
+## When prefix sums are useful
 
 <SnippetSource name="23-competitive.prefix-sums" decl="rangeSumByLoop" />
 
-Building the table costs one addition per value, once. A query after that costs
-two reads whatever it spans. So the workload decides the trade: many queries,
-against an array that holds still between them.
+Building the prefix array takes O(n).
 
-Five queries over eight values is nowhere near that workload, and the counters
-say so:
+Each range query after that takes O(1).
+
+So prefix sums are useful when the array stays unchanged and we need to answer many queries.
+
+For this small example:
 
 ```
   build once, then 5 lookups     8 adds
@@ -89,30 +150,61 @@ say so:
   no prefix array at all        21 adds
 ```
 
-Twenty-one additions answer all five queries directly, against eight to build
-the table and nothing after. The margin is thin because the array is short.
+Building the prefix array once requires eight additions.
 
-The middle row is the case that catches people. One write to the array
-invalidates every cell of `pre` from that index onward, so a workload
-alternating writes and queries rebuilds five times and pays 40. A single write
-costs more than the query it precedes. Once updates and reads are mixed, reach
-for a Fenwick tree or a segment tree, which handle both in O(log n).
+After that, all five queries use subtraction only.
 
-A prefix array also answers something a sliding window cannot: any range, in
-any order, with no relationship between one query and the next. A window is
-cheaper when the ranges arrive in order and each is a small step from the last.
-[Sliding Window](/learn/competitive-programming/sliding-window/) covers that.
+For an array this small, directly adding the ranges requires only 21 additions.
 
-## Marking a change at both ends
+So the difference is not large.
+
+The benefit becomes important when there are many values and many queries.
+
+There is also an important limitation.
+
+If the original array changes, the prefix array becomes outdated.
+
+Suppose we change the value at index 3.
+
+Every prefix value after that position may now be wrong.
+
+Rebuilding the prefix array costs O(n).
+
+So prefix sums are not a good choice when updates and queries are mixed frequently.
+
+For that kind of problem, data structures such as a Fenwick tree or segment tree can handle both updates and queries in O(log n).
+
+Prefix sums and sliding windows solve different problems.
+
+A prefix sum can answer arbitrary range queries in any order.
+
+A sliding window is usually useful when ranges are processed in sequence and one range is closely related to the next.
+
+[Sliding Window](/learn/competitive-programming/sliding-window/) covers that pattern.
+
+## Difference arrays
 
 <SnippetSource name="23-competitive.prefix-sums" decl="applyRange" />
 
-Turn the problem around. The updates now arrive in bulk and the array is read
-once at the end: add 5 across `[0,3)`, take 1 off `[2,6)`, add 10 to `[4,8)`.
+Now consider the opposite type of problem.
 
-Writing each cell of each range is the obvious version, and it costs the width
-of the range every time. A difference array records the change instead of
-performing it. One cell says a delta starts here, another says it stops:
+Instead of many range queries, suppose we have many range updates.
+
+For example:
+
+- add 5 to every value in `[0,3)`
+- subtract 1 from every value in `[2,6)`
+- add 10 to every value in `[4,8)`
+
+The direct approach updates every value inside every range.
+
+That costs O(width) for each update.
+
+A difference array lets us record each range update with only two writes.
+
+Instead of changing every value immediately, we record where the change starts and where it stops.
+
+For example:
 
 ```
   update          0   1   2   3   4   5   6   7   8
@@ -122,22 +214,41 @@ performing it. One cell says a delta starts here, another says it stops:
   +10 on [4,8)    5   0  -1  -5  10   0   1   0 -10
 ```
 
-Each row is one update and two writes. `+5 on [0,3)` puts 5 at index 0 and -5
-at index 3, and says nothing about indices 1 and 2. `+10 on [4,8)` marks index
-4 and index 8, one past the end, because a range reaching the last value has
-nowhere else to close.
+To add 5 over `[0,3)`, we write:
 
-The bottom row holds instructions rather than values, and read as totals it is
-nonsense.
+`+5`
 
-## Reading the marks back
+at index 0.
+
+Then we write:
+
+`-5`
+
+at index 3.
+
+This means the change starts at 0 and stops at 3.
+
+We do not need to write anything at indices 1 or 2.
+
+For the update `[4,8)`, we write `+10` at index 4 and `-10` at index 8.
+
+Index 8 is one past the last array value.
+
+The extra position allows an update that reaches the end of the array to close correctly.
+
+The difference array does not directly contain the final values.
+
+It contains changes that must later be accumulated.
+
+## Converting differences back to values
 
 <SnippetSource name="23-competitive.prefix-sums" decl="accumulate" />
 
-A prefix sum over the difference array turns the deltas into values. The 5 at
-index 0 enters the running total and stays there through indices 1 and 2. The
--5 at index 3 takes it out. Every mark takes effect where it was written and
-holds until its partner cancels it:
+To get the final values, calculate a running total over the difference array.
+
+Each difference value changes the running total from that point onward.
+
+For example:
 
 ```
   idx    0   1   2   3   4   5   6   7
@@ -146,16 +257,37 @@ holds until its partner cancels it:
   6 writes for 3 updates, against 11 cells the slow way
 ```
 
-Six writes and one pass, against eleven cells touched the direct way. Eleven is
-the sum of the three range widths and grows as the ranges widen. Six does not.
+The `+5` at index 0 makes the running total 5.
 
-Look at the -10 in the last cell, which never shows up in the output. The
-running total after index 7 is 10, and the -10 closes it back to zero. A
-difference array that does not end at zero has an update missing its other half.
+Because there is no change at indices 1 and 2, the running total remains 5.
 
-The two operations undo each other, which makes a round trip a test of both.
-Take the gap between each value and the one before it, then accumulate the
-gaps:
+At index 3, the `-5` removes that update.
+
+The same process applies to all other range changes.
+
+There are three updates.
+
+Each update needs two writes.
+
+So the difference-array version needs six writes.
+
+The direct version touches eleven array cells in total because that is the combined width of the three update ranges.
+
+For larger ranges, the difference becomes much more important.
+
+The final `-10` at index 8 does not appear in the output array because index 8 is outside the original eight values.
+
+Its purpose is to close the update after the last value.
+
+If we continued the running sum through index 8, it would return to zero.
+
+That is a useful consistency check.
+
+## Prefix sums and difference arrays are related
+
+A difference array stores the change between neighbouring values.
+
+For example:
 
 ```
   val    3   1   4   1   5   9   2   6
@@ -163,8 +295,34 @@ gaps:
   back   3   1   4   1   5   9   2   6
 ```
 
-`difference` and `accumulate` cancel out. A prefix sum of a difference array
-gives back the array it was describing. The mirror runs through the costs too.
-A prefix array is O(n) to build and O(1) per query. A difference array is O(1)
-per update and O(n) to read. Choose by which operation you expect to do many
-times.
+The first difference is 3 because the first value changes from an initial 0 to 3.
+
+The next difference is:
+
+`1 - 3 = -2`
+
+The next is:
+
+`4 - 1 = 3`
+
+and so on.
+
+If we take a prefix sum of these differences, we rebuild the original values.
+
+So the two techniques are closely related.
+
+A prefix sum takes values and stores cumulative totals.
+
+A difference array takes values or updates and stores changes between positions.
+
+Their costs are almost opposite.
+
+A prefix array costs O(n) to build and gives O(1) range-sum queries.
+
+A difference array gives O(1) range updates and costs O(n) to convert back into final values.
+
+Choose the technique based on which operation happens many times.
+
+If you have many queries and few updates, prefix sums are a good fit.
+
+If you have many range updates and only need the final array afterwards, a difference array is a good fit.

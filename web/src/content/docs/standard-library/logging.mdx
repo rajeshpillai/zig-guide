@@ -40,7 +40,7 @@ pub const std_options: std.Options = .{
 Two things follow from "root," and both bite people:
 
 - It must be in the root source file (the one with `main`). A `pub const
-  std_options` in a library file, or in a `zig test` file, is **ignored** —
+  std_options` in a library file, or in a `zig test` file, is **ignored**:
   the test runner is the root there, not your file. That is exactly why this
   chapter's snippet is a program rather than a test.
 - A call below the active level is compiled *out*, not skipped at run time.

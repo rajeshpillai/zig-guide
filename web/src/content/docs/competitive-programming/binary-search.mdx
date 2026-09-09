@@ -10,34 +10,59 @@ order: 10
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Binary search is a four-line loop with two well-known ways of going wrong, and
-neither one announces itself. The code compiles either way. One version answers
-a slightly different question and is off by one index. The other never answers
-at all, because the loop stops getting smaller.
+Binary search is a small loop, but a few details must be correct.
 
-The program below prints every step it takes: the two indices, the middle value
-it looked at, and the part of the array still in play.
+One common mistake gives the wrong index. Another mistake can make the loop run forever.
+
+Both versions can compile correctly, so it is important to understand what each variable means.
+
+The program below prints every step of the search. It shows `lo`, `hi`, `mid`, the value at `mid`, and the part of the array that is still being searched.
 
 <Playground name="23-competitive.binary-search" />
 
-## The window is the whole idea
+## The search window
 
 <SnippetSource name="23-competitive.binary-search" decl="lowerBound" />
 
-`lo` and `hi` are not the ends of the array. They are the ends of the part
-still worth looking at, and the range is half-open, so the live window is
-`items[lo..hi]` and `items[hi]` sits outside it.
+`lo` and `hi` describe the part of the array that is still being searched.
 
-One sentence has to stay true from the first pass to the last: every index that
-could be the answer is inside the window. `items[mid] < key` proves `mid` is
-too small, so `lo = mid + 1` discards `mid` along with everything below it. The
-other branch proves only that `mid` is not too small, which leaves it a
-candidate, so `hi = mid` keeps it. Lose that asymmetry and the search can throw
-away the index it was standing on.
+The range is half-open:
 
-When `lo` reaches `hi` the window holds nothing. Nothing was discarded that
-could have been the answer, so `lo` is the answer, and there is no separate
-not-found case to write:
+`items[lo..hi]`
+
+This means `lo` is included, but `hi` is not.
+
+At every step, we maintain one important rule:
+
+Every index that could still be the answer must remain inside the search window.
+
+If:
+
+`items[mid] < key`
+
+then `mid` cannot be the answer.
+
+Everything before `mid` is also too small because the array is sorted.
+
+So we move:
+
+`lo = mid + 1`
+
+This removes `mid` and everything before it.
+
+Otherwise, `items[mid]` is greater than or equal to the key.
+
+`mid` may still be the answer, so we keep it inside the search window:
+
+`hi = mid`
+
+This difference between `mid + 1` and `mid` is important.
+
+When `lo == hi`, the search window is empty and the search is complete.
+
+At that point, `lo` is the lower-bound position.
+
+There is no separate not-found case.
 
 ```
   step 1  lo= 0 mid= 6 hi=12    1   3   3   4   7   7[ 7]   9  11  11  15  20
@@ -47,26 +72,59 @@ not-found case to write:
   window empty after 4 steps: lo = hi = 4
 ```
 
-Twelve values, four passes. The dots are the indices already ruled out, and
-each step rules out about half of what remains.
+The array contains twelve values, and the search finishes in four steps.
 
-`lo + (hi - lo) / 2` is the midpoint written the long way. `(lo + hi) / 2` reads
-better and adds two indices that are each valid on their own, on the assumption
-that the sum is too. Java's `Arrays.binarySearch` shipped that version for years
-before the overflow was written up in 2006. A 64-bit `usize` will not get you
-there, a 32-bit target with a large array will, and the long form costs one
-subtraction.
+The dots show indices that have already been removed from consideration.
 
-## The off-by-one does not give a wrong answer
+Each step removes roughly half of the remaining search range.
+
+The midpoint is calculated as:
+
+`lo + (hi - lo) / 2`
+
+You may also see:
+
+`(lo + hi) / 2`
+
+The second version is shorter, but `lo + hi` can overflow if the two values are large enough.
+
+The first version avoids that problem.
+
+This matters more on smaller integer sizes and very large arrays. Using `lo + (hi - lo) / 2` is the safer form and costs only one subtraction.
+
+## The off-by-one bug
 
 <SnippetSource name="23-competitive.binary-search" decl="stalledLowerBound" />
 
-Write `lo = mid` instead of `lo = mid + 1` and the search stops ending. The
-thinking behind it holds up for a moment. `mid` was too small, and leaving it
-in the window looks like it costs one extra comparison.
+A common mistake is writing:
 
-It costs the loop instead. Once `hi - lo` is 1, integer division puts `mid` at
-`lo`, and assigning `lo = mid` leaves both indices where they were:
+`lo = mid`
+
+instead of:
+
+`lo = mid + 1`
+
+At first, this may look reasonable.
+
+If `mid` is too small, we know the answer is not before it.
+
+But we also know that `mid` itself cannot be the answer.
+
+So it must be removed from the search window.
+
+If we keep `mid`, the loop can stop making progress.
+
+When `hi - lo` becomes 1, integer division gives:
+
+`mid == lo`
+
+Now assigning:
+
+`lo = mid`
+
+does not change anything.
+
+The next iteration sees exactly the same values again.
 
 ```
   step 3  lo= 3 mid= 4 hi= 6    .   .   .   4[ 7]   7   .   .   .   .   .   .
@@ -76,26 +134,61 @@ It costs the loop instead. Once `hi - lo` is 1, integer division puts `mid` at
   no progress: gave up at step 6 with lo=3 hi=4
 ```
 
-Steps four, five and six are the same step. The step budget is what lets the
-page print this at all, since the real version runs until something kills it.
-On a judge that something is the time limit, and the verdict names the clock
-rather than the line, so this one is expensive to find.
+Steps four, five, and six are identical.
 
-One check catches this before it reaches a judge. The window has to be strictly
-smaller after every pass. Both branches shrink it by at least one index here,
-and there is no third branch that could leave it alone.
+The example uses a step limit so the program can detect the problem and stop.
 
-## Where a value starts, and where it ends
+Without that limit, the loop would continue indefinitely.
+
+In a competitive programming judge, this normally appears as a time-limit error.
+
+A simple rule helps catch this bug:
+
+The search window must become smaller after every iteration.
+
+In this implementation, both branches reduce the window by at least one index.
+
+## lowerBound and upperBound
 
 <SnippetSource name="23-competitive.binary-search" decl="upperBound" />
 
-One character separates the two bounds. `<` stops at the first value that is
-not smaller than the key. `<=` walks past every value equal to it. So
-`lowerBound` returns the first index holding the key and `upperBound` returns
-the first index past it, and the pair is a half-open range in the same style as
-the window that found them.
+`lowerBound` and `upperBound` are almost the same search.
 
-That range answers the question a problem usually asks: how many, not where.
+The important difference is the comparison.
+
+`lowerBound` uses `<`.
+
+It finds the first position whose value is greater than or equal to the key.
+
+In other words:
+
+```
+first value >= key
+```
+
+`upperBound` uses `<=`.
+
+It finds the first position whose value is greater than the key:
+
+```
+first value > key
+```
+
+If the key appears several times, `lowerBound` points to the first copy and `upperBound` points to the position immediately after the last copy.
+
+Together they create a half-open range:
+
+```
+[lowerBound, upperBound)
+```
+
+This also makes counting duplicates easy:
+
+```
+count = upperBound - lowerBound
+```
+
+For example:
 
 ```
   key  lower  upper  count  present
@@ -106,23 +199,51 @@ That range answers the question a problem usually asks: how many, not where.
    21     12     12      0  no
 ```
 
-Look at the rows for 5 and 21. When the two bounds agree the key is absent, and
-the index they agree on is where it would go if you inserted it. Sorting a
-handful of new values into a sorted array uses that, and so does counting the
-values below a threshold, where `lowerBound` alone is the answer.
+For key `7`, the range is:
 
-## What the standard library already has
+```
+[4, 7)
+```
 
-Both bounds ship in `std.sort`, along with `equalRange` for the pair and
-`binarySearch` for plain membership. None of them needs the loop above written
-out again. They do need a comparator, and its argument order catches people
-out:
+So there are three copies.
+
+For key `5`, both bounds are 4.
+
+That means the value is not present.
+
+Position 4 is also where `5` would be inserted while keeping the array sorted.
+
+For key `21`, both bounds are 12, which is the end of the array.
+
+This means `21` would be inserted after every existing value.
+
+`lowerBound` is also useful when the value is not present.
+
+It tells us the first position where the value could be inserted.
+
+It can also be used to count how many values are smaller than a given threshold.
+
+## Using the Zig standard library
+
+Zig already provides these operations in `std.sort`.
+
+It includes `lowerBound`, `upperBound`, `equalRange`, and `binarySearch`.
+
+For normal code, you usually do not need to write the binary-search loop yourself.
+
+You do need to provide a comparator.
+
+One detail is easy to miss: the comparator receives the key first and the array element second.
 
 <SnippetSource name="23-competitive.binary-search" decl="orderKeyFirst" />
 
-The key comes first and the element second. Swap them and the code still
-compiles, because both arguments are the same type, and the answer comes back
-mirrored. On the array in this chapter:
+The argument order matters.
+
+If both arguments have the same type, swapping them may still compile.
+
+But the comparison will mean something different and the result can be wrong.
+
+For the array used in this example:
 
 ```
   std.sort.lowerBound(7) = 4, ours = 4
@@ -131,27 +252,62 @@ mirrored. On the array in this chapter:
   std.sort.binarySearch(5) = null, lowerBound(5) = 4
 ```
 
-`binarySearch` returns `?usize` and gives back some matching index rather than
-the first, so reach for `lowerBound` whenever duplicates are possible. The last
-row shows the difference for an absent key: `binarySearch` says null, and
-`lowerBound` says 4, which is the position 5 would occupy.
+`std.sort.binarySearch` returns `?usize`.
 
-All of this assumes the array is already sorted, and nothing in `std.sort`
-checks that for you. [Sorting](/learn/standard-library/sorting/) covers
-`std.mem.sort`, the stable and unstable variants, and the context argument
-these comparators share.
+If the value exists, it returns a matching index.
 
-## The input is a const, because there is no stdin
+If the value does not exist, it returns null.
+
+It does not guarantee the first matching index when duplicates exist.
+
+Use `lowerBound` when you need the first matching position.
+
+The final line shows another important difference.
+
+For key `5`:
+
+```
+binarySearch(5) = null
+```
+
+because `5` is not present.
+
+But:
+
+```
+lowerBound(5) = 4
+```
+
+because index 4 is where `5` would be inserted.
+
+All of these functions assume that the input is already sorted.
+
+`std.sort` does not check that condition for you.
+
+[Sorting](/learn/standard-library/sorting/) covers `std.mem.sort`, the stable and unstable variants, and the context argument these comparators share.
+
+## Reading the example input
 
 <SnippetSource name="23-competitive.binary-search" decl="readRow" />
 
-A snippet on this site runs under WASI in a browser tab, which has no standard
-input to read. The input therefore lives in the file as a string, and the
-parser takes a `*std.Io.Reader` over it rather than the string itself.
+The examples on this site run under WASI inside the browser.
 
-The indirection is not a workaround. A function that turns bytes into values
-runs unchanged over a file, over a socket and over a literal, which is the same
-reason the networking chapters parse protocols from a reader instead of from a
-connection. Point `readRow` at stdin on a judge and not a line of it changes.
-[Readers and Writers](/learn/standard-library/readers-and-writers/) covers the
-interface and the buffer it reads through.
+There is no standard input available in the same way there would be on a normal command-line program.
+
+So the example input is stored in the source file as a string.
+
+`readRow` does not depend directly on that string.
+
+It accepts a `*std.Io.Reader`.
+
+That means the same parsing function can work with different input sources.
+
+The bytes could come from a string, a file, a socket, or standard input.
+
+Only the reader changes.
+
+The parsing code does not.
+
+On a competitive programming judge, you can connect the same parsing function to stdin.
+
+[Readers and Writers](/learn/standard-library/readers-and-writers/) covers the interface and the buffer it reads through.

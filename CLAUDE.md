@@ -33,6 +33,12 @@ There is no per-test runner: `zig build verify` walks all of `snippets/` in one 
 node tools/run-wasi.mjs web/public/wasm/02-language.optionals.wasm
 ```
 
+`zig run snippets/<chapter>/<file>.zig` compiles and runs one snippet without the build graph, which is the quick loop while writing one. It does **not** run the deprecated-name gate, so a snippet using `std.mem.indexOfScalar` passes it and fails `zig build verify`. That gate runs standalone and touches no build cache, which also makes it the one to use when something else is holding the cache:
+
+```bash
+node tools/check-deprecations.mjs "$(which zig)" "$(zig version)" ./snippets/<chapter>/<file>.zig ./web/src/content/docs/<section>/<file>.mdx
+```
+
 The game is a separate project with its own build (see [The game](#the-game-exampleslane-dodger)):
 
 ```bash
@@ -178,6 +184,20 @@ CI does build and test the desktop game on every push and nightly, which is what
 
 **`SECTION_TAGS` in [tracks.ts](web/src/tracks.ts)** labels the few sections that are not a topic tour (`lane-dodger` is "Game"). It renders in the sidebar and on `/learn/`. Keep it sparse: a tag on every section is a tag on nothing.
 
+## Competitive Programming (`competitive-programming/`)
+
+The patterns a contest problem assumes you already have, one complete program per chapter, in a `Practice` track added for it. Chapters can be read in any order, which is why the track sits last and why nothing in it builds towards anything.
+
+**Every chapter prints its own working, and CI diffs the print.** A fenced block quoted in a chapter is a verbatim substring of the snippet's `.expected` file, so the row showing `lo`, `mid` and `hi` closing cannot drift from the loop that produced it. Nothing is drawn by hand, and a hand-drawn diagram would be exactly the unverified second code path this project forbids, in a picture's clothes. The traces are the teaching, not decoration: the off-by-one section shows the loop failing to terminate, the monotonic-predicate section shows binary search returning 31 when the answer is 16, and the merge section shows the wrong `end` silently losing three coordinates off a map of what the input covered.
+
+**No snippet reads stdin, and this is not a compromise.** Contest code is built around a fast reader, and a browser tab under WASI has no standard input, so a chapter written the contest way would ship without a Run button. Input is a `const` in the file and the parser takes a `*std.Io.Reader` over it. That is the rule Networking already follows for sockets, for the same reason: the parser is the only code that knows where the bytes came from, so pointing it at a judge's stdin changes nothing above it. `binary-search.mdx` states this once for the whole section and no other chapter repeats it.
+
+**Link, never re-teach.** Sorting, hash maps, stacks, queues, growable arrays and binary search trees have chapters already. A pattern chapter re-explaining `std.mem.sort` would put two pages on this domain in front of one query, which is the failure the `/learn/` move exists to prevent.
+
+**The clue table is the section index, and it waits.** A table mapping a problem's shape to its pattern ("contiguous subarray" to sliding window, prefix sum or DP) is the most useful page the section can have and the one thing no other Zig resource offers. It cannot be written until most chapters exist, because the browser gate resolves every link on every page and a table of twelve rows pointing at three chapters fails the build.
+
+**Fenced blocks carry no attributes.** An editor once wrote ```` ```id="k1u9wd" ```` into seven fences in one chapter, which Shiki reads as the language name. The block still renders, so nothing fails; the highlighting is simply gone. Strip anything after the backticks that is not a language.
+
 ## Working on this repo
 
 - **Adding a snippet:** drop the `.zig` in `snippets/<chapter>/`, optionally add `.expected`, run `zig build verify`, then reference it from an `.mdx` page with `<Playground name="<chapter>.<file>" />`. Non-browser-runnable snippets take a `note="..."` explaining why.
@@ -205,7 +225,8 @@ The rules below are what this site adds on top, and they win where the two docum
 **Where the two documents differ**, so the next writer is not left guessing:
 
 - **Em dashes.** The style guide is silent on them; this repo bans them outright. The ban stands, because it is the one AI tell that can be grepped for.
-- **Contractions and "we".** The style guide invites both. The guide as written uses a contraction six times across 210 chapters and "we" not once, so a page that adopts them reads as a different author unless the whole page does. Use them where the sentence is genuinely better spoken aloud, keep one register per chapter, and do not retrofit a chapter that already reads well. Adopting them across the guide is a deliberate rewrite, not a side effect of editing one page.
+- **Contractions and "we".** The guide used a contraction six times across its first 210 chapters and "we" not once. That is history. The owner writes in a different register and, from 2026-09-09, **it is the register for new lessons**: one idea per paragraph, a blank line between nearly every sentence, "we" where it is natural, and sentences that stay short. Measured across the chapters written that way: 87 to 100 percent of paragraphs hold a single sentence, mean sentence length 11.5 to 12.4 words, and a chapter runs 270 to 360 lines rather than 160. Write new chapters this way. Do not retrofit an older chapter that already reads well, and do not "correct" a chapter in this register back to the older one; the pronoun and the paragraph length are the author's, and only rendering and formatting defects in them are yours to fix.
+- **The two registers are visible in one section.** Competitive Programming holds both while the older chapters wait to be converted, so read a neighbouring chapter before matching a voice rather than assuming the section has one.
 - **"You" is fine; chirpy is not.** The style guide's "you" for what the learner does holds everywhere, including Groundwork. What the Groundwork rule below forbids is the register, not the pronoun.
 - **The spoken-narration section is for narration**, and this repo has none. Its one rule that transfers is the one already stated: one idea per sentence, and one breath's worth of it.
 

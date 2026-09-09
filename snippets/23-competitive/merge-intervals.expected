@@ -1,0 +1,84 @@
+11 intervals, in the order they arrived
+  start   24    1   40   33   12    5    3    4   13   18   26
+  end     26   20   40   36   15    8    5    7   17   21   29
+
+sorted by start, the only preparation the pass needs
+  start    1    3    4    5   12   13   18   24   26   33   40
+  end     20    5    7    8   15   17   21   26   29   36   40
+
+one pass, each interval against the run being built
+  interval  test      action    run so far
+  [ 1, 20]  first     opened    [ 1, 20]
+  [ 3,  5]   3 <= 20  covered   [ 1, 20]
+  [ 4,  7]   4 <= 20  covered   [ 1, 20]
+  [ 5,  8]   5 <= 20  covered   [ 1, 20]
+  [12, 15]  12 <= 20  covered   [ 1, 20]
+  [13, 17]  13 <= 20  covered   [ 1, 20]
+  [18, 21]  18 <= 20  extended  [ 1, 21]
+  [24, 26]  24 >  21  opened    [24, 26]
+  [26, 29]  26 <= 26  extended  [24, 29]
+  [33, 36]  33 >  29  opened    [33, 36]
+  [40, 40]  40 >  36  opened    [40, 40]
+  4 runs: [1, 21] [24, 29] [33, 36] [40, 40]
+  traced and plain agree -> true
+
+the same pass with end = next end, in place of the larger end
+  interval  test      action    run so far
+  [ 1, 20]  first     opened    [ 1, 20]
+  [ 3,  5]   3 <= 20  shrunk    [ 1,  5]
+  [ 4,  7]   4 <=  5  extended  [ 1,  7]
+  [ 5,  8]   5 <=  7  extended  [ 1,  8]
+  [12, 15]  12 >   8  opened    [12, 15]
+  [13, 17]  13 <= 15  extended  [12, 17]
+  [18, 21]  18 >  17  opened    [18, 21]
+  [24, 26]  24 >  21  opened    [24, 26]
+  [26, 29]  26 <= 26  extended  [24, 29]
+  [33, 36]  33 >  29  opened    [33, 36]
+  [40, 40]  40 >  36  opened    [40, 40]
+  6 runs: [1, 8] [12, 17] [18, 21] [24, 29] [33, 36] [40, 40]
+
+every coordinate the input covers, against both answers
+              0         1         2         3         4
+              0123456789012345678901234567890123456789012345
+  input       .#####################..######...####...#.....
+  merged      .#####################..######...####...#.....
+  end = next  .########...##########..######...####...#.....
+  merged matches the input -> true
+  end = next drops: 9 10 11
+
+the same intervals as events, sorted by coordinate
+  at  interval  event   rooms
+   1  [ 1, 20]  starts   1
+   3  [ 3,  5]  starts   2
+   4  [ 4,  7]  starts   3
+   5  [ 5,  8]  starts   4  <- peak
+   5  [ 3,  5]  ends     3
+   7  [ 4,  7]  ends     2
+   8  [ 5,  8]  ends     1
+  12  [12, 15]  starts   2
+  13  [13, 17]  starts   3
+  15  [12, 15]  ends     2
+  17  [13, 17]  ends     1
+  18  [18, 21]  starts   2
+  20  [ 1, 20]  ends     1
+  21  [18, 21]  ends     0
+  24  [24, 26]  starts   1
+  26  [26, 29]  starts   2
+  26  [24, 26]  ends     1
+  29  [26, 29]  ends     0
+  33  [33, 36]  starts   1
+  36  [33, 36]  ends     0
+  40  [40, 40]  starts   1
+  40  [40, 40]  ends     0
+  4 rooms at their busiest, first at coordinate 5
+
+intervals in use at each coordinate, counted one at a time
+              0         1         2         3         4
+              0123456789012345678901234567890123456789012345
+  in use      .112343321112333222221..112111...1111...1.....
+  deepest 4 at coordinate 5, sweep said 4 at 5, agree -> true
+
+the same 11 intervals read as half-open, [start, end)
+  3 rooms at their busiest, first at coordinate 4
+  4 runs, unchanged: [1, 21] [24, 29] [33, 36] [40, 40]
+  [40, 40) holds nothing, so 10 intervals became events, not 11
