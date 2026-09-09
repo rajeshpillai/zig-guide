@@ -38,7 +38,7 @@ const { code, path, href, label, lang = "zig" } = Astro.props;
 
 <figure class="source-quote">
   <figcaption>
-    <a href={href} rel="noopener">{path}</a>
+    <a href={href} target="_blank" rel="noopener noreferrer">{path}</a>
     {label && <span class="decl">{label}</span>}
   </figcaption>
   <Code code={code} lang={lang} themes={CODE_THEMES} defaultColor={false} />
