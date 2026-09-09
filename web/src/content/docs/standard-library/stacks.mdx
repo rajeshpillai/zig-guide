@@ -25,10 +25,11 @@ the type rather than by a precondition you might forget.
 If you learned this from an older tutorial, peek was `getLast()`, and it
 returned a `T`. It asserted the list was not empty, so calling it on an empty
 list was a safety-checked panic in a debug build and undefined behaviour in a
-release one. That name is gone. `last()` replaces it and returns `?T`, which
-moves the empty case into the type. `getLastOrNull()` still compiles as a
-deprecated alias for `last()`. There is also `lastPtr()`, which returns
-`?*T` when you want to modify the top element in place rather than copy it.
+release one. That call is still there, marked deprecated, and it still
+asserts. `last()` is the replacement and returns `?T`, which moves the empty
+case into the type. `getLastOrNull()` is a deprecated alias for `last()`.
+There is also `lastPtr()`, which returns `?*T` when you want to modify the top
+element in place rather than copy it.
 
 Using the end rather than the front is what makes it cheap. Removing from the
 back is one decrement of the length; removing from the front would shift every

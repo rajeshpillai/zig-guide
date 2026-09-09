@@ -31,7 +31,7 @@ they point at:
 std.mem.sort(usize, &indices, values, byReferencedValue);
 ```
 
-That is what saves you from reaching for a global.
+The context parameter is what saves you from reaching for a global.
 
 The pattern generalises further than it first looks. Sorting an array of
 indices, rather than the data itself, gives you several orderings of one
@@ -49,11 +49,11 @@ job.
 Stability matters when you sort by one key and want a previous sort by another
 key preserved within ties.
 
-That is how multi-key ordering is normally done: sort by the least significant
-key first, then by the most significant, and stability preserves the earlier
-work inside each group. Sort by name, then by department, and each
-department's entries are still in name order. Do the same with `sortUnstable`
-and the second sort scrambles the first.
+Multi-key ordering is built out of that. Sort by the least significant key
+first, then by the most significant, and stability preserves the earlier work
+inside each group. Sort by name, then by department, and each department's
+entries are still in name order. Do the same with `sortUnstable` and the
+second sort scrambles the first.
 
 When elements are genuinely interchangeable, such as plain integers, stability
 is unobservable and `sortUnstable` is the better choice: it does less work and
@@ -85,7 +85,7 @@ second when the first is equal.
 
 `std.sort.binarySearch` finds an element in an already-sorted slice, and takes
 a three-way comparison rather than a less-than, because it needs to know which
-half to keep. `std.sort.isSorted` checks the invariant, which is a cheap
+half to keep. `std.sort.isSorted` checks the invariant, and it is a cheap
 assertion to put in a test.
 
 Two neighbours are worth knowing when you do not need the whole thing ordered.

@@ -22,8 +22,8 @@ asserted that the length matched the leading byte, and had no way to tell you
 when it did not. Asking for the length first and then decoding that many bytes
 is the same work with the mistake designed out.
 
-Handing it a continuation byte returns `error.Utf8InvalidStartByte`, which is
-the check you want when an index came from arithmetic rather than an iterator.
+Handing it a continuation byte returns `error.Utf8InvalidStartByte`, the check
+you want when an index came from arithmetic rather than an iterator.
 `utf8CodepointSequenceLength` is the mirror on the encode side: ask how many
 bytes a codepoint needs before you size the buffer.
 
@@ -35,8 +35,8 @@ written out: walk `nextCodepointSlice`, keep a running end offset, and stop
 before the first slice that would push you past the limit.
 
 The naive `s[0..max]` produces invalid UTF-8 whenever the cut lands mid
-character, and nothing about it fails at the time. It fails wherever the bytes
-end up.
+character. Nothing fails at the cut. The failure surfaces wherever those bytes
+are decoded, possibly in another program.
 
 ## Which character is byte 7 in
 
@@ -69,7 +69,7 @@ failure mode.
 
 Windows paths are UTF-16, so `utf8ToUtf16LeAlloc` and `utf16LeToUtf8Alloc` are
 the boundary every cross-platform program crosses. The unit counts differ from
-the byte counts, which is the whole reason the conversion is explicit rather
+the byte counts, and that difference is why the conversion is explicit rather
 than automatic.
 
 ## What std does not do

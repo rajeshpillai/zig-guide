@@ -64,9 +64,9 @@ are handed to it rather than opened.
 ## Directories are handles, not strings
 
 `std.Io.Dir` is an open directory, and paths are resolved relative to it. That
-is not merely tidier than joining strings. A path resolved against an open
-handle cannot be changed underneath you between the check and the use, which
-is the shape of a whole family of security bugs.
+buys more than tidiness. A path resolved against an open handle cannot be
+changed underneath you between the check and the use, and that gap is the
+shape of a whole family of security bugs.
 
 The practical version is that you open the directory once and do everything
 through it:
@@ -120,9 +120,9 @@ worth doing for anything a user would be upset to lose. Same directory
 matters: a rename across filesystems is a copy and not atomic.
 
 There is no `AtomicFile` helper in the standard library on master; older code
-that used one is writing the three steps by hand now. That is four lines, and
-writing them yourself makes the flush visible, which is the step most likely
-to be missing.
+that used one is writing the three steps by hand now. Four lines, and writing
+them yourself makes the flush visible. The flush is the step most likely to be
+missing.
 
 ## Paths
 

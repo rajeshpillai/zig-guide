@@ -60,13 +60,13 @@ stay valid as long as the original does. The flip side is the usual one: if
 the source is freed, every piece you kept is dangling.
 
 `peek()` looks at the next value without consuming it. `rest()` gives you
-everything not yet returned, which is what you want when a header is parsed
-field by field and the remainder is a body. `reset()` starts over.
+everything not yet returned. Reach for it when a header is parsed field by
+field and the remainder is a body. `reset()` starts over.
 
 ## Windows
 
 `std.mem.window(T, s, size, advance)` yields views into the original bytes
-with no copying, which is what n-gram and block processing want. Overlap is up
+with no copying, the shape n-gram and block processing want. Overlap is up
 to you: `advance` smaller than `size` overlaps, `advance` equal to `size` does
 not.
 

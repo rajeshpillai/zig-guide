@@ -70,10 +70,11 @@ nothing happens. The values may move between ordinary registers and vector
 registers, and doing that inside a loop can cost more than the vector
 arithmetic saves. Load once, compute, store once.
 
-Vectors are not arrays and do not have `.len` in the same sense, do not
-bounds-check, and index only with comptime-known values in most useful cases.
-When you want a sequence, use an array or a slice. When you want lanes, use a
-vector.
+Vectors are not arrays. A vector has no `.len`, and asking for one is a
+compile error rather than a different answer. Indexing does work, with a
+runtime index as well as a comptime one, and the index is bounds-checked in a
+safety build. What you do not get is something you can slice or pass around by
+length. When you want that, use an array. When you want lanes, use a vector.
 
 ## When to bother
 

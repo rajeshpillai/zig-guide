@@ -11,8 +11,8 @@ Give the node a second pointer and keep everything smaller on the left, larger
 on the right. Lookup halves the search space at each step, and an in-order
 walk visits the values in sorted order for free.
 
-That is the whole idea, and it holds only while the tree stays roughly
-balanced. Nothing in the insert code makes it stay balanced.
+Both savings hold only while the tree stays roughly balanced. Nothing in the
+insert code makes it stay balanced.
 
 <Playground name="10-data-structures.bst" />
 
@@ -39,7 +39,7 @@ is no special case for the empty tree and no "was this the root" branch.
 
 `*?*Node` is worth reading slowly: a pointer, to an optional, to a node. Each
 layer is doing something. The optional is the empty slot; the outer pointer is
-what lets us write into it.
+what lets you write into it.
 
 ## The deinit has to be post-order
 
@@ -57,10 +57,9 @@ to its subtrees, and that leak is unreachable memory rather than a crash. The
 snippet runs under a leak-checking allocator, so the order is enforced rather
 than remembered.
 
-Recursion here is bounded by the tree's height, which is the number the next
-section is about. On a degenerate tree of a million nodes this would overflow
-the stack, which is one reason production tree code often keeps an explicit
-stack instead.
+Recursion here is bounded by the tree's height, the number the next section is
+about. On a degenerate tree of a million nodes it would overflow the stack.
+Production tree code often keeps an explicit stack for that reason.
 
 ## Insertion order decides everything
 
@@ -83,8 +82,8 @@ lookups to find 15:
   balanced tree:   4 comparisons
 ```
 
-That is the whole problem with an unbalanced binary search tree, and sorted
-input is not an unusual case. It is what you get from a database export, a
+An unbalanced binary search tree fails exactly there, and sorted input is not
+an unusual case. It is what you get from a database export, a
 sorted file, a monotonic ID, or a timestamp. Those are exactly the inputs most
 likely to show up in production, and least likely to appear in a test written
 with hand-picked literals.
@@ -100,9 +99,9 @@ There is no general-purpose balanced tree in `std`. The options are:
   everything except interleaved inserts and lookups.
 - **[PriorityQueue](/learn/standard-library/priority-queue/)** when you only ever need
   the smallest element. That is a heap, and a different structure.
-- **`std.Treap`**, which is in `std` and keeps itself balanced probabilistically
-  rather than by rotation.
+- **`std.Treap`**, already in `std`, which keeps itself balanced
+  probabilistically rather than by rotation.
 
 Which leaves the case where you genuinely need ordered iteration with
-interleaved inserts. For that the tree has to repair its own shape, which is
-the next chapter.
+interleaved inserts. For that the tree has to repair its own shape. The next
+chapter makes it do so.

@@ -76,11 +76,12 @@ needs the decrement written where it cannot run at zero.
 
 ## Division and shifts have rules too
 
-`/` on signed integers requires the result to be exact or the operands to be
-non-negative, so `@divTrunc`, `@divFloor` and `@divExact` exist to say which
-rounding you meant. `%` likewise pairs with `@rem` and `@mod`, which differ on
-negative operands. Being made to choose is the point: C's answer to `-7 / 2`
-was implementation-defined for twenty years.
+`/` on a signed integer that is not comptime-known does not compile at all.
+Rounding towards zero and rounding down disagree the moment an operand is
+negative, so Zig makes you name the one you meant: `@divTrunc`, `@divFloor`,
+`@divCeil` or `@divExact`. `%` is the same, and pairs with `@rem` and `@mod`.
+Being made to choose is the point: C's answer to `-7 / 2` was
+implementation-defined for twenty years.
 
 Shifting by more than the width is illegal behaviour, not a platform-specific
 surprise. The shift amount's type is also narrowed to just enough bits to

@@ -7,7 +7,8 @@ order: 65
 
 import Playground from "../../../components/Playground.astro";
 
-`Io.Mutex` covers most shared state. All of them take the `Io` instance for
+`Io.Mutex` covers most shared state. `RwLock`, `Semaphore` and `Condition`
+are what you reach for past that point, and each takes the `Io` instance for
 the same reason the mutex does. Blocking goes through the interface, so it can
 be cancelled, and it works on an implementation with no threads.
 

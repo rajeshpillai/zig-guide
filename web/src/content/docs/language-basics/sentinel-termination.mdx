@@ -44,8 +44,8 @@ literal[2];             // 0
 ```
 
 So passing a Zig string literal to a C function that wants `const char *`
-needs no conversion and no copy. That is the whole point: C compatibility
-without paying for it in ordinary Zig code, where you still get the length.
+needs no conversion and no copy. You get C compatibility without paying for it
+in ordinary Zig code, where the length is still there.
 
 Note the type is a *pointer to an array*, not a slice. That is why a literal
 has a comptime-known length, and why `@TypeOf("hi") != @TypeOf("hip")`. It
@@ -61,8 +61,8 @@ error messages and in `@TypeOf`.
 const slice = std.mem.span(c_string);   // scans to the sentinel
 ```
 
-This is O(n), which is exactly the cost C pays for `strlen`. Do it once at the
-boundary and work with slices from there.
+Scanning is O(n), the same cost C pays for `strlen`. Do it once at the boundary
+and work with slices from there.
 
 Two neighbours are worth knowing. `std.mem.sliceTo(slice, 0)` truncates at the
 first sentinel in something that already has a length, which is what you want

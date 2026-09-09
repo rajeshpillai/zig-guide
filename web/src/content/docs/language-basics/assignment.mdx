@@ -50,11 +50,10 @@ Type annotations are optional when the compiler can infer them. `@as(i32, 5)`
 is an explicit cast used here to pin down what would otherwise be an untyped
 `comptime_int`.
 
-That distinction is worth understanding early, because it explains a class of
-error message. A bare `5` is not an `i32`; it is a `comptime_int`, an
-arbitrary precision integer that exists only during compilation. It coerces to
-whatever the context needs, and when there is no context, there is nothing to
-coerce to:
+The distinction explains a class of error message you will meet early. A bare
+`5` is not an `i32`; it is a `comptime_int`, an arbitrary precision integer
+that exists only during compilation. It coerces to whatever the context needs,
+and when there is no context, there is nothing to coerce to:
 
 ```zig
 const a = 5;             // comptime_int, fine as long as it stays comptime

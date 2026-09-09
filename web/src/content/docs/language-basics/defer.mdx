@@ -15,10 +15,10 @@ the function, the scope. Every path counts: falling off the end, an early
 
 ## Reverse order is the point
 
-Deferred statements run last-registered-first. That is what makes them
-compose: if you acquire A then B, cleanup happens B then A, which is almost
-always the correct unwinding order. Writing the release directly under the
-acquire keeps the pair visible in one glance:
+Deferred statements run last-registered-first, which is what makes them
+compose. Acquire A then B, and cleanup happens B then A: almost always the
+correct unwinding order. Writing the release directly under the acquire keeps
+the pair visible in one glance:
 
 ```zig
 const buf = try allocator.alloc(u8, n);
@@ -42,10 +42,10 @@ for (0..3) |_| {
 // n == 3
 ```
 
-This is the difference from Go, where `defer` is function-scoped and a `defer`
-inside a loop quietly piles up until the function ends. In Zig, opening a file
-inside a loop and deferring its close closes it on each pass, so the loop
-cannot run out of descriptors.
+Go differs here. Its `defer` is function-scoped, so one inside a loop quietly
+piles up until the function ends. In Zig, opening a file inside a loop and
+deferring its close closes it on each pass, so the loop cannot run out of
+descriptors.
 
 It also means a bare block is a way to bound a cleanup tightly:
 
@@ -84,7 +84,7 @@ unreadable.
 
 ## `errdefer` for the failure path only
 
-`errdefer` runs **only** when the function returns an error. This is how you
+`errdefer` runs **only** when the function returns an error. That lets you
 write a constructor that cleans up partial work without also undoing itself on
 success:
 

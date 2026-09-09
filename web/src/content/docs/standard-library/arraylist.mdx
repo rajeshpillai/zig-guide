@@ -45,11 +45,12 @@ coming, `try .initCapacity(gpa, n)` allocates once up front.
 
 ## What it actually is
 
-Three fields: a pointer, a length, and a capacity. `items` is the slice of the
-first `len` elements, and `capacity` is how many the buffer could hold before
-it has to grow. Appending past the capacity allocates a larger buffer, copies,
-and frees the old one, which is why append returns an error and why the growth
-is amortised rather than free.
+An `items` slice, a `capacity`, and a safety field covered further down that
+costs nothing outside a safety build. Three words, then: a pointer, a length,
+and how many elements the buffer could hold before it has to grow. Appending
+past the capacity allocates a larger buffer, copies, and frees the old one,
+which is why append returns an error and why the growth is amortised rather
+than free.
 
 ## `.items` is a borrowed slice
 

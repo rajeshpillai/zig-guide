@@ -54,9 +54,9 @@ operations in one instruction instead of a loop.
 
 Concretely: tracking which of 256 opcodes are implemented costs 32 bytes as a
 bit set and 256 bytes as an array of `bool`. At that size neither matters. At
-sixty-four thousand flags, one fits in a cache line's worth of words and the
-other does not fit in L1 at all. "Is any of these set" goes from a scan to a
-handful of `or`s.
+sixty-four thousand flags, the bit set is 8 KB and sits in L1 on most
+machines; the array of `bool` is 64 KB and does not. "Is any of these set"
+goes from a scan to a handful of `or`s.
 
 The other thing it replaces is the hand-rolled `flags: u32` with named
 constants and manual `&` and `|`. That works and is what C does, but the bit

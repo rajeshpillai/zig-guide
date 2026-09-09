@@ -42,9 +42,9 @@ thread it downward:
 | A library function | whatever the caller hands you: take `io: std.Io` |
 
 A function that needs to block does not reach for a global. It accepts an `Io`
-and passes it to the calls that block. This is why `std.Io.File.readFile`,
-`std.Io.Clock.Timestamp.now`, and `Io.Mutex.lock` all take one as their first
-argument.
+and passes it to the calls that block. `std.Io.Dir.readFile`,
+`std.Io.Clock.Timestamp.now` and `Io.Mutex.lock` all take one as their first
+argument for that reason.
 
 ## Why route everything through one interface
 

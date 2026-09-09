@@ -37,7 +37,7 @@ because the inferred set is part of your interface and changes silently when
 the body changes.
 
 An error is just a value with a name. It carries no payload, no message and no
-stack, which is deliberate: an error set is comparable, switchable, and costs
+stack. The gain is that an error set is comparable, switchable, and costs
 nothing to return. When a failure needs detail, the detail goes somewhere the
 caller can ask for it, not into the error.
 
@@ -96,8 +96,8 @@ The failure paths are in the type signature and in the control flow you can
 see. There is no invisible unwinding, no hidden second exit from every line.
 That is the same reason `defer` is needed and sufficient for cleanup.
 
-The trade is real and worth naming. Exceptions let the happy path stay clean
-and push error handling to a distance; error unions put a `try` on every
-fallible call. What you get for the noise is that every one of those `try`s is
-a place the reader can see the function might leave. And no function can fail
-in a way its signature did not admit.
+Exceptions let the happy path stay clean and push error handling to a
+distance. Error unions put a `try` on every fallible call. What you get for the
+noise is that every one of those `try`s is a place the reader can see the
+function might leave. And no function can fail in a way its signature did not
+admit.

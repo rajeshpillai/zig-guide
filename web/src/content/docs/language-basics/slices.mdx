@@ -36,18 +36,20 @@ Because a slice borrows, its lifetime is tied to whatever it points at. A
 slice of a local array must not outlive that array; Zig will not catch this
 for you.
 
-That is the one unchecked hazard in the type, and it is worth naming
-precisely. The slice will not stop you indexing it, because as far as the type
-is concerned it still has a valid pointer and a valid length. What changed is
-that the memory it points at now belongs to something else. Returning a slice
+That is the one unchecked hazard in the type. The slice will not stop you
+indexing it, because as far as the type is concerned it still has a valid
+pointer and a valid length. What changed is that the memory it points at now
+belongs to something else. Returning a slice
 of a stack buffer from the function that owns the buffer is the common
 instance; [who owns this
 memory](/learn/systems-from-scratch/who-owns-this-memory/) works through the
 shape of the problem.
 
-The bounds themselves *are* checked. `array[1..10]` on a three-element array
-panics in Debug and ReleaseSafe with a clear message, and the check is on the
-slicing operation, not deferred to the first access.
+The bounds themselves *are* checked. Write `array[1..10]` on a three-element
+array with both bounds comptime-known and the compiler rejects it outright.
+When the upper bound comes from a runtime value, the check moves to runtime and
+panics in Debug and ReleaseSafe. Either way the check is on the slicing
+operation, not deferred to the first access.
 
 Reversing, rotating, shifting and removing an element are in [Slice
 Recipes](/learn/language-basics/slice-recipes/).

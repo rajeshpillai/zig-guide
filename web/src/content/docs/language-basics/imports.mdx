@@ -96,8 +96,8 @@ be computed without itself, and the error names the loop.
 
 ## Bringing in data, not code
 
-`@embedFile("table.bin")` reads a file at compile time and gives you its
-contents as a `[N:0]u8`. It is the right tool for a lookup table, a small
-template, or a test fixture. It also removes a whole class of "the data file
-was not next to the binary" failure. It is the wrong tool for anything large,
-since the bytes end up in the binary.
+`@embedFile("table.bin")` reads a file at compile time and gives you a `*const
+[N:0]u8`: a pointer to the contents, with a zero byte after the last one. It is
+the right tool for a lookup table, a small template, or a test fixture. It also
+removes a whole class of "the data file was not next to the binary" failure. It
+is the wrong tool for anything large, since the bytes end up in the binary.

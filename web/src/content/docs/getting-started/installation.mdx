@@ -45,13 +45,14 @@ on your `PATH`.
 <summary>Linux</summary>
 
 ```bash
-curl -L https://ziglang.org/builds/zig-x86_64-linux-0.17.0-dev.tar.xz -o zig.tar.xz
+curl -L https://ziglang.org/builds/zig-x86_64-linux-0.17.0-dev.xxxx+xxxxxxxxx.tar.xz -o zig.tar.xz
 tar xf zig.tar.xz -C ~/.local
-echo 'export PATH="$HOME/.local/zig-x86_64-linux-0.17.0-dev:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/.local/zig-x86_64-linux-0.17.0-dev.xxxx+xxxxxxxxx:$PATH"' >> ~/.bashrc
 ```
 
-The exact filename changes with every master build, so copy the current one
-from the download page rather than pasting this URL.
+The `xxxx+xxxxxxxxx` stands for the build, which changes every night. Take the
+current name off the download page and substitute it in both lines; the
+commands do not work as written.
 
 </details>
 

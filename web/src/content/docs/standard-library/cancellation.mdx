@@ -62,10 +62,11 @@ spent, and later points return normally, so a task that catches
 a bug in almost every case: propagate it, and let the caller who asked for the
 cancellation see that it happened.
 
-`renew` re-arms a request you have handled, so the next point sees it again.
-`protect` (via `Cancelable`) blocks delivery across a region that must not be
-interrupted, such as a rollback or a flush. Both are for the cleanup path, not
-for staying alive.
+`io.recancel` re-arms a request you have already handled, so the next point
+reports it again. `io.swapCancelProtection(.blocked)` stops delivery entirely
+across a region that must not be interrupted, such as a rollback or a flush;
+it returns the previous state, so you put it back in a `defer`. Both are for
+the cleanup path, not for staying alive.
 
 ## A `Group` cancels as a whole
 

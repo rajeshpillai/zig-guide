@@ -40,8 +40,8 @@ the only rule is that the first parameter is the receiver. That means no
 dynamic dispatch, no vtable and no hidden `this`: the function that runs is
 decided by the type at the call site, at compile time, always.
 
-A struct can also hold declarations that are not methods, which is how a type
-carries its own constants and nested types:
+A struct can also hold declarations that are not methods, so a type can carry
+its own constants and nested types:
 
 ```zig
 const Vec3 = struct {
@@ -52,8 +52,8 @@ const Vec3 = struct {
 };
 ```
 
-`@This()` inside the body refers to the struct being declared, which is what
-makes that work in a file-level struct or an anonymous one that has no name to
+`@This()` inside the body refers to the struct being declared, so the same
+code works in a file-level struct or in an anonymous one that has no name to
 write.
 
 ## Structs are how generics are written
@@ -90,13 +90,12 @@ sees fit. When the layout matters, say so:
 Reaching for `extern` or `packed` "just in case" costs you the packing the
 optimiser would otherwise do, so use them only at real boundaries.
 
-The practical consequences of "unspecified" are worth stating plainly. Do not
-assume `@sizeOf` is the sum of the field sizes. Do not copy a plain struct
-into a file and expect to read it back with a different compiler version. Do
-not rely on the order of fields when writing bytes out. If any of those is
-what you want, that is what `extern` and `packed` are for. See [struct
-layout](/learn/systems-from-scratch/structs-are-layout/) for what the padding
-is actually doing.
+"Unspecified" has consequences. `@sizeOf` is not the sum of the field sizes. A
+plain struct copied into a file may not read back under a different compiler
+version, and the fields are not necessarily in the order you wrote them. If any
+of those is what you want, that is what `extern` and `packed` are for. See
+[struct layout](/learn/systems-from-scratch/structs-are-layout/) for what the
+padding is actually doing.
 
 A struct with no fields has size zero, and so does an array of them. That is
 not a curiosity: it is how a type carries only behaviour, and how a hash map

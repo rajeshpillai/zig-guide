@@ -34,9 +34,9 @@ const Tagged = union(Tag) { int: i64, float: f64, none: void };
 ```
 
 Now the value carries its tag, `switch` can discriminate safely, and the
-switch must be exhaustive. This is Zig's sum type, and it is what you almost
-always want. It is the same construct that makes error unions and optionals
-work.
+switch must be exhaustive. A tagged union is Zig's sum type, and it is what
+you almost always want. The same construct is what makes error unions and
+optionals work.
 
 Capturing by pointer in a prong lets you mutate in place:
 

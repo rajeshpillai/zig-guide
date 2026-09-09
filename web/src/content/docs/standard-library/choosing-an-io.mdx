@@ -7,9 +7,9 @@ order: 66
 
 import Playground from "../../../components/Playground.astro";
 
-Every other chapter in this run takes `init.io` and passes it down. This one
-looks at where that value comes from, because the choice belongs to the
-program and it is the only place in the codebase that has to make it.
+Every other chapter in this section takes `init.io` and passes it down. This
+one looks at where that value comes from. The choice belongs to the program,
+and `main` is the only place in a codebase that has to make it.
 
 <Playground
   name="03-standard-library.choosing-an-io"
@@ -62,10 +62,9 @@ the machinery that does it, saving a handful of registers and switching
 stacks; it is what an implementation uses, not something application code
 calls.
 
-That is the payoff the `Io` parameter was for. A server written against the
-interface runs on a thread pool during development and on io_uring in
-production, without a line changing. The decision stays in `main`, where you
-can see it.
+This is what the `Io` parameter buys. A server written against the interface
+runs on a thread pool during development and on io_uring in production without
+a line changing, and the decision that picks between them stays in `main`.
 
 ## Library code names none of them
 
@@ -81,4 +80,4 @@ the entire point of making blocking go through an interface.
 
 `Io.Threaded.global_single_threaded` exists as an escape hatch for debugging
 and for code that genuinely cannot take a parameter. Reaching for it in a
-library gives back the property this whole design bought.
+library gives up the property this whole design bought.
