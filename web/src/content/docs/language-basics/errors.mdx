@@ -86,7 +86,7 @@ a stack trace would have given you, and often better: it shows where the error
 was produced, not where it was noticed. It costs nothing in ReleaseFast, where
 the trace is not built at all.
 
-For logging one yourself, `@errorName(err)` gives the name as a string, and
+For [logging](/learn/standard-library/logging/) one yourself, `@errorName(err)` gives the name as a string, and
 the `{!}` format specifier prints an error union directly, as
 `error.FileNotFound`.
 

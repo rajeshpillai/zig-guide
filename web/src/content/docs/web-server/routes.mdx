@@ -71,7 +71,7 @@ decodes in place, which works because a decoded string is never longer than
 its encoded form, or allocates for each value and then owns freeing them.
 
 Decoding in place is the tempting one and it destroys the original target,
-which you may still want for logging. It also has to be done after splitting,
+which you may still want for [logging](/learn/standard-library/logging/). It also has to be done after splitting,
 since writing a decoded `&` into the buffer before the split would create a
 parameter boundary that was never sent. That is the same ordering point as
 above, made sharper by the fact that C makes the mistake physically possible.

@@ -59,7 +59,7 @@ when you need the enum as a named type of its own, or need to pin its values.
 Get the tag with `@as(Tag, value)`, or compare directly against `.float` in a
 `switch`. `std.meta.activeTag(value)` does the same thing with a name that
 reads better outside a switch, and `@tagName` turns it into a string for
-logging.
+[logging](/learn/standard-library/logging/).
 
 To build one where the variant is decided at compile time rather than written
 literally, `@unionInit(T, "int", 5)` takes the field name as a comptime
