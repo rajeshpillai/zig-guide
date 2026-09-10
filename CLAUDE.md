@@ -184,7 +184,7 @@ CI does build and test the desktop game on every push and nightly, which is what
 
 **`grace_seconds` is a judgement call, not a measurement, and the chapter says so.** It was added after a worst seed of 3.9 seconds, but that number came from the *broken* human model, the one that reset a countdown and livelocked. Against the current code, turning the window off moves the modelled 200 ms average from 29.5s to 29.2s and the worst seed not at all. The window still earns its place, because the reaction-time model already knows the controls perfectly and cannot represent a first-time player hunting for the keys. Do not re-add the 3.9 figure, and do not let a rewrite claim the window is worth more than it measures.
 
-**`SECTION_TAGS` in [tracks.ts](web/src/tracks.ts)** labels the few sections that are not a topic tour (`lane-dodger` is "Game"). It renders in the sidebar and on `/learn/`. Keep it sparse: a tag on every section is a tag on nothing.
+**`SECTION_TAGS` in [tracks.ts](web/src/tracks.ts)** labels the few sections that are not a topic tour (`lane-dodger` is "raylib game"). It renders in the sidebar and on `/learn/`. Keep it sparse: a tag on every section is a tag on nothing.
 
 ## Competitive Programming (`competitive-programming/`)
 

@@ -140,7 +140,7 @@ export const TRACKS: Track[] = [
  * value is that the few that carry one stand out from the rest.
  */
 export const SECTION_TAGS: Record<string, string> = {
-  "lane-dodger": "Game",
+  "lane-dodger": "raylib game",
 };
 
 /** Section directory to track title, for the lookup `navTracks` does. */
