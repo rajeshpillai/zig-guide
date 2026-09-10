@@ -20,7 +20,7 @@
  * Google not to index the page is telling it to drop the address rather than
  * pass on what the address earned.
  *
- * Two rules build the map, and the second overrides the first:
+ * Three rules build the map, and the later ones override the first:
  *
  * 1. Every page currently in the guide was once at the same path without the
  *    `/learn/` prefix, because the guide used to sit at the root. That rule is
@@ -30,6 +30,16 @@
  *    directory. Those are history and cannot be derived from anything; git
  *    would know, but CI clones are shallow and a redirect that disappears
  *    because a clone was cheap is worse than no redirect at all.
+ * 3. Every entry in those tables also answers at `/learn/<old path>`. Rules 1
+ *    and 2 were written when every move in the tables predated the `/learn/`
+ *    segment, so the only dead address a move could leave was the unprefixed
+ *    one. That stopped being true the moment a chapter moved after the segment
+ *    landed: Concurrency became its own section and
+ *    `/learn/standard-library/threads/` started returning 404, which is the
+ *    exact failure this module exists to prevent and is the address that had
+ *    every link and every position. A move from before the segment gets a
+ *    redirect for an address that was never served, which costs one small file
+ *    and nothing else. The reverse costs a page.
  *
  * The destinations are checked against the content directory at build time, so
  * a chapter that moves again without an entry here fails the build rather than
@@ -233,6 +243,13 @@ export function legacyRedirects(base) {
         );
       }
       add(from, to);
+      // Rule 3: a chapter that moved after the guide gained its `/learn/`
+      // segment was last served under it, so the prefixed address is the one
+      // with the links and the ranking. `add` refuses anything starting with a
+      // reserved segment, which `learn` is, so this writes the entry directly;
+      // the shadowing that check guards against cannot happen here, because
+      // `from` has already been rejected above if it is a live page.
+      redirects[`/learn/${from}`] = `${base}learn/${to}/`;
     }
   }
 
