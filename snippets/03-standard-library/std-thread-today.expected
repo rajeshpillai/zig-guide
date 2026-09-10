@@ -1,0 +1,13 @@
+std.Thread.Mutex       gone      std.Io.Mutex      present
+std.Thread.RwLock      gone      std.Io.RwLock     present
+std.Thread.Semaphore   gone      std.Io.Semaphore  present
+std.Thread.Condition   gone      std.Io.Condition  present
+std.Thread.ResetEvent  gone      std.Io.Event      present
+std.Thread.WaitGroup   gone      std.Io.Group      present
+std.Thread.Pool        gone      std.Io.Threaded   present
+
+std.Thread.spawn         present
+std.Thread.getCpuCount   present
+std.Thread.getCurrentId  present
+std.Thread.yield         present
+std.Thread.detach        present
