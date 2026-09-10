@@ -71,13 +71,13 @@ _ = counter.fetchAdd(1, .monotonic);
 Note the `_ =`: `fetchAdd` returns the previous value, and Zig will not let
 you drop it silently.
 
-The memory ordering argument is the part to be careful with. `.monotonic` says
-the operation itself is atomic and promises nothing about how it orders
-against other memory. That is exactly right for a counter nobody reads until
-the end, and wrong for a flag that publishes data written before it. When one
-thread writes data and then sets a flag, and another reads the flag and then
-the data, the pair needs `.release` and `.acquire`. When in doubt `.seq_cst`
-is the conservative choice and the slow one.
+That second argument is a memory ordering, and it constrains the memory
+around the operation rather than the counter itself. `.monotonic` is right
+for a total nobody reads until the end, and wrong for a flag that publishes
+data written before it. [Atomics](/learn/concurrency/atomics/) covers the six
+orderings, the compare-and-swap loop that every operation without a dedicated
+`fetch` is built from, and the working mutex `std.atomic` assembles out of
+two of them.
 
 ## Prefer structured concurrency
 

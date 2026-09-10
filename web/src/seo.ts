@@ -291,8 +291,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
     seoTitle: "Zig Concurrency: std.Io, async, Cancellation and Threads",
     description:
       "Concurrency in Zig through std.Io: async and Future, Group, " +
-      "cancellation, Select, bounded queues, locks, OS threads, and where the " +
-      "Io comes from.",
+      "cancellation, Select, bounded queues, locks, atomics and memory ordering, " +
+      "OS threads, and where the Io comes from.",
     lede:
       "Concurrency in Zig runs through one interface. Anything that can block " +
       "takes an `std.Io`, so the function starting the work never decides how " +
@@ -300,9 +300,10 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "chapters follow that from the first `io.async` call to the point where " +
       "you choose an implementation: futures and groups, stopping a task that " +
       "is already running, waiting for whichever finishes first, a bounded " +
-      "queue between two tasks, the locks under shared state, and the real OS " +
-      "threads you drop to when the interface is not what you want. Three of " +
-      "the seven run in your browser, on a target with no threads at all, " +
+      "queue between two tasks, the locks under shared state, the atomics those " +
+      "locks are built from, and the real OS threads you drop to when the " +
+      "interface is not what you want. Four of the eight run in your browser, " +
+      "on a target with no threads at all, " +
       "which is the interface demonstrating its own point. The Io Interface " +
       "chapter, in the Standard Library section, is the one to read first.",
     takeaways: [
@@ -310,6 +311,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "`io.async` is allowed to run your function inline and hand back a `Future` that has already finished. Only `io.concurrent` promises the caller keeps going, and it may fail with `error.ConcurrencyUnavailable`.",
       "Cancellation is a request, not a kill. The task finds out at its next cancellation point, which is the reason anything that can block takes the `Io`.",
       "The implementation is chosen in `main` and nowhere else. Every function below it takes the interface and never learns whether it got threads.",
+      "A mutex is not a primitive. `std.atomic.Mutex` is one compare-and-swap to take the lock and one ordered store to drop it, and that is the whole type.",
     ],
   },
   os: {

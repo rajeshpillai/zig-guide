@@ -1,0 +1,11 @@
+two increments, plain:  1
+two increments, atomic: 2
+fetchAdd returned 2, counter is now 12
+after the CAS loop: 36
+cmpxchg against a wrong guess: 36
+before publish: null
+after publish:  7
+first tryLock:  true
+second tryLock: false
+after unlock:   true
+orderings: .unordered .monotonic .acquire .release .acq_rel .seq_cst
