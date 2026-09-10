@@ -168,11 +168,18 @@ try mutex.lock(io);
 defer mutex.unlock(io);
 ```
 
-`lock` can fail only because it can be *cancelled*. `std.Thread.spawn` still
-exists, but structured concurrency via `io.async` and `Io.Group` is the better
-default, and works on targets with no threads at all.
+`lock` can fail only because it can be *cancelled*.
 
-→ [Threads](/learn/concurrency/threads/) ·
+Seven declarations went the same way, and none of them is deprecated or
+aliased: `Mutex`, `RwLock`, `Semaphore`, `Condition`, `ResetEvent`,
+`WaitGroup` and `Pool` are simply not on `std.Thread` any more. Everything
+that waits took an `Io` and moved. `std.Thread.spawn` stayed, along with the
+four other calls that are really about an OS thread, but structured
+concurrency via `io.async` and `Io.Group` is the better default and works on
+targets with no threads at all.
+
+→ [Coming from `std.Thread`](/learn/concurrency/coming-from-std-thread/) ·
+[Threads](/learn/concurrency/threads/) ·
 [Concurrency](/learn/concurrency/async-future-group/)
 
 ## Custom `format` methods
