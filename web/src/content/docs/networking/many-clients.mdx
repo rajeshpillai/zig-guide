@@ -50,12 +50,12 @@ try group.await(io);
 The `Io` implementation decides what "async" means. `std.Io.Threaded` runs
 these on a thread pool; the single-threaded WASI one running this page runs
 them inline. **The source does not change**, which is why
-[Threads](/learn/standard-library/threads/) is a page you cannot run here and
+[Threads](/learn/concurrency/threads/) is a page you cannot run here and
 this one is.
 
 If you are arriving from an older Zig looking for `async` and `await` as
 keywords: they were removed. `io.async` replaced them, as a library rather
-than syntax. [Concurrency](/learn/standard-library/concurrency/) covers the
+than syntax. [Concurrency](/learn/concurrency/async-future-group/) covers the
 shape in general.
 
 ## A Group so nothing outlives the scope
@@ -64,7 +64,7 @@ shape in general.
 cancels all of them, so a connection handler cannot outlive the server that
 started it. A bare `Thread.spawn` per connection gives you no such guarantee,
 and shutting down cleanly means tracking every thread you ever started.
-[Cancellation](/learn/standard-library/cancellation/) covers what a handler
+[Cancellation](/learn/concurrency/cancellation/) covers what a handler
 sees when the group it belongs to is cancelled.
 
 ## A handler cannot return an error

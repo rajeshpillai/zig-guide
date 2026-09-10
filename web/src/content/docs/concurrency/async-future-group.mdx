@@ -1,16 +1,20 @@
 ---
-title: Concurrency
+title: "Async, Future and Group"
 seoTitle: "Zig Concurrency: async, Future and Group via std.Io"
 seoDescription: "async, Future and Group all run through std.Io, so the caller decides how work is scheduled. The snippet runs in your browser, on a target with no threads."
 description: async, Future, and Group, all through the Io interface.
-section: Standard Library
-order: 61
+section: Concurrency
+order: 10
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig's concurrency story now runs through `std.Io`. Press Run: this executes in
-your browser, on a target with **no threads at all**.
+Zig's concurrency story now runs through `std.Io`. That interface is the
+subject of [The Io Interface](/learn/standard-library/io-interface/), and this
+section assumes it: every chapter here takes an `Io` and passes it down.
+
+Press Run: this executes in your browser, on a target with **no threads at
+all**.
 
 <Playground name="03-standard-library.concurrency" />
 
@@ -26,7 +30,7 @@ second.await(io);
 The `Io` implementation decides what "async" means. A threaded implementation
 runs these in parallel; the single-threaded WASI one runs them inline. **Your
 code does not change**, which is exactly why this page is runnable and the
-[Threads](/learn/standard-library/threads/) page is not.
+[Threads](/learn/concurrency/threads/) page is not.
 
 ## `async` may run it inline; `concurrent` may not
 
@@ -87,7 +91,7 @@ defer mutex.unlock(io);
 ```
 
 Cancelling a `Group` cancels every member, which is the subject of the [next
-chapter](/learn/standard-library/cancellation/).
+chapter](/learn/concurrency/cancellation/).
 
 ## The bigger picture
 
@@ -97,8 +101,8 @@ chooses the execution strategy. Libraries written this way work unchanged on a
 thread pool, an event loop, or a single-threaded wasm runtime.
 
 The rest of the machinery follows from here.
-[Queues](/learn/standard-library/queues/) for tasks that hand work to each
-other. [Select](/learn/standard-library/select/) for whichever finishes first.
-[Locks](/learn/standard-library/locks/) for the shared state underneath. And
-[Choosing an Io](/learn/standard-library/choosing-an-io/) for where the
+[Queues](/learn/concurrency/queues/) for tasks that hand work to each
+other. [Select](/learn/concurrency/select/) for whichever finishes first.
+[Locks](/learn/concurrency/locks/) for the shared state underneath. And
+[Choosing an Io](/learn/concurrency/choosing-an-io/) for where the
 instance comes from in the first place.

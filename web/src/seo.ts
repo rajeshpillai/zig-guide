@@ -246,11 +246,11 @@ export const SECTIONS: Record<string, SectionMeta> = {
     seoTitle: "The Zig Standard Library, by Example",
     description:
       "Zig std by example: allocators, ArrayList, hash maps, JSON, the Io " +
-      "interface, readers and writers, threads, crypto, formatting and sorting.",
+      "interface, readers and writers, crypto, formatting and sorting.",
     lede:
       "What ships in std, with a working program for each piece: allocators and " +
       "how to catch a leak, ArrayList and the hash maps, JSON in both directions, " +
-      "the Io interface with its readers and writers, threads, crypto, time, " +
+      "the Io interface with its readers and writers, crypto, time, " +
       "Unicode and the filesystem. std moves faster than the language, so these " +
       "are the pages most worth re-reading against a fresh compiler.",
     takeaways: [
@@ -285,6 +285,31 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "A generic container is a comptime function that takes a type and returns a type. `ArrayList(u8)` is a call.",
       "The lists std ships today are intrusive: the node lives inside your struct. Tutorials written a year ago show a different API.",
       "A hash map that deletes without leaving a tombstone loses every key that probed past the hole.",
+    ],
+  },
+  concurrency: {
+    seoTitle: "Zig Concurrency: std.Io, async, Cancellation and Threads",
+    description:
+      "Concurrency in Zig through std.Io: async and Future, Group, " +
+      "cancellation, Select, bounded queues, locks, OS threads, and where the " +
+      "Io comes from.",
+    lede:
+      "Concurrency in Zig runs through one interface. Anything that can block " +
+      "takes an `std.Io`, so the function starting the work never decides how " +
+      "it is scheduled, and `main` is the only place that picks. These " +
+      "chapters follow that from the first `io.async` call to the point where " +
+      "you choose an implementation: futures and groups, stopping a task that " +
+      "is already running, waiting for whichever finishes first, a bounded " +
+      "queue between two tasks, the locks under shared state, and the real OS " +
+      "threads you drop to when the interface is not what you want. Three of " +
+      "the seven run in your browser, on a target with no threads at all, " +
+      "which is the interface demonstrating its own point. The Io Interface " +
+      "chapter, in the Standard Library section, is the one to read first.",
+    takeaways: [
+      "`std.Thread.spawn` still exists, but it is no longer the default. Structured concurrency goes through `std.Io` and compiles for targets that have no threads.",
+      "`io.async` is allowed to run your function inline and hand back a `Future` that has already finished. Only `io.concurrent` promises the caller keeps going, and it may fail with `error.ConcurrencyUnavailable`.",
+      "Cancellation is a request, not a kill. The task finds out at its next cancellation point, which is the reason anything that can block takes the `Io`.",
+      "The implementation is chosen in `main` and nowhere else. Every function below it takes the interface and never learns whether it got threads.",
     ],
   },
   os: {

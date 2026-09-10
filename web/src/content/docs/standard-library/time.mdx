@@ -83,5 +83,5 @@ have.
 Sleeping goes through the `Io` instance too, which is what makes it
 cancellable and what lets the same code work under threads and under an
 evented runtime. A raw sleep that blocks the thread is the thing the interface
-exists to avoid; see [cancellation](/learn/standard-library/cancellation/) for
+exists to avoid; see [cancellation](/learn/concurrency/cancellation/) for
 what a timeout that can be interrupted looks like.

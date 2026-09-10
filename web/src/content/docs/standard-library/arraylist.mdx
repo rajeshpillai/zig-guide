@@ -117,7 +117,7 @@ have so it can keep growing.
 ## When it is the wrong container
 
 When elements are removed from the front, a list is O(n) per removal and a
-[queue](/learn/standard-library/queues/) is not. When lookup is by key rather
+[queue](/learn/concurrency/queues/) is not. When lookup is by key rather
 than by position, use a [hash map](/learn/standard-library/hash-maps/). When
 the element is a large struct and you mostly touch one field at a time, use a
 [MultiArrayList](/learn/standard-library/multi-array-list/). It stores each

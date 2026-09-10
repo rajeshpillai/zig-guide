@@ -11,8 +11,17 @@
  *
  * One `git log` walk over the tracked sources gives both dates at once. The log
  * is newest-first, so the first time a path appears is its last edit and the
- * last time it appears is (near enough) when it was added; a rename shows the
- * pre-rename path in the older commits, which only affects the added date.
+ * last time it appears is (near enough) when it was added.
+ *
+ * The walk asks for `--name-status -M` rather than `--name-only`, so a rename
+ * arrives as `R<score> <old> <new>` and the older commits touching `<old>` are
+ * credited to the page they became. Without that, moving a chapter republishes
+ * it: every commit before the move names a path nothing serves any more, so the
+ * added date collapses onto the day it was moved. That is not hypothetical and
+ * it is not small. This guide has reorganised four times and git already holds
+ * 65 such renames, so before this every ORM chapter and every recipe that
+ * changed section was telling crawlers it was first published on the day its
+ * directory changed.
  */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -78,7 +87,7 @@ async function walk(): Promise<Map<string, PageDates>> {
   try {
     ({ stdout } = await run(
       "git",
-      ["log", "--format=%cI", "--name-only", "--no-merges", "--", "src"],
+      ["log", "--format=%cI", "--name-status", "-M", "--no-merges", "--", "src"],
       // 145 chapters plus every page and script, over the repo's whole history.
       { maxBuffer: 64 * 1024 * 1024 },
     ));
@@ -87,16 +96,29 @@ async function walk(): Promise<Map<string, PageDates>> {
     return dates;
   }
 
-  let at = "";
-  for (const line of stdout.split("\n")) {
-    if (!line) continue;
-    if (ISO.test(line)) {
-      at = line;
-      continue;
+  // Old path to the path that content lives at now. Filled as the walk meets
+  // each rename and read by every older commit that names the pre-rename path.
+  // A file moved twice chains through it, which is why this resolves in a loop
+  // rather than with a single lookup.
+  const renamedTo = new Map<string, string>();
+  const current = (path: string) => {
+    let at = path;
+    // Bounded by the map, and a cycle is impossible walking one direction
+    // through history, but a malformed log should not hang the build.
+    for (let hop = 0; hop < renamedTo.size + 1; hop++) {
+      const next = renamedTo.get(at);
+      if (next === undefined) return at;
+      at = next;
     }
-    // Paths come back relative to the repo root; this module's callers work in
-    // `web/`, which is also Astro's project root.
-    const path = line.startsWith("web/") ? line.slice(4) : line;
+    return at;
+  };
+
+  // Paths come back relative to the repo root; this module's callers work in
+  // `web/`, which is also Astro's project root.
+  const relative = (path: string) => (path.startsWith("web/") ? path.slice(4) : path);
+
+  let at = "";
+  const touch = (path: string) => {
     const seen = dates.get(path);
     if (seen) {
       // Still walking backwards, so this is a older commit than the last one
@@ -105,6 +127,27 @@ async function walk(): Promise<Map<string, PageDates>> {
     } else {
       dates.set(path, { modified: at, published: at });
     }
+  };
+
+  for (const line of stdout.split("\n")) {
+    if (!line) continue;
+    if (ISO.test(line)) {
+      at = line;
+      continue;
+    }
+    // `--name-status` prefixes each path with its status and a tab: `M`, `A`,
+    // `D`, and `R<score>` followed by two paths rather than one.
+    const fields = line.split("\t");
+    const status = fields[0];
+    if (status.startsWith("R") && fields.length === 3) {
+      const from = relative(fields[1]);
+      const to = current(relative(fields[2]));
+      renamedTo.set(from, to);
+      touch(to);
+      continue;
+    }
+    if (fields.length < 2) continue;
+    touch(current(relative(fields[1])));
   }
 
   return dates;

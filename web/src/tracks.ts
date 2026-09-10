@@ -35,7 +35,28 @@ export const TRACKS: Track[] = [
   {
     title: "Foundations",
     blurb: "The language and the library it ships with. Start here.",
-    sections: ["getting-started", "language-basics", "standard-library", "data-structures"],
+    // Concurrency last, and a section of its own rather than seven chapters
+    // inside Standard Library. The pages had existed for months and nobody
+    // could find them: Standard Library is thirty chapters, so a reader
+    // searching for how Zig does concurrency was handed one page out of the
+    // middle of a list rather than a section they could read end to end.
+    //
+    // Last in the track because it is the one part of std a reader does not
+    // need on day one, and because everything after Foundations leans on it.
+    // Networking already sat after this track for that reason.
+    //
+    // `standard-library/io-interface` deliberately did not move with it.
+    // Sixteen chapters in that section take an `init.io`, and pulling the
+    // explanation of what that parameter is into a later section would leave
+    // the filesystem, JSON and readers/writers chapters using something
+    // nothing had introduced. This section links back to it instead.
+    sections: [
+      "getting-started",
+      "language-basics",
+      "standard-library",
+      "data-structures",
+      "concurrency",
+    ],
   },
   {
     title: "Groundwork",

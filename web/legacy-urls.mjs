@@ -50,7 +50,11 @@ const DOCS = fileURLToPath(new URL("./src/content/docs", import.meta.url));
  * Libraries and became a section of its own. The last few are chapters that
  * changed section rather than the section changing name, which is why three
  * recipes now answer to a Networking address and three more sit one directory
- * deeper under `databases`.
+ * deeper under `databases`. The `standard-library` block is the same kind of
+ * move: seven chapters that were findable only by reading a thirty-chapter
+ * list became the Concurrency section. One of them was renamed on the way,
+ * because a chapter called Concurrency inside a section called Concurrency
+ * would have served `/learn/concurrency/concurrency/`.
  */
 export const MOVED = {
   allocators: "standard-library/allocators",
@@ -121,6 +125,14 @@ export const MOVED = {
   "how-to/sqlite-basic": "how-to/databases/sqlite-basic",
   "how-to/tcp-echo": "networking/tcp-echo",
   "how-to/udp-message": "networking/udp-message",
+
+  "standard-library/cancellation": "concurrency/cancellation",
+  "standard-library/choosing-an-io": "concurrency/choosing-an-io",
+  "standard-library/concurrency": "concurrency/async-future-group",
+  "standard-library/locks": "concurrency/locks",
+  "standard-library/queues": "concurrency/queues",
+  "standard-library/select": "concurrency/select",
+  "standard-library/threads": "concurrency/threads",
 };
 
 /**

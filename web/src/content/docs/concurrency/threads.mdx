@@ -1,7 +1,7 @@
 ---
 title: Threads
 description: Real OS threads, and why this page cannot run in your browser.
-section: Standard Library
+section: Concurrency
 order: 60
 ---
 
@@ -45,7 +45,7 @@ defer mutex.unlock(io);
 
 `lock` can fail only because it can be *cancelled*, and that is what makes it
 compose with the rest of the `Io` machinery.
-See [Cancellation](/learn/standard-library/cancellation/) for what that means.
+See [Cancellation](/learn/concurrency/cancellation/) for what that means.
 
 The move is not cosmetic. A mutex that knows about the `Io` instance can be
 built differently depending on how the program is running. A real futex under
@@ -82,7 +82,7 @@ is the conservative choice and the slow one.
 ## Prefer structured concurrency
 
 For most work, [`Io.async` and
-`Io.Group`](/learn/standard-library/concurrency/) are a better fit than
+`Io.Group`](/learn/concurrency/async-future-group/) are a better fit than
 spawning raw threads. They are cancellable, they cannot leak a running task
 past their scope, and they work on targets that have no threads at all,
 including the one this site runs on.

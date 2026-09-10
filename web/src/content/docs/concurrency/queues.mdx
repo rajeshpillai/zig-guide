@@ -1,8 +1,8 @@
 ---
 title: Queues
 description: Io.Queue as a bounded channel between tasks, with close and back pressure.
-section: Standard Library
-order: 63
+section: Concurrency
+order: 40
 ---
 
 import Playground from "../../../components/Playground.astro";
@@ -74,7 +74,7 @@ queue blocking the sender *is* the back pressure, and the pair self-regulates
 at the speed of the slower side.
 
 This is the case that needs
-[`io.concurrent`](/learn/standard-library/concurrency/) rather than
+[`io.concurrent`](/learn/concurrency/async-future-group/) rather than
 `io.async`. A producer started with `async` may run inline, all the way to the
 point where it fills the queue and blocks. The consumer that would drain it is
 still waiting for `async` to return. That deadlock is the reason the two
@@ -86,6 +86,6 @@ of the page is not.
 Every blocking call here is a cancellation point: `put`, `get`, and their
 `One` and `All` forms return `Cancelable` errors, and the `Uncancelable`
 variants opt out for cleanup paths. See
-[Cancellation](/learn/standard-library/cancellation/); the rule that
+[Cancellation](/learn/concurrency/cancellation/); the rule that
 `error.Canceled` should propagate applies to a blocked producer as much as
 anywhere else.

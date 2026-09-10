@@ -23,7 +23,7 @@ same way nothing allocates behind your back. If a function's signature has no
 `std.mem.Allocator`. The vtable holds function pointers for the primitive
 operations, reading, writing, waiting, scheduling, and a concrete
 implementation fills them in. The standard one is `std.Io.Threaded`, backed by
-a real thread pool; [Choosing an Io](/learn/standard-library/choosing-an-io/)
+a real thread pool; [Choosing an Io](/learn/concurrency/choosing-an-io/)
 covers the others and when you would swap. It is the same dependency-injection
 pattern the allocator uses, applied to blocking instead of to memory. That is
 why this chapter sits next to
@@ -63,9 +63,9 @@ never changes. This is Zig's answer to the "function coloring" problem, there
 is no separate `async` version of `readFile`, only one function that does
 whatever the `Io` it was given does.
 
-The [Concurrency](/learn/standard-library/concurrency/) chapter builds on this
+The [Concurrency](/learn/concurrency/async-future-group/) chapter builds on this
 with `async` and `Group`, and
-[Cancellation](/learn/standard-library/cancellation/) with stopping a task
+[Cancellation](/learn/concurrency/cancellation/) with stopping a task
 once it is running. [Readers and
 Writers](/learn/standard-library/readers-and-writers/),
 [Filesystem](/learn/standard-library/filesystem/) and
