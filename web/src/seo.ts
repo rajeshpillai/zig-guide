@@ -292,7 +292,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
     description:
       "Concurrency in Zig through std.Io: async and Future, Group, " +
       "cancellation, Select, bounded queues, locks, atomics and memory ordering, " +
-      "OS threads, what happened to std.Thread, and where the Io comes from.",
+      "OS threads, what happened to std.Thread, where the Io comes from, and a\n      " +
+      "complete batch job runner putting it together.",
     lede:
       "Concurrency in Zig runs through one interface. Anything that can block " +
       "takes an `std.Io`, so the function starting the work never decides how " +
@@ -302,7 +303,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "is already running, waiting for whichever finishes first, a bounded " +
       "queue between two tasks, the locks under shared state, the atomics those " +
       "locks are built from, and the real OS threads you drop to when the " +
-      "interface is not what you want. Five of the nine run in your browser, " +
+      "interface is not what you want, and it ends on a whole program rather " +
+      "than a primitive. Five of the ten run in your browser, " +
       "on a target with no threads at all, " +
       "which is the interface demonstrating its own point. The Io Interface " +
       "chapter, in the Standard Library section, is the one to read first.",
@@ -313,6 +315,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "The implementation is chosen in `main` and nowhere else. Every function below it takes the interface and never learns whether it got threads.",
       "A mutex is not a primitive. `std.atomic.Mutex` is one compare-and-swap to take the lock and one ordered store to drop it, and that is the whole type.",
       "`std.Thread.Mutex`, `RwLock`, `Semaphore`, `Condition`, `ResetEvent`, `WaitGroup` and `Pool` no longer exist. Everything that waits moved to `std.Io`; `std.Thread` kept `spawn` and the four calls that are really about an OS thread.",
+      "A concurrent program whose output depends on the order its tasks ran is one nobody can test. Design the result to be scheduling-independent and the concurrency becomes something you can change your mind about.",
     ],
   },
   os: {

@@ -1,0 +1,17 @@
+  id     total  status
+  1001      1350  ok
+  1002       300  ok
+  1003         -  zero quantity
+  1004      2500  ok
+  1005         -  bad quantity
+  1006      1100  ok
+  1007      6160  ok
+  1008         -  missing price
+  1009      1600  ok
+  1010       600  ok
+  1011      1920  ok
+  1012       820  ok
+
+12 records, 9 ok, 3 failed
+total value: 16350
+largest: record 6 (id 1007) at 6160
