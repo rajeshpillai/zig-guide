@@ -100,11 +100,15 @@ pub fn build(b: *std.Build) void {
             // job is to trip one would quietly succeed at reading memory it
             // does not own.
             .optimize = if (snippet.fails) .safe else optimize,
-            // A `//! link:`/`//! cinclude:` snippet needs libc plus the named
-            // system libraries. wasm32-wasi cannot resolve those, so these are
-            // always host builds (see `native` below).
-            .link_libc = if (snippet.link_libs.len > 0 or snippet.c_includes.len > 0) true else null,
+            // A `//! link:`/`//! cinclude:`/`//! csource:` snippet needs libc
+            // plus the named system libraries. wasm32-wasi cannot resolve
+            // those, so these are always host builds (see `native` below).
+            .link_libc = if (snippet.needsC()) true else null,
         });
+        // The snippet's own chapter directory, which is where a `//! cinclude:`
+        // header and a `//! csource:` file live when the snippet vendors its
+        // own C rather than naming a system library.
+        const chapter_dir = b.path(b.pathJoin(&.{ snippets_root, snippet.chapter }));
         if (snippet.link_libs.len > 0 or snippet.c_includes.len > 0) {
             // @cImport was removed from the language on Zig master; C headers
             // now come through a build-system translate-c step. We synthesize a
@@ -116,8 +120,21 @@ pub fn build(b: *std.Build) void {
                 .optimize = optimize,
                 .link_libc = true,
             });
+            // So a vendored header resolves as `#include <calc.h>`. A system
+            // header is unaffected: no chapter directory holds one.
+            translate.addIncludePath(chapter_dir);
             for (snippet.link_libs) |lib| translate.linkSystemLibrary(lib, .{});
             module.addImport("c", translate.createModule());
+        }
+        for (snippet.c_sources) |c_file| {
+            // Zig ships a C compiler, so a snippet can vendor the C it calls
+            // instead of depending on a library being installed on the runner.
+            // This is also the call the Importing C chapter teaches, so a
+            // signature change here fails the build the chapter is quoted from.
+            module.addCSourceFile(.{
+                .file = b.path(b.pathJoin(&.{ snippets_root, snippet.chapter, c_file })),
+                .flags = &.{"-std=c99"},
+            });
         }
 
         const compile = if (snippet.kind == .exe)
@@ -289,8 +306,20 @@ const Snippet = struct {
     /// each linked library, which holds when a library's header matches its
     /// name (sqlite3) but not when it does not (lib `z` ships `zlib.h`).
     c_includes: []const []const u8,
+    /// C files named by `//! csource:` lines, e.g. `calc.c`, sitting beside the
+    /// snippet in its chapter directory and compiled into it. A snippet that
+    /// vendors its own C needs nothing installed on the runner, which is what
+    /// lets the Importing C chapter gate the shape it teaches rather than
+    /// showing it as prose.
+    c_sources: []const []const u8,
 
     const Kind = enum { exe, @"test" };
+
+    /// True when this snippet involves C at all, in any of the three ways.
+    /// All of them imply libc and a host build.
+    fn needsC(self: Snippet) bool {
+        return self.link_libs.len > 0 or self.c_includes.len > 0 or self.c_sources.len > 0;
+    }
 };
 
 /// True when `marker` starts a line of `source`.
@@ -361,12 +390,13 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
 
         const link_libs = parseDirectiveList(b, source, "//! link:");
         const c_includes = parseDirectiveList(b, source, "//! cinclude:");
+        const c_sources = parseDirectiveList(b, source, "//! csource:");
         const norun = hasMarker(source, "//! norun");
         const simd = hasMarker(source, "//! simd");
         // A C-linked snippet is inherently a host build; treat it as native
         // even without an explicit `//! native` line.
         const native = hasMarker(source, "//! native") or
-            link_libs.len > 0 or c_includes.len > 0;
+            link_libs.len > 0 or c_includes.len > 0 or c_sources.len > 0;
 
         try out.append(b.allocator, .{
             .name = b.fmt("{s}.{s}", .{ chapter, stem }),
@@ -383,6 +413,7 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
             .simd = simd,
             .link_libs = link_libs,
             .c_includes = c_includes,
+            .c_sources = c_sources,
         });
     }
 

@@ -7,6 +7,8 @@ section: Working with C
 order: 83
 ---
 
+import Playground from "../../../components/Playground.astro";
+
 Zig reads C headers directly. There is no binding generator and no
 intermediate `.zig` file to maintain.
 
@@ -33,17 +35,10 @@ On current Zig it fails with `error: invalid builtin function: '@cImport'`.
 Headers now come through `b.addTranslateC`, which produces an ordinary Zig
 module. You import it by whatever name you gave it:
 
-```zig
-// src/main.zig
-const std = @import("std");
-const c = @import("c");
-
-pub fn main() void {
-    _ = c.printf("hello from C\n");
-    const len = c.strlen("abc");
-    std.debug.print("{d}\n", .{len});
-}
-```
+<Playground
+  name="05-working-with-c.libc-from-zig"
+  note="Translates the real stdio.h and string.h and links the host libc, so CI builds and runs it natively. Browser wasm has neither."
+/>
 
 Everything the header declares still appears as a member of `c`. The
 difference is that nothing in the source file names a header any more. The
@@ -141,15 +136,17 @@ int calc_add(int a, int b);
 int calc_add(int a, int b) { return a + b; }
 ```
 
-```zig
-// src/main.zig
-const std = @import("std");
-const c = @import("c");
+`src/main.zig` is a real snippet in this guide, so it is compiled and run on
+every CI push:
 
-pub fn main() void {
-    std.debug.print("{d}\n", .{c.calc_add(2, 3)});
-}
-```
+<Playground
+  name="05-working-with-c.translate-c"
+  note="Translates a vendored header and compiles a vendored .c, both of which need a host C compiler. CI builds and runs it on every push."
+/>
+
+The two C files above are the ones it is built against, sitting beside it in
+`snippets/05-working-with-c/`. The build below is what your own project writes
+by hand; this repo makes the same steps from a marker on the snippet.
 
 ```zig
 // build.zig
@@ -203,9 +200,10 @@ either one fails differently:
 The translate step is what decides which declarations Zig can see. Point it at
 a header that is not there and you get an error naming the header.
 `addCSourceFile` is what puts the compiled function in the binary. Forget that
-one and the code compiles cleanly and fails at link time with `undefined
-symbol: calc_add`, which is the more confusing of the two errors and is worth
-recognising on sight.
+one and the code compiles cleanly and fails at link time with `ld.lld:
+undefined symbol: calc_add`, which is the more confusing of the two errors and
+is worth recognising on sight. That is not from memory: dropping the C file
+from the snippet above produces exactly that line.
 
 Swapping the vendored file for a system library changes two lines:
 `linkSystemLibrary("sqlite3", .{})` on the translate step so the header is
@@ -268,14 +266,22 @@ what, and the wrapper is where those become `defer` and `errdefer` in the Zig
 caller's scope. A handle type with a `deinit` method is usually the right
 shape, so the pairing is visible.
 
-## Why this page has no Run button
+## Why the snippets here have no Run button
 
-Unlike almost every other chapter here, this one shows no runnable snippet.
+Both programs above are compiled and run by CI on every push, against the
+compiler named in the footer. Neither will run in your browser.
+
 Translating a header needs real C headers and a libc for the target, and the
-wasm sandbox these pages execute in has neither. The code above is
-illustrative rather than CI-verified. Only one other page in this guide is,
-and it says so too.
+wasm sandbox these pages execute in has neither. So these two are host builds:
+CI runs them on Linux and diffs their output, and the page shows you the source
+without a Run button rather than shipping a `.wasm` that could not work.
 
-For C that is verified on every run, see [SQLite from
+What is still illustrative is the `build.zig` on this page. Your project writes
+those steps by hand; this repo generates them from a marker on the snippet, so
+the two cannot be the same file. The calls are the same calls, and they are
+compiled on every run of `zig build`, which is what caught the last round of
+drift here.
+
+For more C that is verified on every run, see [SQLite from
 Zig](/learn/how-to/databases/sqlite-basic/), which links the real libsqlite3,
 and [the X11 chapter](/learn/graphics/on-screen/), which links the real Xlib.
