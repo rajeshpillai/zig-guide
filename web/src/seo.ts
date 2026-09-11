@@ -379,12 +379,12 @@ export const SECTIONS: Record<string, SectionMeta> = {
   "working-with-c": {
     seoTitle: "Zig and C: Interop by Example",
     description:
-      "Calling C from Zig and exposing Zig to C: @cImport and translate-c, C " +
+      "Calling C from Zig and exposing Zig to C: translate-c, C " +
       "pointer types, C primitive types, and the C ABI.",
     lede:
       "Zig reads C headers directly, so interop is a matter of knowing which " +
-      "types cross the boundary and how. These chapters cover @cImport and " +
-      "translate-c, the C pointer types and what they refuse to do, the primitive " +
+      "types cross the boundary and how. These chapters cover translate-c and " +
+      "what replaced @cImport, the C pointer types and what they refuse to do, the primitive " +
       "type mapping, and exporting a C ABI other languages can link against.",
     takeaways: [
       "Zig reads the C header itself. There is no binding file to generate, commit, and then forget to regenerate.",
@@ -590,7 +590,7 @@ export const GROUPS: Record<string, SectionMeta> = {
       "A database driver is mostly a codec. Once the framing is written out, a query is a message you send and a stream of messages you read until the server says it is ready again.",
       "Postgres and Redis both frame every message with a type and a length, and both are simpler to implement than to install a client library for. The complexity in a real driver is pooling, auth and types, not the protocol.",
       "Protocol code that reads from a `Reader` rather than a socket can be tested with a string literal, which is why two of these three recipes run in your browser.",
-      "SQLite is a C library, so this is also the shortest realistic example of `@cImport`, linking, and turning C error codes into Zig errors.",
+      "SQLite is a C library, so this is also the shortest realistic example of translate-c, linking, and turning C error codes into Zig errors.",
     ],
   },
 };

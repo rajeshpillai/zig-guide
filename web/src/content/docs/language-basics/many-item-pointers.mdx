@@ -55,8 +55,8 @@ level.
 
 `[*:0]T` is the one many-item pointer that does know where it ends, because
 the end is marked in the data rather than carried alongside. That is exactly a
-C string, and it is the type `@cImport` gives you for `char *` parameters that
-are documented as null-terminated.
+C string, and it is the type translate-c gives you for `char *` parameters
+that are documented as null-terminated.
 
 `std.mem.span` walks to the sentinel and hands back a slice, so the unsafe
 type survives for one line at the boundary:
@@ -72,7 +72,7 @@ the family in full.
 
 You rarely write `[*]T` in ordinary Zig. It arrives:
 
-- **From C.** Every array parameter in a C header is a pointer, so `@cImport`
+- **From C.** Every array parameter in a C header is a pointer, so translate-c
   produces `[*c]T`, the C pointer type, which converts to `[*]T` or `?[*]T` once
   you decide what the header actually meant.
 - **From an allocator's internals.** The code implementing a data structure has

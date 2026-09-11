@@ -67,7 +67,7 @@ should not.
 
 ## Where you actually meet it
 
-Almost always at a C boundary. `@cImport` turns every incomplete type in a
+Almost always at a C boundary. translate-c turns every incomplete type in a
 header into an opaque type, which is why the pointers it hands you stay
 distinct instead of collapsing into `?*anyopaque`. See [importing C
 headers](/learn/working-with-c/cimport/) and [C
