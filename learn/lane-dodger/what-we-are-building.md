@@ -1,0 +1,92 @@
+# A Game You Can Test
+
+> A three lane endless runner you can play here, and the one rule that makes the rest testable.
+
+Press Play. Arrow keys or `A` and `D` change lane. Space starts a run. `M`
+mutes the sound.
+
+<LaneDodger caption="The same build that runs on the desktop, compiled to WebAssembly." />
+
+Three lanes. Blocks come at you. Coins add to the score. The game keeps getting
+faster until you lose. A run lasts about half a minute.
+
+## Games are hard to test
+
+The interesting behaviour sits inside a loop that reads the keyboard, talks to
+a GPU and runs sixty times a second. None of those three belongs in a test.
+
+So most small games have no tests. They get tuned by playing them. The
+difficulty becomes whatever the person doing the tuning could handle that week.
+
+This game has fifty-five tests, and none of them needs a window.
+
+## One rule makes that possible
+
+The rules of the game live in one module. That module does not import raylib, a
+windowing library, or a clock. It never allocates. It turns a seed and a list of
+inputs into a list of states.
+
+<GameSource file="src/sim/sim.zig" decl="Input" />
+
+Everything else reads from that state. The renderer draws the world. The audio
+plays a note when something happens. Neither one can change the outcome of a
+run.
+
+The [networking chapters](https://www.ziglang.in/learn/networking/) are built the same way, with
+protocol code that parses from a `Reader` instead of a socket. Code that only
+runs inside the whole program does not get tested.
+
+## What the tests actually do
+
+A bot plays the course for four minutes of game time at every seed. It must
+never crash. If the generator can produce a row nobody could get through, this
+test finds it. It also found a bug in the bot: it was steering into blocks whose
+centres had passed the player, but whose bodies had not.
+
+The same bot runs again with a delay in front of it. The delay stands in for
+human reaction time, and the test checks the average run length. A machine with
+no reaction time surviving a course says nothing about whether a person can play
+it. This is the test that caught a difficulty curve that stopped rising after
+sixty seconds. A good player never lost.
+
+A third test runs two worlds from one seed and one script of inputs, and
+compares them on every tick.
+
+## Where the code is
+
+```
+src/
+  sim/        the rules. imports nothing.
+  render/     what it looks like. reads the world, never writes it.
+  audio/      what it sounds like. holds no raylib either.
+  platform/   raylib input and the audio device
+  main.zig    window and the fixed timestep loop
+```
+
+The whole project is on GitHub under
+[examples/lane-dodger](https://github.com/rajeshpillai/zig-guide/tree/main/examples/lane-dodger).
+Every code block in these chapters carries the path it came from, and that path
+links to the file. The blocks are read off disk when this page is built, so a
+chapter cannot end up describing a function that was deleted months ago.
+
+The chapters walk the whole thing, in the order you would build it.
+
+## The chapters
+
+- [Vendoring raylib](https://www.ziglang.in/learn/lane-dodger/the-build/): how to add raylib to a Zig
+  project, and why the dependency here is its C rather than its build script.
+- [The world](https://www.ziglang.in/learn/lane-dodger/the-world/): the field, the player's two
+  positions, and the order of work inside a tick.
+- [The loop](https://www.ziglang.in/learn/lane-dodger/the-loop/): a fixed timestep, and why `step`
+  takes no `dt`.
+- [Handles](https://www.ziglang.in/learn/lane-dodger/entities/): a pool of entities that never
+  allocates, referred to by handles rather than pointers.
+- [Drawing it](https://www.ziglang.in/learn/lane-dodger/drawing/): field units onto a window, the
+  road, and a particle system with no raylib in it.
+- [Input](https://www.ziglang.in/learn/lane-dodger/input/): presses latched once a frame and handed to
+  exactly one tick.
+- [Difficulty](https://www.ziglang.in/learn/lane-dodger/fair-by-design/): row spacing derived from
+  what is possible, not tuned until it feels right.
+- [Sound](https://www.ziglang.in/learn/lane-dodger/sound/): five effects, no audio files.
+- [Build it from scratch](https://www.ziglang.in/learn/lane-dodger/build-it/): the order to write the
+  files in, and the two points where you can stop and check.

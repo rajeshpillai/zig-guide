@@ -1,0 +1,110 @@
+# Pointer Sized Integers
+
+> usize, isize, and why they are not just u64.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "usize matches pointer width" {
+    try expect(@sizeOf(usize) == @sizeOf(*u8));
+    try expect(@sizeOf(isize) == @sizeOf(*u8));
+}
+
+test "usize is the index and length type" {
+    // `.len` is a usize, and so is anything used to index a slice.
+    const array = [_]u8{ 1, 2, 3 };
+    const length: usize = array.len;
+    try expect(length == 3);
+    try expect(@TypeOf(array.len) == usize);
+}
+
+test "wasm32 is a 32-bit target" {
+    // These snippets are compiled to wasm32-wasi, so a pointer is 4 bytes.
+    // The same source on x86_64 would see 8.
+    try expect(@sizeOf(usize) == 4);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.pointer-sized-integers`)*
+
+`usize` and `isize` are exactly as wide as a pointer on the target. They are
+the types of `.len` and of anything used to index a slice.
+
+## They are target-dependent, and that is the point
+
+The snippets on this site compile to `wasm32-wasi`, so `@sizeOf(usize)` is
+**4**. Build the identical source for `x86_64` and it is 8. That is why the
+last test above asserts 4: it is a fact about the target, not about Zig.
+
+This page is the one place on the site where the wasm target is visible in an
+assertion rather than hidden behind it. Run the snippet and you are running
+the 32-bit answer, because the browser is a 32-bit machine as far as this
+program is concerned.
+
+Writing `u64` where you mean `usize` produces code that works on your machine
+and breaks on a 32-bit one. Writing `usize` where you mean "a 64-bit counter"
+produces code that silently narrows on wasm. The distinction is worth keeping
+straight.
+
+## Which one to reach for
+
+The rule is about what the number *is*, not how big you expect it to get.
+
+- **`usize`** for anything that is a count of, or an index into, memory that
+  exists: `.len`, an index, a byte offset into a buffer, a capacity. These are
+  bounded by how much memory the machine can address, which is the definition of
+  pointer width.
+- **A fixed width** (`u32`, `u64`) for anything whose range comes from the
+  problem rather than the machine: a file offset, a millisecond timestamp, a
+  wire protocol field, a hash. A file can be larger than a 32-bit machine's
+  address space, so a file offset is `u64` everywhere and `usize` nowhere.
+- **`isize`** almost never. It exists for pointer differences and for C
+  interfaces that use `ssize_t`, usually as a length that can also be an error
+  code.
+
+The failure mode for getting this wrong is the worst kind: correct on the
+machine you tested and wrong on the one you shipped to. Embedded targets are
+16-bit, wasm is 32-bit, your laptop is 64-bit, and the same source is expected
+to build for all three.
+
+## Converting
+
+Integer casts are never implicit when they could lose information, so going
+between `usize` and a fixed width is explicit:
+
+```zig
+const n: u32 = @intCast(slice.len);   // checked in safety builds
+```
+
+`@intCast` asserts the value fits. In Debug and ReleaseSafe that assertion is
+a real check and a value that does not fit panics. In ReleaseFast it is a
+promise you made, and breaking it is undefined behaviour. So `@intCast` is for
+when you know the bound (a length you just checked, an index you just
+validated), not for silencing a type error.
+
+When the value genuinely might not fit, do the check yourself and produce an
+error:
+
+```zig
+if (slice.len > std.math.maxInt(u32)) return error.TooLong;
+const n: u32 = @intCast(slice.len);
+```
+
+Going the other way, from a narrower type to `usize`, never loses anything and
+still needs `@intCast` to be written, because Zig has no implicit widening
+either. The upside is that every place a size changes is a place you can see.
+
+## Where this goes wrong in practice
+
+Subtraction. `usize` is unsigned, so `a - b` when `b > a` wraps, and in a
+safety build it panics with an integer overflow rather than producing a large
+number. The common instance is a backwards loop over `items.len`, which is why
+counting down is written as a decrement inside the body rather than in a
+continue expression. [For loops](https://www.ziglang.in/learn/language-basics/for-loops/) covers
+that shape.
+
+The other one is `.len` arithmetic in format strings and buffer sizing. Mixing
+a `usize` length with a `u32` field means one `@intCast` per expression, until
+you pick one type and convert at the boundary. Converting once, where the
+value enters your code, is the version that stays readable.

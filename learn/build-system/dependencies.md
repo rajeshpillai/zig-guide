@@ -1,0 +1,136 @@
+# Dependencies
+
+> Declaring, fetching, and wiring a package with build.zig.zon.
+
+Zig has a package manager built into the build system. There is no separate
+tool and no central registry: a dependency is a URL and a hash, fetched into a
+global cache and verified on the way in. Two files cooperate. `build.zig.zon`
+declares what you depend on; `build.zig` pulls each one in and wires its
+modules into your artifacts.
+
+## The path a dependency takes
+
+```
+ build.zig.zon
+      │
+      │ declares
+      ▼
+  Dependency
+      │
+      │ downloaded, hash checked
+      ▼
+Global Zig cache
+      │
+      │ requested by
+      ▼
+   build.zig
+      │
+      ▼
+executable / module
+```
+
+Two files, two different questions:
+
+- `build.zig.zon` answers **what do I depend on?**
+- `build.zig` answers **where should that dependency be used?**
+
+Keeping them separate is why a checkout plus `zig build` reproduces the same
+dependency set on any machine. The manifest is the fact; the build script is
+the wiring. Neither file can be edited into a state where the other silently
+disagrees, because a name in `build.zig` that the manifest does not declare is
+an error rather than an empty module.
+
+## `build.zig.zon`
+
+The manifest is a ZON literal (Zig Object Notation, the same syntax as a Zig
+struct literal). A minimal one:
+
+```zig
+.{
+    .name = .myproject,
+    .version = "0.1.0",
+    .fingerprint = 0x1234567890abcdef, // generated once by `zig init`
+    .dependencies = .{
+        .mecha = .{
+            .url = "https://github.com/Hejsil/mecha/archive/<commit>.tar.gz",
+            .hash = "mecha-0.9.0-...",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
+```
+
+You rarely write the `.url`/`.hash` pair by hand. Run:
+
+```bash
+zig fetch --save https://github.com/Hejsil/mecha/archive/<commit>.tar.gz
+```
+
+`zig fetch` downloads the archive, computes its hash, and writes the
+`.dependencies` entry for you. The hash is content-addressed: the same bytes
+always produce the same hash, and a mismatch on a later fetch is a hard error,
+so a dependency cannot change under you.
+
+## Wiring it into `build.zig`
+
+A declared dependency does nothing until `build.zig` asks for it.
+`b.dependency` retrieves it; `.module` pulls a named module out of it; then you
+add that module to whatever imports it:
+
+```zig
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    // The name matches the key in build.zig.zon's .dependencies.
+    const mecha = b.dependency("mecha", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const exe = b.addExecutable(.{
+        .name = "myproject",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                // "mecha" is the name `@import` will use in your source;
+                // `mecha.module("mecha")` is the module the dependency exposes.
+                .{ .name = "mecha", .module = mecha.module("mecha") },
+            },
+        }),
+    });
+    b.installArtifact(exe);
+}
+```
+
+Passing `target` and `optimize` into `b.dependency` builds the dependency for
+the same target and mode as the thing that uses it, which is what you almost
+always want.
+
+## Using it in code
+
+Once a module is imported under a name, `@import` reaches it exactly like a
+standard-library module:
+
+```zig
+const mecha = @import("mecha");
+```
+
+An import name that is not declared in `build.zig` is a compile error naming
+the missing module, not a mysterious runtime failure. The same mechanism wires
+your own internal modules, so a dependency and a local module are imported the
+same way.
+
+## Where things live
+
+Fetched packages go into a global cache (under `~/.cache/zig` on Linux),
+shared across every project, keyed by hash. Your repository holds only
+`build.zig.zon`, the small manifest, so a checkout plus `zig build` reproduces
+the exact dependency set on any machine. There is nothing to commit into a
+`vendor/` directory and nothing to `npm install`.

@@ -1,0 +1,118 @@
+# Numbers Have a Size
+
+> A u8 counts to 255 and stops. What happens next is a decision you make.
+
+In Python or JavaScript, a number is just a number. You add one to it and you
+get one more, and you can keep doing that for as long as you like.
+
+Down here a number is a fixed number of bytes, and a fixed number of bytes can
+only hold so many different patterns. One byte has 256 patterns. That is not a
+limitation someone chose to impose on you; it is a count. If you have eight
+switches, there are 256 ways to set them, and there is no 257th.
+
+So a `u8` counts from 0 to 255. Then what?
+
+That question has three answers, and the difference between them is a whole
+category of famous bugs. It can wrap around to 0. It can stop the program. Or
+it can hand back "that did not fit" and let you decide. Zig makes you say
+which one you meant.
+
+## The program
+
+```zig
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &stdout_writer.interface;
+
+    // The size is written into the name. A u8 is an unsigned 8-bit integer,
+    // so there are 256 patterns it can hold and no more.
+    try out.print("u8  counts {d} to {d}\n", .{ std.math.minInt(u8), std.math.maxInt(u8) });
+    try out.print("i8  counts {d} to {d}\n", .{ std.math.minInt(i8), std.math.maxInt(i8) });
+    try out.print("u32 counts {d} to {d}\n\n", .{ std.math.minInt(u32), std.math.maxInt(u32) });
+
+    const top: u8 = 255;
+
+    // One way past the top: ask to wrap, with a different operator. The answer
+    // is 0, and it is the answer you asked for.
+    try out.print("255 +% 1 = {d}\n", .{top +% 1});
+
+    // Another way: ask for an answer that might not exist, and handle the case
+    // where it does not.
+    if (std.math.add(u8, top, 1)) |sum| {
+        try out.print("255 + 1 = {d}\n\n", .{sum});
+    } else |err| {
+        try out.print("255 + 1 = {t}\n\n", .{err});
+    }
+
+    // Choosing a size is choosing how much memory a million of them cost.
+    try out.print("a million u8  = {d} bytes\n", .{1_000_000 * @sizeOf(u8)});
+    try out.print("a million u32 = {d} bytes\n", .{1_000_000 * @sizeOf(u32)});
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`15-groundwork.numbers-have-a-size`)*
+
+## What just happened
+
+**The names describe the storage.** `u8` is an **u**nsigned **8**-bit integer:
+eight switches, no sign, so 0 to 255. `i8` is the same eight switches with one
+pattern spent on the sign, so it reaches only 127 upward but reaches -128
+downward. `u32` is thirty-two switches, which is why it counts past four
+billion. You can read the range straight off the name once you have seen it a
+few times, and Zig has `u1` through `u65535` if you ever want an odd size.
+
+**`255 +% 1` gave 0.** That is wrapping, and here it is not a bug, because
+`+%` is a different operator from `+`. The `%` is you saying "I know this can
+overflow, and wrapping is the behaviour I want". Hashing and checksums want
+exactly this.
+
+**`std.math.add` returned `Overflow` instead of a number.** Its return type
+says the answer might not exist, so the program has to handle both cases
+before it can use the result. There is no way to accidentally read a sum that
+was never computed.
+
+## Check yourself
+
+The program never uses a plain `+` on `top`. What would happen if it did?
+
+Not 0, and not 256. `top` is a `const` with a known value, so the compiler can
+do the addition itself, see that 256 does not fit in a `u8`, and reject the
+program. You get a compile error and the program never runs at all.
+
+When the numbers only become known while the program is running, the compiler
+cannot decide in advance. It inserts a check that runs instead, and in a build
+that keeps those checks an overflow stops the program with a message naming
+the line. Which builds keep them is [a chapter of its
+own](https://www.ziglang.in/learn/systems-from-scratch/when-checks-are-off/), and the short version
+is: the ones you develop in.
+
+## If you have written C
+
+This is the single biggest behavioural difference between the two languages,
+and it is the reason this material is easier to learn here.
+
+```c
+unsigned char x = 255;
+x = x + 1;        /* x is now 0. No warning, no error, nothing. */
+
+int y = 2147483647;
+y = y + 1;        /* undefined behaviour: the compiler may assume it cannot happen */
+```
+
+The first line silently wraps. The second is worse than wrong. Signed overflow
+is undefined behaviour in C. An optimiser is therefore allowed to assume it
+never happens, and to delete the check you wrote to catch it. Beginners lose
+days to this and mostly conclude they are bad at programming.
+
+Zig's mapping is: C's silent wrap is `+%`, and you have to type the `%`. C's
+undefined behaviour is a crash you can see, in Debug and ReleaseSafe builds.
+The full rules, including what changes in a release build, are in [Integer
+Rules](https://www.ziglang.in/learn/language-basics/integer-rules/).
+
+Next: [Memory Is Numbered](https://www.ziglang.in/learn/systems-from-scratch/memory-is-numbered/),
+where the values stop being loose and get an address.

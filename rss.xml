@@ -1,0 +1,460 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Zig Guide Live</title>
+    <link>https://www.ziglang.in/learn/</link>
+    <description>A Zig tutorial and cookbook where every snippet is compiled and run against current Zig master on every build, and runs in your browser as WebAssembly.</description>
+    <language>en</language>
+    <atom:link href="https://www.ziglang.in/rss.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Importing C</title>
+      <link>https://www.ziglang.in/learn/working-with-c/cimport/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/working-with-c/cimport/</guid>
+      <description>translate-c, and calling C without bindings.</description>
+      <category>Working with C</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Fri, 11 Sep 2026 20:27:44 GMT</pubDate>
+    </item>
+    <item>
+      <title>Many-item Pointers</title>
+      <link>https://www.ziglang.in/learn/language-basics/many-item-pointers/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/many-item-pointers/</guid>
+      <description>[*]T: a pointer to an unknown number of items.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Fri, 11 Sep 2026 19:59:30 GMT</pubDate>
+    </item>
+    <item>
+      <title>Opaque</title>
+      <link>https://www.ziglang.in/learn/language-basics/opaque/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/opaque/</guid>
+      <description>Types with unknown size, used through pointers only.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Fri, 11 Sep 2026 19:59:30 GMT</pubDate>
+    </item>
+    <item>
+      <title>Build It From Scratch</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/build-it/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/build-it/</guid>
+      <description>The order to write the files in, the two points where you can stop and check, and what to do when it does not build.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>Drawing It</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/drawing/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/drawing/</guid>
+      <description>Field units mapped onto a window, the road, the entities, and a particle system that holds no raylib types.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>Handles, Not Pointers</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/entities/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/entities/</guid>
+      <description>A fixed-capacity pool with generational handles, plus the event stream used by particles and sound.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>Difficulty You Can Prove</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/fair-by-design/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/fair-by-design/</guid>
+      <description>Row spacing derived from what is physically possible, a bot that proves the course is solvable, and a reaction time model for playability.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>Input</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/input/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/input/</guid>
+      <description>Presses latched once per frame and handed to exactly one tick, and why a held key must not cross the board.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>Sound Without Sound Files</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/sound/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/sound/</guid>
+      <description>Five effects synthesised at startup from oscillators and envelopes, with waveform tests that run without an audio device.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>Vendoring raylib</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/the-build/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/the-build/</guid>
+      <description>How to add raylib to a Zig project, why this one depends on the C source, and how the same game reaches a browser canvas.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Loop Takes No dt</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/the-loop/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/the-loop/</guid>
+      <description>A fixed timestep, an accumulator, interpolation for the leftover, and the split needed for the browser build.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>The World</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/the-world/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/the-world/</guid>
+      <description>A field measured in its own units, a player that slides between lanes, and the order the tick does things in.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Game You Can Test</title>
+      <link>https://www.ziglang.in/learn/lane-dodger/what-we-are-building/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/lane-dodger/what-we-are-building/</guid>
+      <description>A three lane endless runner you can play here, and the one rule that makes the rest testable.</description>
+      <category>Lane Dodger</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 07:06:54 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Batch Job Runner</title>
+      <link>https://www.ziglang.in/learn/concurrency/batch-runner/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/batch-runner/</guid>
+      <description>Four workers, one batch, three kinds of shared state, and a measurement that says one thread did all of it.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 06:40:51 GMT</pubDate>
+    </item>
+    <item>
+      <title>Coming from an Older Zig</title>
+      <link>https://www.ziglang.in/learn/getting-started/coming-from-older-zig/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/getting-started/coming-from-older-zig/</guid>
+      <description>What changed between the last stable releases and the master this guide targets.</description>
+      <category>Getting Started</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 06:02:38 GMT</pubDate>
+    </item>
+    <item>
+      <title>Atomics</title>
+      <link>https://www.ziglang.in/learn/concurrency/atomics/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/atomics/</guid>
+      <description>One counter, every way to add one to it, and what that ordering argument is for.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 05:52:47 GMT</pubDate>
+    </item>
+    <item>
+      <title>Coming from `std.Thread`</title>
+      <link>https://www.ziglang.in/learn/concurrency/coming-from-std-thread/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/coming-from-std-thread/</guid>
+      <description>Seven names that were removed, where each one went, and why lock can now fail.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 05:52:47 GMT</pubDate>
+    </item>
+    <item>
+      <title>Threads</title>
+      <link>https://www.ziglang.in/learn/concurrency/threads/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/threads/</guid>
+      <description>Real OS threads, and why this page cannot run in your browser.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 05:21:40 GMT</pubDate>
+    </item>
+    <item>
+      <title>Breadth-First Search on a Grid</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/grid-bfs/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/grid-bfs/</guid>
+      <description>The distance field printed as the frontier expands, and the one line whose position decides whether a cell can enter the queue twice.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Async, Future and Group</title>
+      <link>https://www.ziglang.in/learn/concurrency/async-future-group/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/async-future-group/</guid>
+      <description>async, Future, and Group, all through the Io interface.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Cancellation</title>
+      <link>https://www.ziglang.in/learn/concurrency/cancellation/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/cancellation/</guid>
+      <description>Stopping a running task, and the cancellation points that make it possible.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Choosing an Io</title>
+      <link>https://www.ziglang.in/learn/concurrency/choosing-an-io/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/choosing-an-io/</guid>
+      <description>Threaded, the evented implementations, and building one yourself.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Locks and Semaphores</title>
+      <link>https://www.ziglang.in/learn/concurrency/locks/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/locks/</guid>
+      <description>RwLock, Semaphore and Condition, past the point where a Mutex is enough.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Queues</title>
+      <link>https://www.ziglang.in/learn/concurrency/queues/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/queues/</guid>
+      <description>Io.Queue as a bounded channel between tasks, with close and back pressure.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Select</title>
+      <link>https://www.ziglang.in/learn/concurrency/select/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/select/</guid>
+      <description>Waiting for whichever task finishes first, and cancelling the rest.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Recipe: Splitting Work Across Threads</title>
+      <link>https://www.ziglang.in/learn/how-to/parallel-sum/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/how-to/parallel-sum/</guid>
+      <description>Divide a slice among threads with no locks and one join.</description>
+      <category>How-To</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Serving Many Clients</title>
+      <link>https://www.ziglang.in/learn/networking/many-clients/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/networking/many-clients/</guid>
+      <description>One handler per connection through Io, so the same source runs either way.</description>
+      <category>Networking</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>ArrayList</title>
+      <link>https://www.ziglang.in/learn/standard-library/arraylist/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/arraylist/</guid>
+      <description>The growable array, now unmanaged.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Io Interface</title>
+      <link>https://www.ziglang.in/learn/standard-library/io-interface/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/io-interface/</guid>
+      <description>Anything that can block takes an Io; the caller picks how.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>PriorityQueue</title>
+      <link>https://www.ziglang.in/learn/standard-library/priority-queue/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/priority-queue/</guid>
+      <description>A binary heap where the comparator is part of the type.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Time</title>
+      <link>https://www.ziglang.in/learn/standard-library/time/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/standard-library/time/</guid>
+      <description>Clocks behind the Io interface; constants and calendars in std.time.</description>
+      <category>Standard Library</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Thu, 10 Sep 2026 04:51:55 GMT</pubDate>
+    </item>
+    <item>
+      <title>Recipe: Printing Any Struct</title>
+      <link>https://www.ziglang.in/learn/how-to/struct-printer/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/how-to/struct-printer/</guid>
+      <description>Comptime reflection builds a debug printer that works for every struct type.</description>
+      <category>How-To</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 13:46:33 GMT</pubDate>
+    </item>
+    <item>
+      <title>Errors</title>
+      <link>https://www.ziglang.in/learn/language-basics/errors/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/errors/</guid>
+      <description>Errors are values in a union, not exceptions.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 13:46:33 GMT</pubDate>
+    </item>
+    <item>
+      <title>Unions</title>
+      <link>https://www.ziglang.in/learn/language-basics/unions/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/unions/</guid>
+      <description>One of several types, sharing one allocation.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 13:46:33 GMT</pubDate>
+    </item>
+    <item>
+      <title>Routing and Query Strings</title>
+      <link>https://www.ziglang.in/learn/web-server/routes/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/web-server/routes/</guid>
+      <description>Everything after the question mark, and the dispatch table that ignores it.</description>
+      <category>Web Server</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 13:46:33 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Stylesheet and the Cascade</title>
+      <link>https://www.ziglang.in/learn/browser/css/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/browser/css/</guid>
+      <description>Matching is easy. Deciding which match wins is what cascading means.</description>
+      <category>The Browser</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>An HTML Parser</title>
+      <link>https://www.ziglang.in/learn/browser/html/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/browser/html/</guid>
+      <description>A format with no parse errors, because the browsers that shipped first decided so.</description>
+      <category>The Browser</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Layout</title>
+      <link>https://www.ziglang.in/learn/browser/layout/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/browser/layout/</guid>
+      <description>Widths flow down from the parent. Heights add up from the children.</description>
+      <category>The Browser</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Painting</title>
+      <link>https://www.ziglang.in/learn/browser/render/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/browser/render/</guid>
+      <description>A rectangle of memory, filled back to front. The last write wins.</description>
+      <category>The Browser</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Scripting Engine</title>
+      <link>https://www.ziglang.in/learn/browser/script/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/browser/script/</guid>
+      <description>The language knows nothing about documents. The host is what connects them.</description>
+      <category>The Browser</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Recipe: Catching Memory Leaks</title>
+      <link>https://www.ziglang.in/learn/how-to/catching-leaks/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/how-to/catching-leaks/</guid>
+      <description>Make the test suite prove that every allocation is freed.</description>
+      <category>How-To</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Recipe: The std.math Toolbox</title>
+      <link>https://www.ziglang.in/learn/how-to/math-functions/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/how-to/math-functions/</guid>
+      <description>Constants, trig, powers, roots, rounding, and comparing floats safely.</description>
+      <category>How-To</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Recipe: Struct Memory Layout</title>
+      <link>https://www.ziglang.in/learn/how-to/memory-layout/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/how-to/memory-layout/</guid>
+      <description>Read the size, alignment, and field offsets a struct actually gets, and control them.</description>
+      <category>How-To</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Recipe: Reproducible Randomness</title>
+      <link>https://www.ziglang.in/learn/how-to/seeded-random/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/how-to/seeded-random/</guid>
+      <description>Seeded generators make random worlds, tests, and replays repeatable.</description>
+      <category>How-To</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Recipe: Vector Algebra</title>
+      <link>https://www.ziglang.in/learn/how-to/vector-algebra/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/how-to/vector-algebra/</guid>
+      <description>Dot, length, normalize, and cross on @Vector, written like math instead of loops.</description>
+      <category>How-To</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Recipe: Word Frequencies</title>
+      <link>https://www.ziglang.in/learn/how-to/word-frequency/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/how-to/word-frequency/</guid>
+      <description>Count occurrences with a hash map, then rank them with a sort.</description>
+      <category>How-To</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Writing Rows</title>
+      <link>https://www.ziglang.in/learn/orm/insert-update/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/orm/insert-update/</guid>
+      <description>INSERT and UPDATE statements derived from the schema, with values as a typed array.</description>
+      <category>An Ecto-Style ORM</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Repo</title>
+      <link>https://www.ziglang.in/learn/orm/repo/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/orm/repo/</guid>
+      <description>The composition root, and the fake driver that makes the whole ORM testable.</description>
+      <category>An Ecto-Style ORM</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Type Function as the Front Door</title>
+      <link>https://www.ziglang.in/learn/orm/schema-to-sql/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/orm/schema-to-sql/</guid>
+      <description>The core move of a Zig library: take the caller's type, return a richer one.</description>
+      <category>An Ecto-Style ORM</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>Validation from Declarations</title>
+      <link>https://www.ziglang.in/learn/orm/validation-rules/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/orm/validation-rules/</guid>
+      <description>Optional capabilities discovered with @hasDecl, the convention-over-configuration of Zig.</description>
+      <category>An Ecto-Style ORM</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Wed, 09 Sep 2026 11:41:37 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

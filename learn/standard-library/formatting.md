@@ -1,0 +1,175 @@
+# Formatting
+
+> Format strings checked at compile time.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "bufPrint formats into memory you own" {
+    var buf: [64]u8 = undefined;
+    const text = try std.mem.print(&buf, "{s} is {d}", .{ "answer", 42 });
+    try expect(std.mem.eql(u8, text, "answer is 42"));
+}
+
+test "common specifiers" {
+    var buf: [64]u8 = undefined;
+
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d}", .{255}), "255"));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{x}", .{255}), "ff"));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{X}", .{255}), "FF"));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{b}", .{5}), "101"));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{o}", .{8}), "10"));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{c}", .{@as(u8, 'A')}), "A"));
+}
+
+test "width, alignment and fill" {
+    var buf: [64]u8 = undefined;
+
+    // {[fill][align][width]}: align is <, ^ or >.
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{42}), "   42"));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:<5}", .{42}), "42   "));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:^5}", .{42}), " 42  "));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:0>5}", .{42}), "00042"));
+}
+
+test "a width makes a signed integer carry its sign" {
+    var buf: [64]u8 = undefined;
+
+    // The same width against three types. A literal is `comptime_int` and
+    // prints bare, which is what the tests above are quietly relying on.
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{42}), "   42"));
+
+    // A signed value prints a leading `+` once a width is given. The sign
+    // belongs to the number, so the fill goes in front of it rather than
+    // between the sign and the digits.
+    const signed: i32 = 42;
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{signed}), "  +42"));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:<5}", .{signed}), "+42  "));
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:0>5}", .{signed}), "00+42"));
+
+    // An unsigned value has no sign to print, so a width pads as expected.
+    const unsigned: u32 = 42;
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{unsigned}), "   42"));
+
+    // Drop the width and the `+` goes away, which is why this is easy to
+    // miss until a column of numbers is being lined up.
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d}", .{signed}), "42"));
+}
+
+test "float precision" {
+    var buf: [64]u8 = undefined;
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:.2}", .{3.14159}), "3.14"));
+}
+
+test "escaping braces" {
+    var buf: [64]u8 = undefined;
+    try expect(std.mem.eql(u8, try std.mem.print(&buf, "{{{d}}}", .{1}), "{1}"));
+}
+
+test "allocPrint when the length is unknown" {
+    const gpa = std.testing.allocator;
+    const text = try gpa.print("{d}-{d}", .{ 1, 2 });
+    defer gpa.free(text);
+    try expect(std.mem.eql(u8, text, "1-2"));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`03-standard-library.formatting`)*
+
+## Where the output goes
+
+| Function | Writes to |
+| --- | --- |
+| `std.mem.print` | a buffer you supply (no allocation) |
+| `allocator.print` | fresh memory (caller frees) |
+| `writer.print` | any writer |
+
+`std.mem.print` returns a slice of the part it filled, and fails with
+`error.NoSpaceLeft` rather than truncating.
+
+## Specifiers
+
+| Spec | Meaning |
+| --- | --- |
+| `{d}` | decimal |
+| `{x}` / `{X}` | lower / upper hex |
+| `{b}` / `{o}` | binary / octal |
+| `{s}` | string |
+| `{c}` | a byte as a character |
+| `{any}` | structural dump |
+
+## Width, alignment, precision
+
+The form is `{[fill][align][width]}`, with `<` `^` `>` for alignment:
+
+```zig
+"{d:5}"     // "   42"  (right by default for numbers)
+"{d:<5}"    // "42   "
+"{d:^5}"    // " 42  "
+"{d:0>5}"   // "00042"
+"{d:.2}"    // "3.14"
+```
+
+Right is the default for every type, strings included, which catches people
+out: `{s:8}` puts the padding before the text, not after. Lining up a column
+of strings has three more rules to it, and they are in [String
+Recipes](https://www.ziglang.in/learn/standard-library/string-recipes/).
+
+Escape a literal brace by doubling it: `{{` and `}}`.
+
+## A width makes a signed integer show its sign
+
+Those outputs are what a literal gives you, and a literal is `comptime_int`.
+Give the same width to a signed value and a `+` appears in front of it:
+
+```zig
+const signed: i32 = 42;
+"{d:5}"    // "  +42"
+"{d:<5}"   // "+42  "
+"{d:0>5}"  // "00+42"
+"{d}"      // "42"     no width, no sign
+```
+
+An unsigned value has nothing to sign, so `{d:5}` on a `u32` pads to `"   42"`
+the way the table above says. The `+` counts towards the width, and the fill
+goes in front of it rather than between the sign and the digits, which is what
+turns `00042` into `00+42`.
+
+The bug this causes survives a review. The format string is right and the type
+is right, and the column is simply one character narrower than the numbers
+going into it. It shows up when a heading stops lining up with a table printed
+from an `i64`, and the fix is a cast to the unsigned type when the value
+cannot be negative.
+
+## `bufPrint` and `allocPrint` moved
+
+If you have written any Zig before, you know the first two rows of that table
+as `std.fmt.bufPrint` and `std.fmt.allocPrint`:
+
+```zig
+// older tutorials
+const text = try std.fmt.bufPrint(&buf, "{d}", .{42});
+const owned = try std.fmt.allocPrint(gpa, "{d}", .{42});
+
+// current master
+const text = try std.mem.print(&buf, "{d}", .{42});
+const owned = try gpa.print("{d}", .{42});
+```
+
+Both old names still resolve, and the error sets are the same ones:
+`std.fmt.BufPrintError` is now defined as `std.mem.PrintError`.
+
+The buffer version moved to `std.mem` because filling a slice is a slice
+operation. The allocating version became `Allocator.print`, a method sitting
+next to `alloc` and `dupe`. Neither new name says "print into a buffer" the
+way `bufPrint` did, and `Allocator.print` does not look like it allocates. So
+read the receiver rather than the verb. `mem` means you supplied the memory;
+an allocator means you own the result and have to free it.
+
+## Checked at compile time
+
+The format string is a comptime parameter, so the argument count and each
+specifier are validated against the argument types during compilation. A `{d}`
+pointed at a string does not compile. There is no runtime format-string
+failure mode to worry about.

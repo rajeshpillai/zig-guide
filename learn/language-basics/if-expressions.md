@@ -1,0 +1,123 @@
+# If Expressions
+
+> No truthiness: if takes a bool.
+
+In Zig, `if` is both a control-flow statement and an expression that can
+produce a value. Unlike C, JavaScript and most languages you have used, Zig
+has no truthy or falsy values: the condition must be a `bool` and nothing else
+converts to one.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "if as a statement" {
+    const a = true;
+    var x: u16 = 0;
+    if (a) {
+        x += 1;
+    } else {
+        x += 2;
+    }
+    try expect(x == 1);
+}
+
+test "if as an expression" {
+    const a = true;
+    // The ternary equivalent; both branches must yield the same type.
+    const x: u16 = if (a) 1 else 2;
+    try expect(x == 1);
+}
+
+test "if unwraps an optional" {
+    const maybe: ?u8 = 42;
+    const doubled: u16 = if (maybe) |value| value * 2 else 0;
+    try expect(doubled == 84);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.if-expressions`)*
+
+There is no truthiness in Zig. `if (1)` does not compile; neither does
+`if (pointer)`. The condition must be a `bool`:
+
+```
+error: expected type 'bool', found 'u8'
+```
+
+That removes an entire family of bugs where a value is accidentally treated as
+a flag. In C, `if (strcmp(a, b))` is true when the strings *differ*, `if (n = 0)`
+is an assignment that is always false, and `if (ptr)` and `if (*ptr)` are one
+character apart with completely different meanings. None of those parse here.
+
+## `if` produces a value
+
+Zig has no ternary operator because it does not need one:
+
+```zig
+const x: u16 = if (a) 1 else 2;
+```
+
+Both branches must agree on a type. Used as an expression, the `else` is
+mandatory, and the error says so in terms of what is missing rather than what
+is absent:
+
+```
+error: expected type 'u16', found 'void'
+```
+
+An `if` with no `else` has nothing to evaluate to when the condition is false,
+so its type is `void`. Read that message as "this expression does not always
+produce a value".
+
+The one case that slips through is a condition the compiler already knows. If
+the condition is comptime-known, only the taken branch is compiled, so
+`const x: u16 = if (true) 1;` builds. Make the condition a runtime value and it
+stops. That is not a special rule for `if`; it is the same constant folding that
+lets `comptime` code disappear entirely.
+
+## Unwrapping
+
+`if` is also how you get inside an optional, using payload capture:
+
+```zig
+if (maybe) |value| {
+    // value is the payload, not the optional
+} else {
+    // maybe was null
+}
+```
+
+The captured `value` is a copy. To change the thing inside the optional, capture
+by pointer with `|*value|` and write through it. Without the `*` the mutation
+applies to the copy and is lost, which is worth knowing because nothing warns
+you.
+
+Error unions use the same shape, with the error going to the `else`:
+
+```zig
+if (parse(text)) |n| {
+    use(n);
+} else |err| {
+    report(err);
+}
+```
+
+This is a recurring theme: the check and the unwrap are one construct, so they
+cannot fall out of sync. There is no way to test for null and then read the
+payload through a different path that forgot the test.
+
+## When to use something shorter
+
+`if` on an optional is the general form, and two shorthands cover the common
+cases:
+
+- `maybe orelse default` when you only want a fallback value.
+- `try f()` when you only want to propagate the error upward.
+- `f() catch |err| ...` when you want to handle it here.
+
+Reach for `if` when both sides do real work. Reach for the shorthands when one
+side is a single expression, because `x orelse 0` says what
+`if (x) |v| v else 0` says in a quarter of the space. Optionals are covered in
+[optionals](https://www.ziglang.in/learn/language-basics/optionals/) and the error forms in
+[errors](https://www.ziglang.in/learn/language-basics/errors/).
