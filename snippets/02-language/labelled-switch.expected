@@ -1,0 +1,20 @@
+source: "n2 = 40;"
+  start       src[0] = 'n'
+  identifier  src[1] = '2'
+  identifier  src[2] = ' '
+identifier "n2"
+  start       src[2] = ' '
+  start       src[3] = '='
+equal "="
+  start       src[4] = ' '
+  start       src[5] = '4'
+  number      src[6] = '0'
+  number      src[7] = ';'
+number "40"
+  start       src[7] = ';'
+semicolon ";"
+  start       src[8] is the terminator
+eof ""
+loop form agrees: true
+
+(2 + 3) * 4 = 20

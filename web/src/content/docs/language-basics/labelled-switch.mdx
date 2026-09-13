@@ -1,0 +1,188 @@
+---
+title: Labelled Switch
+seoTitle: "Zig Labeled Switch: continue :label for State Machines"
+description: A switch you can jump back into with a new value.
+seoDescription: "Zig's labeled switch, added in 0.14: continue :sw value re-runs the switch with a new operand, break :sw value leaves it. A tokenizer and a bytecode loop, traced, next to the while(true) form it replaces."
+section: Language
+order: 30.5
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+A `switch` can carry a label, the same way a block or a loop can.
+
+Once it has one, `continue :label value` runs the switch again with `value` as the new operand.
+
+`break :label value` leaves the switch, and the whole switch evaluates to `value`.
+
+That pair is enough to write a state machine with no loop and no state variable.
+
+The form arrived in Zig 0.14.
+
+<Playground name="02-language.labelled-switch" />
+
+## The shape
+
+```zig
+const tag: Tag = state: switch (State.start) {
+    .start => switch (src[i]) {
+        'a'...'z' => {
+            i += 1;
+            continue :state .identifier;
+        },
+        '=' => {
+            i += 1;
+            break :state .equal;
+        },
+        // ...
+    },
+    .identifier => switch (src[i]) {
+        'a'...'z', '0'...'9' => {
+            i += 1;
+            continue :state .identifier;
+        },
+        else => break :state .identifier,
+    },
+};
+```
+
+`State.start` is the first operand.
+
+Each prong is a state.
+
+`continue :state .identifier` means "go to the `.identifier` prong now".
+
+`break :state .equal` means "stop, and the answer is `.equal`".
+
+The label goes before `switch`, and its name is up to you.
+
+## Watching the jumps
+
+The program above tokenizes `n2 = 40;`.
+
+Every prong prints its state and the byte it is looking at before it decides where to go.
+
+A line starting with a state name is one entry into the switch.
+
+A line with no indent is a token coming out of a `break`.
+
+```
+source: "n2 = 40;"
+  start       src[0] = 'n'
+  identifier  src[1] = '2'
+  identifier  src[2] = ' '
+identifier "n2"
+  start       src[2] = ' '
+  start       src[3] = '='
+equal "="
+  start       src[4] = ' '
+  start       src[5] = '4'
+  number      src[6] = '0'
+  number      src[7] = ';'
+number "40"
+  start       src[7] = ';'
+semicolon ";"
+  start       src[8] is the terminator
+eof ""
+```
+
+Read the first three lines.
+
+`.start` sees `n`, which can begin a name, so it continues into `.identifier`.
+
+`.identifier` sees `2`, which can continue a name, so it continues into itself.
+
+Then it sees a space and breaks with `.identifier`.
+
+The space is not consumed.
+
+The next call starts on it, and `.start` continues into `.start` to skip it.
+
+The source is a `[:0]const u8`.
+
+Reading one past the last character gives the `0` terminator, so the `.start` prong ends the input by matching `0` rather than checking a length.
+
+`std.zig.Tokenizer`, the tokenizer the Zig compiler uses on your code, is written the same way.
+
+Its `next` function is one labelled switch over a `State` enum, much larger than this one.
+
+## What it replaces
+
+Before 0.14 the same tokenizer needed a loop wrapped around the switch.
+
+The state lived in a variable, and every transition was two steps: assign the variable, then let the loop come round.
+
+<SnippetSource name="02-language.labelled-switch" decl="nextLoop" />
+
+The program runs both versions on every token and checks they agree:
+
+```
+loop form agrees: true
+```
+
+The two do the same thing.
+
+The language reference says so directly: a labelled switch is semantically a `while (true)` around a `switch`.
+
+The difference is in how each one reads.
+
+In the loop form, `state = .number;` is a line that sets a variable.
+
+To know that it moves the machine, we need to find the loop, and check that nothing after the assignment runs before the loop comes round.
+
+In the labelled form, `continue :state .number` is the transition, and nothing after it in the prong can run.
+
+There is also no `state` variable left in scope for other code to read or change.
+
+## When the next state is only known at run time
+
+The operand of `continue` does not have to be a literal.
+
+A bytecode interpreter picks the next prong from the next instruction:
+
+<SnippetSource name="02-language.labelled-switch" decl="run" />
+
+```
+(2 + 3) * 4 = 20
+```
+
+`Instruction` is a tagged union, so `.push => |n|` captures the payload just as it does in an ordinary switch.
+
+`.halt` has no `continue`, so its value is the value of the whole switch, which `run` returns.
+
+The language reference gives this dispatch loop as the case that motivated the feature, and gives a reason from code generation.
+
+When the operand of `continue` is known at compile time, as `.identifier` is, the compiler can lower it to a direct jump to that prong.
+
+When it is known only at run time, as `code[ip]` is, each `continue` can get its own branch.
+
+A loop sends every iteration through one shared dispatch point, and a CPU predicts that one branch for every instruction at once.
+
+With a branch at each `continue`, the CPU can learn that `.push` is usually followed by another `.push`, separately from what follows `.mul`.
+
+Those are things the compiler is allowed to do.
+
+Whether a given backend and optimization mode does them is something to measure, not assume.
+
+## Two compile errors
+
+`continue` on a switch needs a value, because without one there is nothing to switch on:
+
+```
+error: cannot continue switch without operand
+```
+
+A label nothing refers to fails to build, as it does on a loop:
+
+```
+error: unused switch label
+```
+
+## Related
+
+A labelled switch uses the same label syntax as [labelled blocks](/learn/language-basics/labelled-blocks/) and [labelled loops](/learn/language-basics/labelled-loops/).
+
+Everything an ordinary [switch](/learn/language-basics/switch/) promises still holds, including exhaustiveness.
+
+Add a tag to `State` and the tokenizer stops compiling until a prong handles it.

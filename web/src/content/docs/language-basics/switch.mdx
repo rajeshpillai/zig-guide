@@ -131,3 +131,10 @@ switch (op) {
 `_` means "a value with no name". It keeps the named-tag exhaustiveness check
 working: add `.delete` to the enum and this switch still fails to compile
 until you handle it. `else` would have swallowed it.
+
+## A switch can be labelled
+
+Give a switch a label and `continue :label value` runs it again with a new
+operand, while `break :label value` leaves it with a result. That turns a
+switch into a state machine with no loop around it. It has its own chapter:
+[labelled switch](/learn/language-basics/labelled-switch/).
