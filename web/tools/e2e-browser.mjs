@@ -69,6 +69,15 @@ const BASE = (given ?? hosted.url).replace(/\/$/, "");
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+// Festive decorations off for the main walk, whatever day the gate runs on.
+// Petals falling over a page being screenshotted, clicked and measured would
+// make every check here depend on the calendar. The festive block below fakes
+// the clock and checks the decorations on their own.
+await page.addInitScript(() => {
+  try {
+    localStorage.setItem("festive", "off");
+  } catch {}
+});
 
 // Stub the ad network and analytics out. Both are third-party and
 // non-deterministic: left live they would make every `networkidle` wait on an
@@ -726,6 +735,14 @@ for (const href of THEME_PAGES) {
       // in the stylesheet defines.
       if (p === "paper") delete document.documentElement.dataset.palette;
       else document.documentElement.dataset.palette = p;
+      // The festive footer row, when this build carries one. Its colours do
+      // not depend on the date, so it is revealed and measured pressed here
+      // rather than only on the days the real clock says it shows.
+      const festive = document.querySelector(".festive-pick");
+      if (festive) {
+        festive.hidden = false;
+        festive.querySelector(".festive-switch")?.setAttribute("aria-pressed", "true");
+      }
     }, { t: theme, p: palette });
 
     const results = await page.evaluate(() => {
@@ -780,6 +797,8 @@ for (const href of THEME_PAGES) {
         ".pg-run",
         ".unofficial",
         ".theme-toggle",
+        ".festive-greeting",
+        ".festive-switch",
         ".astro-code span",
       ];
 
@@ -998,7 +1017,7 @@ let jsOffChecks = 0;
     waitUntil: "domcontentloaded",
   });
   const visible = await bare.$$eval(
-    ".palette-pick, .theme-toggle, [hidden]",
+    ".palette-pick, .theme-toggle, .festive-toran, [hidden]",
     (nodes) =>
       nodes
         .filter((n) => getComputedStyle(n).display !== "none")
@@ -1013,6 +1032,151 @@ let jsOffChecks = 0;
   jsOffChecks++;
   if (!readable) failures.push("JS off: no snippet rendered as a code block");
   await context.close();
+}
+
+/*
+ * Festive decorations, against a faked clock.
+ *
+ * The build decides whether a festival is carried at all, and the page says
+ * which in `<meta name="festival">`. When it carries none the block is skipped,
+ * so the gate does not start failing the day after a festival ends. When it
+ * carries one, every check runs at an instant chosen from that window rather
+ * than at whatever time CI happens to run.
+ *
+ * Each case gets its own context: `sessionStorage` is what keeps petals to one
+ * fall per session, and `reducedMotion` is fixed when a context is created.
+ */
+let festiveChecks = 0;
+{
+  const probe = await page.request.get(`${BASE}${PREFIX}/`);
+  const meta = (await probe.text()).match(/<meta name="festival" content="(\S+) (\S+) (\S+)"/);
+  if (!meta) {
+    console.log("festive: no festival in this build, skipped");
+  } else {
+    const [, id, start, end] = meta;
+    const inside = Date.parse(start) + 24 * 60 * 60 * 1000;
+    const chapter = `${BASE}${PREFIX}/learn/language-basics/optionals/`;
+    const other = `${BASE}${PREFIX}/learn/language-basics/slices/`;
+    const fail = (m) => failures.push(`festive: ${m}`);
+
+    const open = async (time, options = {}) => {
+      const context = await browser.newContext(options);
+      await context.route(
+        /(googlesyndication|googletagservices|googleadservices|doubleclick|googletagmanager|google-analytics)\.(com|net)/,
+        (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
+      );
+      await context.clock.install({ time });
+      const p = await context.newPage();
+      const tinyfly = [];
+      const errors = [];
+      p.on("response", (r) => {
+        if (r.url().includes("/vendor/tinyfly/")) tinyfly.push(r.status());
+      });
+      p.on("pageerror", (e) => errors.push(e.message));
+      p.on("console", (m) => {
+        if (m.type() === "error" || m.type() === "warning") errors.push(m.text());
+      });
+      return { context, p, tinyfly, errors };
+    };
+    const state = (p) =>
+      p.evaluate(() => ({
+        attr: document.documentElement.dataset.festive ?? null,
+        toran: getComputedStyle(document.querySelector(".festive-toran")).display !== "none",
+        row: !document.querySelector(".festive-pick")?.hidden,
+        pressed: document.querySelector(".festive-switch")?.getAttribute("aria-pressed"),
+        petals: document.querySelectorAll(".festive-petals").length,
+        overflow: document.scrollingElement.scrollWidth > window.innerWidth,
+      }));
+
+    // Inside the window: garland, switch, one fall of petals that clears.
+    {
+      const { context, p, tinyfly, errors } = await open(inside);
+      await p.goto(chapter, { waitUntil: "load" });
+      // The page's timers run on the fake clock and the script fetch on the
+      // real one, so advance both until the petals are up or 5s have passed.
+      for (let i = 0; i < 50; i++) {
+        await p.clock.runFor(100);
+        if (await p.evaluate(() => document.querySelector(".festive-petals"))) break;
+        await new Promise((ok) => setTimeout(ok, 100));
+      }
+      const s = await state(p);
+      festiveChecks++;
+      if (s.attr !== id) fail(`inside the window data-festive is ${s.attr}, expected ${id}`);
+      if (!s.toran) fail("inside the window the garland is not painted");
+      if (!s.row || s.pressed !== "true") fail("inside the window the footer switch is not shown pressed");
+      if (!tinyfly.length || tinyfly.some((c) => c !== 200)) {
+        fail(`tinyfly was not served (${JSON.stringify(tinyfly)})`);
+      }
+      if (!(await p.evaluate(() => typeof window.tinyfly?.fromTo === "function"))) {
+        fail("tinyfly loaded without a fromTo on its global");
+      }
+      if (s.petals !== 1) fail("no petal layer on the first page of a session");
+      if (s.overflow) fail("the decorations widen the page");
+      await p.clock.runFor(10_000);
+      festiveChecks++;
+      if ((await state(p)).petals !== 0) fail("the petal layer is still there after the fall");
+
+      // Second page of the same session: garland, but no second fall.
+      await p.goto(other, { waitUntil: "load" });
+      await p.clock.runFor(1000);
+      const again = await state(p);
+      festiveChecks++;
+      if (again.attr !== id || again.petals !== 0) {
+        fail("petals fell again on the second page of a session");
+      }
+
+      // The switch: off survives navigation, and on comes back.
+      await p.click(".festive-switch");
+      const off = await state(p);
+      festiveChecks++;
+      if (off.attr !== null || off.toran || off.pressed !== "false") {
+        fail("switching decorations off left them painted");
+      }
+      await p.goto(chapter, { waitUntil: "load" });
+      const stillOff = await state(p);
+      festiveChecks++;
+      if (stillOff.attr !== null || !stillOff.row) {
+        fail("switching decorations off did not survive navigation, or hid the switch");
+      }
+      await p.click(".festive-switch");
+      festiveChecks++;
+      if ((await state(p)).attr !== id) fail("switching decorations back on did nothing");
+      if (errors.length) fail(`console: ${errors.join(" | ")}`);
+      await context.close();
+    }
+
+    // Either side of the window: nothing painted, nothing fetched.
+    for (const [label, time] of [
+      ["a minute before the start", Date.parse(start) - 60_000],
+      ["a minute after the end", Date.parse(end) + 60_000],
+    ]) {
+      const { context, p, tinyfly } = await open(time);
+      await p.goto(chapter, { waitUntil: "load" });
+      await p.clock.runFor(2000);
+      // Real time too, so a script fetch that was started has had its chance.
+      await new Promise((ok) => setTimeout(ok, 500));
+      const s = await state(p);
+      festiveChecks++;
+      if (s.attr !== null || s.toran || s.row || tinyfly.length) {
+        fail(`${label}: decorations showed (${JSON.stringify({ ...s, tinyfly })})`);
+      }
+      await context.close();
+    }
+
+    // Reduced motion: the garland stays, the animation and its script do not.
+    {
+      const { context, p, tinyfly } = await open(inside, { reducedMotion: "reduce" });
+      await p.goto(chapter, { waitUntil: "load" });
+      await p.clock.runFor(2000);
+      // Real time too, so a script fetch that was started has had its chance.
+      await new Promise((ok) => setTimeout(ok, 500));
+      const s = await state(p);
+      festiveChecks++;
+      if (!s.toran) fail("reduced motion: the garland is missing");
+      if (s.petals || tinyfly.length) fail("reduced motion: tinyfly was loaded or petals fell");
+      await context.close();
+    }
+  }
 }
 
 let brokenLinks = 0;
@@ -1313,7 +1477,7 @@ console.log(
     `compile-only: ${compileOnly}  expected failures: ${expectedFailures}  ` +
     `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
-    `picker: ${pickerChecks}  js-off: ${jsOffChecks}  ` +
+    `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  ` +
     `editor: ${editorLooks}  code tokens: ${codeTokens}  ` +
     `header widths: ${headerWidths}  ` +
     `source quotes: ${sourceQuotes}  ` +

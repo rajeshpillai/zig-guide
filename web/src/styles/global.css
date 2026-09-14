@@ -1576,6 +1576,133 @@ main th {
   background: var(--accent-paper);
 }
 
+/* ---------- festive decorations ----------
+ *
+ * Painted only while `data-festive` is on <html>, which the inline script in
+ * Base.astro sets from the table in festivals.ts. The palette and `--accent`
+ * are deliberately untouched: a festival is a garland over the page the reader
+ * chose, not a new page. So every colour here is its own token, a
+ * `light-dark()` pair declared once, and none of it is text except the footer
+ * greeting, which is ordinary muted status text and measured with the rest.
+ */
+:root {
+  --festive-marigold: light-dark(#e8890c, #f5a623);
+  --festive-saffron: light-dark(#d9480f, #ff7a3d);
+  --festive-leaf: light-dark(#3d7a2a, #6fae4f);
+  --festive-string: light-dark(#a85a10, #c98a3a);
+}
+
+/* Height zero and sticky under the topbar: it hangs over the shell's top
+   padding without taking space, so no page moves when the attribute flips. */
+.festive-toran {
+  display: none;
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 8;
+  height: 0;
+  pointer-events: none;
+}
+
+:root[data-festive] .festive-toran {
+  display: block;
+}
+
+.festive-toran svg {
+  display: block;
+  overflow: visible;
+}
+
+.toran-string {
+  fill: none;
+  stroke: var(--festive-string);
+  stroke-width: 1;
+}
+
+.toran-bead {
+  fill: var(--festive-marigold);
+}
+
+.toran-bead-alt {
+  fill: var(--festive-saffron);
+}
+
+.toran-leaf {
+  fill: var(--festive-leaf);
+}
+
+:root[data-festive] .topbar {
+  border-bottom-color: var(--festive-marigold);
+}
+
+.festive-petals {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* A marigold petal: a rounded teardrop, not a circle, so the rotation reads. */
+.festive-petal {
+  position: absolute;
+  top: 0;
+  width: 10px;
+  height: 14px;
+  border-radius: 80% 0 80% 0;
+  background: var(--festive-marigold);
+  /* Unseen until its tween starts, which may be after a delay. */
+  opacity: 0;
+}
+
+.festive-petal.alt {
+  background: var(--festive-saffron);
+}
+
+.festive-pick {
+  align-items: center;
+}
+
+.festive-dot {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--festive-marigold);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+.festive-greeting {
+  color: var(--muted);
+}
+
+/* The palette swatch's pill and its measured pressed state, so the footer
+   keeps one kind of toggle. */
+.festive-switch {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.15rem 0.6rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.festive-switch:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.festive-switch[aria-pressed="true"] {
+  color: var(--accent);
+  font-weight: 600;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 /* ---------- playground ---------- */
 
 zig-playground {

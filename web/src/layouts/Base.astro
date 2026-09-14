@@ -2,6 +2,7 @@
 import { buildInfo } from "../build-info";
 import { ADSENSE_CLIENT } from "../adsense";
 import { ANALYTICS_ID } from "../analytics";
+import { festivalForBuild } from "../festivals";
 import { navTracks, pageHref } from "../nav";
 import { SITE_NAME, SITE_DESCRIPTION, AUTHOR, OG_IMAGE, REPO_URL } from "../seo";
 import "../styles/global.css";
@@ -51,6 +52,11 @@ const sectionList = trackList.flatMap((track) => track.sections);
 const { zigVersion, snippetCount } = await buildInfo();
 
 const current = Astro.url.pathname;
+
+// Null on every build outside a festival window, and then nothing festive is
+// emitted at all. See festivals.ts for why the build and the reader's clock
+// both get a say.
+const festival = festivalForBuild();
 const trail: Crumb[] = [{ label: "Home", href: base }, ...crumbs];
 
 // Absolute URLs for every tag a crawler or link preview reads. `Astro.site`
@@ -161,6 +167,39 @@ const openSlug =
         // Private mode: the system setting decides, which is the default.
       }
     </script>
+
+    {
+      festival && (
+        <>
+          {/* Read back by the browser gate, which fakes the clock inside and
+              outside this window rather than trusting the date CI runs on. */}
+          <meta
+            name="festival"
+            content={`${festival.id} ${festival.start} ${festival.end}`}
+          />
+          {/* Beside the palette restore and for the same reason: the garland
+              is CSS keyed off this attribute, so setting it after first paint
+              would drop it onto a page someone had already started reading. */}
+          <script
+            is:inline
+            define:vars={{ id: festival.id, start: festival.start, end: festival.end }}
+          >
+            try {
+              const now = Date.now();
+              if (
+                now >= Date.parse(start) &&
+                now < Date.parse(end) &&
+                localStorage.getItem("festive") !== "off"
+              ) {
+                document.documentElement.dataset.festive = id;
+              }
+            } catch {
+              // Private mode: no storage to read an opt-out from, so no garland.
+            }
+          </script>
+        </>
+      )
+    }
 
     <link rel="sitemap" type="application/xml" href={`${base}sitemap.xml`} />
     <link
@@ -371,6 +410,38 @@ const openSlug =
       </button>
     </header>
 
+    {
+      /* Decoration only. It takes no room in the layout, catches no clicks and
+         is invisible to a screen reader, and CSS paints it only while
+         `data-festive` is set, so with JS off it never appears. */
+      festival && (
+        <div class="festive-toran" aria-hidden="true">
+          <svg width="100%" height="22" focusable="false">
+            <defs>
+              <pattern id="festive-swag" width="48" height="22" patternUnits="userSpaceOnUse">
+                <path class="toran-string" d="M0 2 Q24 18 48 2" />
+                {[0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875].map((t, i) => (
+                  <circle
+                    class={i % 2 ? "toran-bead-alt" : "toran-bead"}
+                    cx={48 * t}
+                    cy={2 + 32 * t * (1 - t)}
+                    r="2.6"
+                  />
+                ))}
+                {/* A leaf at each joint, drawn at both edges of the tile: each
+                    copy is half clipped and the neighbouring tile supplies the
+                    other half. */}
+                {[0, 48].map((x) => (
+                  <path class="toran-leaf" d={`M${x} 2c3.2 3 3.2 9 0 14c-3.2-5-3.2-11 0-14z`} />
+                ))}
+              </pattern>
+            </defs>
+            <rect class="toran-swags" width="100%" height="22" fill="url(#festive-swag)" />
+          </svg>
+        </div>
+      )
+    }
+
     <div class="shell">
       <nav class="sidebar" aria-label="Chapters">
         {
@@ -558,6 +629,22 @@ const openSlug =
         }
       </span>
 
+      {
+        /* Revealed by festive.ts, on the palette picker's contract. Only
+           emitted while the build carries a festival. */
+        festival && (
+          <span class="status-item festive-pick" hidden>
+            <span class="festive-dot" aria-hidden="true" />
+            <span class="festive-greeting">
+              {festival.name}: {festival.greeting}
+            </span>
+            <button class="festive-switch" type="button" aria-pressed="true">
+              Decorations
+            </button>
+          </span>
+        )
+      }
+
       <span class="status-item status-links">
         <a
           href={REPO_URL}
@@ -596,6 +683,7 @@ const openSlug =
       import "../scripts/nav-state.ts";
       import "../scripts/theme.ts";
       import "../scripts/palette.ts";
+      import "../scripts/festive.ts";
     </script>
   </body>
 </html>
