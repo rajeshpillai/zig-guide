@@ -792,6 +792,7 @@ for (const href of THEME_PAGES) {
         ".sidebar a",
         ".nav-track",
         ".status-sub",
+        ".status-sub a",
         ".pg-status",
         ".pg-note",
         ".pg-run",
@@ -1085,6 +1086,7 @@ let festiveChecks = 0;
         row: !document.querySelector(".festive-pick")?.hidden,
         pressed: document.querySelector(".festive-switch")?.getAttribute("aria-pressed"),
         petals: document.querySelectorAll(".festive-petals").length,
+        mouse: document.querySelector(".festive-mouse")?.style.transform ?? null,
         overflow: document.scrollingElement.scrollWidth > window.innerWidth,
       }));
 
@@ -1112,9 +1114,17 @@ let festiveChecks = 0;
       }
       if (s.petals !== 1) fail("no petal layer on the first page of a session");
       if (s.overflow) fail("the decorations widen the page");
-      await p.clock.runFor(10_000);
+      // Mushak's lap: tinyfly is writing a transform, and it changes.
+      await p.clock.runFor(2000);
+      const lapA = (await state(p)).mouse;
+      await p.clock.runFor(1000);
+      const lapB = (await state(p)).mouse;
       festiveChecks++;
-      if ((await state(p)).petals !== 0) fail("the petal layer is still there after the fall");
+      if (!lapA || lapA === lapB) fail(`the mouse is not running (${lapA} then ${lapB})`);
+      // The lap is capped at 16s after a 0.6s start; petals end sooner.
+      await p.clock.runFor(18_000);
+      festiveChecks++;
+      if ((await state(p)).petals !== 0) fail("the petal layer is still there after the lap");
 
       // Second page of the same session: garland, but no second fall.
       await p.goto(other, { waitUntil: "load" });

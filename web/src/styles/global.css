@@ -1492,6 +1492,12 @@ main th {
   color: var(--accent);
 }
 
+/* Links inside a footer sentence. `main a` stops at <main>, so these were the
+   browser's default blue on every palette, the same miss prose links had. */
+.status-sub a {
+  color: var(--accent);
+}
+
 /* The palette picker.
  *
  * In the footer rather than beside the theme toggle, and the reason is the use
@@ -1590,6 +1596,9 @@ main th {
   --festive-saffron: light-dark(#d9480f, #ff7a3d);
   --festive-leaf: light-dark(#3d7a2a, #6fae4f);
   --festive-string: light-dark(#a85a10, #c98a3a);
+  --festive-mouse: light-dark(#8d8a86, #b9b3ab);
+  --festive-mouse-pink: light-dark(#e79aa6, #f0b3bd);
+  --festive-mouse-eye: light-dark(#2b2622, #1a1613);
 }
 
 /* Height zero and sticky under the topbar: it hangs over the shell's top
@@ -1656,6 +1665,43 @@ main th {
 
 .festive-petal.alt {
   background: var(--festive-saffron);
+}
+
+/* Mushak. Rotation from `autoRotate` turns about the centre. */
+.festive-mouse {
+  position: absolute;
+  width: 52px;
+  height: 30px;
+  transform-origin: 50% 50%;
+}
+
+.festive-mouse svg {
+  display: block;
+  overflow: visible;
+}
+
+.mouse-fur,
+.mouse-feet {
+  fill: var(--festive-mouse);
+}
+
+.mouse-pink {
+  fill: var(--festive-mouse-pink);
+}
+
+.mouse-eye {
+  fill: var(--festive-mouse-eye);
+}
+
+.mouse-laddoo {
+  fill: var(--festive-marigold);
+}
+
+.mouse-tail {
+  fill: none;
+  stroke: var(--festive-mouse-pink);
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 
 .festive-pick {
