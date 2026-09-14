@@ -5,7 +5,7 @@
  * out of step. It is public either way: it ships in the page source and in
  * `/ads.txt`.
  */
-const PUBLISHER = "ca-pub-6001451252012149";
+const PUBLISHER = "ca-pub-8182014910775555";
 
 // This module runs at build time only. There is no tsconfig in `web/`, so
 // declare the one global it needs rather than pull in @types/node for it.
