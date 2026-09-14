@@ -1135,6 +1135,17 @@ let festiveChecks = 0;
         fail("petals fell again on the second page of a session");
       }
 
+      // ...until a minute of visible time has passed, on any page.
+      await p.clock.runFor(60_000);
+      let repeated = false;
+      for (let i = 0; i < 30 && !repeated; i++) {
+        await p.clock.runFor(100);
+        repeated = (await state(p)).petals === 1;
+        if (!repeated) await new Promise((ok) => setTimeout(ok, 100));
+      }
+      festiveChecks++;
+      if (!repeated) fail("the celebration did not come round again after a minute");
+
       // The switch: off survives navigation, and on comes back.
       await p.click(".festive-switch");
       const off = await state(p);
@@ -1186,7 +1197,8 @@ let festiveChecks = 0;
     {
       const { context, p, tinyfly } = await open(inside, { reducedMotion: "reduce" });
       await p.goto(chapter, { waitUntil: "load" });
-      await p.clock.runFor(2000);
+      // Past the repeat interval too, which must not start anything either.
+      await p.clock.runFor(65_000);
       // Real time too, so a script fetch that was started has had its chance.
       await new Promise((ok) => setTimeout(ok, 500));
       const s = await state(p);

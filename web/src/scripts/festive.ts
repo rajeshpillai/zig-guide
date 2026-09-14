@@ -7,9 +7,11 @@
  * cannot happen that early: it wires the switch, and it drops the petals.
  *
  * Petals fall, and Mushak (Ganesha's mouse, carrying a laddoo) runs one lap
- * of the screen, once per browser session: not on every page and never in a
- * loop. Motion over prose pulls the eye off the sentence being read, and a
- * guide is read. Under `prefers-reduced-motion` they do not fall at all, and
+ * of the screen. That plays at once on the first page of a browser session,
+ * then again after every `REPEAT_SECONDS` the tab has been visible, on any
+ * page. Motion over prose pulls the eye off the sentence being read, so it is
+ * an occasional visit rather than a loop, and a hidden tab's time does not
+ * count towards the next one. Under `prefers-reduced-motion` they do not fall at all, and
  * tinyfly is never fetched.
  *
  * tinyfly is loaded as a classic script from `public/vendor/tinyfly/`, not
@@ -32,6 +34,7 @@ declare global {
 const KEY = "festive";
 const SESSION_KEY = "festive-petals";
 const PETALS = 18;
+const REPEAT_SECONDS = 60;
 
 const root = document.documentElement;
 const meta = document.querySelector<HTMLMetaElement>('meta[name="festival"]');
@@ -223,5 +226,22 @@ if (festival && row && toggle) {
     idle(() => {
       celebrate().catch((e) => console.warn(e));
     });
+  }
+
+  // Counted in visible seconds rather than scheduled once, so a tab left in
+  // the background does not come back to an animation already queued.
+  if (!still) {
+    let visible = 0;
+    setInterval(() => {
+      if (document.hidden || !root.dataset.festive) return;
+      if (layer) {
+        visible = 0;
+        return;
+      }
+      if (++visible >= REPEAT_SECONDS) {
+        visible = 0;
+        celebrate().catch((e) => console.warn(e));
+      }
+    }, 1000);
   }
 }
