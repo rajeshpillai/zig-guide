@@ -1151,6 +1151,15 @@ let festiveChecks = 0;
       await p.click(".festive-switch");
       festiveChecks++;
       if ((await state(p)).attr !== id) fail("switching decorations back on did nothing");
+      // Switching on replays the petals and the mouse.
+      let replayed = false;
+      for (let i = 0; i < 30 && !replayed; i++) {
+        await p.clock.runFor(100);
+        replayed = (await state(p)).petals === 1;
+        if (!replayed) await new Promise((ok) => setTimeout(ok, 100));
+      }
+      festiveChecks++;
+      if (!replayed) fail("switching decorations back on did not replay the celebration");
       if (errors.length) fail(`console: ${errors.join(" | ")}`);
       await context.close();
     }

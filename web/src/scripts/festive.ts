@@ -111,8 +111,9 @@ function mouseLap(w: number, h: number): { points: { x: number; y: number }[]; s
 
 async function celebrate() {
   const tf = await loadTinyfly();
-  // The reader may have switched decorations off while the script loaded.
-  if (!root.dataset.festive) return;
+  // The reader may have switched decorations off while the script loaded, or
+  // switched them on twice.
+  if (!root.dataset.festive || layer) return;
 
   layer = document.createElement("div");
   layer.className = "festive-petals";
@@ -186,13 +187,17 @@ function paint() {
 }
 
 if (festival && row && toggle) {
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   row.hidden = false;
   paint();
 
   toggle.addEventListener("click", () => {
     const on = !root.dataset.festive;
-    if (on) root.dataset.festive = festival.id;
-    else {
+    if (on) {
+      root.dataset.festive = festival.id;
+      // Switching back on is asking to see it, so it plays again.
+      if (!still && !layer) celebrate().catch((e) => console.warn(e));
+    } else {
       delete root.dataset.festive;
       clearPetals();
     }
@@ -213,7 +218,6 @@ if (festival && row && toggle) {
     fallen = true;
   }
 
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (root.dataset.festive && !fallen && !still) {
     const idle = window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 300));
     idle(() => {
