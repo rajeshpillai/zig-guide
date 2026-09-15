@@ -1,0 +1,107 @@
+# Sound Without Sound Files
+
+> Five effects synthesised at startup from oscillators and envelopes, with waveform tests that run without an audio device.
+
+There are no audio files in this project. The five effects are arithmetic,
+generated when the game starts.
+
+Recording or licensing five blips would have been faster than writing a
+synthesiser. It also would have added a folder of binaries nobody can diff, a
+licence question attached to each one, and a tuning loop that runs through an
+audio editor. Generating them means a sound changes when a number changes.
+
+## One oscillator with an envelope
+
+<GameSource file="src/audio/synth.zig" decl="Layer" />
+
+Each layer has a frequency sweep, an amplitude envelope, and an optional low
+pass to take the fizz off noise. `delay` staggers a layer, which is how the
+arpeggios are built with no sequencing code.
+
+The coin is two layers, a triangle and a quieter sine an octave up:
+
+<GameSource file="src/audio/synth.zig" decl="coin" />
+
+The crash is six. The last three are the falling triad that plays over the game
+over screen:
+
+<GameSource file="src/audio/synth.zig" decl="crash" />
+
+Those six layers are one sound rather than two. Playing the thud on impact and
+the sting when the retry prompt appears would mean tracking whether the sting
+had been played yet, for a run that is already over. Layers take a delay, so the
+pause sits in the waveform instead.
+
+## The renderer
+
+<GameSource file="src/audio/synth.zig" decl="render" />
+
+The frequency sweep is exponential rather than linear, because pitch is
+logarithmic and a linear sweep sounds like it accelerates towards the end.
+
+Layers are summed and then soft clipped with `tanh` rather than clamped. Stacked
+layers overshoot, and clamping shears the peaks flat. That comes out as
+distortion.
+
+## The envelope, and the click
+
+<GameSource file="src/audio/synth.zig" decl="envelope" />
+
+The envelope reaches exactly zero at both ends of every layer.
+
+A clip that begins at full amplitude starts with a step from silence to whatever
+the waveform happened to be at. A step like that is a broadband impulse. It
+comes out of the speaker as a click, usually louder than the effect it belongs
+to. The same applies at the end. Four milliseconds of fade in is enough, and the
+decay is shaped to land on zero rather than being cut off there.
+
+## Testing a waveform
+
+The synthesiser holds no raylib types. It fills a buffer with samples and stops.
+So the sounds are checked without an audio device. CI has no speakers anyway.
+
+<GameSource file="src/audio/synth.zig" decl="no sound begins or ends with a click" />
+
+Then the mix. Absolute frequencies are taste and can move. The arrangement
+cannot. The crash is the low long loud one. The lane tick fires on every input
+and must not shout over a pickup.
+
+<GameSource file="src/audio/synth.zig" decl="the sounds sit in the right places against each other" />
+
+Brightness here is zero crossings per second. That is a crude pitch estimate,
+but good enough to tell a chime from a thud.
+
+Measured, the five come out as intended. The coin sits at about 1130 Hz over 85
+ms. The crash runs for 900 ms, with 81 percent of its energy below 500 Hz. The
+lane tick is shortest and quietest. `zig build sounds` writes them all out as
+`.wav` if you would rather listen than read numbers.
+
+## Playing them
+
+<GameSource file="src/platform/audio.zig" decl="Voice" />
+
+raylib restarts a sound that is already playing, so one handle can only ever
+make one note at a time. Coins arrive in quick succession during a combo, and
+each one would cut off the last. Aliases share the sample data and keep their
+own playback position.
+
+The combo ladder is a pitch multiplier on the one coin sound rather than eight
+recordings:
+
+<GameSource file="src/platform/audio.zig" decl="onEvent" />
+
+## Optional at runtime
+
+A machine with no sound card, a container with no ALSA, a browser tab nobody has
+clicked in yet: in all of those the device never opens, and every call above
+turns into nothing.
+
+<GameSource file="src/platform/audio.zig" decl="init" />
+
+Failing to start because a mixer would not open is not acceptable for a game
+whose sound is decoration. The real binary is run with a deliberately broken
+ALSA configuration as part of checking that.
+
+None of this changed a rule of the game. Sound reads the same
+[event stream](https://www.ziglang.in/learn/lane-dodger/entities/) the particles read, and the
+existing tests kept passing while it was written.
