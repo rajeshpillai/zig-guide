@@ -18,6 +18,10 @@ test "tuples are anonymous structs with numeric fields" {
     try expect(tuple.len == 3);
     try expect(tuple[0] == 1);
     try expect(tuple[1] == true);
+    // The field is named `1`, which is not a valid identifier, so the
+    // field syntax needs `@""`. Both forms reach the same field.
+    try expect(tuple.@"1" == true);
+    try expect(@field(tuple, "2") == 2.5);
 }
 
 test "tuples hold mixed types" {
