@@ -1,0 +1,117 @@
+# Recipe: A SIMD Dot Product
+
+> Using @Vector to process four elements per operation, tail included.
+
+## The problem
+
+You have two arrays of numbers and want their dot product, and the scalar
+loop is on your profile. Modern CPUs (and wasm) have SIMD registers that
+apply one operation to several values at once. Zig exposes them portably
+through `@Vector`, with normal operators, so the vector code looks like the
+scalar code.
+
+The two parts people get wrong are the ends: turning slice data into vector
+operands, and handling the tail when the length is not a multiple of the
+lane count.
+
+## The plan
+
+1. Define a vector type: `@Vector(4, i32)` is four `i32` lanes.
+2. Loop over the slice in whole-vector steps. `xs[i..][0..Lanes].*` takes
+   four contiguous elements as an array, which coerces to a vector.
+3. Multiply and accumulate with plain `*` and `+=`: element-wise on every
+   lane at once.
+4. After the loop, collapse the lanes with `@reduce(.Add, acc)` and finish
+   the remaining zero to three elements with a scalar loop.
+
+```zig
+const std = @import("std");
+
+const Lanes = 4;
+const V = @Vector(Lanes, i32);
+
+fn dotScalar(xs: []const i32, ys: []const i32) i64 {
+    var total: i64 = 0;
+    for (xs, ys) |x, y| total += @as(i64, x) * y;
+    return total;
+}
+
+fn dotSimd(xs: []const i32, ys: []const i32) i64 {
+    var acc: V = @splat(0);
+    var i: usize = 0;
+    // Whole vectors first. The slice-to-array cast `[0..Lanes].*` is what
+    // turns Lanes contiguous elements into vector operands.
+    while (i + Lanes <= xs.len) : (i += Lanes) {
+        const x: V = xs[i..][0..Lanes].*;
+        const y: V = ys[i..][0..Lanes].*;
+        acc += x * y; // one multiply and one add across all lanes
+    }
+    // Horizontal step: collapse the lanes into one number.
+    var total: i64 = @reduce(.Add, acc);
+    // The tail. A length that is not a multiple of Lanes leaves up to
+    // Lanes - 1 elements; finish them the boring way.
+    while (i < xs.len) : (i += 1) total += @as(i64, xs[i]) * ys[i];
+    return total;
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [1024]u8 = undefined;
+    var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &file_writer.interface;
+
+    // 10 elements: two full vectors of 4, plus a tail of 2.
+    var xs: [10]i32 = undefined;
+    var ys: [10]i32 = undefined;
+    for (&xs, &ys, 0..) |*x, *y, i| {
+        x.* = @intCast(i + 1);
+        y.* = @intCast((i + 1) * 2);
+    }
+
+    const scalar = dotScalar(&xs, &ys);
+    const simd = dotSimd(&xs, &ys);
+
+    try out.print("scalar: {d}\n", .{scalar});
+    try out.print("simd:   {d}\n", .{simd});
+    try out.print("equal:  {}\n", .{scalar == simd});
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`06-cookbook.simd-sum`)*
+
+## The slice-to-vector cast
+
+`xs[i..][0..Lanes]` is the idiom worth memorizing. The first slice moves the
+start; the second has a comptime-known length, so its type is a pointer to
+an array, `*const [4]i32`. Dereferencing with `.*` yields the array by
+value, and arrays coerce to vectors of the same length and element type. No
+`@memcpy`, no unsafe cast, and the bounds are checked in safe builds.
+
+## The tail is not optional
+
+Ten elements at four lanes leaves two over. Skipping the tail loop produces
+code that works on every test with a round length and silently drops data on
+the rest. Keeping a scalar epilogue is the standard shape; the snippet
+checks itself against the scalar version to prove equivalence.
+
+## What to expect from performance
+
+The accumulator holds `i32` lanes and the totals use `i64`, so the widening
+happens once per reduce plus once per tail element. On wasm this compiles to
+the 128-bit SIMD instruction set; on native targets the same source uses
+whatever the CPU offers. Measure before assuming a win: for small arrays the
+setup and reduce can cost more than the loop saves.
+
+## Variations
+
+- **Other reductions:** `@reduce` also takes `.Min`, `.Max`, `.And`, `.Or`,
+  `.Xor`, and `.Mul`.
+- **Lane count:** `std.simd.suggestVectorLength(i32)` asks the target for a
+  good width instead of hardcoding 4.
+- **Floats:** the same code works with `f32` lanes; mind that float addition
+  is not associative, so vector and scalar sums can differ in the last bits.
+- **Searching instead of summing:**
+  [the byte scanning recipe](https://www.ziglang.in/learn/how-to/simd-scan/) uses the same loop shape
+  to find and count bytes, with comparisons and bit masks in place of
+  arithmetic.

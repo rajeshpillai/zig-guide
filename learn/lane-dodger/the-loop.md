@@ -1,0 +1,98 @@
+# The Loop Takes No dt
+
+> A fixed timestep, an accumulator, interpolation for the leftover, and the split needed for the browser build.
+
+The obvious game loop reads the clock and hands the elapsed time to the world.
+
+```zig
+while (running) {
+    const dt = getFrameTime();
+    world.update(dt);   // do not do this
+    draw(world);
+}
+```
+
+That costs three things.
+
+**The same inputs stop producing the same run.** `dt` is whatever the machine
+delivered. A 60 Hz laptop and a 165 Hz monitor step the world differently.
+Adding 1/60 sixty times does not give the same number as adding 1/165 one
+hundred and sixty-five times.
+
+**A slow frame becomes an advantage.** This game scores survival. A frame that
+takes 50 ms advances the world 50 ms in one jump. Collision is tested at the
+ends of that jump rather than through it. Stutter, and you pass through a block.
+
+**Nothing replays.** To report a crash, you have to record a video of it. A seed
+and a list of keypresses will not reproduce it on another machine.
+
+## Fixed steps
+
+`step` takes no `dt`. It advances one tick, always the same size.
+
+<GameSource file="src/sim/sim.zig" decl="step" />
+
+There is no way to call it wrong. A caller who wants half a tick cannot get one.
+A caller who wants ten ticks calls it ten times.
+
+The tick rate is 120 Hz, which is above every common refresh rate, so the
+simulation is never what makes the game look choppy.
+
+## The accumulator
+
+Real time arrives in uneven chunks. The loop saves it and spends it one tick at
+a time.
+
+<GameSource file="src/main.zig" decl="advance" />
+
+Input goes to the first tick of the frame and is empty for the rest. Presses are
+edge triggered. Handing one press to three ticks would cross three lanes on a
+single tap.
+
+A frame is clamped before it reaches the accumulator.
+
+<GameSource file="src/main.zig" decl="max_frame_time" />
+
+Without that clamp, a paused game or a laptop waking from sleep can hand the
+loop ten seconds at once. That is 1200 ticks. Running them takes long enough to
+produce another large `dt`, which produces more ticks. The game stops responding
+instead of skipping forward. The usual name for this is the spiral of death.
+
+## The leftover
+
+After the tick loop there is always less than one tick of time left over.
+Ignoring it makes the game step visibly at 120 Hz on a 165 Hz display.
+
+So the renderer is told how far into the next tick it is. It draws between the
+last two states.
+
+```zig
+const alpha = self.accumulator / config.tick_dt;
+```
+
+<GameSource file="src/render/draw.zig" decl="lerp" />
+
+This is why `Entity` carries a `y_prev` that no rule ever reads. It is not
+simulation state. The renderer needs it to draw a frame that falls between two
+ticks.
+
+## One frame, not a loop
+
+On the desktop the loop is a `while`. In a browser it cannot be. Emscripten
+calls a function once per animation frame and never returns into your code, so
+there is nowhere for a `while` loop to live and nothing for its locals to live
+in.
+
+So "one frame" and "keep doing frames" are separate. `Game` is a struct with a
+`frame` method. Only the caller differs.
+
+<GameSource file="src/main.zig" decl="main" />
+
+The game state is a file scope variable rather than a local.
+`emscripten_set_main_loop` never returns, so a local in `main` would be gone by
+the first frame.
+
+The split is worth making even for a game that will never ship to a browser. A
+frame you can call once is a frame you can call six hundred times with a bot at
+the controls and no window open. That is how
+[the difficulty tests](https://www.ziglang.in/learn/lane-dodger/fair-by-design/) work.
