@@ -5,6 +5,7 @@ import Playground from "../components/Playground.astro";
 import { guideHref, guideRoute, navSections, neighbours, pageHref, readingOrder } from "../nav";
 import { datesFor, newest } from "../git-dates";
 import { SECTIONS, GROUPS, SITE_NAME, AUTHOR } from "../seo";
+import { buildInfo } from "../build-info";
 
 export async function getStaticPaths() {
   const sections = await navSections();
@@ -141,6 +142,35 @@ const inlineCode = (text: string) =>
 const dates = entry
   ? await datesFor(entry.filePath ?? "")
   : undefined;
+/**
+ * The line under a chapter's title: when it last changed, and which compiler
+ * checked its code.
+ *
+ * `dateModified` was already in the JSON-LD, but only a crawler saw it. For a
+ * guide to a language that breaks between releases, "is this current?" is the
+ * reader's first question and the one an answer engine weighs before quoting a
+ * page, so it belongs on the page. The date is the calendar day of the commit,
+ * cut from the ISO string rather than parsed, so the build machine's time zone
+ * cannot move it by a day. A shallow clone has no dates and shows no date.
+ *
+ * "Verified" is only claimed where CI actually ran code: a chapter with no
+ * `<Playground>`, `<SnippetSource>` or `<GameSource>` has nothing a compiler
+ * checked, and saying otherwise would be the one lie this site exists to avoid.
+ */
+const { zigVersion } = await buildInfo();
+const updated = dates
+  ? {
+      iso: dates.modified.slice(0, 10),
+      // By hand rather than toLocaleDateString, whose "en-GB" short month is
+      // "Sept" and whose output varies with the ICU data Node ships.
+      text: (([y, m, d]) =>
+        `${Number(d)} ${"Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ")[Number(m) - 1]} ${y}`)(
+        dates.modified.slice(0, 10).split("-"),
+      ),
+    }
+  : null;
+const hasCheckedCode = entry ? /<(Playground|SnippetSource|GameSource)\b/.test(entry.body ?? "") : false;
+
 const indexModified = entry
   ? undefined
   : newest(await Promise.all(indexChapters.map((c) => datesFor(c.filePath ?? ""))));
@@ -287,6 +317,19 @@ const schema = entry
     ) : (
       <article>
         <h1>{entry.data.title}</h1>
+        {
+          (updated || hasCheckedCode) && (
+            <p class="chapter-meta">
+              {updated && (
+                <>
+                  Updated <time datetime={updated.iso}>{updated.text}</time>
+                </>
+              )}
+              {updated && hasCheckedCode && " · "}
+              {hasCheckedCode && <>Code verified against Zig {zigVersion}</>}
+            </p>
+          )
+        }
         <Content components={{ Playground }} />
       </article>
     )

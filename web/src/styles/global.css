@@ -1190,6 +1190,14 @@ main th {
   color: var(--muted);
 }
 
+/* Under a chapter's title: last changed, and the compiler that checked it.
+   Small and muted, so it reads as a caption on the heading, not a first line. */
+.chapter-meta {
+  margin: -0.5rem 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .section-intro + .section-lede {
   margin-top: 1.25rem;
   font-size: 0.85rem;
