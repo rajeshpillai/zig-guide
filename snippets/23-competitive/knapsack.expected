@@ -1,0 +1,59 @@
+5 items, a bag that holds 10
+  item       1   2   3   4   5
+  weight     5   4   6   3   2
+  value     10  40  30  50  15
+
+every subset of 5 items
+  32 subsets tried, best is items 2 4 5, weight 9, value 105
+
+take or skip, as plain recursion
+  best(5, 10) = 105
+  43 calls reached 34 distinct (i, cap) states
+
+the same items repeated, with the bag scaled to match
+  items  cap   subsets  plain calls  states  memo calls  cells
+      5   10        32           43      34          41     66
+     10   20      1024         1342     148         238    231
+     15   30     32768        41215     332         576    496
+     20   40   1048576      1286627     596        1074    861
+
+dp[i][c]: best value from the first i items with room c
+  first i items      0   1   2   3   4   5   6   7   8   9  10
+  none               0   0   0   0   0   0   0   0   0   0   0
+  + w5 v10           0   0   0   0   0  10  10  10  10  10  10
+  + w4 v40           0   0   0   0  40  40  40  40  40  50  50
+  + w6 v30           0   0   0   0  40  40  40  40  40  50  70
+  + w3 v50           0   0   0  50  50  50  50  90  90  90  90
+  + w2 v15           0   0  15  50  50  65  65  90  90 105 105
+  answer dp[5][10] = 105, subsets said 105, agree -> true
+
+walking back from the bottom-right cell
+  item 5 (w2 v15)  dp[5][10] = 105, above  90  -> take, room 10 -> 8
+  item 4 (w3 v50)  dp[4][ 8] =  90, above  40  -> take, room 8 -> 5
+  item 3 (w6 v30)  dp[3][ 5] =  40, above  40  -> skip
+  item 2 (w4 v40)  dp[2][ 5] =  40, above  10  -> take, room 5 -> 1
+  item 1 (w5 v10)  dp[1][ 1] =   0, above   0  -> skip
+  chosen: items 2 4 5, weight 9, value 105
+
+one row, capacity loop running downward
+  after item         0   1   2   3   4   5   6   7   8   9  10
+  + w5 v10           0   0   0   0   0  10  10  10  10  10  10
+  + w4 v40           0   0   0   0  40  40  40  40  40  50  50
+  + w6 v30           0   0   0   0  40  40  40  40  40  50  70
+  + w3 v50           0   0   0  50  50  50  50  90  90  90  90
+  + w2 v15           0   0  15  50  50  65  65  90  90 105 105
+  every row matches the table -> true, answer 105
+
+one row, capacity loop running upward
+  after item         0   1   2   3   4   5   6   7   8   9  10
+  + w5 v10           0   0   0   0   0  10  10  10  10  10  20
+  + w4 v40           0   0   0   0  40  40  40  40  80  80  80
+  + w6 v30           0   0   0   0  40  40  40  40  80  80  80
+  + w3 v50           0   0   0  50  50  50 100 100 100 150 150
+  + w2 v15           0   0  15  50  50  65 100 100 115 150 150
+  answer 150, but the 0/1 answer is 105
+  the unbounded knapsack, any item any number of times, gives 150 -> agree true
+
+the width of a total
+  u32 holds up to 4294967295
+  100 items of value 1000000000 add up to 100000000000
