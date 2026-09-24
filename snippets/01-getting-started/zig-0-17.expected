@@ -1,0 +1,23 @@
+------------
+Point.x: i32
+Point.y: i32
+Color.red = 1
+Color.green = 2
+Color.blue = 4
+------------
+could not parse "300": Overflow
+fast: optimised, checks removed
+------------
+gpa.print: 2 + 3 = 5
+mem.print: 3 items
+BufferFirstAllocator gave 16 bytes
+leaks: 0
+------------
+bits set: 2
+last of an empty list: null
+last: 15
+at least three sixes: true
+------------
+@divCeil(7, 2) = 4
+@backingInt(Color.blue) = 4
+@fromBackingInt(2) = green
