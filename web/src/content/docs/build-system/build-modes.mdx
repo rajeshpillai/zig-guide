@@ -87,16 +87,18 @@ unchecked to speed up one loop.
 
 ## Knowing the mode at compile time
 
-`@import("builtin").mode` is a comptime value, so mode-specific code costs
+`@import("builtin").optimize` is a comptime value, so mode-specific code costs
 nothing at runtime: the dead branch is not compiled in.
 
 The tags are lowercase: `.debug`, `.safe`, `.fast`, `.small`. They used to be
 `.Debug`, `.ReleaseSafe`, `.ReleaseFast` and `.ReleaseSmall`, so a comparison
-copied from an older tutorial will not compile. The `-O` and `-Doptimize=`
-spellings did not change.
+copied from an older tutorial will not compile. The field was also renamed
+from `mode` to `optimize`; `builtin.mode` still works for now, and the std
+source marks it for removal after 0.18.0. On the command line both spellings
+work: `-O ReleaseFast` and `-O fast` build the same thing.
 
 That makes expensive assertions practical. A consistency check that walks an
-entire data structure can be written behind `if (builtin.mode == .debug)` and it
+entire data structure can be written behind `if (builtin.optimize == .debug)` and it
 is not merely skipped in release, it is not present. `std.debug.assert` is a
 different tool: it lowers to `unreachable`, so it follows the safety checks
 rather than the mode name, and it still fires in `ReleaseSafe`.

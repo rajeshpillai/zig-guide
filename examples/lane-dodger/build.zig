@@ -62,7 +62,7 @@ pub fn build(b: *std.Build) void {
 fn simModule(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
 ) *std.Build.Module {
     return b.createModule(.{
         .root_source_file = b.path("src/sim/sim.zig"),
@@ -74,7 +74,7 @@ fn simModule(
 fn addTests(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
 ) void {
     const sim = simModule(b, target, optimize);
     const sim_tests = b.addTest(.{ .root_module = sim });
@@ -112,7 +112,7 @@ fn addTests(
 fn addSoundDump(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
 ) void {
     const synth = b.createModule(.{
         .root_source_file = b.path("src/audio/synth.zig"),
@@ -149,7 +149,7 @@ const Game = struct {
 fn gameModule(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
     options: *std.Build.Step.Options,
     platform: Platform,
     emsdk: ?[]const u8,
@@ -169,7 +169,7 @@ fn gameModule(
 fn addDesktop(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
     options: *std.Build.Step.Options,
 ) void {
     const game = gameModule(b, target, optimize, options, .desktop, null);
@@ -190,7 +190,7 @@ fn addDesktop(
 /// hands the loop to the browser and never returns.
 fn addWeb(
     b: *std.Build,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
     options: *std.Build.Step.Options,
 ) void {
     const step = b.step("web", "Build the browser version with Emscripten");
@@ -295,7 +295,7 @@ const Raylib = struct {
 fn raylibModule(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
     platform: Platform,
     emsdk: ?[]const u8,
 ) Raylib {

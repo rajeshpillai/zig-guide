@@ -40,8 +40,8 @@ build whether to pay for them.**
 
 ## What just happened
 
-**The program read its own build mode.** `builtin.mode` is available to any Zig
-program, and `builtin.mode.runtimeSafety()` is the direct question: are the
+**The program read its own build mode.** `builtin.optimize` is available to any Zig
+program, and `builtin.optimize.runtimeSafety()` is the direct question: are the
 checks in this build. Printing them is a habit worth having, because almost
 every "why does it behave differently on the server" story ends here.
 

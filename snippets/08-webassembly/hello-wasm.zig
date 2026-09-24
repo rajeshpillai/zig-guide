@@ -10,8 +10,8 @@ pub fn main(init: std.process.Init) !void {
     var fw = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &fw.interface;
 
-    try out.print("cpu arch: {t}\n", .{builtin.cpu.arch});
-    try out.print("os tag:   {t}\n", .{builtin.os.tag});
+    try out.print("cpu arch: {t}\n", .{builtin.target.cpu.arch});
+    try out.print("os tag:   {t}\n", .{builtin.target.os.tag});
     try out.print("pointer:  {d} bits\n", .{@bitSizeOf(usize)});
 
     try out.flush();

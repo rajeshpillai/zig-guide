@@ -9,12 +9,12 @@ test "the current mode is known at compile time" {
     // These snippets are built as .small. Master lowercased the mode tags:
     // .Debug/.ReleaseSafe/.ReleaseFast/.ReleaseSmall are now
     // .debug/.safe/.fast/.small.
-    try expect(builtin.mode == .small);
+    try expect(builtin.optimize == .small);
 }
 
 test "safety checks follow the mode" {
     // True in .debug and .safe, false in .fast and .small.
-    const safety_on = switch (builtin.mode) {
+    const safety_on = switch (builtin.optimize) {
         .debug, .safe => true,
         .fast, .small => false,
     };

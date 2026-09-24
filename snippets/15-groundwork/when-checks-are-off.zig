@@ -10,8 +10,8 @@ pub fn main(init: std.process.Init) !void {
     const out = &stdout_writer.interface;
 
     // Every program can see how it was built.
-    try out.print("build mode: {t}\n", .{builtin.mode});
-    try out.print("safety checks present: {}\n\n", .{builtin.mode.runtimeSafety()});
+    try out.print("build mode: {t}\n", .{builtin.optimize});
+    try out.print("safety checks present: {}\n\n", .{builtin.optimize.runtimeSafety()});
 
     var a: u8 = 200;
     var b: u8 = 100;

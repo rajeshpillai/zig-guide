@@ -39,7 +39,7 @@ pub fn main(init: std.process.Init) !void {
 
     // The check the language inserts for `slice[i]` is this comparison, and
     // whether it is present depends on the build.
-    try out.print("\nsafety checks in this build: {}\n", .{builtin.mode.runtimeSafety()});
+    try out.print("\nsafety checks in this build: {}\n", .{builtin.optimize.runtimeSafety()});
 
     try out.flush();
 }
