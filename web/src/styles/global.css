@@ -1250,6 +1250,17 @@ main th {
   font-variant-numeric: tabular-nums;
 }
 
+/* The clue table on a section index. The prose table rules above already
+   draw it; this only spaces it between the takeaways and the chapter list. */
+.clue-heading {
+  margin-top: 2rem;
+}
+
+.clue-table {
+  margin-top: 0.75rem;
+  max-width: 68ch;
+}
+
 .section-index {
   list-style: none;
   margin: 1.5rem 0 0;

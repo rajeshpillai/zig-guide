@@ -1,5 +1,5 @@
 ---
-import { render } from "astro:content";
+import { getCollection, render } from "astro:content";
 import Base from "../layouts/Base.astro";
 import Playground from "../components/Playground.astro";
 import { guideHref, guideRoute, navSections, neighbours, pageHref, readingOrder } from "../nav";
@@ -95,6 +95,25 @@ const crumbs = section
 // what every index read before this existed.
 const meta = section ? SECTIONS[section.slug] : group ? GROUPS[group.slug] : null;
 const indexCount = indexChapters.length;
+
+/**
+ * The clue table's rows, with each chapter id resolved now. An id that names
+ * nothing throws, for the same reason `/paths/` does: a renamed chapter should
+ * fail `astro build`, not ship a row that links to a 404.
+ */
+const clueRows = meta?.clues
+  ? await (async () => {
+      const docs = await getCollection("docs");
+      return meta.clues.map((row) => ({
+        says: row.says,
+        chapters: row.chapters.map((id) => {
+          const chapter = docs.find((doc) => doc.id === id);
+          if (!chapter) throw new Error(`clue table: no chapter with id "${id}"`);
+          return chapter;
+        }),
+      }));
+    })()
+  : null;
 
 /**
  * Takeaways name identifiers (`?T`, `errdefer`, `[*c]T`), and a takeaway that
@@ -210,6 +229,38 @@ const schema = entry
                 <li set:html={inlineCode(point)} />
               ))}
             </ol>
+          )
+        }
+        {
+          /* Before the chapter list, because a reader holding a problem wants
+             the pattern first and the order of the chapters second. */
+          clueRows && (
+            <>
+              <h2 class="clue-heading">Which pattern fits</h2>
+              <table class="clue-table">
+                <thead>
+                  <tr>
+                    <th scope="col">The problem says</th>
+                    <th scope="col">Read</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clueRows.map((row) => (
+                    <tr>
+                      <td set:html={inlineCode(row.says)} />
+                      <td>
+                        {row.chapters.map((chapter, i) => (
+                          <>
+                            {i > 0 && ", "}
+                            <a href={pageHref(chapter.id)}>{chapter.data.title}</a>
+                          </>
+                        ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )
         }
         <p class="section-lede">{indexCount} chapters.</p>

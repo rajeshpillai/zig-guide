@@ -66,6 +66,17 @@ export interface SectionMeta {
    * chapter and end up saying it nowhere with any weight.
    */
   note?: string;
+  /**
+   * A table from what a problem says to the chapter that solves it, shown on
+   * the index page above the chapter list.
+   *
+   * Chapters are named by content id (`competitive-programming/two-pointers`)
+   * and resolved against the collection at build time, so a renamed chapter
+   * fails the build rather than leaving a dead row. A row may point outside
+   * the section: linking the existing Priority Queue chapter is the point,
+   * since re-teaching it here would put two pages in front of one search.
+   */
+  clues?: { says: string; chapters: string[] }[];
 }
 
 export const SECTIONS: Record<string, SectionMeta> = {
@@ -551,10 +562,11 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "comparison that dictates its next move, and the sliding window that " +
       "costs one addition and one subtraction per step.",
     lede:
-      "A contest problem reads its input from stdin. Nothing on this site has " +
-      "one, because a snippet here runs under WASI in a browser tab, so each " +
-      "chapter embeds its input as text and parses it the way it would parse a " +
-      "file. The algorithm is unaffected. What the browser buys in exchange is " +
+      "A contest problem reads its input from stdin. A browser tab has none, " +
+      "because a snippet here runs under WASI, so each chapter embeds its input " +
+      "as text and parses it the way it would parse a file. The last chapter, " +
+      "the contest template, is the one that reads real stdin, and it takes " +
+      "the same reader. The algorithm is unaffected. What the browser buys in exchange is " +
       "that every program prints the steps it took, and the trace quoted in " +
       "the chapter is the trace CI diffed against the compiler the footer " +
       "names.",
@@ -566,6 +578,24 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "Two pointers converging on sorted data never get a choice about the next move. One index retires per step, so a walk that reads like a search costs one pass.",
       "A sliding window adds the value entering and subtracts the value leaving. Every index enters once and leaves once, so a loop inside a loop is still linear, and the shrink rule stops holding the moment a value can be negative.",
       "`std.sort.lowerBound` passes the key first and the element second. A comparator written the other way round compiles and returns a plausible wrong index.",
+    ],
+    clues: [
+      { says: "The array is sorted. Find a value, or where it would go.", chapters: ["competitive-programming/binary-search"] },
+      { says: "The answer is a number, and \"can it be done with x?\" flips from no to yes exactly once.", chapters: ["competitive-programming/binary-search-answer"] },
+      { says: "The array is sorted. Find a pair that adds up to a target.", chapters: ["competitive-programming/two-pointers"] },
+      { says: "Best sum over every contiguous run of length k.", chapters: ["competitive-programming/sliding-window"] },
+      { says: "Shortest contiguous run that reaches a target, and no value is negative.", chapters: ["competitive-programming/sliding-window"] },
+      { says: "Sum of a range, asked many times.", chapters: ["competitive-programming/prefix-sums"] },
+      { says: "Add to a range, many times, then read every value once.", chapters: ["competitive-programming/prefix-sums"] },
+      { says: "For every position, the next value that is larger or smaller.", chapters: ["competitive-programming/monotonic-stack"] },
+      { says: "The largest or smallest value in every window.", chapters: ["competitive-programming/monotonic-deque"] },
+      { says: "Fewest steps across a grid, where every step costs the same.", chapters: ["competitive-programming/grid-bfs"] },
+      { says: "Ranges that overlap. Merge them, or measure what they cover.", chapters: ["competitive-programming/merge-intervals"] },
+      { says: "Connections arrive one at a time. Are these two linked yet?", chapters: ["competitive-programming/union-find"] },
+      { says: "Choose items under a limit, each one at most once.", chapters: ["competitive-programming/knapsack"] },
+      { says: "Keep taking the smallest or largest item left.", chapters: ["standard-library/priority-queue"] },
+      { says: "Have I seen this value before, and how often?", chapters: ["standard-library/hash-maps"] },
+      { says: "Brackets that must match, or steps that must be undone in reverse.", chapters: ["standard-library/stacks"] },
     ],
   },
 };
