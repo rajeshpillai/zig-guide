@@ -1,0 +1,286 @@
+---
+title: Interfaces
+seoTitle: "Zig Interfaces and Generics: anytype, Tagged Unions and Vtables"
+seoDescription: "Zig has no interface keyword. The four shapes std uses instead: anytype, a tagged union, a pointer plus a vtable like Allocator, and @fieldParentPtr like Io.Writer."
+description: No interface keyword. Four shapes instead, and the trade each one makes.
+section: Language
+order: 34.5
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+Zig has no `interface` keyword.
+
+There is no `trait`, no `impl` and no `implements`.
+
+The standard library is still full of interfaces.
+
+`std.mem.Allocator` is one, and so is `std.Io`, and so is `std.Io.Writer`.
+
+They are built from parts you have already met: `anytype`, tagged unions, function pointers and `@fieldParentPtr`.
+
+There are four common ways to put those parts together.
+
+Each one gives up something different.
+
+We'll build the same small interface all four ways, so you can see what each one costs.
+
+<Playground name="02-language.interfaces" />
+
+## The job
+
+A sink takes lines of text.
+
+We have two of them.
+
+`Counter` counts lines and bytes.
+
+`Last` keeps a copy of the most recent line.
+
+Both have a method with the same signature, `write(self, line: []const u8) void`.
+
+Neither type knows the other exists.
+
+The question is how to write code that works with either one.
+
+## 1. `anytype`: checked at each call
+
+<SnippetSource name="02-language.interfaces" decl="sendAll" />
+
+`sendAll` never names a type.
+
+It calls `target.write` and expects it to be there.
+
+The compiler checks that at every call.
+
+`sendAll(&counter, ...)` compiles one copy of `sendAll` for `*Counter`, and `sendAll(&last, ...)` compiles a second copy for `*Last`.
+
+```
+-- anytype
+counter: 3 lines, 24 bytes
+last: "network down!"
+```
+
+Every call to `write` is a direct call.
+
+Nothing is looked up at runtime, so the optimizer is free to inline `write` into the loop.
+
+This is how generic code works in Zig.
+
+[Comptime](/learn/language-basics/comptime/) shows the `comptime T: type` form.
+
+`anytype` is the same idea, with the type taken from the argument instead of passed by hand.
+
+The standard library uses it everywhere.
+
+`std.mem.sort` takes its `context` as `anytype`, and so do most functions that accept a callback.
+
+### Give the caller a better error
+
+Pass an integer to `sendAll` without the first line, and the error points at `target.write` inside `sendAll`.
+
+The person who made the mistake has to read your function to find out what it wanted.
+
+`requireSink` runs first and says it in words:
+
+<SnippetSource name="02-language.interfaces" decl="requireSink" />
+
+`std.meta.hasMethod` looks through one pointer, so `*Counter` passes and `*u32` fails.
+
+Now the build stops with `*u32 is not a sink: it has no write method`.
+
+`@compileError` stops the build.
+
+It does not return an error value, and nothing about it reaches the running program.
+
+### Where `anytype` runs out
+
+You can't put a `Counter` and a `Last` in the same array.
+
+No type means "any sink", so there's nothing to declare the array as.
+
+Each new type also compiles another copy of the function.
+
+For a three-line loop that costs nothing you could measure.
+
+For a large function called with many types, it grows the binary.
+
+## 2. A tagged union: a closed list
+
+<SnippetSource name="02-language.interfaces" decl="AnySink" />
+
+`AnySink` is one type.
+
+That means an array can hold both kinds of sink.
+
+`inline else` makes the compiler write one prong per field.
+
+Inside each prong, `s` has the real type, so `s.write` is a direct call again.
+
+```
+-- tagged union
+counter: 3 lines
+last: "network down!"
+```
+
+The list of implementations is closed.
+
+A new kind of sink needs a new field in `AnySink`, and only the code that owns `AnySink` can add one.
+
+Often that's exactly right.
+
+The tokens of a parser, the instructions of a small VM and the values in a JSON document are all fixed lists.
+
+`std.json.Value` is a `union(enum)` for that reason.
+
+An `AnySink` is as large as its largest member, plus the tag.
+
+`Last` carries a 32-byte buffer, so every `AnySink` pays for it, including the ones that hold a `Counter`.
+
+[Unions](/learn/language-basics/unions/) covers the type itself.
+
+## 3. A pointer and a vtable: an open list
+
+<SnippetSource name="02-language.interfaces" decl="Sink" />
+
+A `Sink` holds two things.
+
+`ptr` points at the real object.
+
+`vtable` points at a table of functions that know what to do with it.
+
+`*anyopaque` is a pointer to something of unknown type.
+
+The `Sink` doesn't know what it points at, and it doesn't need to.
+
+Each implementation supplies the table and a way to make a `Sink` from itself:
+
+<SnippetSource name="02-language.interfaces" decl="Counter" />
+
+`writeOpaque` gets the `*anyopaque`, casts it back to `*Counter`, and calls the real `write`.
+
+The cast is correct only because `sink()` stored a `*Counter` in `ptr`.
+
+The compiler can't check that for you.
+
+If one type's table ended up paired with another type's pointer, the cast would still compile.
+
+`vtable` is a `const` declared in the struct, not a field.
+
+It exists once in the program, and every `Sink` made from a `Counter` points at the same table.
+
+Now two unrelated types fit in one array:
+
+```
+-- vtable
+counter: 3 lines
+last: "network down!"
+a Sink is two pointers: true
+```
+
+This is the shape of `std.mem.Allocator`.
+
+Open its source and the first two fields are `ptr: *anyopaque` and `vtable: *const VTable`.
+
+`std.Io` is built the same way, with its pointer named `userdata`.
+
+That's why an `ArenaAllocator` and a `SafeAllocator` can both be passed where an `Allocator` is wanted.
+
+A library you have never seen can also add its own allocator without changing `std`.
+
+The list is open.
+
+Every call goes through a function pointer, and the optimizer usually can't inline through one.
+
+The `Sink` also doesn't own the object.
+
+If `counter2` goes out of scope while a `Sink` still points at it, `ptr` dangles.
+
+The table holds pointers rather than the `Sink` holding them itself.
+
+That keeps a `Sink` at two pointers however many methods the interface grows, because one table serves every `Counter` there is.
+
+## 4. An embedded interface: `@fieldParentPtr`
+
+`std.Io.Writer` goes one step further.
+
+The interface isn't a separate value pointing at the object.
+
+It's a field inside the object.
+
+<SnippetSource name="02-language.interfaces" decl="Out" />
+
+<SnippetSource name="02-language.interfaces" decl="Shouter" />
+
+The vtable function receives a `*Out`.
+
+That pointer points at the `interface` field inside some `Shouter`.
+
+`@fieldParentPtr("interface", out)` subtracts the field's offset from that address and gives back the `*Shouter` around it.
+
+There's no `*anyopaque` and no stored pointer back to the parent.
+
+```
+-- embedded
+shouted: 1
+```
+
+The gain is that the interface can hold state of its own.
+
+`std.Io.Writer` keeps its buffer in the interface.
+
+`print` fills that buffer with ordinary code and calls through the vtable only when the buffer is full or you call `flush`.
+
+Most writes never make an indirect call at all.
+
+You have already used this shape.
+
+Every program on this site writes `const out = &file_writer.interface;` before it prints anything.
+
+The `&` matters.
+
+`@fieldParentPtr` works only while the interface is still inside its parent.
+
+Copy it out with `var copy = file_writer.interface;` and the vtable function subtracts the offset from the copy's address instead.
+
+It lands on memory that isn't a `File.Writer`.
+
+That compiles, and a safe build doesn't catch it.
+
+When we tried it on `Shouter`, a `ReleaseSafe` build ran without a panic and printed `shouted: 0`.
+
+It's undefined behaviour, so another build could do something worse.
+
+Take the address of an embedded interface. Don't copy it.
+
+[Linked lists in std](/learn/data-structures/std-lists/) use the same builtin for a different job: finding your struct from the list node inside it.
+
+## Picking one
+
+| Shape | Who can add an implementation | How `write` is called | One array of mixed types | In `std` |
+| --- | --- | --- | --- | --- |
+| `anytype` | anyone | directly, can inline | no | `std.mem.sort`'s `context` |
+| tagged union | only the union's owner | switch, then directly | yes | `std.json.Value` |
+| pointer and vtable | anyone | through a pointer | yes | `std.mem.Allocator`, `std.Io` |
+| embedded interface | anyone | through a pointer, often skipped | yes, as pointers | `std.Io.Writer`, `std.Io.Reader` |
+
+Start with `anytype`.
+
+It's the least code and the fastest call.
+
+Switch to a tagged union when you need a mixed list and you own every type in it.
+
+Switch to a vtable when code you don't control has to plug in.
+
+The embedded form is worth its extra rules only when the interface has state of its own, the way a writer has its buffer.
+
+## If you have used other languages
+
+Rust's generics with trait bounds do the job of `anytype`, and a Rust `enum` is a tagged union.
+
+A Rust `&dyn Trait` is a data pointer and a vtable pointer, the same pair `Sink` holds.
+
+A Go interface value is also two words: one points at the type's method table and the other at the data.
+
+The difference in Zig is that you write the table yourself.

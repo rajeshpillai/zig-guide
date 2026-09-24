@@ -1,0 +1,12 @@
+-- anytype
+counter: 3 lines, 24 bytes
+last: "network down!"
+-- tagged union
+counter: 3 lines
+last: "network down!"
+-- vtable
+counter: 3 lines
+last: "network down!"
+a Sink is two pointers: true
+-- embedded
+shouted: 1
