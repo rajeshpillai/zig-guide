@@ -1,0 +1,475 @@
+---
+title: Union-Find (Disjoint Set Union)
+seoTitle: "Zig Union-Find: Disjoint Set Union with Union by Size and Path Compression"
+description: Groups that merge as edges arrive, from a parent array where a merge moves one root and a find walks to it.
+seoDescription: Union-find in Zig, with every merge printed. Why relabelling a whole group reads 999,000 labels on a chain of 1,000 nodes, how a plain parent array grows a tree 999 links tall, what union by size and path compression each fix, the edge that closes a cycle, and the three bugs that pass small tests.
+section: Competitive Programming
+order: 100
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+Suppose we have ten nodes and no connections between them.
+
+Edges arrive one at a time.
+
+After each edge, we want to know how many separate groups there are.
+
+We also want to spot any edge that joins two nodes already in the same group.
+
+That edge closes a cycle.
+
+Union-find answers both questions.
+
+It is also called disjoint set union, or DSU.
+
+It has two operations.
+
+`find` names the group a node belongs to.
+
+`unite` merges two groups into one.
+
+The program below feeds ten edges into ten nodes and solves the problem three ways, printing what each way costs as it goes.
+
+<Playground name="23-competitive.union-find" />
+
+## The input
+
+```
+10 nodes and 10 edges parsed from the input
+   0-1 2-3 1-3 4-5 6-7 5-7 0-2 8-9 2-6 7-1
+```
+
+The first line of the input holds the node count.
+
+Every line after it is one edge.
+
+If every edge is known before the first question, a [breadth-first search](/learn/competitive-programming/grid-bfs/) can count the groups too.
+
+Union-find is for the case where edges keep arriving and the questions come in between them.
+
+## Relabelling a whole group
+
+The first idea is to give every node a label.
+
+Two nodes are in the same group when they carry the same label.
+
+Checking that costs one comparison.
+
+Merging is where the cost goes.
+
+<SnippetSource name="23-competitive.union-find" decl="relabel" />
+
+To merge, every node carrying `a`'s label must switch to `b`'s label.
+
+We can only find those nodes by reading the whole array.
+
+```
+   edge  labels after                    rewritten  read
+    0-1    1  1  2  3  4  5  6  7  8  9          1    10
+    2-3    1  1  3  3  4  5  6  7  8  9          1    10
+    1-3    3  3  3  3  4  5  6  7  8  9          2    10
+    4-5    3  3  3  3  5  5  6  7  8  9          1    10
+    6-7    3  3  3  3  5  5  7  7  8  9          1    10
+    5-7    3  3  3  3  7  7  7  7  8  9          2    10
+    0-2    3  3  3  3  7  7  7  7  8  9          0     0  same label
+    8-9    3  3  3  3  7  7  7  7  9  9          1    10
+    2-6    7  7  7  7  7  7  7  7  9  9          4    10
+    7-1    7  7  7  7  7  7  7  7  9  9          0     0  same label
+  8 merges, 13 labels rewritten, 80 labels read
+```
+
+The edge `2-6` rewrites four labels, because node 2's group has four members by then.
+
+The rows marked `same label` are the two edges that close a cycle.
+
+Ten reads per merge looks harmless.
+
+It is `n` reads per merge, though, and a graph can have `n - 1` merges.
+
+On a chain of 1,000 nodes, the same function reads 999,000 labels.
+
+A better version keeps a member list per group and relabels the smaller one.
+
+That brings the total down to `O(n log n)`, but it needs a list per group.
+
+## A parent array
+
+Union-find stops trying to keep every node up to date.
+
+Each node stores one other node from its group, called its parent.
+
+A node that is its own parent is the root.
+
+The root is the name of the group.
+
+<SnippetSource name="23-competitive.union-find" decl="findRoot" />
+
+To find a node's group, we follow parent links until we reach the root.
+
+Two nodes are connected exactly when they reach the same root.
+
+<SnippetSource name="23-competitive.union-find" decl="unitePlain" />
+
+A merge finds both roots and points one at the other.
+
+Only one entry in the array changes.
+
+```
+   edge  root a  links  root b  links  result             groups
+    0-1       0      0       1      0  0 now points at 1       9
+    2-3       2      0       3      0  2 now points at 3       8
+    1-3       1      0       3      0  1 now points at 3       7
+    4-5       4      0       5      0  4 now points at 5       6
+    6-7       6      0       7      0  6 now points at 7       5
+    5-7       5      0       7      0  5 now points at 7       4
+    0-2       3      2       3      1  same root               4
+    8-9       8      0       9      0  8 now points at 9       3
+    2-6       3      1       7      1  3 now points at 7       2
+    7-1       7      0       7      2  same root               2
+```
+
+Look at the edge `2-6`.
+
+Node 2 is not a root, so `find` walks one link from 2 to 3.
+
+Node 6 walks one link to 7.
+
+Then 3 is pointed at 7, and nodes 0, 1 and 2 come along without being touched.
+
+The `links` columns count how far each `find` walked.
+
+The cost of this version is in those columns.
+
+```
+  node    0  1  2  3  4  5  6  7  8  9
+  parent  1  3  3  7  5  7  7  7  9  9
+  depth   3  2  2  1  2  1  1  0  1  0
+```
+
+Node 0 sits three links below its root.
+
+Every `find` on node 0 pays those three links again.
+
+## A tree can grow into a chain
+
+`unitePlain` always hangs `a`'s root under `b`'s root.
+
+Nothing stops it from hanging a big tree under a single node.
+
+The chain input joins node 0 to node 1, then node 0 to node 2, and so on.
+
+Every edge puts the old tree under a brand-new node.
+
+```
+edges 0-1, 0-2, 0-3 and on: links walked by each union
+   edge     plain   by size  compress      both
+    0-1         0         0         0         0
+    0-2         1         1         1         1
+    0-3         2         1         2         1
+    0-4         3         1         2         1
+    0-5         4         1         2         1
+    0-6         5         1         2         1
+    0-7         6         1         2         1
+    0-8         7         1         2         1
+    0-9         8         1         2         1
+  total        36         8        15         8
+  tallest       9         1         8         1
+```
+
+In the `plain` column, each union walks one link further than the last.
+
+After nine edges, the tree is a single line nine links tall.
+
+On `n` nodes, that adds up to about `n * n / 2` steps.
+
+The other three columns are the two fixes, alone and together.
+
+## Union by size
+
+The first fix decides which root goes underneath.
+
+We keep the size of every group at its root.
+
+The smaller group goes under the larger one.
+
+On a tie, either choice works.
+
+In the chain, the tree rooted at node 1 grows by one node per edge.
+
+Each new node is a group of size 1, so it always goes under that tree.
+
+The tree never gets taller than one link.
+
+The same rule holds a limit on every input.
+
+A node gets one link further from its root only when its group joins a group at least as large.
+
+So each extra link at least doubles the size of the node's group.
+
+Starting from a group of one, a node's group can double at most `log2(n)` times before it holds all `n` nodes.
+
+No tree gets taller than `log2(n)` links.
+
+Some solutions keep a rank instead of a size.
+
+A rank is an upper bound on the tree's height, and it gives the same limit.
+
+## Path compression
+
+The second fix changes `find`.
+
+Once `find` knows the root, it walks the same path a second time.
+
+It points every node on the path straight at the root.
+
+The program runs one such `find` on node 0 of the plain forest above.
+
+```
+one compressing find on node 0 of that forest
+  path before  0 -> 1 -> 3 -> 7
+  path after   0 -> 7
+  parent       7  7  3  7  5  7  7  7  9  9
+  depth        1  1  2  1  2  1  1  0  1  0
+```
+
+Nodes 0 and 1 now point at 7.
+
+Node 2 still sits two links down.
+
+It was not on the path, so this `find` never saw it.
+
+The `compress` column in the chain table shows the same limit.
+
+Each union walks at most two links.
+
+The final tree is still eight links tall.
+
+Compression flattens the paths we walk, but it does nothing to stop the next union from hanging a tall tree under a single node.
+
+## Both together
+
+<SnippetSource name="23-competitive.union-find" decl="DisjointSet" />
+
+This is the version to paste into a solution.
+
+It uses two plain arrays sized from the problem's bounds.
+
+`find` uses two loops and no recursion.
+
+`unite` returns whether it merged anything.
+
+A `false` means the two nodes were already connected, so the edge closes a cycle.
+
+`count` goes down by one on every real merge.
+
+```
+   edge  root a  size  root b  size  result                groups
+    0-1       0     1       1     1  0 under 1, size 2          9
+    2-3       2     1       3     1  2 under 3, size 2          8
+    1-3       1     2       3     2  1 under 3, size 4          7
+    4-5       4     1       5     1  4 under 5, size 2          6
+    6-7       6     1       7     1  6 under 7, size 2          5
+    5-7       5     2       7     2  5 under 7, size 4          4
+    0-2       3     4       3     4  closes a cycle             4
+    8-9       8     1       9     1  8 under 9, size 2          3
+    2-6       3     4       7     4  3 under 7, size 8          2
+    7-1       7     8       7     8  closes a cycle             2
+```
+
+Our input merges groups of equal size at every step.
+
+So union by size makes the same choices here as the plain version.
+
+The difference is the guarantee.
+
+On any input, a tree stays within `log2(n)` links.
+
+```
+  node    0  1  2  3  4  5  6  7  8  9
+  parent  3  7  7  7  5  7  7  7  9  9
+  root    7  7  7  7  7  7  7  7  9  9
+  recursive find agrees on every node -> true
+  2 groups at the end
+  edges that closed a cycle: 0-2 7-1
+```
+
+The `parent` row is not the answer.
+
+Node 0 still points at 3, and node 4 still points at 5.
+
+The `root` row is the answer, and both of those reach 7.
+
+Two groups remain: nodes 0 to 7, and nodes 8 and 9.
+
+The same loop is the core of Kruskal's minimum spanning tree.
+
+Sort the edges by weight with [`std.mem.sort`](/learn/standard-library/sorting/).
+
+Then keep every edge that `unite` accepts.
+
+## What it costs
+
+The program runs every version on three edge lists.
+
+`the input` is the ten edges above.
+
+`chain` is the `0-1`, `0-2`, `0-3` pattern on 1,000 nodes.
+
+`random` is 1,000 edges between random pairs of 1,000 nodes.
+
+```
+what each version costs
+                          relabel      links walked by find
+  input         n edges    read  rewrite    plain  by size compress     both
+  the input    10    10      80       13        7        7        7        7
+  chain      1000   999  999000   499500   498501      998     1995      998
+  random     1000  1000  836000    49763    19800     1629     2496     1334
+
+the tallest tree each version leaves behind
+  input         plain  by size compress     both
+  the input         3        3        2        2
+  chain           999        1      998        1
+  random           97        5        6        4
+```
+
+On the chain, the plain version walks 498,501 links.
+
+Either fix brings that under 2,000.
+
+Union by size alone guarantees `O(log n)` per operation.
+
+Path compression alone gives `O(log n)` amortised per operation.
+
+With both, the amortised cost per operation is `O(α(n))`.
+
+`α` is the inverse Ackermann function.
+
+It grows so slowly that it is at most 4 for any `n` a program could store.
+
+In practice, each operation costs a few steps.
+
+The bound is not a true constant, and its proof is long, so we will only use the result.
+
+## Mistake: comparing parents instead of roots
+
+Two nodes are connected when they share a root.
+
+Sharing a parent is not the same test.
+
+<SnippetSource name="23-competitive.union-find" decl="connectedByParent" />
+
+The program runs it on the plain forest from earlier.
+
+```
+comparing parents instead of roots, on the plain forest
+   pair  parents  roots  by parent  truth
+    1-2     3  3   7  7        yes    yes
+    0-2     1  3   7  7         no    yes  wrong
+    0-7     1  7   7  7         no    yes  wrong
+    4-6     5  7   7  7         no    yes  wrong
+    8-9     9  9   9  9        yes    yes
+    0-8     1  9   7  9         no     no
+  wrong on 21 of 45 pairs, and every wrong answer is a no
+```
+
+Two nodes with the same parent do share a root.
+
+So this check never joins two separate groups.
+
+It says no whenever two nodes in the same tree sit at different depths.
+
+On small tests the trees stay shallow, so most connected pairs really do share a parent and the check can pass for a long time.
+
+Path compression makes the bug harder to see, because it keeps flattening the trees.
+
+## Mistake: linking the nodes instead of their roots
+
+<SnippetSource name="23-competitive.union-find" decl="uniteNodes" />
+
+The root check is correct.
+
+The link is not.
+
+`parent[a] = b` moves `a` and everything below it into `b`'s tree.
+
+The rest of `a`'s old tree stays behind as a separate group.
+
+```
+linking the nodes instead of their roots
+   edge  parent of a  becomes  groups counted  groups that exist
+    0-1            0        1               9                  9
+    2-3            2        3               8                  8
+    1-3            1        3               7                  7
+    4-5            4        5               6                  6
+    6-7            6        7               5                  5
+    5-7            5        7               4                  4
+    0-2            .        .               4                  4
+    8-9            8        9               3                  3
+    2-6            3        6               2                  3
+    7-1            7        1               1                  2
+```
+
+Up to `2-6`, every merge starts from an `a` that is a root, so the bug does nothing.
+
+At `2-6`, node 2 has parent 3.
+
+The link moves node 2 away from 3.
+
+Nodes 0, 1 and 3 are left as a group of their own.
+
+The counter says 2 groups, but 3 groups exist.
+
+Then `7-1` should close a cycle.
+
+Instead, the two roots differ, so it counts as a merge.
+
+The counter ends at 1, and the true answer is 2.
+
+## Mistake: a recursive find on a long chain
+
+<SnippetSource name="23-competitive.union-find" decl="findRecursive" />
+
+This version compresses the path too, and it is shorter.
+
+It gives the same roots as the iterative `find` on our input.
+
+It also makes one call per link on the path.
+
+The program builds a chain of a million nodes with plain union.
+
+```
+a chain of 1000000 nodes, built by plain union of i and i+1
+  node 0 sits 999999 links below its root
+  building it walked 0 links in total
+  iterative find(0) -> 999999: 999999 links the first time, 1 the second
+```
+
+Each edge here joins a root to a single node, so building the chain walks no links.
+
+The cost arrives on the first `find` from the bottom.
+
+A recursive `find` on node 0 would be 999,999 calls deep before it returned once.
+
+Every call needs a stack frame.
+
+A million frames is more stack than you can count on a judge giving you.
+
+The iterative `find` uses a fixed amount of stack, whatever the path length.
+
+Its first call walks every link once.
+
+The second call walks one.
+
+Union by size also prevents this chain, since it keeps every tree within 20 links for a million nodes.
+
+Many solutions skip it, though, and rely on path compression alone.
+
+With compression alone, write `find` with loops.
+
+Node ids in a contest are usually integers from 0 to `n - 1`, which index the arrays directly.
+
+If the nodes are names, give each one an index with a [hash map](/learn/data-structures/hash-map/) first.
+
+If the node count is not known up front, the two arrays can be an [`ArrayList`](/learn/standard-library/arraylist/) each.

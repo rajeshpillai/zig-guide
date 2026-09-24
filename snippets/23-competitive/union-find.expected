@@ -1,0 +1,114 @@
+10 nodes and 10 edges parsed from the input
+   0-1 2-3 1-3 4-5 6-7 5-7 0-2 8-9 2-6 7-1
+
+every node carries its group's label, and a merge rewrites one group
+   edge  labels after                    rewritten  read
+    0-1    1  1  2  3  4  5  6  7  8  9          1    10
+    2-3    1  1  3  3  4  5  6  7  8  9          1    10
+    1-3    3  3  3  3  4  5  6  7  8  9          2    10
+    4-5    3  3  3  3  5  5  6  7  8  9          1    10
+    6-7    3  3  3  3  5  5  7  7  8  9          1    10
+    5-7    3  3  3  3  7  7  7  7  8  9          2    10
+    0-2    3  3  3  3  7  7  7  7  8  9          0     0  same label
+    8-9    3  3  3  3  7  7  7  7  9  9          1    10
+    2-6    7  7  7  7  7  7  7  7  9  9          4    10
+    7-1    7  7  7  7  7  7  7  7  9  9          0     0  same label
+  8 merges, 13 labels rewritten, 80 labels read
+
+a parent array, where a merge moves one root and nothing else
+   edge  root a  links  root b  links  result             groups
+    0-1       0      0       1      0  0 now points at 1       9
+    2-3       2      0       3      0  2 now points at 3       8
+    1-3       1      0       3      0  1 now points at 3       7
+    4-5       4      0       5      0  4 now points at 5       6
+    6-7       6      0       7      0  6 now points at 7       5
+    5-7       5      0       7      0  5 now points at 7       4
+    0-2       3      2       3      1  same root               4
+    8-9       8      0       9      0  8 now points at 9       3
+    2-6       3      1       7      1  3 now points at 7       2
+    7-1       7      0       7      2  same root               2
+
+  node    0  1  2  3  4  5  6  7  8  9
+  parent  1  3  3  7  5  7  7  7  9  9
+  depth   3  2  2  1  2  1  1  0  1  0
+
+one compressing find on node 0 of that forest
+  path before  0 -> 1 -> 3 -> 7
+  path after   0 -> 7
+  parent       7  7  3  7  5  7  7  7  9  9
+  depth        1  1  2  1  2  1  1  0  1  0
+
+edges 0-1, 0-2, 0-3 and on: links walked by each union
+   edge     plain   by size  compress      both
+    0-1         0         0         0         0
+    0-2         1         1         1         1
+    0-3         2         1         2         1
+    0-4         3         1         2         1
+    0-5         4         1         2         1
+    0-6         5         1         2         1
+    0-7         6         1         2         1
+    0-8         7         1         2         1
+    0-9         8         1         2         1
+  total        36         8        15         8
+  tallest       9         1         8         1
+
+union by size and path compression together, on the input
+   edge  root a  size  root b  size  result                groups
+    0-1       0     1       1     1  0 under 1, size 2          9
+    2-3       2     1       3     1  2 under 3, size 2          8
+    1-3       1     2       3     2  1 under 3, size 4          7
+    4-5       4     1       5     1  4 under 5, size 2          6
+    6-7       6     1       7     1  6 under 7, size 2          5
+    5-7       5     2       7     2  5 under 7, size 4          4
+    0-2       3     4       3     4  closes a cycle             4
+    8-9       8     1       9     1  8 under 9, size 2          3
+    2-6       3     4       7     4  3 under 7, size 8          2
+    7-1       7     8       7     8  closes a cycle             2
+
+  node    0  1  2  3  4  5  6  7  8  9
+  parent  3  7  7  7  5  7  7  7  9  9
+  root    7  7  7  7  7  7  7  7  9  9
+  recursive find agrees on every node -> true
+  2 groups at the end
+  edges that closed a cycle: 0-2 7-1
+
+comparing parents instead of roots, on the plain forest
+   pair  parents  roots  by parent  truth
+    1-2     3  3   7  7        yes    yes
+    0-2     1  3   7  7         no    yes  wrong
+    0-7     1  7   7  7         no    yes  wrong
+    4-6     5  7   7  7         no    yes  wrong
+    8-9     9  9   9  9        yes    yes
+    0-8     1  9   7  9         no     no
+  wrong on 21 of 45 pairs, and every wrong answer is a no
+
+linking the nodes instead of their roots
+   edge  parent of a  becomes  groups counted  groups that exist
+    0-1            0        1               9                  9
+    2-3            2        3               8                  8
+    1-3            1        3               7                  7
+    4-5            4        5               6                  6
+    6-7            6        7               5                  5
+    5-7            5        7               4                  4
+    0-2            .        .               4                  4
+    8-9            8        9               3                  3
+    2-6            3        6               2                  3
+    7-1            7        1               1                  2
+
+a chain of 1000000 nodes, built by plain union of i and i+1
+  node 0 sits 999999 links below its root
+  building it walked 0 links in total
+  iterative find(0) -> 999999: 999999 links the first time, 1 the second
+
+what each version costs
+                          relabel      links walked by find
+  input         n edges    read  rewrite    plain  by size compress     both
+  the input    10    10      80       13        7        7        7        7
+  chain      1000   999  999000   499500   498501      998     1995      998
+  random     1000  1000  836000    49763    19800     1629     2496     1334
+
+the tallest tree each version leaves behind
+  input         plain  by size compress     both
+  the input         3        3        2        2
+  chain           999        1      998        1
+  random           97        5        6        4
