@@ -2,7 +2,10 @@
 // snippets that cannot target wasm32-wasi (threads, sockets). Used by
 // `zig build verify`.
 //
-//   run-native.mjs <binary> [expected-stdout.txt]
+//   run-native.mjs [--stdin <input.txt>] <binary> [expected-stdout.txt]
+//
+// `--stdin` feeds a file to the program's standard input. Without it stdin is
+// an empty pipe, so a snippet that reads it sees end of input at once.
 //
 // When an expected-stdout file is given, stdout is compared exactly; a
 // mismatch exits non-zero so CI fails on drifted documentation.
@@ -12,9 +15,15 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
-const [binaryPath, expectedPath] = process.argv.slice(2);
+const args = process.argv.slice(2);
+let stdinPath = null;
+if (args[0] === "--stdin") {
+  stdinPath = args[1];
+  args.splice(0, 2);
+}
+const [binaryPath, expectedPath] = args;
 if (!binaryPath) {
-  console.error("usage: run-native.mjs <binary> [expected-stdout.txt]");
+  console.error("usage: run-native.mjs [--stdin <input.txt>] <binary> [expected-stdout.txt]");
   process.exit(2);
 }
 
@@ -23,6 +32,7 @@ if (!binaryPath) {
 const TIMEOUT_MS = 60_000;
 const result = spawnSync(binaryPath, [], {
   encoding: "utf8",
+  input: stdinPath ? await readFile(stdinPath) : undefined,
   timeout: TIMEOUT_MS,
 });
 const timedOut = result.error?.code === "ETIMEDOUT";

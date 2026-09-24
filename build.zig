@@ -158,6 +158,13 @@ pub fn build(b: *std.Build) void {
             // than silently ignored. Nothing to ship to the browser, so the
             // site renders this snippet without a Run button.
             const run = b.addSystemCommand(&.{ "node", "tools/run-native.mjs" });
+            // Before the binary, because the runner reads its positional
+            // arguments by place. Tracked like `.expected`, so editing the
+            // input re-runs the snippet.
+            if (snippet.stdin) |stdin_path| {
+                run.addArg("--stdin");
+                run.addFileArg(b.path(stdin_path));
+            }
             run.addArtifactArg2(compile, .{});
             run.expectExitCode(0);
 
@@ -258,6 +265,11 @@ const Snippet = struct {
     kind: Kind,
     /// Optional sibling `.expected` file holding exact stdout.
     expected: ?[]const u8,
+    /// Optional sibling `.stdin` file, fed to a native snippet's standard
+    /// input. Only native snippets can have one: the browser's WASI shim has
+    /// no stdin, so a wasm snippet that read one would pass here and fail on
+    /// the page.
+    stdin: ?[]const u8,
     /// Sibling `.expected-error` file, present only for `//! fails` snippets:
     /// text that must appear in stderr when the snippet does what it is there
     /// to demonstrate.
@@ -388,6 +400,9 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
             );
         }
 
+        const stdin_rel = b.fmt("{s}/{s}.stdin", .{ root, replaceExt(b, entry.path) });
+        const stdin: ?[]const u8 = if (fileExists(b, stdin_rel)) stdin_rel else null;
+
         const link_libs = parseDirectiveList(b, source, "//! link:");
         const c_includes = parseDirectiveList(b, source, "//! cinclude:");
         const c_sources = parseDirectiveList(b, source, "//! csource:");
@@ -397,6 +412,13 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
         // even without an explicit `//! native` line.
         const native = hasMarker(source, "//! native") or
             link_libs.len > 0 or c_includes.len > 0 or c_sources.len > 0;
+        if (stdin != null and !native) {
+            std.debug.panic(
+                "{s} has a sibling {s}, but only a `//! native` snippet is given stdin: " ++
+                    "the browser runs the wasm with none, so the page would not match CI",
+                .{ rel, stdin_rel },
+            );
+        }
 
         try out.append(b.allocator, .{
             .name = b.fmt("{s}.{s}", .{ chapter, stem }),
@@ -404,6 +426,7 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
             .chapter = b.dupe(chapter),
             .kind = if (std.mem.find(u8, source, "pub fn main") != null) .exe else .@"test",
             .expected = expected,
+            .stdin = stdin,
             .expected_error = expected_error,
             .fails = fails,
             // `//! norun` and native builds are both unshippable to the browser.
