@@ -8,6 +8,10 @@ group: Databases
 
 import Playground from "../../../../components/Playground.astro";
 
+Zig calls SQLite's C API directly: a translate-c build step turns `sqlite3.h`
+into a module imported as `@import("c")`, and the program links `sqlite3`.
+`@cImport` was removed, so older examples that use it no longer compile.
+
 ## The problem
 
 You want a real database from Zig, and SQLite is the obvious first one. It is

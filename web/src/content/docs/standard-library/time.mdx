@@ -7,6 +7,11 @@ order: 54
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, the current time is read through the `Io` interface with
+`std.Io.Clock.Timestamp.now(io, clock)`, using `.real` for wall-clock time and
+`.awake` for measuring how long something took. `std.time` keeps the constants
+and the calendar code.
+
 <Playground name="03-standard-library.time" />
 
 ## Reading a clock takes an Io

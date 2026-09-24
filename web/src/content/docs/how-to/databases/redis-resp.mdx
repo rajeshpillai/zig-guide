@@ -8,6 +8,10 @@ group: Databases
 
 import Playground from "../../../../components/Playground.astro";
 
+A Redis command in RESP is `*` and the argument count, then each argument as
+`$`, its byte length and its bytes, with every line ending in `\r\n`. A Zig
+program can write and parse that directly, with no client library.
+
 ## The problem
 
 Redis speaks RESP, a small text protocol over TCP. You do not need a client

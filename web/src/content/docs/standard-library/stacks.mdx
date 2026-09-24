@@ -7,6 +7,11 @@ order: 23
 
 import Playground from "../../../components/Playground.astro";
 
+Push and pop in Zig are `append(gpa, x)` and `pop()` on a `std.ArrayList`,
+with `pop()` returning `null` when the list is empty. When the maximum depth
+is known, a fixed array and a length index make a stack with no allocator at
+all.
+
 <Playground name="03-standard-library.stacks" />
 
 Zig has no dedicated `Stack` type because it does not need one. An `ArrayList`

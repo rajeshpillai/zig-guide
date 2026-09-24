@@ -7,6 +7,11 @@ order: 43
 
 import Playground from "../../../components/Playground.astro";
 
+A Zig program reads its command-line arguments from `init.minimal.args`, the
+`std.process.Args` inside the `std.process.Init` that `main` receives, and its
+environment from `init.environ_map`. The standard library has no argument
+parser, so the flag loop is yours to write.
+
 <Playground name="03-standard-library.command-line" />
 
 ## Where the real arguments come from

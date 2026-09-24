@@ -7,6 +7,11 @@ order: 50
 
 import Playground from "../../../components/Playground.astro";
 
+A Zig ORM can derive its INSERT and UPDATE statements from the schema
+struct at compile time, and build the matching values as an array of
+tagged-union `Value`s from the same walk over the fields. The statement
+and its values then cannot disagree in length or order.
+
 ## The problem
 
 Reading was the [query builder](/learn/orm/query-builder/); writing is the

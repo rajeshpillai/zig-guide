@@ -7,6 +7,10 @@ order: 16
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `defer` is how cleanup is written: the release goes on the line under
+the acquire, and deferred statements run in reverse order when the scope exits.
+`errdefer` does the same only when the function returns an error.
+
 <Playground name="02-language.defer" />
 
 `defer` schedules an expression to run when the enclosing **scope** exits: not

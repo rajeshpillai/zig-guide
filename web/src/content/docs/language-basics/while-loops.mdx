@@ -7,6 +7,10 @@ order: 13
 
 import Playground from "../../../components/Playground.astro";
 
+Zig's counting loop is `while (i < n) : (i += 1)`, where the continue
+expression after the colon runs after every iteration, including ones cut
+short by `continue`.
+
 <Playground name="02-language.while-loops" />
 
 `while` takes a condition and runs the body until it goes false. There is no

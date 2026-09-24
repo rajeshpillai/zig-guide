@@ -7,6 +7,11 @@ order: 30
 
 import Playground from "../../../components/Playground.astro";
 
+A typed query builder in Zig takes columns as `std.meta.FieldEnum(T)`,
+so a misspelled column is a compile error, and renders values as
+numbered placeholders (`$1`, `$2`) that never touch the SQL text. The
+builder is a plain value and chains without an allocator.
+
 ## The problem
 
 Every database library faces the same two failure modes. Queries that

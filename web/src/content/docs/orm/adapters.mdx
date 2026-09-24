@@ -7,6 +7,11 @@ order: 60
 
 import Playground from "../../../components/Playground.astro";
 
+A Zig ORM can support several SQL dialects without interfaces or a
+vtable. Each dialect is a struct of `pub` declarations, the renderer
+takes it as a `comptime Dialect: type` parameter, and the choice is made
+at compile time with no runtime dispatch.
+
 ## The problem
 
 PostgreSQL numbers its placeholders (`$1`), SQLite uses positional question

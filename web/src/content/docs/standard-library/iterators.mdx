@@ -7,6 +7,10 @@ order: 51
 
 import Playground from "../../../components/Playground.astro";
 
+Zig's standard library iterators, such as `std.mem.splitScalar`,
+`std.mem.tokenizeAny` and `std.mem.window`, are plain structs with a `next`
+method, and they yield slices of the original bytes without allocating.
+
 <Playground name="03-standard-library.iterators" />
 
 Zig has no `Iterator` trait, no `IntoIterator`, no iterator protocol to

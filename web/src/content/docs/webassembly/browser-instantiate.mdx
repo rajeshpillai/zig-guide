@@ -7,6 +7,11 @@ order: 89
 
 import Playground from "../../../components/Playground.astro";
 
+To load a Zig wasm module in the browser, pass `fetch("module.wasm")` to
+`WebAssembly.instantiateStreaming` along with an imports object, then call the
+functions on `instance.exports`. The module calls back into JavaScript through
+`extern` functions that the imports object supplies by name.
+
 ## The problem
 
 You have a reactor module and a web page. You want the page to load the `.wasm`,

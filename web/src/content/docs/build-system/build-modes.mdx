@@ -7,6 +7,10 @@ order: 70
 
 import Playground from "../../../components/Playground.astro";
 
+Zig has four build modes: `Debug`, `ReleaseSafe`, `ReleaseFast` and
+`ReleaseSmall`. They differ in whether runtime safety checks stay in the
+binary and whether the optimiser aims for speed or for size.
+
 <Playground name="04-build-system.build-modes" />
 
 | Mode | Safety checks | Optimised | Size |

@@ -7,6 +7,11 @@ order: 26
 
 import Playground from "../../../components/Playground.astro";
 
+Zig's tagged union, written `union(enum)`, is a sum type: the value carries a
+tag naming its active field, and a `switch` on it must handle every field. A
+bare `union` has no tag, and reading a field that is not the active one is
+illegal behaviour.
+
 <Playground name="02-language.unions" />
 
 A union holds one of its fields at a time. The question is always: *which

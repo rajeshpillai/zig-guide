@@ -7,6 +7,9 @@ order: 28
 
 import Playground from "../../../components/Playground.astro";
 
+Zig never converts between integers and floats implicitly: `@floatFromInt`
+and `@intFromFloat` do it, and `@intFromFloat` truncates toward zero.
+
 <Playground name="02-language.floats" />
 
 Zig has `f16`, `f32`, `f64`, `f80`, and `f128`. All are IEEE-754 (except

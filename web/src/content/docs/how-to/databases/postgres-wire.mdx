@@ -8,6 +8,10 @@ group: Databases
 
 import Playground from "../../../../components/Playground.astro";
 
+A Zig program can speak the PostgreSQL wire protocol with no driver. After the
+startup message, every message is a one-byte type, a big-endian `Int32` length
+that counts itself, and the payload.
+
 ## The problem
 
 A Postgres driver is mostly a codec for one TCP protocol. Seeing that protocol

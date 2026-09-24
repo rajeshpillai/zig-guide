@@ -7,6 +7,10 @@ order: 38
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a string literal has type `*const [N:0]u8`, and `[:0]u8` and
+`[*:0]u8` are the slice and pointer forms of a zero-terminated sequence, which
+can be passed to C without a copy.
+
 <Playground name="02-language.sentinel-termination" />
 
 A sentinel-terminated type guarantees a specific value sits just past the end.

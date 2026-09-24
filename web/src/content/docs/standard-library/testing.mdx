@@ -7,6 +7,10 @@ order: 70
 
 import Playground from "../../../components/Playground.astro";
 
+Zig tests are `test` blocks run by `zig test`, and `std.testing` supplies the
+assertions, such as `expectEqual` and `expectError`, plus
+`std.testing.allocator`, which fails a test that leaks memory.
+
 <Playground name="03-standard-library.testing" />
 
 ## expect tells you nothing; the others tell you what

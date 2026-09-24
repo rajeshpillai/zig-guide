@@ -9,6 +9,10 @@ order: 15
 
 import Playground from "../../../components/Playground.astro";
 
+Zig function parameters are constant, and ignoring a function's non-`void`
+return value is a compile error, so a deliberate discard is written
+`_ = addFive(1);`.
+
 <Playground name="02-language.functions" />
 
 ## Parameters are constant

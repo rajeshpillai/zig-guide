@@ -7,6 +7,10 @@ order: 93
 
 import Playground from "../../../components/Playground.astro";
 
+Zig tests catch memory leaks by allocating through `std.testing.allocator`,
+and catch leaks on error paths with `std.testing.FailingAllocator`, which
+makes a chosen allocation return `error.OutOfMemory`.
+
 ## The problem
 
 Manual memory management means every `alloc` needs a matching `free`, on every

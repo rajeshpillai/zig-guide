@@ -7,6 +7,11 @@ order: 90
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a UDP socket comes from `std.Io.net.IpAddress.bind` with `.mode
+= .dgram`, and there is no `listen` or `accept`. Each `send` names its
+destination, and each `receive` returns the data along with the sender's
+address.
+
 ## The problem
 
 Some traffic does not want a connection: metrics, discovery pings, game

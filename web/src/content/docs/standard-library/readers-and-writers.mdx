@@ -7,6 +7,10 @@ order: 40
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, bytes are read through `std.Io.Reader` and written through
+`std.Io.Writer`, so one parser or formatter works against a file, a socket or
+a fixed buffer.
+
 <Playground name="03-standard-library.readers-and-writers" />
 
 Zig 0.15 replaced the old generic `Reader`/`Writer` with non-generic

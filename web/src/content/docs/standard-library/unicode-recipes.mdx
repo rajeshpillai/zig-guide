@@ -7,6 +7,11 @@ order: 36
 
 import Playground from "../../../components/Playground.astro";
 
+To truncate a UTF-8 string in Zig without cutting a character in half, walk
+`nextCodepointSlice` and stop before the slice that would pass the limit.
+Conversion to and from UTF-16 is `std.unicode.utf8ToUtf16LeAlloc` and
+`utf16LeToUtf8Alloc`.
+
 <Playground name="03-standard-library.unicode-recipes" />
 
 ## Length from the first byte

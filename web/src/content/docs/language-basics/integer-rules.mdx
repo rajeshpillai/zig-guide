@@ -7,6 +7,11 @@ order: 27
 
 import Playground from "../../../components/Playground.astro";
 
+Zig integer types carry an explicit width, such as `u8`, `i32` or `u3`, and
+narrowing from a wider type needs `@intCast`. Plain `+` treats overflow as
+illegal behaviour, which panics in safety builds; `+%` wraps and `+|`
+saturates when that is what you want.
+
 <Playground name="02-language.integer-rules" />
 
 ## Any width you like

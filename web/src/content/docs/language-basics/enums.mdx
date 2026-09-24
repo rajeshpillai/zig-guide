@@ -7,6 +7,11 @@ order: 24
 
 import Playground from "../../../components/Playground.astro";
 
+A Zig enum is a type whose value is exactly one of a fixed set of named tags.
+An enum can pin its integer tag type with `enum(u8)`, declare methods, and
+accept values outside the named tags when a trailing `_` makes it
+non-exhaustive.
+
 <Playground name="02-language.enums" />
 
 ## Inferred literals

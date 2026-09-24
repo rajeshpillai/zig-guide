@@ -9,6 +9,10 @@ order: 55
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `std.log` is the logging API, and its level is set once, in
+`std_options` in the root source file. A call below that level is compiled out
+rather than skipped at run time.
+
 <Playground name="03-standard-library.logging" />
 
 ## Four levels, tagged by scope

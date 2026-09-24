@@ -7,6 +7,12 @@ order: 20
 
 import Playground from "../../../components/Playground.astro";
 
+A PostgreSQL client in Zig speaks the wire protocol directly: `PgClient`
+sends the startup message, answers the server's password request,
+returns rows through an iterator, and turns an `ErrorResponse` into a
+Zig error without losing the connection. It reads from a `Reader`, so
+its tests run against scripted bytes instead of a database.
+
 ## The problem
 
 The [cookbook recipe](/learn/how-to/databases/postgres-wire/) proved the

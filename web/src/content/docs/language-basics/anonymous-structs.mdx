@@ -7,6 +7,10 @@ order: 37
 
 import Playground from "../../../components/Playground.astro";
 
+Zig has anonymous structs in two forms: a struct type written inline where it
+is used, and a tuple, which is a struct whose fields are numbered rather than
+named. The argument list passed to `print` is a tuple.
+
 <Playground name="02-language.anonymous-structs" />
 
 `.{ ... }` is a struct literal whose type comes from context. When the target

@@ -7,6 +7,10 @@ order: 103
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a producer/consumer queue is `std.Io.Queue(T)`. Workers block on
+`getOne`, and after the producer calls `close` they drain what is left and
+then get `error.Closed`.
+
 ## The problem
 
 One part of your program discovers work; another part does it. The classic

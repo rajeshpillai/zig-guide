@@ -7,6 +7,11 @@ order: 98
 
 import Playground from "../../../components/Playground.astro";
 
+A ring buffer in Zig can be a type function,
+`fn LastN(comptime T: type, comptime capacity: usize) type`, that returns a
+struct holding a fixed `[capacity]T` array. Pushing past capacity overwrites
+the oldest item, and nothing allocates.
+
 ## The problem
 
 You want the most recent N things: the last few log lines for an error

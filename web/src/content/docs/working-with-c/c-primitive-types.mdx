@@ -7,6 +7,10 @@ order: 81
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a C `int` is `c_int` and a C `long` is `c_long`, and their sizes
+follow the target's C ABI. Use them at the C boundary, because `long` is 8
+bytes on 64-bit Linux and 4 on Windows.
+
 <Playground name="05-working-with-c.c-primitives" />
 
 Zig provides `c_char`, `c_short`, `c_int`, `c_long`, `c_longlong`, the

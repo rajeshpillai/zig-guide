@@ -9,6 +9,10 @@ order: 21
 
 import Playground from "../../../components/Playground.astro";
 
+`std.ArrayList` is Zig's growable array, and on master it holds no allocator:
+create it with `.empty` and pass the allocator to every method that might
+allocate, as in `list.append(gpa, x)`.
+
 <Playground name="03-standard-library.arraylist" />
 
 ## It is unmanaged now

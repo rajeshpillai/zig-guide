@@ -7,6 +7,10 @@ order: 94
 
 import Playground from "../../../components/Playground.astro";
 
+Zig prints any struct without a per-type function by looping over `@typeInfo`
+with `inline for` at compile time. On current master the fields come as the
+parallel arrays `field_names` and `field_types`, not the old `fields` slice.
+
 ## The problem
 
 You want to dump any struct for debugging or [logging](/learn/standard-library/logging/): field names, values,

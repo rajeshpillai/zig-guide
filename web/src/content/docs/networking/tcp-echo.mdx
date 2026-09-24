@@ -7,6 +7,11 @@ order: 20
 
 import Playground from "../../../components/Playground.astro";
 
+In current Zig, a TCP server is `std.Io.net.IpAddress.parse` followed by
+`address.listen(io, .{})` and `server.accept(io)`, and a client is
+`addr.connect(io, .{ .mode = .stream })`. A connected stream's reader is
+the same `std.Io.Reader` you use for files.
+
 ## The problem
 
 You want a TCP server and a client talking to it, in Zig, with today's API.

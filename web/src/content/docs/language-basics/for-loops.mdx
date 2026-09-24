@@ -9,6 +9,9 @@ order: 14
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `for` loops over a slice, an array or a range, and the index comes
+from zipping in a second sequence: `for (items, 0..) |item, index|`.
+
 <Playground name="02-language.for-loops" />
 
 Zig's `for` iterates over something: a slice, an array, a range. There is no

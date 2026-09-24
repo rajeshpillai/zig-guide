@@ -7,6 +7,11 @@ order: 100
 
 import Playground from "../../../components/Playground.astro";
 
+For repeatable randomness in Zig, create a generator from a fixed seed with
+`std.Random.DefaultPrng.init(42)` and pass `prng.random()` to the code that
+needs it. The same seed gives the same output on the same Zig version, on
+every platform.
+
 ## The problem
 
 Your program generates something random: a game map, test data, a shuffled

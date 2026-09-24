@@ -7,6 +7,11 @@ order: 92.7
 
 import Playground from "../../../components/Playground.astro";
 
+A file-backed store in Zig can update one record without rewriting the file
+when every record is the same size. Record `N` sits at
+`(N - 1) * @sizeOf(Record)`, and `readPositionalAll` and `writePositionalAll`
+read and write at that offset.
+
 ## The problem
 
 You want to persist a list of items and update any one of them without

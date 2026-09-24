@@ -7,6 +7,10 @@ order: 102
 
 import Playground from "../../../components/Playground.astro";
 
+An atomic work index in Zig is a shared `std.atomic.Value(usize)` that each
+thread advances with `fetchAdd(1, .monotonic)` to claim its next job. A thread
+that finishes early claims the next job, and no lock is needed.
+
 ## The problem
 
 Static chunking (one slice piece per thread) balances load only when every

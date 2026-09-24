@@ -7,6 +7,10 @@ order: 35
 
 import Playground from "../../../components/Playground.astro";
 
+Zig pads a string by giving it a width in the format spec, as in `{s:<8}`, and
+joins strings at run time with `std.mem.concat`, which takes an allocator.
+Case-insensitive search is `std.ascii.findIgnoreCase`.
+
 <Playground name="03-standard-library.string-recipes" />
 
 ## Padding is a spec, not a function

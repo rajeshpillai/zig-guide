@@ -7,6 +7,11 @@ order: 92
 
 import Playground from "../../../components/Playground.astro";
 
+A binary wire format in Zig is written field by field with `std.mem.writeInt`
+and read back with `std.mem.readInt`, each call naming its endianness.
+Decoding checks a magic number first, so bad input returns an error instead of
+garbage.
+
 ## The problem
 
 You need to write a struct somewhere outside your process (a file header, a

@@ -7,6 +7,10 @@ order: 99
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `std.bit_set.Static(n)` stores a set of small integers as bits, so
+union and intersection are bitwise operations and nothing allocates.
+`std.bit_set.Static(24)` holds the hours of a day in a single `u24`.
+
 ## The problem
 
 You need sets of small integers and set arithmetic over them: which hours two

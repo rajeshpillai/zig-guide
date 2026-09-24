@@ -7,6 +7,11 @@ order: 90
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a transaction wrapper runs `BEGIN`, registers an `errdefer` that
+runs `ROLLBACK`, runs the caller's work, then runs `COMMIT`. An error
+anywhere after the `errdefer`, including in `COMMIT`, rolls the
+transaction back and returns the original error.
+
 ## The problem
 
 A transaction wrapper has one job: no path may leave the transaction open.

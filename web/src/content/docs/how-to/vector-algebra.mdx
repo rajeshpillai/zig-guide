@@ -7,6 +7,10 @@ order: 97.5
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, vector math on `@Vector(3, f32)` uses ordinary operators: the dot
+product is `@reduce(.Add, a * b)`, and normalizing divides by `@splat(len)`.
+Only the cross product has to index specific lanes.
+
 ## The problem
 
 You are doing 3D work (graphics, physics, a game) and need the four

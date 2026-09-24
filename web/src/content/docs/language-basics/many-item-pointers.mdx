@@ -7,6 +7,10 @@ order: 22
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `[*]T` is a many-item pointer: it points at an unknown number of `T`
+and supports indexing, but has no `.len` and no bounds checking. Slicing it
+with `many[0..count]` gives a checked `[]T` once the length is known.
+
 <Playground name="02-language.many-item-pointers" />
 
 C has one pointer type, `T*`, which is used for three different things: one

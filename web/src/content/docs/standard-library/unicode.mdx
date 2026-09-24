@@ -7,6 +7,11 @@ order: 31
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a string is a slice of bytes, and UTF-8 handling is opt-in through
+`std.unicode`, where `Utf8View` validates the bytes and iterates code points.
+Grapheme clusters, case folding and normalisation are not in the standard
+library.
+
 <Playground name="03-standard-library.unicode" />
 
 ## `len` is bytes

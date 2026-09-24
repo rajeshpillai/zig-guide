@@ -7,6 +7,10 @@ order: 52
 
 import Playground from "../../../components/Playground.astro";
 
+Zig's random number generators are `std.Random.DefaultPrng`, fast and seedable
+for tests and simulations, and `std.Random.DefaultCsprng`, the secure one for
+tokens and keys.
+
 <Playground name="03-standard-library.random-numbers" />
 
 There is no global `rand()`. You create a generator, seed it, and pass its

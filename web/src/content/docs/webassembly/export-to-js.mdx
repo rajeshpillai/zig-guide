@@ -7,6 +7,10 @@ order: 86
 
 import Playground from "../../../components/Playground.astro";
 
+To call Zig from JavaScript, mark the function `export fn`, build for
+`wasm32-freestanding` with `-fno-entry` and `--export=<name>`, and call it as
+`instance.exports.<name>` once `WebAssembly.instantiate` has run.
+
 ## The problem
 
 You want to call a Zig function from JavaScript: a hot loop, a parser, a bit of

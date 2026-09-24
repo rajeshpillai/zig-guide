@@ -7,6 +7,11 @@ order: 100
 
 import Playground from "../../../components/Playground.astro";
 
+Zig's standard library has both halves of HTTP with no dependencies:
+`std.http.Server` answers requests over any reader and writer, and
+`std.http.Client.fetch` makes a request in one call. Both are built on
+the `std.Io` reader and writer interfaces.
+
 ## The problem
 
 You want to make an HTTP request from Zig, or handle one, using only the

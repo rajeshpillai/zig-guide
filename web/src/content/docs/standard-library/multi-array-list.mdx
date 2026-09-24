@@ -9,6 +9,10 @@ order: 25
 
 import Playground from "../../../components/Playground.astro";
 
+`std.MultiArrayList(T)` is Zig's struct-of-arrays container. It takes whole
+structs through `append` like an `ArrayList(T)`, and `items(.field)` returns
+one field of every element as its own slice.
+
 <Playground name="03-standard-library.multi-array-list" />
 
 ## Same API, transposed storage

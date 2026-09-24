@@ -7,6 +7,10 @@ order: 24
 
 import Playground from "../../../components/Playground.astro";
 
+`std.PriorityQueue(T, Context, compareFn)` is Zig's binary heap. `push` and
+`pop` are O(log n), and `pop` returns the element the comparator ranks first,
+or `null` when the queue is empty.
+
 <Playground name="03-standard-library.priority-queue" />
 
 ## The comparator lives in the type

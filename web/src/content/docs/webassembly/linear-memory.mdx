@@ -7,6 +7,11 @@ order: 87
 
 import Playground from "../../../components/Playground.astro";
 
+A string cannot cross between JavaScript and a Zig wasm module as a value, so
+it crosses through the module's linear memory: the host writes the bytes at an
+offset the module's exported `alloc` returns, then calls in with that offset
+and a length.
+
 ## The problem
 
 The [last recipe](../export-to-js/) passed numbers, which fit in a wasm value.

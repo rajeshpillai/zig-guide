@@ -7,6 +7,11 @@ order: 34
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `std.fmt.parseInt(T, text, base)` converts a string to an integer and
+returns an error when the text is not a number or does not fit in `T`. Bytes
+become hex with `std.fmt.bytesToHex` and base64 with the codecs in
+`std.base64`.
+
 <Playground name="03-standard-library.parsing-and-encoding" />
 
 ## Parsing is fallible, and says so

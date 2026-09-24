@@ -7,6 +7,10 @@ order: 82
 
 import Playground from "../../../components/Playground.astro";
 
+Zig's C pointer type, `[*c]T`, can be null, carries no length and has no
+bounds checks. Turn it into a slice or a `*T` at the C boundary and keep it
+out of the rest of the program.
+
 <Playground name="05-working-with-c.c-pointers" />
 
 `[*c]T` is Zig's model of C's `T*`. It exists almost entirely so that

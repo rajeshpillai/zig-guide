@@ -7,6 +7,9 @@ order: 39
 
 import Playground from "../../../components/Playground.astro";
 
+Zig exposes SIMD as a type, `@Vector(N, T)`, rather than as a library of
+intrinsics, and `std.simd.suggestVectorLength` picks `N` for the target.
+
 <Playground name="02-language.vectors" />
 
 `@Vector(N, T)` is a SIMD vector of `N` lanes. Arithmetic operators work

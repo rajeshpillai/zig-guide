@@ -7,6 +7,10 @@ order: 22
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a hash map is `std.AutoHashMapUnmanaged(K, V)`, or
+`std.StringHashMapUnmanaged(V)` when the keys are strings, and
+`map.getOrPut(gpa, key)` inserts or updates an entry with a single lookup.
+
 <Playground name="03-standard-library.hash-maps" />
 
 ## Which map to pick

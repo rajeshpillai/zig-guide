@@ -7,6 +7,10 @@ order: 80
 
 import Playground from "../../../components/Playground.astro";
 
+To pass a struct to C from Zig, declare it `extern struct`, which uses the C
+ABI's field order and padding. `packed struct` gives exact bits with no
+padding, for registers and wire formats.
+
 <Playground name="05-working-with-c.abi" />
 
 A plain Zig `struct` makes **no layout promise**. Fields may be reordered and

@@ -7,6 +7,10 @@ order: 88
 
 import Playground from "../../../components/Playground.astro";
 
+`wasm32-freestanding` is Zig's smallest wasm target, with no WASI and no libc:
+the module has no `main`, stdout, files or OS heap, and its host drives it
+through exports.
+
 ## The problem
 
 You want the smallest possible module, with no dependency on a system

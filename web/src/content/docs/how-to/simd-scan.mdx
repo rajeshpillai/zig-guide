@@ -7,6 +7,11 @@ order: 97
 
 import Playground from "../../../components/Playground.astro";
 
+SIMD byte scanning in Zig loads a vector's worth of bytes at once, compares
+every lane in one operation, and `@bitCast`s the resulting bool vector to an
+integer so `@ctz` finds the first match. The pattern is five steps: splat,
+load, compare, extract, tail.
+
 ## The problem
 
 A parser reading a JSON string spends its life in a loop like this:

@@ -7,6 +7,11 @@ order: 80
 
 import Playground from "../../../components/Playground.astro";
 
+The Repo is the one stateful object in an Ecto-style ORM and the only
+part that talks to the database. In Zig it is `Repo(Driver)`, with the
+driver as a comptime parameter, so tests pass a driver that records the
+SQL instead of running it.
+
 ## The problem
 
 Every piece so far (schema, statements, dialects, plans) is pure. At

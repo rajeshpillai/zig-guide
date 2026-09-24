@@ -7,6 +7,11 @@ order: 50
 
 import Playground from "../../../components/Playground.astro";
 
+A URL shortener in Zig fits in one file: a Postgres wire client, base62
+slugs and a CRUD `handle` function behind a store seam, served by an
+accept loop on real sockets. It runs against a local Postgres started
+with one `docker run` command.
+
 ## The problem
 
 Three chapters built three pieces, each proven against bytes: a

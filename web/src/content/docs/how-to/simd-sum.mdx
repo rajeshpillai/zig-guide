@@ -7,6 +7,10 @@ order: 96
 
 import Playground from "../../../components/Playground.astro";
 
+A SIMD dot product in Zig multiplies `@Vector(4, i32)` chunks with plain `*`
+and `+=`, collapses the lanes with `@reduce(.Add, acc)`, and finishes the
+leftover elements with a scalar loop.
+
 ## The problem
 
 You have two arrays of numbers and want their dot product, and the scalar

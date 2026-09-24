@@ -7,6 +7,11 @@ order: 70
 
 import Playground from "../../../components/Playground.astro";
 
+Database migrations are easiest to test as data: an append-only list of
+`{version, up, down}` entries, and a pure `plan(current, target)`
+function that returns the steps to run. Executing the plan is a separate
+loop, so every planning case is tested without a database.
+
 ## The problem
 
 Schemas change after they ship. This is the discipline every mature ORM

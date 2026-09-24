@@ -7,6 +7,11 @@ order: 32
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `|value|` after `if`, `while`, `for`, `switch` or `catch` names the
+unwrapped payload: the non-null value, the success value, the active variant
+or the current element. `|*value|` captures a pointer instead, so writes reach
+the original.
+
 <Playground name="02-language.payload-captures" />
 
 The `|value|` syntax is one idea reused everywhere something is wrapped:

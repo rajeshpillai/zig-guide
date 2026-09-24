@@ -9,6 +9,10 @@ order: 41
 
 import Playground from "../../../components/Playground.astro";
 
+`std.json.parseFromSlice` parses JSON into your own Zig struct, matching
+object keys to field names, and `std.json.Stringify.value` writes a value back
+out as JSON to any writer.
+
 <Playground name="03-standard-library.json" />
 
 ## Parsing into a struct

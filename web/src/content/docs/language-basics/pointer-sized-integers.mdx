@@ -9,6 +9,10 @@ order: 21
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, use `usize` for lengths, indices and byte offsets into memory, and a
+fixed width such as `u64` for values whose range comes from the problem, like
+a file offset or a timestamp.
+
 <Playground name="02-language.pointer-sized-integers" />
 
 `usize` and `isize` are exactly as wide as a pointer on the target. They are

@@ -7,6 +7,11 @@ order: 95
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, plain `+` panics on overflow in safe builds. To handle overflow
+instead, choose one of four explicit forms: `std.math.add` returns
+`error.Overflow`, `+|` saturates, `+%` wraps, and `@addWithOverflow` returns
+the result with a flag.
+
 ## The problem
 
 You are adding numbers that come from outside your control: user input, a

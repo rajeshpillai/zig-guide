@@ -7,6 +7,10 @@ order: 40
 
 import Playground from "../../../components/Playground.astro";
 
+A Zig library finds optional per-type behavior with `@hasDecl` at
+compile time. A schema that declares `pub const rules = .{ ... }` gets
+validation, and a schema without it gets no validation code at all.
+
 ## The problem
 
 Your library wants optional, per-type behavior: validation rules on one

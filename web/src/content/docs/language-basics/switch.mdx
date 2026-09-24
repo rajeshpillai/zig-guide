@@ -9,6 +9,10 @@ order: 18
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `switch` can match single values, lists such as `10, 100` and
+inclusive ranges such as `-1...1`, and it can be used as an expression whose
+value goes straight into a `const`.
+
 <Playground name="02-language.switch" />
 
 Zig's `switch` has no fallthrough, and it must be **exhaustive**: every

@@ -7,6 +7,10 @@ order: 29
 
 import Playground from "../../../components/Playground.astro";
 
+A labelled block is Zig's way to compute a `const` with several statements:
+the block ends with `break :blk value`, and its intermediate variables go out
+of scope at the closing brace.
+
 <Playground name="02-language.labelled-blocks" />
 
 Label a block and `break` out of it with a value:

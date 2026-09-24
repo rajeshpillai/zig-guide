@@ -7,6 +7,10 @@ order: 26
 
 import Playground from "../../../components/Playground.astro";
 
+`std.bit_set.Static(N)` stores a set of the integers `0..N` as bits, with no
+allocator. `EnumSet`, `EnumArray` and `EnumMap` turn an enum into a set, a
+table with a value for every tag, or a map with values for some tags.
+
 <Playground name="03-standard-library.bit-sets" />
 
 ## A set that fits in registers

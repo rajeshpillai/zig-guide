@@ -7,6 +7,10 @@ order: 60
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `std.Thread.spawn` starts a real OS thread and `join` waits for it to
+finish. Shared data is guarded with `std.Io.Mutex`, because `std.Thread.Mutex`
+no longer exists.
+
 <Playground
   name="03-standard-library.threads"
   note="Built and run natively by CI. wasm32-wasi is single-threaded, so std.Thread.spawn does not compile for it at all."

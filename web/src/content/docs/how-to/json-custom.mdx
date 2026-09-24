@@ -7,6 +7,11 @@ order: 91.5
 
 import Playground from "../../../components/Playground.astro";
 
+To control how Zig writes a struct as JSON, give the struct a `jsonStringify`
+method that drives the write stream with `beginObject`, `objectField`, `write`
+and `endObject`. Renaming a field or adding a computed value then takes no
+string building.
+
 ## The problem
 
 The default JSON serializer emits your struct exactly as declared: same field

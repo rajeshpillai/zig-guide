@@ -7,6 +7,10 @@ order: 35
 
 import Playground from "../../../components/Playground.astro";
 
+Zig's `inline for` compiles the loop body once per iteration, so each
+iteration can handle a value of a different type. That is how code walks a
+tuple or the fields of a struct.
+
 <Playground name="02-language.inline-loops" />
 
 `inline for` unrolls at compile time. That is occasionally about performance,

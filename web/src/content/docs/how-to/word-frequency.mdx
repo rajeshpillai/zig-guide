@@ -7,6 +7,10 @@ order: 90
 
 import Playground from "../../../components/Playground.astro";
 
+To count words in Zig, split the text with `std.mem.tokenizeAny`, count into a
+`StringHashMapUnmanaged(u32)` with `getOrPut`, then copy the entries into an
+`ArrayList` and sort it with `std.mem.sort`.
+
 ## The problem
 
 You have a block of text and want the five most common words: case-insensitive,

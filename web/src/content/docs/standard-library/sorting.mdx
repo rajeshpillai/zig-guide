@@ -7,6 +7,10 @@ order: 50
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `std.mem.sort` sorts a slice in place, stably, using a less-than
+function you pass, and `std.mem.sortUnstable` is the version that gives up
+stability for less work.
+
 <Playground name="03-standard-library.sorting" />
 
 ```zig

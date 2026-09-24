@@ -7,6 +7,10 @@ order: 36
 
 import Playground from "../../../components/Playground.astro";
 
+Zig's `opaque {}` is the equivalent of C's incomplete type. It is used for
+handles that code may only hold through a pointer, such as the ones
+translate-c produces from a C header.
+
 <Playground name="02-language.opaque" />
 
 An `opaque {}` type has unknown size and layout. You can never have one by

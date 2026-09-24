@@ -7,6 +7,10 @@ order: 94
 
 import Playground from "../../../components/Playground.astro";
 
+A sequence number on every message lets a receiver detect both loss and
+duplicates, and a cumulative ack ("I have everything through N") tells
+the sender what it has to resend. TCP's acks follow the same design.
+
 ## The problem
 
 The previous chapter ended with a receiver that could not tell loss from

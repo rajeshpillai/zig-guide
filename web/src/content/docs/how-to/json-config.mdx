@@ -7,6 +7,11 @@ order: 91
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `std.json.parseFromSlice` loads a JSON config into a struct, and any
+field with a default value keeps that default when the file leaves it out.
+Checks such as a port range go in a separate `validate` function, because the
+parser only checks types and field names.
+
 ## The problem
 
 Your program reads a JSON config file that users edit by hand. That means every

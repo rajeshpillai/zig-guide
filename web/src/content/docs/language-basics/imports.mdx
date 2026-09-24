@@ -7,6 +7,9 @@ order: 40
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, every file is a struct, and `pub` marks what other files can see.
+Anything declared without `pub` is private to its file.
+
 <Playground name="02-language.imports" />
 
 `@import` takes a path and returns that file **as a struct type**:

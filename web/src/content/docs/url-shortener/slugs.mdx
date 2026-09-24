@@ -7,6 +7,11 @@ order: 30
 
 import Playground from "../../../components/Playground.astro";
 
+A URL shortener's slug can be the database row id written in base62,
+which makes every slug unique with no collision check. The URL it points
+to needs checking before it is stored, because a shortener is an open
+redirect by design.
+
 ## The problem
 
 The service needs a short name for every stored URL. The tempting

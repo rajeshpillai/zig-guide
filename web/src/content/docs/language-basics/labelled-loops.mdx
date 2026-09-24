@@ -7,6 +7,10 @@ order: 30
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, `break :outer` leaves a labelled outer loop from inside a nested one,
+and `continue :outer` moves on to its next iteration, so no flag variable is
+needed.
+
 <Playground name="02-language.labelled-loops" />
 
 `break` and `continue` affect the innermost loop by default. Label a loop to

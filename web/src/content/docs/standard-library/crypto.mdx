@@ -7,6 +7,11 @@ order: 53
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a SHA-256 digest is one call to `std.crypto.hash.sha2.Sha256.hash`,
+and secrets such as MACs and tokens are compared with
+`std.crypto.timing_safe.eql` rather than `std.mem.eql`. Passwords go through
+`std.crypto.pwhash`, not a plain hash.
+
 <Playground name="03-standard-library.crypto" />
 
 Zig ships a substantial crypto library in `std.crypto` (hashes, AEADs, key

@@ -7,6 +7,10 @@ order: 95.5
 
 import Playground from "../../../components/Playground.astro";
 
+Zig's math functions live in `std.math`: `std.math.sqrt`, `std.math.sin`
+(which takes radians), `std.math.pow(T, base, exp)` and constants such as
+`std.math.pi`. Floats are compared with `std.math.approxEqAbs`, not `==`.
+
 ## The problem
 
 You need a formula: a sine, a square root, degrees turned into radians. The

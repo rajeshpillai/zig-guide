@@ -7,6 +7,11 @@ order: 40
 
 import Playground from "../../../components/Playground.astro";
 
+All five CRUD routes of a URL shortener fit in one Zig function:
+`handle` takes request bytes and a store, and writes a complete HTTP
+response. With an in-memory store behind the seam, every route is tested
+with no server, socket or database.
+
 ## The problem
 
 The HTTP surface is where create, read, update and delete become

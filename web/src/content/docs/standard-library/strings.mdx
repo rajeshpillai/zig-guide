@@ -9,6 +9,10 @@ order: 30
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a string is a `[]const u8`, and searching, trimming, splitting and
+joining are free functions in `std.mem`, such as `std.mem.find`,
+`std.mem.trim` and `std.mem.splitScalar`.
+
 <Playground name="03-standard-library.strings" />
 
 ## There is no string type

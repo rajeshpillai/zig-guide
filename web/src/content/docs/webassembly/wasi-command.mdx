@@ -7,6 +7,11 @@ order: 85
 
 import Playground from "../../../components/Playground.astro";
 
+To run a Zig program as WebAssembly outside the browser, build it with `zig
+build-exe -target wasm32-wasi` and run the `.wasm` under a WASI runtime such
+as `wasmtime`, `wasmer` or Node's `node:wasi`. The program itself needs no
+wasm-specific code.
+
 ## The problem
 
 You have a Zig program with a `main`, and you want a single `.wasm` that runs

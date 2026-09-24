@@ -7,6 +7,10 @@ order: 101
 
 import Playground from "../../../components/Playground.astro";
 
+To split work across threads in Zig, give each `std.Thread.spawn` worker its
+own chunk of the slice and its own output slot, then `join` them all and add
+up the slots. `std.Thread.Pool` is gone from current master.
+
 ## The problem
 
 You have a big slice and a per-element computation, and one core is doing

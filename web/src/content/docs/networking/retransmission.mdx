@@ -7,6 +7,11 @@ order: 96
 
 import Playground from "../../../components/Playground.astro";
 
+Retransmission resends a message when its ack has not arrived within a
+timeout, and a sliding window keeps several messages in flight so one
+loss does not stall the stream. With sequence numbers and cumulative
+acks, they are the working core of TCP.
+
 ## The problem
 
 The sender now knows which messages were never confirmed. Knowing is not

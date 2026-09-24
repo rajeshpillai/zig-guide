@@ -7,6 +7,10 @@ order: 92.9
 
 import Playground from "../../../components/Playground.astro";
 
+Zig compresses a buffer with the system zlib by linking `z`, translating the
+`zlib.h` header, and calling `compressBound`, `compress2` and `uncompress` as
+ordinary C functions.
+
 ## The problem
 
 You need to shrink a buffer before writing or sending it, and zlib is the

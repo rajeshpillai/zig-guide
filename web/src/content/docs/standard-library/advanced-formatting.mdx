@@ -7,6 +7,10 @@ order: 33
 
 import Playground from "../../../components/Playground.astro";
 
+In Zig, a custom `format` method takes only a `*std.Io.Writer`, and `print`
+calls it only when the format string asks with `{f}`. Width, fill and
+alignment go after a colon, as in `{d:0>4}`, and are the formatter's job.
+
 <Playground name="03-standard-library.advanced-formatting" />
 
 ## Custom `format` methods changed shape
