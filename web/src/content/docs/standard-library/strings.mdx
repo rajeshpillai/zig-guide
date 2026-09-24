@@ -15,7 +15,8 @@ import Playground from "../../../components/Playground.astro";
 
 A string is `[]const u8`: a slice of bytes. That means `==` compares the
 pointer and length, not the content, and the compiler will tell you so.
-Content comparison is `std.mem.eql(u8, a, b)`. Everything else you would
+Content comparison is `std.mem.eql(u8, a, b)`. To put two strings in order,
+`std.mem.order(u8, a, b)` returns `.lt`, `.eq` or `.gt`. Everything else you would
 expect from a string class is a free function in `std.mem` that works on any
 slice type. That is why each call names the element type first.
 

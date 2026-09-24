@@ -9,6 +9,12 @@ order: 32
 
 import Playground from "../../../components/Playground.astro";
 
+A format string is a string known at compile time, with one `{}` placeholder
+per argument.
+`{d}` prints a number, `{s}` a string, and `{any}` anything else. The
+compiler checks the placeholders against the arguments, so a mismatch is a
+compile error rather than wrong output at runtime.
+
 <Playground name="03-standard-library.formatting" />
 
 ## Where the output goes

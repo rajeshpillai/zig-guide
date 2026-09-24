@@ -12,7 +12,8 @@ import Playground from "../../../components/Playground.astro";
 In Zig, `if` is both a control-flow statement and an expression that can
 produce a value. Unlike C, JavaScript and most languages you have used, Zig
 has no truthy or falsy values: the condition must be a `bool` and nothing else
-converts to one.
+converts to one. There is no ternary `?:` either. An `if` used as an
+expression does that job: `const x = if (a) 1 else 2;`.
 
 <Playground name="02-language.if-expressions" />
 
