@@ -16,7 +16,7 @@ done. Its right operand is the whole of `2 * 3`. Reading a tree is reading
 inwards-out, so the deepest node runs first, which means **precedence is
 depth**.
 
-That reframes the problem usefully. You do not need a rule that says `*` binds
+That gives a more useful way to see the problem. You do not need a rule that says `*` binds
 tighter than `+`. You need `*` to end up deeper. And there is a way to write a
 parser where that happens without anything ever consulting a table.
 
@@ -38,8 +38,8 @@ has already consumed any multiplication and handed back a finished subtree. So
 the multiplication is inside the addition's operand, which is exactly what
 "binds tighter" means. The call chain *is* the precedence table.
 
-This is **recursive descent**, and it is what most real compilers use, because
-it is the only parsing technique you can read.
+This is **recursive descent**. Most production compilers use it, because the
+code is easy to read.
 
 ## The program
 
@@ -52,8 +52,8 @@ it is the only parsing technique you can read.
 reading would give, and a completely different tree.
 
 **Parentheses needed no precedence rule.** `primary` sees a `(` and re-enters
-at the *loosest* level, then expects a `)`. That is the whole implementation,
-and it is why grouping works for any expression: it restarts the chain.
+at the *loosest* level, then expects a `)`. Nothing more is needed. Grouping
+works for any expression because it restarts the chain.
 
 **`1 - 2 - 3` became `(- (- 1 2) 3)`, not `(- 1 (- 2 3))`.** Subtraction is
 left-associative, and the loop is what makes it so: each level consumes
@@ -66,7 +66,7 @@ purpose.
 **The whole tree is one flat array.** A node holds indices, not pointers, and
 children hang off a `first`/`next` linked list. So the parser allocates
 nothing beyond the array it was handed, a node is a fixed size, and the tree
-can be copied or thrown away in one move. Real compilers do this too, for the
+can be copied or thrown away in one step. Production compilers do this too, for the
 cache behaviour as much as the simplicity.
 
 **The error set is written out rather than inferred.** These functions are
@@ -95,7 +95,7 @@ The shape is identical, and this is one of the places where a C implementation
 and a Zig one differ least. The nodes would be a `struct Node` with a `kind`
 enum, a union of payloads, and `struct Node *` children.
 
-Two differences worth naming. Using indices rather than pointers is a choice
+There are two differences. Using indices rather than pointers is a choice
 in both languages. In C it is the one you make when you want to grow the node
 array without invalidating everything pointing into it. Here it is also what
 lets the whole tree live in a fixed array with no allocator at all.

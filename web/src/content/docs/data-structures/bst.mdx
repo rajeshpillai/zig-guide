@@ -9,7 +9,7 @@ import Playground from "../../../components/Playground.astro";
 
 Give the node a second pointer and keep everything smaller on the left, larger
 on the right. Lookup halves the search space at each step, and an in-order
-walk visits the values in sorted order for free.
+walk visits the values in sorted order with no extra work.
 
 Both savings hold only while the tree stays roughly balanced. Nothing in the
 insert code makes it stay balanced.
@@ -37,7 +37,7 @@ above it. Inserting into an empty tree writes through `&self.root`; inserting
 at a leaf writes through `&node.left`. Both are the same two lines, so there
 is no special case for the empty tree and no "was this the root" branch.
 
-`*?*Node` is worth reading slowly: a pointer, to an optional, to a node. Each
+Read `*?*Node` slowly: a pointer, to an optional, to a node. Each
 layer is doing something. The optional is the empty slot; the outer pointer is
 what lets you write into it.
 
@@ -102,6 +102,6 @@ There is no general-purpose balanced tree in `std`. The options are:
 - **`std.Treap`**, already in `std`, which keeps itself balanced
   probabilistically rather than by rotation.
 
-Which leaves the case where you genuinely need ordered iteration with
+Which leaves the case where you really need ordered iteration with
 interleaved inserts. For that the tree has to repair its own shape. The next
 chapter makes it do so.

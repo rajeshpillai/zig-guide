@@ -38,7 +38,7 @@ try list.append(gpa, 'a');
 More typing, but the allocator is visible at every call site that can fail,
 and the struct is two words smaller.
 
-The second reason for the change matters more at scale: a program holding ten
+The second reason for the change shows up at scale. A program holding ten
 thousand small lists was storing ten thousand copies of the same allocator
 pointer and vtable. Now it stores none, and a struct with several list fields
 does not carry the allocator once per field.
@@ -52,9 +52,8 @@ coming, `try .initCapacity(gpa, n)` allocates once up front.
 An `items` slice, a `capacity`, and a safety field covered further down that
 costs nothing outside a safety build. Three words, then: a pointer, a length,
 and how many elements the buffer could hold before it has to grow. Appending
-past the capacity allocates a larger buffer, copies, and frees the old one,
-which is why append returns an error and why the growth is amortised rather
-than free.
+past the capacity allocates a larger buffer, copies, and frees the old one.
+That is why append returns an error, and why growth has an amortised cost.
 
 ## `.items` is a borrowed slice
 
@@ -99,7 +98,7 @@ not, and the wasm behind the Run button on this page is ReleaseSmall.
 sequence into one allocation, and the `AssumeCapacity` calls cannot fail, so
 they need no `try`.
 
-Which is not only a speed argument. A loop of `try list.append(...)` has an
+This is not only about speed. A loop of `try list.append(...)` has an
 error path on every iteration. In code that must not fail partway through,
 reserving the space first turns the whole loop into an operation that either
 happens or does not. `appendAssumeCapacity` panics in a safety build if you

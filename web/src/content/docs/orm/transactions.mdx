@@ -17,8 +17,8 @@ transaction back and returns the original error.
 A transaction wrapper has one job: no path may leave the transaction open.
 Languages solve it with `defer`, context managers, or RAII. The bugs live in
 the paths someone forgot: the early return, the error between two statements,
-the failed COMMIT itself. Zig's `errdefer` was built for exactly this shape,
-and a library API is where it earns its keep.
+the failed COMMIT itself. Zig's `errdefer` was designed for this case, and
+a library API is a good place to use it.
 
 ## The pattern
 
@@ -31,9 +31,7 @@ try body.run(r);
 try r.driver.exec("COMMIT");
 ```
 
-Every `try` after the `errdefer` is covered by it: an error inside the
-caller's body, or in COMMIT itself, fires the ROLLBACK and propagates the
-original error. Success skips the `errdefer` entirely. There is no path that
+Every `try` after the `errdefer` is covered by it. Success skips the `errdefer` entirely. There is no path that
 reaches the function's end with the transaction open, and you can verify that
 by reading four lines rather than auditing every return.
 

@@ -25,11 +25,10 @@ The syntax puts it after a colon:
 The sentinel is **not** counted in `.len`, but it is really there and you may
 read it.
 
-That combination is the whole idea. A `[:0]u8` carries a length like any
-slice, so iterating it is bounds-checked and `.len` is one instruction. It
-*also* promises a zero after the last element, so it can be handed to C
-without a copy. You are not choosing between the two representations; you are
-carrying both.
+A `[:0]u8` carries a length like any slice, so iterating it is bounds-checked
+and `.len` is one instruction. It *also* promises a zero after the last
+element, so it can be handed to C without a copy. One value carries both the
+length and the terminator.
 
 ## The sentinel need not be zero
 
@@ -48,13 +47,13 @@ literal[2];             // 0
 ```
 
 So passing a Zig string literal to a C function that wants `const char *`
-needs no conversion and no copy. You get C compatibility without paying for it
-in ordinary Zig code, where the length is still there.
+needs no conversion and no copy. Ordinary Zig code still has the length, so
+the C compatibility costs it nothing.
 
 Note the type is a *pointer to an array*, not a slice. That is why a literal
 has a comptime-known length, and why `@TypeOf("hi") != @TypeOf("hip")`. It
 coerces to `[]const u8` or `[:0]const u8` the moment it is used somewhere
-expecting one, which is nearly always, so the distinction only surfaces in
+expecting one, which is nearly always, so the difference only shows up in
 error messages and in `@TypeOf`.
 
 ## Recovering a length
@@ -68,7 +67,7 @@ const slice = std.mem.span(c_string);   // scans to the sentinel
 Scanning is O(n), the same cost C pays for `strlen`. Do it once at the boundary
 and work with slices from there.
 
-Two neighbours are worth knowing. `std.mem.sliceTo(slice, 0)` truncates at the
+Two related functions help here. `std.mem.sliceTo(slice, 0)` truncates at the
 first sentinel in something that already has a length, which is what you want
 for a fixed-size C struct field holding a padded name. `std.mem.len` gives
 just the count without building a slice.
@@ -88,16 +87,14 @@ somewhere. Three routes:
   asserts the byte at `buf[n]` really is zero. In a safety build that assertion
   is checked.
 
-Slicing with a sentinel is the operation to be careful with. `buf[0..n :0]`
-does not write the terminator, it claims one is already there. Writing it is
-your job.
+Be careful when you slice with a sentinel. `buf[0..n :0]` does not write the
+terminator. It claims one is already there. Writing it is your job.
 
 ## Why this is not just C strings again
 
 C's model is that the length is *only* discoverable by scanning, so every
 operation is O(n) and every buffer overrun begins with a missing terminator.
 Zig's model is that the length is carried and the sentinel is an additional
-guarantee. Ordinary code uses the length; only the C boundary uses the
-sentinel. The failure mode C has, where a string without a terminator reads
-until it hits something, requires you to have constructed the sentinel type
-incorrectly by hand.
+guarantee. Ordinary code uses the length. Only the C boundary uses the
+sentinel. In C, a string without a terminator is read until it hits something.
+In Zig that can only happen if you built the sentinel type incorrectly by hand.

@@ -41,8 +41,7 @@ and nothing forces you to initialise it correctly.
 
 It is not the `else` of an `if`. It runs when the loop ends *normally*: the
 `for` ran out of elements, or the `while` condition became false. A `break`
-skips it. That is the entire rule, and it is what makes the construct safe for
-searches. There are exactly two ways out of the loop, and each one produces a
+skips it. This rule makes the construct safe for searches. There are exactly two ways out of the loop, and each one produces a
 value.
 
 The third test in the snippet pins that down with a `break` written so it can
@@ -58,7 +57,7 @@ const result = while (i < 3) : (i += 1) {
 
 ## What the missing `else` actually looks like
 
-The failure is worth seeing, because the error does not mention `else` at all.
+The error can be confusing, because it does not mention `else` at all.
 A loop with no `else` has nothing to evaluate to when it ends normally, so its
 type is `void`:
 
@@ -93,13 +92,13 @@ you have to say. That is why the test writes `@as(u32, 1)` and `@as(u32, 2)`
 rather than `1` and `2`: `const result = ...` gives the literals no target
 type to take their size and signedness from.
 
-If the arms genuinely disagree, the error names both types and points at the
+If the arms really have different types, the error names both types and points at the
 `break`. That check is the reason a search cannot accidentally return an index
 on one path and a boolean on another.
 
 ## When to reach for it
 
-The pattern is worth using when the loop answers exactly one question: find
+Use the pattern when the loop answers exactly one question: find
 this, count until that, decide whether any element qualifies. The value comes
 out where it is decided, and the compiler holds you to covering both outcomes.
 

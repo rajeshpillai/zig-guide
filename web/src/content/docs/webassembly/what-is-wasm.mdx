@@ -12,7 +12,7 @@ compile *target*, not a language: you write Zig, C, or Rust, and the compiler
 emits a `.wasm` module. An engine (a browser, Node, wasmtime) loads that
 module and runs it in a sandbox at close to native speed.
 
-This whole site is the demonstration. Every snippet you have read is Zig
+This site is an example. Every snippet you have read is Zig
 compiled to `wasm32-wasi`, and the Run button hands that exact module to a
 WASI shim in your browser. Press it below and the code reports the target it
 was built for.
@@ -21,14 +21,14 @@ was built for.
 
 ## Module, instance, linear memory
 
-Three words carry most of the model.
+Three terms explain most of the model.
 
 A **module** is the compiled `.wasm` file: code and a description of what it
 imports and exports. It is inert, like an unloaded shared library.
 
 An **instance** is a module that an engine has loaded and wired up.
 Instantiating resolves the module's imports (functions the host provides) and
-gives it its memory. You can instantiate the same module more than once; each
+gives it its memory. You can instantiate the same module more than once. Each
 instance has its own state.
 
 **Linear memory** is the instance's heap: one flat, contiguous array of bytes,
@@ -40,22 +40,23 @@ just an offset into this array. There is no other memory the module can touch.
 
 The types a call can carry are `i32`, `i64`, `f32` and `f64`. Later proposals
 added `v128` for SIMD and reference types for host objects, but a JavaScript
-host still passes numbers. There is no string type, no struct, no array that a
-call can pass or return.
+host still passes numbers. A call cannot pass or return a string, a struct, or
+an array.
 
 Anything larger travels as bytes in linear memory, referred to by an `i32`
 offset and (usually) an `i32` length. A Zig `[]const u8` slice becomes a
-pointer and a length; across the wasm boundary that is two `i32`s. The [linear
+pointer and a length. Across the wasm boundary that is two `i32`s. The [linear
 memory recipe](../linear-memory/) works through the pattern in full.
 
 ## The sandbox
 
-A wasm module has no ambient authority. It cannot open a file, read the clock,
+A wasm module has no ambient authority: it gets no access to anything by
+default. It cannot open a file, read the clock,
 or make a network call on its own. It can only do what its imports let it do.
 A module that was handed no imports can compute and nothing else.
 
-This is why the same `.wasm` runs unchanged in a browser tab and on a server:
-capability comes from the host, not from the binary. It is also why running an
+Because capability comes from the host and not from the binary, the same
+`.wasm` runs unchanged in a browser tab and on a server. It is also why running an
 untrusted module is reasonable in a way that running an untrusted native
 binary is not.
 
@@ -78,7 +79,7 @@ the [freestanding recipe](../freestanding/) shows the smaller target.
 Two shapes of module, split by whether they have an entry point.
 
 A **command** has a `_start` function. The engine calls it once, it runs to
-completion like a `main`, and the instance is spent. Every WASI program in
+completion like a `main`, and the instance is then finished. Every WASI program in
 this guide is a command. A Zig file with `pub fn main` compiles to one.
 
 A **reactor** has no entry point. The engine instantiates it and then calls
@@ -87,6 +88,4 @@ between calls. This is the shape you want when JavaScript calls into Zig. You
 build it with `-fno-entry` and name the functions to export.
 
 Which one you need decides which recipe applies. The next pages build each in
-turn. A WASI command you run from a shell. A reactor called from JavaScript.
-The memory handshake between them. A freestanding module. And finally loading
-one in a browser.
+turn.

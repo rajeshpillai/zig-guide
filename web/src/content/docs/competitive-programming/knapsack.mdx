@@ -350,7 +350,7 @@ For 100 items and a capacity of 10,000, the table has about a million cells.
 
 The subsets would number about 10^30.
 
-There is a catch in `W`.
+There is a problem with `W`.
 
 `W` is a number from the input, not the length of anything.
 
@@ -362,11 +362,11 @@ So the running time is called pseudo-polynomial.
 
 It is polynomial in the value of `W`, not in the size of the input.
 
-So check the bounds before reaching for this table.
+So check the bounds before using this table.
 
 If `W` is up to about 10^5 or 10^6, the table fits.
 
-If `W` is up to 10^9 and the values are small, the usual move is to swap the roles: index the table by total value and store the least weight that reaches it.
+If `W` is up to 10^9 and the values are small, the usual approach is to swap the roles: index the table by total value and store the least weight that reaches it.
 
 ## The width of a total
 

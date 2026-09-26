@@ -19,7 +19,8 @@ raylib ships a `build.zig`. Using it should be one line:
 const raylib = b.dependency("raylib", .{ .target = target, .optimize = optimize });
 ```
 
-On Zig master today that line does not compile. Not the library. The line.
+On Zig master today that line itself does not compile, before any of raylib's C
+is built.
 
 ```
 raylib/build.zig:95:10: error: member function expected 1 argument(s), found 2
@@ -39,8 +40,8 @@ code is reached.
 three standard library functions that no longer exist on master.
 
 Neither project is doing something wrong. They track releases. This guide tracks
-master. That gap is where the breakage lives, and it is better to know that
-before you take the dependency.
+master. The breakage comes from that difference, so it is better to know about
+it before you add the dependency.
 
 ## Depend on the C instead
 
@@ -68,7 +69,7 @@ not.
 
 ### 2. Do not declare it in `build.zig.zon`
 
-This is the part that matters. `vendor/raylib` stays a plain directory of C
+`vendor/raylib` stays a plain directory of C
 files. The build runner imports the build script of every declared package and
 never looks at a plain directory, so raylib's `build.zig` sits there unread.
 
@@ -110,7 +111,7 @@ sudo apt-get install libx11-dev libxrandr-dev libxinerama-dev \
                      libxi-dev libxcursor-dev libgl1-mesa-dev
 ```
 
-No ALSA package. raylib's audio backend loads libasound at runtime rather than
+No ALSA package is needed. raylib's audio backend loads libasound at runtime rather than
 including its header, so the game compiles without it and stays silent where
 there is no device.
 

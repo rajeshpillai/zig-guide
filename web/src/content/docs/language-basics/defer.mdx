@@ -13,15 +13,15 @@ the acquire, and deferred statements run in reverse order when the scope exits.
 
 <Playground name="02-language.defer" />
 
-`defer` schedules an expression to run when the enclosing **scope** exits: not
-the function, the scope. Every path counts: falling off the end, an early
-`return`, or an error propagating through `try`.
+The scope is the enclosing block, not the whole function. Every path out of
+it counts: falling off the end, an early `return`, or an error propagating
+through `try`.
 
 ## Reverse order is the point
 
-Deferred statements run last-registered-first, which is what makes them
-compose. Acquire A then B, and cleanup happens B then A: almost always the
-correct unwinding order. Writing the release directly under the acquire keeps
+Deferred statements run in reverse order: the last one registered runs first.
+If you acquire A and then B, cleanup releases B and then A. This is almost
+always the correct order. Writing the release directly under the acquire keeps
 the pair visible in one glance:
 
 ```zig
@@ -29,9 +29,9 @@ const buf = try allocator.alloc(u8, n);
 defer allocator.free(buf);
 ```
 
-That adjacency is what makes `defer` readable rather than clever. Checking an
-allocation for a leak is a glance at the next line, not a search for the
-matching `free` somewhere below.
+Because the release sits on the next line, checking an allocation for a leak
+means reading one line. You do not have to search for the matching `free`
+somewhere below.
 
 ## The scope really is the scope
 
@@ -74,7 +74,7 @@ fn f() u8 {
 }
 ```
 
-`defer` is for releasing things, not for adjusting results.
+Use `defer` to release resources. Do not use it to change a result.
 
 You also cannot `return` from inside one:
 
@@ -82,9 +82,9 @@ You also cannot `return` from inside one:
 error: cannot return from defer expression
 ```
 
-A deferred statement runs on the way out of a scope. Letting it pick a
-different way out would make the exit path of every function with cleanup
-unreadable.
+A deferred statement runs while the scope is already exiting. If it could
+return, it could choose a different exit, and the exit path of every function
+with cleanup would be hard to follow.
 
 ## `errdefer` for the failure path only
 
@@ -106,7 +106,7 @@ Choosing between them is a question about ownership. If this scope owns the
 resource for its whole life, use `defer`. If the resource is on its way to the
 caller and only stays yours when something goes wrong, use `errdefer`. A
 multi-step initialiser gets one `errdefer` per step, each undoing only that
-step, which is exactly the unwinding a half-built object needs:
+step. A half-built object is then undone one step at a time, in reverse:
 
 ```zig
 const a = try makeA();
@@ -117,15 +117,15 @@ const c = try makeC();     // if this fails, b then a are freed
 return .{ .a = a, .b = b, .c = c };
 ```
 
-Read from the bottom up, that is the failure ladder, and each rung was written
-next to the thing it undoes.
+Read the `errdefer` lines from the bottom up to see what runs on failure.
+Each one is written next to the step it undoes.
 
 ## If you have written C++ or Rust
 
 `defer` does the work of a destructor, with the pairing written at the use
-site instead of attached to a type. The trade is deliberate. Nothing runs
-invisibly at a closing brace: everything that happens on the way out is a
+site instead of attached to a type. Zig chose this on purpose. No code runs
+unseen at a closing brace. Everything that happens on the way out is a
 statement in the function you are reading. The cost is that a `defer` can be
-forgotten, which is why the [allocator
+forgotten. For that reason the [allocator
 chapter](/learn/standard-library/allocators/) relies on a leak-checking
 allocator to catch what review misses.

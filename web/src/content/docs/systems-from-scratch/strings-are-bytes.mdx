@@ -7,13 +7,13 @@ order: 8
 
 import Playground from "../../../components/Playground.astro";
 
-Chapter one said everything is bytes. Text is where that stops feeling like a
-technicality and starts costing you something.
+Chapter one said everything is bytes. Text is where that fact starts to cost
+you something.
 
 In the language you came from, a string is a thing. It knows its own length,
 it compares with `==`, and asking for its length gives you the number of
-letters you would count by eye. All of that is a service someone built for
-you, and down here nobody built it.
+letters you would count by eye. Someone built all of that for you. In Zig,
+nobody built it.
 
 What exists is a run of bytes. Which raises the question C had to answer
 first: if you are handed the address of some text, **how do you know where it
@@ -32,9 +32,9 @@ Zig keeps the zero, for talking to C, and does not rely on it.
 
 ## What just happened
 
-**The type printed as `*const [5:0]u8`, and it says everything.** A pointer, to
-an array of 5 bytes, with a sentinel `0` after them. Not "a string": a
-specific number of specific bytes at a specific place.
+**The type printed as `*const [5:0]u8`.** It reads: a pointer, to an array of
+5 bytes, with a sentinel `0` after them. The type does not say "a string". It
+describes a specific number of specific bytes at a specific place.
 
 **`.len` was 5 and the array was 6 bytes.** The terminator is really there,
 occupying memory, and it is deliberately not counted. So Zig knows the length
@@ -43,15 +43,15 @@ expects the zero. You get both answers to the question above rather than
 choosing one.
 
 **Indexing gave 104, not `'h'`.** They are the same byte. `104` is what is
-stored and `'h'` is a way of printing it, which is chapter one's point
-arriving in a place where it matters.
+stored and `'h'` is a way of printing it. This is chapter one's point again,
+in a place where it matters.
 
 **Comparing needed `std.mem.eql`.** Zig will not let you write `a == b` on two
 slices. The compiler rejects it: `operator == not allowed for type '[]const
 u8'`. Two pointers do compare with `==`, and the answer is whether they point
-at the same place. That is a real question, and not the one you meant. Coming
-from a managed language this is the trap to over-learn: **compare contents with
-`std.mem.eql`.**
+at the same place. That is a valid question, but it is not the one you meant.
+If you come from a managed language, make this a firm habit: **compare contents
+with `std.mem.eql`.**
 
 **`"héllo".len` was 6 for five letters.** UTF-8 spends one byte on the letters
 in ASCII and two to four on everything else, so `é` costs two. A byte count
@@ -66,7 +66,7 @@ You have a `[]const u8` and you want its third character. What is wrong with
 
 Nothing, if the text is ASCII. If it might not be, `text[2]` is the third
 *byte*, which could be the middle of a two-byte character, and you would get
-half of one. The honest version is to iterate codepoints with
+half of one. The correct version is to iterate codepoints with
 `std.unicode.Utf8View`, which is what
 [Unicode](/learn/standard-library/unicode/) covers. Most of the time you do
 not want a character at an index at all: you want to search, split, or
@@ -83,7 +83,7 @@ if (name == "hello")     /* compares pointers, and compiles without complaint */
 strcpy(dest, name);      /* writes until the zero, wherever that turns out to be */
 ```
 
-The third line is the one that has caused real damage. `strcpy` trusts a
+The `strcpy` line is the one that has caused real damage. `strcpy` trusts a
 terminator it cannot verify, and a missing one means it keeps writing.
 
 Zig's slice carries the length next to the pointer, so functions do not have

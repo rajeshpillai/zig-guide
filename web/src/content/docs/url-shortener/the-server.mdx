@@ -14,16 +14,15 @@ with one `docker run` command.
 
 ## The problem
 
-Three chapters built three pieces, each proven against bytes: a
-Postgres client, slug arithmetic, and a CRUD handler over a store
-seam. What remains is the part that cannot run in a browser: real
-sockets on both sides. One file assembles everything, so the whole
-service is something you can read top to bottom and run with one
-command.
+Three chapters built three pieces, each tested against bytes. What
+remains is the part that cannot run in a browser: real sockets on both
+sides. With everything in one file, you can read the whole service top
+to bottom.
 
 CI compiles this file on every run, which is what keeps it correct
 against Zig master like every other snippet. It cannot run it, because
-there is no Postgres in the room. On your machine there can be.
+CI has no Postgres server. You can run it on your machine against a
+local Postgres.
 
 ## The plan
 
@@ -76,25 +75,25 @@ curl -X DELETE localhost:8080/links/1
 ## What changed behind the seam, and what did not
 
 Compare `handle` here with the routes chapter: the dispatch, the
-status codes and the bodies are the same, because the seam held. What
+status codes and the bodies are the same, because the seam did not change. What
 changed is ownership. The in-memory store handed out pointers into its
 own array; SQL hands out bytes in a message buffer that the next query
 overwrites, so every store method copies what it returns and drains
-the row iterator before handing back control. The redirect also got
-better on the way through: `UPDATE ... SET hits = hits + 1 ...
+the row iterator before handing back control. The redirect also
+improved: `UPDATE ... SET hits = hits + 1 ...
 RETURNING target` reads the target and counts the hit in one
 statement, so two simultaneous visitors cannot lose an update.
 
 ## Quoting is a defense with a known edge
 
-`sqlQuote` doubles every `'`. Understand what that buys and what it
-does not. It stops a value from terminating its own string literal,
-which is the classic injection. It is also the method the simple query protocol forces,
-and keeping it correct forever is exactly the burden real drivers
-refuse: they use the extended protocol, where values travel in
-separate messages and are never part of the SQL text at all. That
-protocol is more messages, not more ideas, and the client chapter's
-`switch` is where `Parse`, `Bind` and `Execute` would go.
+`sqlQuote` doubles every `'`. That stops a value from ending its own
+string literal, which is the classic injection. The simple query
+protocol forces this method. Keeping it correct forever is a burden
+that real drivers avoid: they use the extended protocol, where values
+travel in separate messages and are never part of the SQL text at all.
+The extended protocol adds more message types but no new concepts, and
+the client chapter's `switch` is where `Parse`, `Bind` and `Execute`
+would go.
 
 ## What to build next
 

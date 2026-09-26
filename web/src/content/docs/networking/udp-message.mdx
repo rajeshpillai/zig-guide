@@ -15,10 +15,10 @@ address.
 ## The problem
 
 Some traffic does not want a connection: metrics, discovery pings, game
-state, sensor readings. Losing one message is fine; the cost of TCP's
-ordering and retransmission is not. That is UDP, and its API shape is
-different enough from TCP that porting the "listen and accept" mental
-model produces confusion rather than code.
+state, sensor readings. Losing one message is fine. Paying for TCP's ordering and retransmission is
+not. That is UDP, and its API shape is
+different enough from TCP that the "listen and accept" model does not carry
+over.
 
 There is nothing to accept. A socket binds to an address, and messages
 arrive whenever they arrive.
@@ -45,16 +45,16 @@ arrive whenever they arrive.
 The snippet sends a message, reads it, sends another, and reads that, all on
 one thread. Nothing has to be waiting when a datagram arrives, because the
 kernel queues datagrams on the bound socket until someone reads them.
-That decoupling is the actual model: sender and receiver do not
-rendezvous, they just share an address. (The queue is finite; when it
+This is how UDP works: the sender and receiver never meet. They only share
+an address. (The queue is finite; when it
 overflows, datagrams are dropped, which is UDP behaving as documented.)
 
 ## Message boundaries are real
 
 Two `send` calls produced exactly two `receive` results, 14 bytes each.
-TCP would happily deliver those 28 bytes as one read or three; a datagram
-socket never merges or splits messages. That is the property protocol
-designers buy with UDP, and it comes with the matching constraint: a
+TCP could deliver those 28 bytes as one read or three; a datagram
+socket never merges or splits messages. Protocol designers choose UDP for this property. It comes with a matching
+limit: a
 datagram larger than the receive buffer is truncated, signalled by
 `msg.flags.trunc`.
 
@@ -66,8 +66,8 @@ hold a socket for that client. Here the receiver knows one thing about
 the sender: the address in `second.from`. It sends to that address and is
 done.
 
-That receive-then-send-back pair is the whole core of request/response
-over UDP. DNS works this way: one datagram asks, one datagram answers,
+Receiving and then sending back is all that request/response over UDP
+needs. DNS works this way: one datagram asks, one datagram answers,
 and no connection ever exists.
 
 ## Variations

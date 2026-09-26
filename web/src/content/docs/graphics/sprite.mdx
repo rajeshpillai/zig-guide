@@ -34,10 +34,11 @@ That is why so much sprite work of that era avoided a particular shade of
 magenta.
 
 **The third copy was clipped.** Drawn partly off the right edge, and the loop
-simply skipped the cells outside the canvas. Clipping is not a feature here,
-it is the bounds check being honest.
+simply skipped the cells outside the canvas. No extra code does the clipping:
+it comes from the bounds check.
 
-**Three copies, one sprite.** Nothing was duplicated in memory. A sprite is
+**The sprite is stored once and drawn three times.** Nothing was duplicated in
+memory. A sprite is
 data and drawing it is a loop, so the second and third copies cost only the
 loop.
 
@@ -49,9 +50,9 @@ alpha channel add, and what does it cost?
 Partial transparency, so an edge pixel can be half sprite and half background,
 which is the difference between a jagged outline and a smooth one. The cost is
 memory, one more byte per pixel, and arithmetic: instead of copying, every
-pixel becomes a blend of source and destination weighted by alpha. That is
-exactly what the [blending](/learn/graphics/blending/) chapter builds, and it
-is why it comes before this one.
+pixel becomes a blend of source and destination weighted by alpha. The
+[blending](/learn/graphics/blending/) chapter builds exactly that, which is why
+it comes before this one.
 
 The other cost is order. Opaque sprites can be drawn in any order if they do
 not overlap; translucent ones must be drawn back to front, because blending is
@@ -60,11 +61,11 @@ not commutative.
 ## If you have written C
 
 `memcpy` per row is the obvious optimisation and it is only available when
-there is no transparency, because `memcpy` cannot skip. That tension is the
-whole story of 2D blitting: opaque rectangles are a fast row copy, and
+there is no transparency, because `memcpy` cannot skip. This trade-off shapes
+all of 2D blitting: opaque rectangles are a fast row copy, and
 anything with holes in it is a per-pixel loop.
 
-Which is why hardware sprite units existed. The machines that made this
+Hardware sprite units existed for this reason. The machines that made this
 technique famous had silicon that read a sprite and a key colour and
 composited during the scan-out. The CPU never touched those pixels at all.
 When people say a 1985 console did something a faster PC could not, this is

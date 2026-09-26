@@ -19,34 +19,30 @@ playlist. A bug report arrives. You need the exact map the user saw, not a
 fresh roll of the dice. Or a test fails once in fifty runs and you need
 that run back.
 
-The answer is the same in every case: randomness must flow from a seed you
-control, through a generator you pass around explicitly. Zig's design makes
-the explicit part unavoidable, which is why this works so well here: there
-is no hidden global generator to reach for.
+In every case, the randomness must come from a seed you control. Zig has no
+hidden global generator, so the generator is always passed explicitly.
 
 ## The plan
 
-1. Create a deterministic generator from a seed:
-   `std.Random.DefaultPrng.init(42)`.
-2. Hand `prng.random()` (the `std.Random` interface) to the code that needs
-   randomness. That code cannot tell a seeded generator from a fresh one,
-   which is the point.
-3. Store or log the seed. The seed is the save file: replaying it recreates
-   everything derived from it.
+1. Create a deterministic generator from a seed.
+2. Hand its `std.Random` interface to the code that needs randomness. That
+   code cannot tell a seeded generator from a fresh one.
+3. Store or log the seed. Replaying the seed recreates everything derived
+   from it.
 
 <Playground name="06-cookbook.seeded-random" />
 
-## The interface is the trick
+## Pass the `std.Random` interface
 
 `generateCave` takes `std.Random`, not a concrete generator. In production
-you might seed from the clock or entropy; in a test or a replay you pass a
-fixed seed. The generating code is identical in both worlds, so
-reproducibility is a property of the call site, not something the algorithm
-has to opt into.
+you might seed from the clock or entropy. In a test or a replay you pass a
+fixed seed. The generating code is identical in both cases. The call site
+decides whether the output is reproducible, and the algorithm needs no
+change.
 
-This composes: a world seed can derive per-system seeds (terrain, loot,
-weather) by drawing them from the master generator, and each subsystem
-stays independently replayable.
+Seeds can also be nested. A world seed can derive per-system seeds (terrain,
+loot, weather) by drawing them from the master generator. Each subsystem
+can then be replayed on its own.
 
 ## What a seed does and does not promise
 
@@ -60,12 +56,12 @@ explicitly (for example `std.Random.Xoshiro256`) instead of `DefaultPrng`.
 
 ## Not for secrets
 
-Seeded PRNGs are predictable by design; that is their feature. Keys,
-tokens, and anything an attacker must not guess want operating system
-entropy. On master that arrives through `std.Random.IoSource`, which fills
+Seeded PRNGs are predictable on purpose. Keys, tokens, and anything an
+attacker must not guess need operating system entropy. On master that
+arrives through `std.Random.IoSource`, which fills
 bytes from the `Io` interface, or a `std.Random.DefaultCsprng` seeded from it.
 There is no global secure generator any more: `std.crypto.random` was removed,
-so the capability is passed in like every other effect. The dividing line: if
-you would ever want to replay it, use a PRNG; if replaying it would be a
+so the capability is passed in like every other effect. The rule: if you
+would ever want to replay it, use a PRNG. If replaying it would be a
 vulnerability, use the secure generator. See
-[Random Numbers](/learn/standard-library/random-numbers/) for the tour of both.
+[Random Numbers](/learn/standard-library/random-numbers/) for more on both.

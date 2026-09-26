@@ -33,7 +33,7 @@ compile-time constant inside the convolution loop, so the bounds are known and
 the inner loops unroll. A 5x5 kernel also cannot be passed where a 3x3 is
 expected. A runtime `side: usize` field would compile just as well and give up
 both. [Comptime](/learn/language-basics/comptime/) covers type functions in
-general; this is one of the cases where the payoff is concrete.
+general; here the benefit is easy to see.
 
 The `comptime std.debug.assert` runs at compile time. An even side length is a
 compile error, not a runtime panic, because a kernel with no centre pixel has
@@ -89,11 +89,11 @@ Writing an output pixel back over its input corrupts the input of every pixel
 still to come, so the result depends on the order the loop happens to run in.
 The snippet does it both ways at the block's top-left corner and prints the
 two answers: `255 220 60` against `231 199 58`. Nothing crashes. The image
-just comes out slightly smeared in the direction of the scan, which is why
-this bug survives review so often.
+just comes out slightly smeared in the direction of the scan, so code review
+often misses this bug.
 
-Every real image pipeline either keeps two buffers and swaps them or writes to
-a fresh one each pass. The three-pass blur in the snippet does exactly that.
+Image pipelines either keep two buffers and swap them, or write to a fresh one
+each pass. The three-pass blur in the snippet does exactly that.
 
 ## Sharpening rings
 
@@ -107,10 +107,10 @@ sharpen:
 ```
 
 The dark side of the edge got darker than it was (25 to 6) and the bright side
-got brighter (212 to 233). A sharpen kernel adds no detail; it exaggerates the
-difference it already found, and on a hard edge that overshoot is ringing.
-Every sharpen slider is a trade against it, and pushing one far enough always
-produces a halo.
+got brighter (212 to 233). A sharpen kernel adds no detail. It exaggerates the
+difference it already found. On a hard edge, that overshoot is called ringing.
+A sharpen slider trades sharpness against ringing, and pushing one far enough
+always produces a halo.
 
 ## Repeating a small kernel
 
@@ -119,7 +119,7 @@ instead of 49. Repeated box blurs converge on a true gaussian for the same
 reason repeated sums of anything converge on a normal distribution, which is
 the trick behind most fast blurs.
 
-Separability is the bigger win. The gaussian above factors into a horizontal
+Separability saves more. The gaussian above factors into a horizontal
 `[1 2 1]` and a vertical `[1 2 1]`, so 9 multiplies per pixel become 6. For a
 9x9 kernel it is 81 against 18, and the gap grows with the square of the side.
 

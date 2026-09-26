@@ -19,8 +19,8 @@ Zig's `switch` has no fallthrough, and it must be **exhaustive**: every
 possible value needs a branch, or the program does not compile.
 
 No fallthrough means no `break` at the end of every arm, and no bug from
-forgetting one. An arm that should cover several values lists them, which is
-the thing fallthrough was usually being used for anyway.
+forgetting one. An arm that should cover several values lists them. In C,
+that was the usual reason to use fallthrough.
 
 ## Ranges and multiple values
 
@@ -33,12 +33,12 @@ switch (x) {
 ```
 
 Note `...` for ranges is inclusive on both ends, unlike the `..` used in `for`
-ranges, which excludes the upper bound. That difference is deliberate and it
-trips people up: `0..3` in a `for` visits three values, `0...3` in a `switch`
+ranges, which excludes the upper bound. The difference is deliberate, and it
+is easy to get wrong: `0..3` in a `for` visits three values, `0...3` in a `switch`
 matches four.
 
 Cases must not overlap. Two arms that can both match the same value are a
-compile error rather than a first-match-wins rule, so the order arms are
+compile error. There is no first-match-wins rule, so the order the arms are
 written in never changes behaviour.
 
 ## A statement or an expression
@@ -71,8 +71,9 @@ return switch (direction) {
 
 Now adding a `.up` variant later turns this into a compile error pointing
 straight at the code that needs updating. Adding `else => false` would instead
-silently classify the new direction as horizontal. The `else` branch is a
-convenience that costs you the compiler's help. Spend it deliberately.
+silently classify the new direction as horizontal. With an `else` branch, the
+compiler can no longer tell you about a new tag. Use `else` only when that is
+what you want.
 
 The error names the tag you missed and points at its declaration:
 
@@ -103,8 +104,7 @@ captures](/learn/language-basics/payload-captures/).
 
 ## `inline else` and non-exhaustive enums
 
-Two forms worth knowing exist once you are generating code rather than writing
-it out.
+Two more forms help once you are generating code instead of writing it out.
 
 `inline else` compiles a separate copy of the arm for every remaining case,
 with the tag available as a comptime value:

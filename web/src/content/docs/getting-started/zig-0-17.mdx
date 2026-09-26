@@ -129,7 +129,7 @@ The same split happened to every kind of type:
 
 A default value is now read with `field_attrs[i].defaultValue(T)`.
 
-The helpers in `std.meta` went with it.
+The helpers in `std.meta` changed too.
 
 `std.meta.fields(T)` is now a compile error that says `deprecated in favor of @typeInfo`.
 
@@ -205,7 +205,7 @@ Not every old spelling fails.
 
 A `switch` with `.Debug` or `.ReleaseFast` prongs still compiles, and so does `const o: std.builtin.OptimizeMode = .ReleaseFast`.
 
-Both go through aliases kept for the move.
+Both work through aliases kept for the rename.
 
 A comparison with `==` does not, so an `if` on the build mode is where you'll see the error.
 
@@ -225,7 +225,7 @@ The old name is an alias for now, and the std source says it will be removed aft
 
 The target fields moved too.
 
-`builtin.os.tag` is `builtin.target.os.tag`, and `builtin.cpu`, `builtin.abi` and `builtin.object_format` went the same way.
+`builtin.os.tag` is `builtin.target.os.tag`, and `builtin.cpu`, `builtin.abi` and `builtin.object_format` moved the same way.
 
 `std.gpu` was renamed to `std.spirv`, with no alias.
 

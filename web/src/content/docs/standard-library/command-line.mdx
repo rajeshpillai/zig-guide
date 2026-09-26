@@ -40,9 +40,9 @@ The parsing logic you write is the same either way.
 
 ## Parsing is yours to write
 
-There is no `argparse` in the standard library. For a small tool the loop in
-the snippet, match a flag, and pull the next token when it takes a value, is
-usually all you need. The first argument is always the program path, so skip
+There is no `argparse` in the standard library. For a small tool, the loop in
+the snippet is usually all you need: match a flag, and pull the next token
+when it takes a value. The first argument is always the program path, so skip
 it before parsing. Reach for a package (see the Build System section) only
 when you want subcommands, help text, and typed conversion.
 
@@ -60,10 +60,9 @@ everything that touches the outside world it takes an `Io`, and it lets you
 wire up the child's stdin, stdout, and stderr or capture its output. It needs
 a real OS process, so it is not something the browser sandbox can demonstrate.
 
-## Conventions worth following
+## Conventions to follow
 
-There is no parser in `std`, so the conventions are yours to honour, and users
-expect them:
+Your own loop has to follow these conventions, because users expect them:
 
 - `-v` is a short flag, `--verbose` is its long form, and both should work.
 - `--output=file` and `--output file` are both common. Accepting only one
@@ -74,9 +73,8 @@ expect them:
   starts with a dash, which is the only way to name a file called `-r`.
 - `-` on its own conventionally means standard input, not a file.
 
-None of this is hard, and all of it is easy to leave out. Deciding up front
-which of these you support is better than discovering the gap from a bug
-report.
+None of this is hard, and all of it is easy to leave out. Decide up front
+which of these you support, so you do not find the gap from a bug report.
 
 ## Failing well
 

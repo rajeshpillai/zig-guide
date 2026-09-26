@@ -22,15 +22,15 @@ is the bound: `parseInt(u8, "300", 10)` is `error.Overflow` because 300 does
 not fit. Passing base `0` reads the prefix the way a Zig literal would: `0x`,
 `0o`, `0b`, or decimal, underscores allowed.
 
-The two errors are worth distinguishing when reporting to a user.
-`error.InvalidCharacter` means the text was not a number at all;
+Report the two errors differently to a user.
+`error.InvalidCharacter` means the text was not a number at all.
 `error.Overflow` means it was a number and the type is too small. A config
 parser that says "port must be a number" for `70000` is unhelpful, and the
 error already told you which it was.
 
-The target type doing the bounds checking is the useful part. There is no
-separate range validation to write and no chance of it disagreeing with the
-field it feeds, because the field's type *is* the range. Parsing into `u16`
+Because the target type does the bounds checking, you write no separate range
+validation. The check cannot disagree with the field it feeds, because the
+field's type *is* the range. Parsing into `u16`
 for a port number rejects 70000 without a line of code.
 
 `parseFloat` accepts the usual decimal and scientific forms plus `inf` and
@@ -70,7 +70,7 @@ the input might not be valid base64. Size the destination with
 | `url_safe` | `A-Za-z0-9-_` | URLs, file names, tokens |
 | `*_no_pad` | above, no `=` | fixed-width IDs |
 
-Sizing is the step people skip, and it does not fail loudly if you guess. On
+People often skip the sizing step, and a wrong guess does not fail loudly. On
 the encoding side, `Encoder.calcSize(n)` gives the exact output length, which
 is 4 bytes for every 3 input bytes, rounded up and padded. On the decoding
 side, `calcSizeForSlice` inspects the padding to give the exact answer, and

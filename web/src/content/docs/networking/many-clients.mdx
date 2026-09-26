@@ -9,9 +9,8 @@ import Playground from "../../../components/Playground.astro";
 
 A server that handles one connection at a time is a server one slow client can
 stop. The traditional answers are two, and both have a cost. A thread per
-connection costs a stack each and stops scaling in the thousands. A
-single-threaded event loop scales, and infects every function you write with
-callbacks.
+connection costs a stack each and stops scaling in the thousands. A single-threaded event loop scales, but it forces callbacks into every
+function you write.
 
 Zig's answer is neither, and this page runs it in your browser on a target
 with no threads at all.
@@ -33,9 +32,9 @@ never learns where they came from, so this page runs with no network
 underneath it. Put a `std.Io.net.Server` in front of the same function and it
 is [the TCP round trip](/learn/networking/tcp-echo/).
 
-That is the whole argument for writing protocol code against `Reader` and
-`Writer` instead of against a socket. The tests get to be fast, and the
-browser gets to run the example.
+This is the reason to write protocol code against `Reader` and `Writer`
+instead of against a socket. The tests are fast, and the browser can run the
+example.
 
 ## `io.async`, not `Thread.spawn`
 
@@ -87,10 +86,9 @@ defer mutex.unlock(io);
 counter.* += 1;
 ```
 
-The single-threaded implementation this page runs on would be perfectly happy
-without the mutex. That is exactly the trap. Code that is only correct under
-the implementation you tested with is a race waiting for a deployment, and the
-`Io` you get in production is the threaded one.
+The single-threaded implementation this page runs on would work without the mutex. Do not rely on that. Code that is only correct
+under the implementation you tested with has a data race that can appear once
+it is deployed, because the `Io` you get in production is the threaded one.
 
 `lock` takes the `io` and returns an error, because it can block and therefore
 can be cancelled.
@@ -102,6 +100,6 @@ prints them runs afterwards, over the connections in order, so the output is
 the same either way. Printing from inside the handlers would interleave
 differently on a threaded `Io` than on this one.
 
-The `COUNT` values are the exception, and they are honest: they show the order
-the tasks actually reached the mutex. Run this natively and they may well come
-out shuffled.
+The `COUNT` values are the exception. They show the order the tasks actually
+reached the mutex. Run this natively and they may come out in a different
+order.

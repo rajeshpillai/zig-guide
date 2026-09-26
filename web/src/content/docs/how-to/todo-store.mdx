@@ -15,17 +15,16 @@ read and write at that offset.
 ## The problem
 
 You want to persist a list of items and update any one of them without
-rewriting the whole file. The trick is to make every record the same size.
-Then record `N` lives at a fixed byte offset, so reading or updating it is one
-positional operation, not a scan. This is the idea under every fixed-page
-database file.
+rewriting the whole file. With fixed-size records, reading or updating one is
+a single positional operation, not a scan. Every fixed-page database file is
+built on the same idea.
 
 ## The plan
 
 1. Define the record as an `extern struct`, so its byte layout is fixed and
    identical on every write.
 2. Add by appending at the current end of file.
-3. Read or update record `N` at `offset = (N - 1) * @sizeOf(Record)`.
+3. Read or update record `N` at its fixed offset.
 4. Update in place: read the slot, change a field, write it back to the same
    offset.
 
@@ -35,9 +34,9 @@ database file.
   tryLocally="zig run todo-store.zig"
 />
 
-## Fixed size is the whole trick
+## Why every record is the same size
 
-The record is an `extern struct`, which pins its layout: an id, a done flag, a
+The record is an `extern struct`, which fixes its layout: an id, a done flag, a
 length byte, and 64 bytes of text. That is the same 72 bytes every time. The
 extra two are alignment padding, and they are harmless because every offset is
 computed from `@sizeOf`. Because the size is constant, the file is an array on
@@ -50,18 +49,18 @@ to read from the start to find where record 3 begins.
 Since Zig 0.16 the filesystem lives behind the `Io` interface, and random
 access is done with `readPositionalAll` and `writePositionalAll`, each taking
 an explicit offset. There is no separate seek call to forget: the offset is an
-argument to the read or write itself. The older `seekTo` plus `getPos` dance
+argument to the read or write itself. The older `seekTo` plus `getPos` pair
 is gone. `file.length(io)` gives the end of file, which is both the append
 point and the loop bound for listing.
 
-`std.mem.asBytes(&rec)` is what bridges the struct and the file: it views the
+`std.mem.asBytes(&rec)` connects the struct and the file. It views the
 record as the `[N]u8` the I/O calls want, with no copy. Reading does the
-reverse, filling a `Record` straight from the bytes on disk. That only works
-because the layout is fixed, which is why the struct is `extern`.
+reverse, filling a `Record` straight from the bytes on disk. Both only work
+because the layout is fixed, and `extern` is what fixes it.
 
 ## Update in place
 
-`toggle` is the payoff. It reads the one record at its offset, flips `done`,
+`toggle` puts all of this together. It reads the one record at its offset, flips `done`,
 and writes those same bytes back to the same offset. A real store would add a
 free list for deletions, and an index for lookups by something other than id.
 The core, a fixed record addressed by offset, does not change.
@@ -69,7 +68,7 @@ The core, a fixed record addressed by offset, does not change.
 ## Variations
 
 - **Delete:** mark a record with a tombstone flag rather than removing it, so
-  later offsets stay valid; compact later.
+  later offsets stay valid. Compact the file later.
 - **Larger text:** raise the `text` array, or store long values in a second
   file and keep an offset and length in the record.
 - **Endianness:** `extern` layout is host byte order. To move the file between

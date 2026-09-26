@@ -8,7 +8,7 @@ order: 10
 import Playground from "../../../components/Playground.astro";
 
 Open a file, accept a connection, create a pipe. Each one gives you back a
-small non-negative integer, and that integer is the whole of what you hold.
+small non-negative integer, and that integer is all you hold.
 There is no object on your side. The kernel keeps a table per process, the
 number is an index into it, and every later call names the thing you opened by
 passing the number back.
@@ -27,8 +27,8 @@ pub const Handle = std.posix.fd_t;
 ```
 
 That is the entire declaration of `std.Io.File` in the standard library, minus
-its methods. A descriptor and one bit saying whether it was opened
-non-blocking. `fd_t` is `i32` on every POSIX target and on WASI; on Windows it
+its methods. It is a descriptor and one bit saying whether it was opened
+non-blocking. `fd_t` is `i32` on every POSIX target and on WASI. On Windows it
 is a `HANDLE`, which is why the type is named rather than written out.
 
 Because the struct holds nothing else, building one out of a raw number is not
@@ -53,8 +53,8 @@ your first instruction ran:
 | 1 | standard output | where its results go |
 | 2 | standard error | where its diagnostics go |
 
-The numbering is convention with one exception: it is convention that the
-kernel and every program agree on, so it is as binding as a rule. `zig build`,
+The numbering is a convention. But the kernel and every program agree on it,
+so in practice it is as binding as a rule. `zig build`,
 your shell's `2>&1`, and the redirect a CI system applies to your test run all
 assume it.
 
@@ -71,15 +71,14 @@ the interface. A module is handed descriptors by its host, refers to them by
 number, and reads and writes through calls that take that number as their
 first argument.
 
-Which is the useful thing to notice about descriptors. The number is not an
-implementation detail of Linux that leaked into the API. It is the API, thin
-enough that a wasm runtime in a browser tab can implement it and a program
+The descriptor number is not an implementation detail of Linux that leaked
+into the API. It is the API. It is thin enough that a wasm runtime in a browser tab can implement it and a program
 written against a kernel cannot tell.
 
 ## Where they come from next
 
-The rest of this section is descriptors doing the four things worth doing to
-them. Writing to the ones you were given. Passing modified copies to a child.
-Holding one end of a pipe. And closing one to say you are finished. Sockets in
+The rest of this section uses descriptors in four ways: writing to the ones
+you were given, passing modified copies to a child, holding one end of a pipe,
+and closing one to say you are finished. Sockets in
 [Network Programming](/learn/networking/what-is-a-socket/) are the same
 integers again, with a different call to create them.

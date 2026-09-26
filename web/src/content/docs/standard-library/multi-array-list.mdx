@@ -17,33 +17,31 @@ one field of every element as its own slice.
 
 ## Same API, transposed storage
 
-`MultiArrayList(T)` holds the same elements an `ArrayList(T)` would, but stores
-each field of `T` in its own contiguous array. Ten monsters with `hp`, `x`,
-and `y` become three arrays of ten, not ten structs side by side. You still
-`append` whole structs and `get` whole structs back; the transpose is
-invisible until you ask for one field.
+Ten monsters with `hp`, `x`, and `y` become three arrays of ten, not ten
+structs side by side. You still `get` whole structs back. You only see the
+separate arrays when you ask for one field.
 
-The two layouts have names worth knowing, because the literature uses them.
+The two layouts have names, and books and papers use them.
 `ArrayList` is an array of structs, "AoS". `MultiArrayList` is a struct of
-arrays, "SoA". The data is identical; only the order the bytes sit in memory
+arrays, "SoA". The data is identical. Only the order of the bytes in memory
 differs.
 
 ## Why bother
 
 `items(.hp)` hands you a real `[]u32`: every hp value packed together. A loop
 that sums hp touches only that array, so the CPU loads no `x` or `y` bytes it
-will not use. When one field is hot and the struct is wide, this is the
-difference between streaming exactly the bytes you need and dragging the whole
-struct through cache. It is also what makes bulk field updates vectorize.
+will not use. When one field is hot and the struct is wide, the loop streams
+exactly the bytes it needs instead of pulling the whole struct through the
+cache. It is also what makes bulk field updates vectorize.
 
-The number that makes it concrete is the cache line: memory arrives from RAM in
-64-byte blocks whether you wanted 64 bytes or 4. Summing one `u32` field of a
+The cache line gives the numbers. Memory arrives from RAM in 64-byte blocks,
+whether you wanted 64 bytes or 4. Summing one `u32` field of a
 64-byte struct in AoS layout fetches 64 bytes to use 4, so fifteen sixteenths of
 the memory bandwidth is wasted. In SoA layout the same loop uses every byte it
-fetches. On a large array that is the entire difference, and no amount of
-optimising the loop body recovers it.
+fetches. On a large array this accounts for the whole difference, and
+optimising the loop body cannot recover it.
 
-A second win comes free: the field arrays are separately typed and densely
+There is a second benefit: the field arrays are separately typed and densely
 packed, so `@Vector` operations and the auto-vectoriser can work on them. A
 loop over a field of a struct array cannot vectorise because the values are not
 adjacent.
@@ -56,19 +54,18 @@ whole element is slightly more work than with a plain `ArrayList`. Reach for
 
 When several fields are needed in one pass, call `slice()` once and pull each
 `items(.field)` from it. Each bare `items()` call recomputes the field
-pointers; `slice()` does that work a single time. As with every list here,
+pointers. `slice()` does that work once. As with every list here,
 those slices are invalidated by the next append.
 
-The other cost is readability, and it is not nothing. Field access becomes
-`s.items(.hp)[i]` rather than `list.items[i].hp`, and code that mostly deals in
-whole entities reads worse for no gain. This is a layout decision to make
-deliberately, on a measurement, for the small number of arrays in a program that
-are actually large and actually hot.
+The other cost is readability, and it is real. Field access becomes
+`s.items(.hp)[i]` instead of `list.items[i].hp`. Code that mostly deals in
+whole entities reads worse for no gain. Choose this layout after measuring,
+and only for the few arrays in a program that are both large and hot.
 
 It also only works on structs whose fields are known: `MultiArrayList` uses the
 same comptime reflection everything else here does, walking the field list of
-`T` to generate the arrays. That is why `.hp` is checked at compile time and a
-typo is a build error rather than a runtime lookup.
+`T` to generate the arrays. So `.hp` is checked at compile time, and a typo is
+a build error instead of a runtime lookup.
 
 ## Where it shows up
 

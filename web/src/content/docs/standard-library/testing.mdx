@@ -52,26 +52,27 @@ and compares the pointed-at content.
 ## The allocator is a test
 
 `std.testing.allocator` fails the test if anything it handed out is still live
-when the test returns. A missing `free` is therefore a caught bug rather than
+when the test returns. So a missing `free` fails the test instead of becoming
 a slow leak in production. It also panics on a double free, on a free through
 the wrong allocator, and on most writes after free. Wire every allocation to a
 `defer free` and let the allocator police it.
 
-Using it everywhere is the single highest-value habit in this section. Memory
-bugs are the ones that do not reproduce, do not show up in the test that
-caused them, and turn into a production incident weeks later. A test that uses
-this allocator is also a leak test, at no cost in code.
+Use it in every test. Memory bugs are often hard to reproduce. They may not
+show up in the test that caused them, and can become a production incident
+weeks later. A test that uses this allocator is also a leak test, with no
+extra code.
 
 `std.testing.checkAllAllocationFailures` goes further: it runs your function
 repeatedly, failing the allocator at a different call each time, and checks
-that every partial failure still cleans up. You would not write that by hand,
-and it is the only way to find out whether your `errdefer` ladder is right.
+that every partial failure still cleans up. That test is too tedious to write
+by hand, and it is the only way to find out whether your chain of `errdefer`
+statements is right.
 
 ## How tests are found and run
 
 A `test` block is a top-level declaration, and `zig test` compiles the file
-into a runner that executes every one it can see. "Can see" is the part with a
-rule behind it. Tests in a file that nothing imports are never compiled, so a
+into a runner that executes every one it can see. "Can see" follows a rule.
+Tests in a file that nothing imports are never compiled, so a
 test file added to the tree does not run until something reaches it.
 
 `std.testing.refAllDecls(@This())` at the bottom of a file forces every
@@ -87,11 +88,11 @@ filtering on `"rejects"` finds every negative case.
 
 A `test` next to the function it exercises is the usage example, and unlike a
 comment it fails the build when it stops being true. The standard library is
-full of them for that reason, and it is worth copying. A reader arriving at an
-unfamiliar function will read the test before the doc comment, because the
-test cannot be lying.
+full of them for that reason, and your code can do the same. A reader looking
+at an unfamiliar function will read the test before the doc comment, because
+the test cannot be out of date.
 
-The same principle runs this entire site. Every snippet here is compiled and
+This whole site works the same way. Every snippet here is compiled and
 run before the page is published: the same guarantee, at a larger scale. See
 [how this guide is verified](/verification/).
 
@@ -99,8 +100,8 @@ run before the page is published: the same guarantee, at a larger scale. See
 
 `return error.SkipZigTest` skips a test at run time. Use it for a case that
 only applies on some targets. The runner reports it as skipped rather than
-passed, so a permanently skipped test is visible rather than silently absent.
+passed, so a permanently skipped test stays visible in the output.
 
 For code that should not compile, there is no assertion to write. The compile
-error already fails the build. Testing that a misuse is rejected is done by
-not writing it, and by trusting the type.
+error already fails the build. When the type rejects a misuse, you do not
+write that misuse in a test. You rely on the type.

@@ -16,14 +16,14 @@ memory is free and automatic and short-lived. Heap memory has to be requested,
 lasts until it is handed back, and if it is never handed back, the program
 holds it until it exits. That is a **leak**.
 
-So somebody has to be responsible for handing it back. The whole of memory
-management is that one question: **who owns this, and when do they give it
+So somebody has to be responsible for handing it back. Memory management comes
+down to one question: **who owns this, and when do they give it
 up?** Every scheme you have heard of is an answer to it. A garbage collector
 answers "nobody, the runtime works it out later". Rust answers "the compiler
 tracks it". C answers "you do, good luck". Zig answers "you do, and the type
 signature will say so".
 
-That last part is the difference that matters. In Zig, **a function that
+The last part is what makes Zig different. In Zig, **a function that
 allocates takes an allocator as an argument**. There is no global `malloc` to
 reach for. So a function that needs memory cannot hide it. The allocator is in
 the signature, visible at every call site. A function without that parameter
@@ -61,7 +61,7 @@ this is the allocator to use while developing.
 That last part is the reason to learn ownership in Zig rather than in C. A
 leak is not something you discover in production three months later when a
 server falls over. It is a number the program prints before it exits, and in
-tests it is a red build: `std.testing.allocator` fails any test that leaks.
+tests it is a failed build: `std.testing.allocator` fails any test that leaks.
 
 ## Check yourself
 
@@ -70,9 +70,9 @@ In the leaking block, why does moving the `deinit` call earlier not help?
 Because `deinit` is not what frees the allocation. It is the audit. Freeing is
 `allocator.free`, and the block never calls it. Calling `deinit` sooner would
 just ask the question sooner and get the same answer, and it would also make
-the allocator unusable for the code after it. The fix is the missing `defer`,
-which is the point: the report tells you a rule was broken, not what the rule
-should have been.
+the allocator unusable for the code after it. The fix is the missing `defer`.
+The report tells you that a rule was broken. It does not tell you what the fix
+should be.
 
 ## If you have written C
 

@@ -15,8 +15,7 @@ where types are values.**
 
 There is no second language here. The code that runs during compilation is the
 same Zig, with the same syntax and the same standard library functions. You
-debug it by reading it, not by expanding a macro. That is the whole claim, and
-it is what makes the feature worth having. C++ templates, C macros and Rust's
+debug it by reading it, not by expanding a macro. C++ templates, C macros and Rust's
 declarative macros are each a separate language with separate rules. None of
 them can be stepped through.
 
@@ -32,8 +31,8 @@ fn max(comptime T: type, a: T, b: T) T {
 ```
 
 `comptime T: type` says this parameter must be known at compile time. Each
-distinct `T` produces a separately compiled function: monomorphisation, with
-no special syntax.
+distinct `T` produces a separately compiled function. This is called
+monomorphisation, and it needs no special syntax.
 
 Values other than types can be `comptime` too, and that is how a function
 specialises on a configuration rather than a type:
@@ -43,7 +42,7 @@ fn hash(comptime seed: u64, data: []const u8) u64 { ... }
 ```
 
 Every call with a different `seed` gets its own compiled copy with the
-constant folded in. That is also the cost. `comptime` parameters multiply the
+constant folded in. Those copies are also the cost. `comptime` parameters multiply the
 amount of code generated. They belong on things that take a handful of
 distinct values, not on things that take a thousand.
 
@@ -55,30 +54,31 @@ fn List(comptime T: type) type {
 }
 ```
 
-`List(i32)` and `List(u8)` are genuinely different types. `std.ArrayList` and
+`List(i32)` and `List(u8)` are different types. `std.ArrayList` and
 `std.HashMap` are ordinary functions like this one. Nothing in the standard
 library gets privileged syntax you cannot use yourself.
 
 Calling the same function with the same arguments gives the same type back,
-not a new one each time. That is what makes `List(u8)` in two different files
-refer to one thing.
+not a new one each time. So `List(u8)` in two different files refers to one
+thing.
 
 ## What can and cannot run at compile time
 
 Anything that is pure computation can: arithmetic, control flow, building
 arrays, walking a type's fields, formatting a string. Anything that touches
-the outside world cannot. There is no reading a file, no clock, no allocation
-from a runtime allocator, and no calling into C.
+the outside world cannot. Comptime code cannot read a file, read the clock,
+allocate from a runtime allocator, or call into C.
 
 When you use a value the compiler already knows, evaluation happens whether or
-not you wrote `comptime`. The keyword is for forcing the issue. `comptime`
-before an expression demands that it be evaluated now, and fails the build if
-it cannot. That turns a silent fallback to runtime into an error.
+not you wrote `comptime`. The keyword forces it. `comptime` before an
+expression demands that it be evaluated now, and fails the build if it cannot.
+Without the keyword, such code would silently run at runtime instead. With it,
+you get an error.
 
-The mirror image is `@compileError`, which fails the build with your message
-when a branch is reached during compilation. Combined with `@typeInfo`, that
-is how a generic function rejects a type it cannot handle with a sentence
-instead of an error inside its body.
+A related tool is `@compileError`, which fails the build with your message
+when a branch is reached during compilation. With `@typeInfo`, a generic
+function can use it to reject a type it cannot handle. The user then gets your
+message instead of an error from inside the function body.
 
 ## The branch quota
 
@@ -91,8 +91,8 @@ exceeds it:
 const result = comptime fibonacci(20);
 ```
 
-Raising it is normal; needing to raise it to something absurd is a hint that
-the work belongs at runtime.
+Raising it is normal. If you need to raise it to a huge number, the work
+probably belongs at runtime.
 
 ## Where it saves you work
 
@@ -100,13 +100,13 @@ Anything computed at comptime is not in the binary as code, only as its
 result. Format strings are checked against their arguments, lookup tables are
 generated, and dead configuration branches disappear entirely.
 
-A check against a comptime-known configuration value is not a branch the CPU
-predicts. It is a branch that does not exist in the output. So a library can
+A check against a comptime-known configuration value does not become a branch
+in the output, so the CPU never has to predict it. So a library can
 offer a dozen options without any of them costing a test at runtime. A
 debug-only code path can be written normally, rather than hidden behind
 conditional compilation.
 
 The limit to keep in mind is compile time. Every table you generate and every
 type you create is work the compiler does on every build. It is possible to
-write a program that is fast at runtime and painfully slow to build. When a
-comptime computation starts needing a large branch quota, that is the signal.
+write a program that is fast at runtime and very slow to build. A comptime
+computation that needs a large branch quota is a warning sign of this.

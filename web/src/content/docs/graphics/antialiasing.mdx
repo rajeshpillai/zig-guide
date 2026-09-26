@@ -45,8 +45,8 @@ meant to meet.
 ## What this costs
 
 Sixteen inside tests per pixel, over a bounding box that has to grow by one
-pixel on each side so partially covered pixels are not skipped. That is a real
-cost, and it is why supersampling is the technique you reach for first and
+pixel on each side so partially covered pixels are not skipped. This cost is
+why supersampling is often the first technique people use, and the one they
 replace later.
 
 For a circle, the distance from the centre already tells you how far into the
@@ -57,8 +57,8 @@ sampling text at this quality would be far too slow.
 
 Supersampling has one advantage those do not: it needs no knowledge of the
 shape. Any inside test at all, however it is written, becomes antialiased by
-evaluating it more often. That makes it the right first move and a reasonable
-permanent answer for offline rendering.
+evaluating it more often. So it is a good first choice, and it can stay the
+answer for offline rendering.
 
 ## Where the result is wrong
 

@@ -28,17 +28,17 @@ each method that allocates.
 because hashing the pointer is almost never what you meant. That is why string
 keys get their own type.
 
-The refusal is a compile error, not a runtime surprise, and it is one of the
-better examples of what comptime reflection buys. The map inspects your key
+The refusal is a compile error, not a runtime surprise. It is a good example
+of what comptime reflection can do. The map inspects your key
 type at compile time. If it contains a pointer whose target it would have to
 follow, it stops and tells you, rather than silently hashing the address.
 
-The third row is the one people miss. A plain hash map's iteration order is
+The third row is easy to miss. A plain hash map's iteration order is
 whatever the table's layout produces, and it changes as the map grows. An
 array hash map keeps the entries in a list alongside the table, so iterating
 gives you insertion order and the cost is one extra indirection. Use it
 whenever the output will be shown to a person or compared against a fixture. A
-test that iterates a plain hash map is a test that will eventually fail for no
+test that iterates a plain hash map will eventually fail for no visible
 reason.
 
 ## `getOrPut` instead of get-then-put
@@ -61,7 +61,7 @@ invalidation rule as `ArrayList.items`.
 fresh insert the map has stored *your* slice as the key, and `key_ptr` is
 where to overwrite it with a copy you own.
 
-The family is worth knowing in full. `put` overwrites, `putNoClobber` asserts
+There is a whole family of these. `put` overwrites, `putNoClobber` asserts
 the key is new, `fetchPut` returns what was there before, and `getOrPutValue`
 supplies a default in one call. Each exists so that a common intention is one
 operation rather than a lookup followed by a decision.
@@ -69,11 +69,11 @@ operation rather than a lookup followed by a decision.
 ## Keys are not copied
 
 The map stores your key as given. For string keys that means the map holds a
-slice pointing at memory it does not own; if that memory is freed or reused,
+slice pointing at memory it does not own. If that memory is freed or reused,
 the map is corrupt. Either keep the keys alive yourself, or duplicate them on
 insert and free them on removal.
 
-The duplicating version is short and worth having a template for:
+The duplicating version is short. Keep it as a template:
 
 ```zig
 const entry = try map.getOrPut(gpa, name);
@@ -84,7 +84,7 @@ if (!entry.found_existing) {
 ```
 
 and the matching teardown iterates the map freeing `entry.key_ptr.*` before
-`deinit`. Forgetting that is the most common leak in Zig code that uses maps,
+`deinit`. Forgetting that is a common leak in Zig code that uses maps,
 and a leak-checking allocator in a test is what catches it.
 
 You do *not* need to copy when the keys are already owned by something

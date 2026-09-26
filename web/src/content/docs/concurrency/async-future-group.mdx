@@ -9,7 +9,7 @@ order: 10
 
 import Playground from "../../../components/Playground.astro";
 
-Zig's concurrency story now runs through `std.Io`. That interface is the
+Zig's concurrency now runs through `std.Io`. That interface is the
 subject of [The Io Interface](/learn/standard-library/io-interface/), and this
 section assumes it: every chapter here takes an `Io` and passes it down.
 
@@ -29,7 +29,7 @@ second.await(io);
 
 The `Io` implementation decides what "async" means. A threaded implementation
 runs these in parallel; the single-threaded WASI one runs them inline. **Your
-code does not change**, which is exactly why this page is runnable and the
+code does not change**, and that is why this page is runnable and the
 [Threads](/learn/concurrency/threads/) page is not.
 
 ## `async` may run it inline; `concurrent` may not
@@ -60,7 +60,7 @@ progress *before* you await it, `io.async` can deadlock. A producer that fills
 a queue the same thread is about to drain will run to completion first and
 block on a full queue, with nobody left to empty it. Reach for `concurrent`
 there, and handle `error.ConcurrencyUnavailable` rather than `try`-ing it, or
-the program stops working on exactly the targets `async` was portable across.
+the program fails on the single-threaded targets where `async` still works.
 `Group` has both spellings too, `group.async` and `group.concurrent`, with the
 same difference.
 
@@ -76,8 +76,8 @@ try group.await(io);
 
 A `Group` owns its tasks. Awaiting it waits for all of them, and cancelling it
 cancels all of them, so a task cannot outlive the scope that started it. That
-property is what "structured" means here, and it is the thing raw
-`Thread.spawn` cannot give you.
+property is what "structured" means here. Raw `Thread.spawn` does not give
+you this.
 
 ## Shared state still needs a lock
 
@@ -95,12 +95,13 @@ chapter](/learn/concurrency/cancellation/).
 
 ## The bigger picture
 
-This is the same idea as `Allocator`, applied to time instead of memory. A
-function that takes an `Io` announces that it may block, and the caller
+`Io` works the way `Allocator` does. A function that takes an `Allocator`
+lets the caller choose where memory comes from. A function that takes an `Io`
+announces that it may block, and the caller
 chooses the execution strategy. Libraries written this way work unchanged on a
 thread pool, an event loop, or a single-threaded wasm runtime.
 
-The rest of the machinery follows from here.
+The other chapters in this section build on this.
 [Queues](/learn/concurrency/queues/) for tasks that hand work to each
 other. [Select](/learn/concurrency/select/) for whichever finishes first.
 [Locks](/learn/concurrency/locks/) for the shared state underneath. And

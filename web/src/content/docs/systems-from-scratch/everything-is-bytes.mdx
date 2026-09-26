@@ -19,10 +19,9 @@ an agreement about how to read a run of bytes: how many of them belong
 together, and what the pattern means. The agreement lives in your program, not
 in the memory. Change the agreement and the same bytes say something else.
 
-That is the whole idea, and it carries further than it sounds. Almost
-everything that feels mysterious later comes back to that one sentence. Why a
-file and an image are the same thing to the operating system. Why a network
-sends numbers and receives text.
+Almost everything that feels mysterious later comes back to this. It explains
+why a file and an image are the same thing to the operating system. It also
+explains why a network can send numbers and receive text.
 
 ## The program
 
@@ -44,17 +43,17 @@ for a million of these, how much memory would you be asking for?
 
 **The `u32` holding 1 printed as `1 0 0 0`.** Four bytes, and the useful one
 came first. This machine stores the smallest place value at the lowest
-address, which is called **little-endian**. It is a choice the hardware made,
-not a rule of arithmetic. Most machines you will meet do it this way, and it
-stops being surprising once you have seen it once. It matters in exactly two
+address, which is called **little-endian**. The hardware chose this order.
+Arithmetic does not require it. Most machines you will meet do it this way. It
+matters in exactly two
 places, both much later: reading a file someone else wrote, and sending bytes
 over a network.
 
-**The last pair is the point of the page.** `0x41424344` printed as the number
+**The last pair shows the same bytes read two ways.** `0x41424344` printed as the number
 1094861636 and then as the letters `DCBA`. Nothing was converted between those
 two lines. `@bitCast` copies no bytes and does no arithmetic. It says: stop
 reading these four bytes as one `u32` and start reading them as four `u8`
-values. The bytes never moved. Only the agreement changed.
+values. The bytes stayed where they were, and only the agreement changed.
 
 (`0x41` is 65, so the first byte really is `A`. It reads backwards for the
 little-endian reason above.)
@@ -78,12 +77,11 @@ uint32_t n = 0x41424344;
 char *letters = (char *)&n;      /* the same four bytes, read as chars */
 ```
 
-The difference is that the C version goes through a pointer and will happily
-let you read five bytes, or four bytes that were never there. `@bitCast`
-checks at compile time that the source and destination are the same size, so
-`@bitCast` from a `u32` to a `[5]u8` does not compile. You will see this shape
-repeatedly: the same operation is available, and the mistake next to it is
-not.
+The C version goes through a pointer. It will let you read five bytes, or four
+bytes that were never there. `@bitCast` checks at compile time that the source
+and destination are the same size, so `@bitCast` from a `u32` to a `[5]u8` does
+not compile. You will see this pattern often: Zig lets you do the same
+operation, but it blocks the mistake that usually comes with it.
 
 Next: [Numbers Have a Size](/learn/systems-from-scratch/numbers-have-a-size/),
 which is the same question asked about arithmetic.

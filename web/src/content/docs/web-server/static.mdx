@@ -8,9 +8,9 @@ order: 3
 import Playground from "../../../components/Playground.astro";
 
 A static file server is four lines of logic: take the request target, open
-that file under the document root, read it, send it. It is also the single
-most reliable way to hand an attacker your `/etc/passwd`, and the reason is a
-one-line mistake in an ordering.
+that file under the document root, read it, send it. It is also a common way
+to give an attacker your `/etc/passwd`, and the cause is a one-line mistake in
+ordering.
 
 The target arrives percent-encoded. `%20` is a space, and `%2e` is a full
 stop. So the string `/%2e%2e/%2e%2e/etc/passwd` contains no `..` at all as far
@@ -28,12 +28,12 @@ string that is not the one the filesystem will see.
 
 **Three traversal attempts, all refused, including the encoded one.** The plain
 `/../etc/passwd`, the buried `/static/../../etc/passwd`, and the encoded
-`/%2e%2e/%2e%2e/etc/passwd`. The third is the one that gets through real
-servers, and it is refused here for one reason: `percentDecode` runs before
+`/%2e%2e/%2e%2e/etc/passwd`. The third is the one that gets through
+servers in production, and it is refused here for one reason: `percentDecode` runs before
 anything looks for `..`.
 
 **Reject rather than normalise.** Collapsing `a/../b` into `b` is possible, and
-then you own a path normaliser, which is a second thing to get exactly right
+then you must maintain a path normaliser, which is a second thing to get exactly right
 and has its own history of bugs. Refusing any `..` component is one rule with
 no edge cases, and no legitimate URL contains one, because the browser
 resolves them before sending.
@@ -41,7 +41,7 @@ resolves them before sending.
 **The nul byte was refused too.** `/safe.txt%00.png` decodes to a name
 containing a zero byte, and anything downstream that treats it as a C string
 sees `/safe.txt` and stops. That lets a check on the extension pass while a
-different file gets opened. Zig's strings carry a length so this is inert
+different file gets opened. Zig's strings carry a length so this has no effect
 here, but the path may be handed to a C library, and the guard costs one
 comparison.
 
@@ -54,7 +54,7 @@ should be sending.
 
 ## Check yourself
 
-The guard refuses `..` but happily accepts `/etc/passwd` with no dots at all.
+The guard refuses `..` but accepts `/etc/passwd` with no dots at all.
 Why is that fine, and when would it stop being fine?
 
 Because the path is joined to a document root: `www` + `/etc/passwd` is
@@ -72,8 +72,8 @@ the path is absolute. `std.Io.Dir` does offer `resolve_beneath` on its open
 options, documented to turn an escaping path into `error.AccessDenied`, and
 also documented to be ignored where the operating system does not support it.
 Linux is one of those: the flag it is built on is a BSD `O_` flag, while Linux
-spells the same idea as an `openat2` resolve flag, so the option is silently
-inert there. Passing it and opening `../outside.txt` still opens the file.
+spells the same idea as an `openat2` resolve flag, so the option silently does
+nothing there. Passing it and opening `../outside.txt` still opens the file.
 
 ## If you have written C
 
@@ -87,12 +87,12 @@ int fd = open(path, O_RDONLY);
 
 Two problems, and the ordering is only the first. It also matches the pattern
 anywhere, so a legitimate file whose name contains it is refused. That pushes
-whoever maintains it toward a cleverer check, and cleverer checks are how the
-encoded variant gets through.
+whoever maintains it toward a more complex check, and more complex checks are
+how the encoded variant gets through.
 
 The other C-specific hazard is that `open` takes a `char *`, so a nul in the
 decoded path silently truncates it. That is the reason the guard above rejects
-a nul rather than shrugging at it. In Zig the slice keeps its length, but the
+a nul instead of ignoring it. In Zig the slice keeps its length, but the
 moment the path crosses into C the length stops travelling with it.
 
 `openat` with a directory handle is the usual shape, and in Zig it is

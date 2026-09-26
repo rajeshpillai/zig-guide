@@ -8,8 +8,7 @@ order: 80
 import Playground from "../../../components/Playground.astro";
 
 On a network, failure is not exceptional. Clients disappear mid-request,
-machines go away, and a connection ends every single time it succeeds. The
-question is never whether these happen, only whether your code can tell them
+machines go away, and a connection ends every single time it succeeds. These things will happen. What matters is whether your code can tell them
 apart.
 
 <Playground
@@ -26,10 +25,9 @@ clean close:  read "complete", then EndOfStream (expected: the client is done)
 
 `EndOfStream` after a complete message is what a successful conversation looks
 like when it ends. Treat it as a failure and you will log an error for every
-client that ever behaves correctly, which is the fastest way to make a log
-worthless.
+client that ever behaves correctly, and the log becomes useless.
 
-## The one that will bite you
+## The truncated message
 
 ```
 truncated:    Exclusive returned "truncat" and no error
@@ -56,8 +54,7 @@ what it reads, this default will act on half a request.
 truncated:    Inclusive returned EndOfStream, so the 7 buffered bytes get discarded
 ```
 
-`takeDelimiterInclusive` returns the delimiter as part of the slice, which is
-precisely why it cannot make one up. No delimiter means `EndOfStream`, and you
+`takeDelimiterInclusive` returns the delimiter as part of the slice, so it cannot make one up. No delimiter means `EndOfStream`, and you
 discard the fragment.
 
 The rule is short: **on a stream where a partial message is possible, use

@@ -22,8 +22,8 @@ try rw.lockShared(io);
 ```
 
 Two readers hold the lock at once. A writer cannot join them, and a reader
-cannot join a writer. That is the whole contract. It is worth using only when
-reads dominate writes and hold the lock long enough to matter. An `RwLock`
+cannot join a writer. Use it only when reads are much more common than writes
+and hold the lock long enough to matter. An `RwLock`
 does more bookkeeping than a `Mutex`, so for a short critical section the
 plain mutex usually wins.
 

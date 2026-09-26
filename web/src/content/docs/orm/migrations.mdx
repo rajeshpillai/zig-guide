@@ -14,10 +14,10 @@ loop, so every planning case is tested without a database.
 
 ## The problem
 
-Schemas change after they ship. This is the discipline every mature ORM
-converges on. Each change is a versioned migration with an up and a down, the
+Schemas change after they ship. Most mature ORMs handle this the same way.
+Each change is a versioned migration with an up and a down, the
 list is append-only, and the database records which version it is at. The
-interesting engineering question is where the logic lives, because "compute
+design question is where the logic lives, because "compute
 what to run" tends to get tangled into "run it", and then nothing is testable
 without a database.
 
@@ -29,7 +29,7 @@ without a database.
 2. The planner is a pure function: `plan(current, target)` returns the
    steps to execute, in order. Upgrades walk forward; downgrades walk
    the affected range newest-first.
-3. Executing the plan is a separate, boring loop that belongs to the
+3. Executing the plan is a separate, simple loop that belongs to the
    [repo](/learn/orm/repo/).
 
 <Playground name="07-building-libraries.migrations" />
@@ -39,13 +39,13 @@ without a database.
 The four tests cover the cases that go wrong in real systems: the fresh
 database, the partial upgrade, the rollback (in reverse order; forward order
 corrupts), and the no-op. Each is an assertion about a function from two
-integers to a slice. No fixtures, no containers, no cleanup. When the planner
+integers to a slice. The tests need no fixtures, containers or cleanup. When the planner
 and the executor are one function, every one of those tests needs a live
 database and most never get written.
 
-The split also buys `--dry-run` for free: print the plan instead of executing
-it. Any operation your library can plan without performing is one users can
-review before trusting.
+The split also gives you `--dry-run` with no extra work: print the plan
+instead of executing it. If your library can plan an operation without
+performing it, users can review the plan before they run it.
 
 ## Append-only is a social contract, not a technical one
 

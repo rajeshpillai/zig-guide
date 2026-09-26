@@ -7,8 +7,8 @@ order: 140
 
 import Playground from "../../../components/Playground.astro";
 
-Writing a file is a one-way transaction: you produce bytes, you are done. A
-window is a conversation. The display server decides when you may paint, asks
+Writing a file goes one way: you produce bytes, and you are done. A window
+needs messages in both directions. The display server decides when you may paint, asks
 whether you are still alive, and reports input. Miss your side of any of that
 and the window is left blank, frozen, or killed.
 
@@ -23,16 +23,16 @@ thinking about it, which is why the framebuffer in this section has been
 **The buffer may become shared.** A file write is a copy. Putting pixels on
 screen does not have to be: Wayland's `wl_shm` hands the compositor a file
 descriptor for the same pages you drew into, and nothing is copied at all.
-X11's `XPutImage` does copy, to the server, which is the whole reason the
-`MIT-SHM` extension exists.
+X11's `XPutImage` does copy, to the server. The `MIT-SHM` extension exists to
+avoid that copy.
 
 **Drawing once is not enough.** The server tells you when to paint, and it will
 ask again.
 
 ## Xlib, the short version
 
-Open a display, create a window, map it, then answer events. It is markedly
-less ceremony than Wayland, and it still runs everywhere, including under
+Open a display, create a window, map it, then answer events. It needs much
+less setup code than Wayland, and it still runs everywhere, including under
 XWayland on a Wayland desktop.
 
 <Playground
@@ -40,7 +40,7 @@ XWayland on a Wayland desktop.
   note="Opens a window and waits for a keypress, which CI cannot sit through. Compiled and linked against the real libX11 on every run."
 />
 
-Four things in that code are worth knowing before you write your own.
+Four details in that code matter when you write your own.
 
 **`@cImport` is gone.** C headers now arrive through a build-system step. In
 this repo that is what `//! link: X11` and `//! cinclude:` set up: `build.zig`
@@ -96,7 +96,7 @@ commits, and that last commit is the moment the window appears.
 
 **You must answer `xdg_wm_base.ping` with `pong`.** It is the compositor's
 liveness check. Ignore it and your client is killed as unresponsive.
-Forgetting it is easy, because nothing goes wrong until it does.
+It is easy to forget, because nothing fails until the compositor sends a ping.
 
 **The shell protocol is not in the library.** `xdg-shell` ships as XML that
 `wayland-scanner` turns into a header plus glue at build time. A normal
@@ -113,7 +113,7 @@ to the compositor rather than to you. The cursor image is the client's job
 too: the pointer is undefined until you call `wl_pointer.set_cursor`, so
 without a cursor theme loaded it simply vanishes over your window.
 
-That list is why the X11 version above is one file and a Wayland one is not.
+These differences are why the X11 version above is one file and a Wayland one is not.
 
 ## What neither version here does
 
@@ -121,12 +121,12 @@ That list is why the X11 version above is one file and a Wayland one is not.
 `wl_surface_frame` callback so they land in step with the compositor. On X11
 you drive them from a timer or an idle loop.
 
-**Resizing.** A real client allocates a new buffer on every `ConfigureNotify` or
+**Resizing.** A complete client allocates a new buffer on every `ConfigureNotify` or
 `configure`. Reusing a fixed one leaves the extra area unpainted on X11 and
 scaled on Wayland.
 
 **Double buffering.** Writing into a buffer the compositor may be reading gets
-you a torn frame. A real client keeps two and waits for `wl_buffer.release`.
+you a torn frame. A complete client keeps two and waits for `wl_buffer.release`.
 
 **Format negotiation.** `XRGB8888` is mandatory in the Wayland protocol so it is
 safe to assume. The X11 code above checks only that the default visual is 24-

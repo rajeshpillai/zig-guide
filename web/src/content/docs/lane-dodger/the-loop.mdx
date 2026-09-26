@@ -18,7 +18,7 @@ while (running) {
 }
 ```
 
-That costs three things.
+That causes three problems.
 
 **The same inputs stop producing the same run.** `dt` is whatever the machine
 delivered. A 60 Hz laptop and a 165 Hz monitor step the world differently.
@@ -27,7 +27,8 @@ hundred and sixty-five times.
 
 **A slow frame becomes an advantage.** This game scores survival. A frame that
 takes 50 ms advances the world 50 ms in one jump. Collision is tested at the
-ends of that jump rather than through it. Stutter, and you pass through a block.
+ends of that jump rather than through it. If the game stutters, the player can
+pass through a block.
 
 **Nothing replays.** To report a crash, you have to record a video of it. A seed
 and a list of keypresses will not reproduce it on another machine.
@@ -78,16 +79,16 @@ const alpha = self.accumulator / config.tick_dt;
 
 <GameSource file="src/render/draw.zig" decl="lerp" />
 
-This is why `Entity` carries a `y_prev` that no rule ever reads. It is not
+Drawing between states is why `Entity` carries a `y_prev` that no rule ever reads. It is not
 simulation state. The renderer needs it to draw a frame that falls between two
 ticks.
 
 ## One frame, not a loop
 
 On the desktop the loop is a `while`. In a browser it cannot be. Emscripten
-calls a function once per animation frame and never returns into your code, so
-there is nowhere for a `while` loop to live and nothing for its locals to live
-in.
+calls a function once per animation frame and never returns into your code. A
+`while` loop cannot run there, and its local variables would have nowhere to
+live.
 
 So "one frame" and "keep doing frames" are separate. `Game` is a struct with a
 `frame` method. Only the caller differs.
@@ -98,7 +99,7 @@ The game state is a file scope variable rather than a local.
 `emscripten_set_main_loop` never returns, so a local in `main` would be gone by
 the first frame.
 
-The split is worth making even for a game that will never ship to a browser. A
-frame you can call once is a frame you can call six hundred times with a bot at
-the controls and no window open. That is how
+Make the split even for a game that will never ship to a browser. A frame you
+can call once can also be called six hundred times, with a bot at the controls
+and no window open. That is how
 [the difficulty tests](/learn/lane-dodger/fair-by-design/) work.

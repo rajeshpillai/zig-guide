@@ -12,10 +12,9 @@ import GameSource from "../../../components/GameSource.astro";
 There are no audio files in this project. The five effects are arithmetic,
 generated when the game starts.
 
-Recording or licensing five blips would have been faster than writing a
-synthesiser. It also would have added a folder of binaries nobody can diff, a
-licence question attached to each one, and a tuning loop that runs through an
-audio editor. Generating them means a sound changes when a number changes.
+Recording or licensing five short sounds would have been faster than writing a
+synthesiser. It would also have added a folder of binary files that nobody can
+diff, a licence question for each one, and an audio editor in every change. Generating them means a sound changes when a number changes.
 
 ## One oscillator with an envelope
 
@@ -69,8 +68,8 @@ So the sounds are checked without an audio device. CI has no speakers anyway.
 
 <GameSource file="src/audio/synth.zig" decl="no sound begins or ends with a click" />
 
-Then the mix. Absolute frequencies are taste and can move. The arrangement
-cannot. The crash is the low long loud one. The lane tick fires on every input
+Then the mix. The exact frequencies are a matter of taste and can change. How
+the sounds relate to each other must not. The crash is the low long loud one. The lane tick fires on every input
 and must not shout over a pickup.
 
 <GameSource file="src/audio/synth.zig" decl="the sounds sit in the right places against each other" />
@@ -105,10 +104,10 @@ turns into nothing.
 
 <GameSource file="src/platform/audio.zig" decl="init" />
 
-Failing to start because a mixer would not open is not acceptable for a game
-whose sound is decoration. The real binary is run with a deliberately broken
+The sound in this game is decoration, so the game must still start when a mixer
+will not open. The real binary is run with a deliberately broken
 ALSA configuration as part of checking that.
 
-None of this changed a rule of the game. Sound reads the same
+Sound reads the same
 [event stream](/learn/lane-dodger/entities/) the particles read, and the
 existing tests kept passing while it was written.

@@ -23,7 +23,7 @@ item, many items, and "maybe nothing". Zig splits them apart:
 | `[]T` | many `T`, count known (a [slice](/learn/language-basics/slices/)) |
 | `?*T` | one `T`, or nothing |
 
-The split is not decoration. In C, a function signature taking a `char *`
+The split has a purpose. In C, a function signature taking a `char *`
 tells you nothing. Whether it may index, how far, and whether null is
 acceptable are all left to a comment or to convention. Here the type answers
 all three, and the compiler enforces the answer.
@@ -40,16 +40,14 @@ The moment you know the length, convert to a slice:
 const slice: []u8 = many[0..count];
 ```
 
-That single step buys back bounds checks, `for` iteration, and `.len`. Prefer
-slices everywhere except the boundary where a length genuinely is not
-available.
+That one step gives you back bounds checks, `for` iteration, and `.len`. Prefer
+slices everywhere except the boundary where a length is not available.
 
 Slicing a `[*]T` is the one operation where you are asserting something the
 compiler cannot check. `many[0..count]` produces a slice of exactly `count`
 elements whether or not that many exist, and nothing fires if you were wrong.
-The moment after that line, everything is checked again. The point is that the
-unchecked assertion is one visible line rather than spread across every
-access.
+After that line, everything is checked again. So the unchecked assertion sits
+in one visible line, not in every access.
 
 Correspondingly, `*T` deliberately does *not* support indexing: `ptr[1]` on a
 single-item pointer is a compile error, catching a class of C bug at the type
@@ -94,4 +92,4 @@ than the function that received it.
 `[*]T` cannot be null, exactly like `*T`. Use `?[*]T` when the C side may hand
 back nothing, and the optional costs no space because the null address is the
 tag. `allowzero` is a separate modifier for the rare targets where address
-zero is legitimately mapped, and if you have not needed it, you do not.
+zero is legitimately mapped. You only need it on those targets.

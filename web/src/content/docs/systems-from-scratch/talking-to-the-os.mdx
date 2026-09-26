@@ -18,8 +18,8 @@ using privileges your program does not have. Control comes back with a result.
 
 That is the boundary, and everything you think of as I/O crosses it.
 
-The shape of the arrangement is the part to keep, because it is older than
-almost everything else you use and it has not changed:
+The arrangement has three parts. It is older than almost everything else you
+use, and it has not changed:
 
 - The operating system hands your program some things when it starts, without
   being asked.
@@ -43,16 +43,16 @@ them agreeing in advance.
 **A descriptor is an integer and nothing else.** It is not a handle object with
 methods hiding inside it. It is a number the kernel uses to look up what you
 opened, in a table it keeps for your process. Opening a file gives you the
-next free number. This is where "everything is a file" stops being a slogan. A
-file, a socket, a pipe and a terminal are all just numbers into that table,
+next free number. This is what the phrase "everything is a file" means in
+practice. A file, a socket, a pipe and a terminal are all just numbers into that table,
 and `read` works on all of them.
 
 **Two output streams, on purpose.** stdout is the program's *result*, the bytes
 another program would consume if you piped this one into it. stderr is for the
 person watching. The distinction only becomes visible when you redirect: run
 this locally as `zig run talking-to-the-os.zig > out.txt` and the stdout lines
-land in the file while the stderr line still appears on your terminal. Getting
-this wrong is why some tools are painful to script.
+land in the file while the stderr line still appears on your terminal. Tools
+that mix the two up are painful to use from scripts.
 
 **Returning from `main` reported 0.** A process ends with a status, and by
 convention 0 means success and anything else means a specific kind of failure.
@@ -71,15 +71,13 @@ against the browser instead of against a kernel.
 
 The program cannot tell the difference. An interface is exactly that promise,
 and most of the snippets in this guide run on a page because of it. Three
-chapters in [the OS section](/learn/os/) genuinely need a kernel: pipes,
+chapters in [the OS section](/learn/os/) need a real kernel: pipes,
 signals and spawning. They say so, and they do not offer a Run button.
 
 ## Where to go next
 
-That is the track. You now have the model the rest of the guide assumes. Bytes
-and types. Sizes and what they cost. Addresses and the stack. Ownership.
-Bounds and build modes. Text as bytes. Structs as layout. Errors as values.
-And the boundary with the operating system.
+That is the end of the track. You now have the model the rest of the guide
+assumes.
 
 If you arrived here before the rest of the guide, [Getting
 Started](/learn/getting-started/) installs a compiler and gets these programs

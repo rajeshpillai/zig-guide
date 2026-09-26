@@ -30,7 +30,7 @@ you unless the target has no threads. The allocator is used only to spawn
 tasks: pass `Allocator.failing` if you never call `async` or `concurrent` and
 the implementation will still work for plain I/O.
 
-Two options are worth knowing. `async_limit` caps the pool used by `io.async`;
+Two options are useful. `async_limit` caps the pool used by `io.async`;
 past it, tasks run inline rather than waiting for a thread. `concurrent_limit`
 caps `io.concurrent`, and past it the call returns
 `error.ConcurrencyUnavailable`. The snippet builds a second instance with
@@ -49,7 +49,8 @@ A compile-time constant instance: no allocator, no threads, no deinit needed.
 wasm build gets, and it is why every browser playground on this site runs the
 same source as CI does.
 
-It is also the honest way to test that library code degrades properly. If your
+It is also a good way to test that library code still works correctly with no
+threads. If your
 code needs `concurrent`, run it against this instance and find out now.
 
 ## Evented implementations
@@ -62,7 +63,7 @@ the machinery that does it, saving a handful of registers and switching
 stacks; it is what an implementation uses, not something application code
 calls.
 
-This is what the `Io` parameter buys. A server written against the interface
+This is the benefit of the `Io` parameter. A server written against the interface
 runs on a thread pool during development and on io_uring in production without
 a line changing, and the decision that picks between them stays in `main`.
 
@@ -75,9 +76,9 @@ fn run(io: std.Io, ...) !void
 The function in the snippet is called three times with three different
 implementations and does not know the difference. Take an `Io` parameter,
 never reach for a global, and handle `error.ConcurrencyUnavailable` where you
-ask for concurrency. Then the choice on this page is the caller's, which is
-the entire point of making blocking go through an interface.
+ask for concurrency. Then the choice on this page is the caller's. That is why blocking goes
+through an interface.
 
-`Io.Threaded.global_single_threaded` exists as an escape hatch for debugging
-and for code that genuinely cannot take a parameter. Reaching for it in a
-library gives up the property this whole design bought.
+`Io.Threaded.global_single_threaded` exists as a fallback for debugging
+and for code that really cannot take a parameter. Using it in a library takes
+the choice of implementation away from the caller.

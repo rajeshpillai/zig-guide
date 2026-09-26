@@ -7,32 +7,31 @@ order: 7
 
 import Playground from "../../../components/Playground.astro";
 
-The last chapter ended on an awkward admission: the program you ran said its
-safety checks were absent. Why they were absent is the idea that separates
-systems programming from everything above it.
+The last chapter ended on an awkward fact: the program you ran said its safety
+checks were absent. The reason they were absent is what separates systems
+programming from everything above it.
 
 A high-level language answers every question. Read past the end of a list and
 Python raises `IndexError`. Always, on every machine, in every configuration.
 The answer costs something to guarantee, and you pay it whether you needed it
 or not.
 
-Down here some questions are deliberately left unanswered. Not "answered
-unpredictably": **unanswered**. The specification says that if your program
-does this thing, the language makes no promise about what happens next. That
-is
-**undefined behaviour**, and it is easy to misread as a fancy way of saying
-"crash" or "garbage value". It is neither.
+In a systems language, some questions are left unanswered on purpose. That
+does not mean "answered unpredictably". It means **unanswered**. The
+specification says that if your program does this thing, the language makes no
+promise about what happens next. That is **undefined behaviour**. It is easy to
+misread it as a fancy way of saying "crash" or "garbage value". It is neither.
 
 The right way to read it is as a promise you made. When the language leaves
 integer overflow undefined, it is telling the compiler: assume it never
 happens. The compiler then uses that assumption, because that is what makes
 the generated code fast. It might delete a check you wrote, because your check
-could only be true in a situation you promised would not arise. This is why
-undefined behaviour is worse than a wrong answer. A wrong answer is local. A
+could only be true in a situation you promised would not arise. So undefined
+behaviour is worse than a wrong answer. A wrong answer stays in one place. A
 broken promise can change code somewhere else.
 
-Zig's position is the interesting one: **the checks exist, and you choose per
-build whether to pay for them.**
+Zig takes this approach: **the checks exist, and you choose per build whether
+to pay for them.**
 
 ## The program
 
@@ -42,8 +41,8 @@ build whether to pay for them.**
 
 **The program read its own build mode.** `builtin.optimize` is available to any Zig
 program, and `builtin.optimize.runtimeSafety()` is the direct question: are the
-checks in this build. Printing them is a habit worth having, because almost
-every "why does it behave differently on the server" story ends here.
+checks in this build. Printing them is a useful habit. Almost every bug of the
+kind "why does it behave differently on the server" comes back to this.
 
 The four modes, and what each is promising:
 
@@ -52,9 +51,9 @@ The four modes, and what each is promising:
   working. Overflow, out-of-bounds, invalid casts and the rest all stop the
   program with a message and a line number.
 - **ReleaseSafe**: optimised, and the safety checks stay. This is the mode most
-  server software should ship in. The checks are not free, but they are cheap,
-  and a program that stops with a clear message beats one that continues with
-  corrupt state.
+  server software should ship in. The checks cost something, but not much. A
+  program that stops with a clear message is better than one that continues
+  with corrupt state.
 - **ReleaseFast**: optimised, checks removed. You are promising that none of
   the checked situations occur.
 - **ReleaseSmall**: optimised for size, checks removed. Same promise.
@@ -62,11 +61,12 @@ The four modes, and what each is promising:
 The snippets on this site are built ReleaseSmall, because they are downloaded
 by every reader. The output above says `small` and `false` for that reason.
 
-**The four operators did not care.** `+%`, `std.math.add`, `@addWithOverflow`
-and `+|` behave identically in all four modes, because each of them states in
-the source what should happen when the value does not fit. They are not
-relying on a check that a release build is entitled to remove. When it
-matters, say what you mean and the build mode stops being part of the answer.
+**The four operators gave the same result in every mode.** `+%`,
+`std.math.add`, `@addWithOverflow` and `+|` behave identically in all four
+modes, because each of them states in the source what should happen when the
+value does not fit. They do not rely on a check that a release build is allowed
+to remove. When overflow matters, say in the source what you want. Then the
+build mode does not change the answer.
 
 ## The one that does depend on the build
 
@@ -80,7 +80,7 @@ so the check is still in it. Press **Run**.
 panic: integer overflow
 ```
 
-Now read that back against the four operators that did not care. Each of them
+Now compare that with the four operators above. Each of them
 answered the question in the source, so each behaves the same in all four
 modes. This one asked the build mode to answer it, and got a different answer
 depending on which build you are in:
@@ -92,10 +92,9 @@ depending on which build you are in:
 | ReleaseFast | undefined |
 | ReleaseSmall | undefined |
 
-Note what the last two rows do **not** say. Not "wraps". It might wrap on your
-machine today, and writing code that depends on that is exactly the broken
-promise described at the top of this page. `+%` is right there and costs
-nothing.
+The last two rows do **not** say "wraps". It might wrap on your machine today.
+Writing code that depends on that is exactly the broken promise described at
+the top of this page. If you want wrapping, use `+%`. It costs nothing.
 
 There is a reason this page can show you the panic and cannot show you the
 other half. In a safety build the behaviour is defined, so our build runs this
@@ -111,9 +110,9 @@ If ReleaseSafe keeps the checks and is optimised, why would anyone ship
 ReleaseFast?
 
 Because the checks are not always cheap in the place that matters. A bounds
-check inside a loop running a billion times per frame is measurable, and there
-are programs where that is the whole point. The judgement is per program, and
-sometimes per function. That is why Zig lets you turn safety off for a single
+check inside a loop running a billion times per frame is measurable, and in
+some programs that speed is what matters most. The judgement is per program,
+and sometimes per function. For this reason Zig lets you turn safety off for a single
 block with `@setRuntimeSafety(false)`, instead of making it all or nothing for
 the whole binary. Start in ReleaseSafe and move only where you have measured.
 

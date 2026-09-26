@@ -21,7 +21,7 @@ dx*dx + dy*dy <= r*r
 ```
 
 Both sides are now integers, and the test is two multiplies and a compare.
-This trick is worth internalizing well beyond graphics: any time you are about
+This trick is useful well beyond graphics: any time you are about
 to call `sqrt` in order to *compare* two lengths, don't. Hit testing, nearest
 neighbour searches, and collision detection all run on squared distances.
 
@@ -48,12 +48,12 @@ would eventually get it wrong.
 if (d2 <= outer and d2 > inner) putPixel(...);
 ```
 
-Inside the outer radius and outside the inner one is a band. No new algorithm,
-no separate case, and the thickness is a parameter. The midpoint circle
+Inside the outer radius and outside the inner one is a band. It needs no new
+algorithm or separate case, and the thickness is a parameter. The midpoint circle
 algorithm draws a one-pixel outline faster by walking only one octant and
-mirroring it eight ways, which is the circle equivalent of Bresenham. It is
-worth reading once. It is also worth knowing that for anything you intend to
-fill, the squared-distance test is simpler and vectorizes.
+mirroring it eight ways, which is the circle equivalent of Bresenham. Read it
+once. For anything you intend to fill, though, the squared-distance test is
+simpler and vectorizes.
 
 ## What is missing
 
@@ -69,5 +69,5 @@ of each pixel falls inside the circle, and using that as an alpha value.
 2. **Rounded rectangles.** A rectangle, plus the circle test applied only in the
    four corner boxes.
 3. **A span fill.** For each row, solve for the two x values where the circle
-   crosses it and write that run of pixels directly. One `@memset` per row beats
-   a per-pixel test by a wide margin, and it is the shape a real rasterizer uses.
+   crosses it and write that run of pixels directly. One `@memset` per row is much
+   faster than a per-pixel test, and production rasterizers work this way.

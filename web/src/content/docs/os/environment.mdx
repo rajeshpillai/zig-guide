@@ -8,9 +8,9 @@ order: 30
 import Playground from "../../../components/Playground.astro";
 
 The environment is a list of `KEY=value` strings that the parent process
-decided on and the kernel copied into your address space at startup. It is not
-a system-wide setting, it is not shared, and nothing you do to it after
-startup reaches any other running process.
+decided on and the kernel copied into your address space at startup. It
+belongs only to your process. Nothing you do to it after startup reaches any
+other running process.
 
 <Playground name="14-os.environment" />
 
@@ -27,11 +27,11 @@ pub fn main(init: std.process.Init) !void {
 populated from the raw block before `main` was called, allocated with the same
 `gpa` on `init`. You do not free it and you do not build it.
 
-The count is 0 in the playground above. That is not a stub standing in for the
-real thing. A wasm module in a browser tab has no parent process to inherit an
-environment from, so the honest answer is that there are none. Reading `PATH`
+The count is 0 in the playground above. This is the real result, not a stub. A
+wasm module in a browser tab has no parent process to inherit an environment
+from, so there really are none. Reading `PATH`
 there returns `null`, which is exactly what a program should be prepared for
-on any platform. A variable you did not set is a variable that may not be
+on any platform. If you did not set a variable yourself, it may not be
 there.
 
 ## Your copy is yours
@@ -46,7 +46,7 @@ will see. A child inherits a copy of the block that existed when it was
 spawned, and you choose which block that is when you spawn it. Leave it null
 and the child gets the parent's.
 
-The direction that surprises people is the one that does not work. There is no
+Many people expect the other direction to work, and it does not. There is no
 call that lets a program change its parent's environment. A tool that wants to
 alter your shell prints something for the shell to evaluate instead. The
 environment was copied at fork time, and the copies were never connected.

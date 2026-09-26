@@ -38,10 +38,9 @@ panic: integer overflow
 C would give you 0 here, quietly, and the bug would surface somewhere else
 entirely. Zig stops at the line that was wrong.
 
-The important part is that `+` is not refusing to wrap. It is refusing to
-guess. Wrapping is a perfectly reasonable thing to want in a hash function or
-a checksum, so Zig gives it a different operator and makes the choice visible
-at the call site:
+Plain `+` does not guess whether you wanted the value to wrap. Wrapping is a
+reasonable thing to want in a hash function or a checksum, so Zig gives it a
+different operator and makes the choice visible at the call site:
 
 <Playground name="02-language.safety-wrapping" />
 
@@ -76,9 +75,8 @@ Both are covered in [optionals](/learn/language-basics/optionals/).
 | `ReleaseFast` | **no** | yes |
 | `ReleaseSmall` | **no** | yes |
 
-This is the decision C never gives you explicitly. `ReleaseSafe` keeps the
-checks and is a genuinely reasonable default for production; `ReleaseFast`
-trades them for speed.
+C never gives you this choice explicitly. `ReleaseSafe` keeps the checks and
+is a reasonable default for production. `ReleaseFast` removes them for speed.
 
 Where a check is removed, the situation it was catching becomes **illegal
 behaviour**: the same category as C's undefined behaviour, with the same
@@ -91,16 +89,16 @@ of incorrect code fail loudly instead of continuing with corrupted state.
 
 Every panic on this page is a program that was already wrong before the check
 fired. Reading index 5 of a three-element array is a bug in `Debug` and a bug
-in `ReleaseFast`; the difference is only whether you find out. The checks are
-not the definition of correctness, they are a diagnostic for violating it, and
-a `ReleaseFast` build of a program that panics under `ReleaseSafe` has not
-fixed anything. It has stopped telling you.
+in `ReleaseFast`. The only difference is whether you find out. The checks do
+not define what correct code is. They report code that breaks the rules. If a
+program panics under `ReleaseSafe`, building it with `ReleaseFast` does not fix
+the bug. The bug is still there, and the program no longer reports it.
 
 </aside>
 
 You can override the setting for a scope with `@setRuntimeSafety(true)`, which
-is useful for keeping bounds checks in one hot-but-hairy function of an
-otherwise `ReleaseFast` build.
+is useful for keeping bounds checks in one tricky, performance-critical function
+of an otherwise `ReleaseFast` build.
 
 <aside>
 
@@ -110,9 +108,9 @@ null unwrap are built `ReleaseSafe` on purpose, because a chapter about a check
 firing should be able to show one fire. Our build runs all three on every
 change and requires each to stop with exactly the message quoted above it, so
 those messages are checked nightly rather than remembered. Each costs about
-1.1 MB, against the 79 KB a snippet here usually weighs. That is the price of
-the checks and the machinery that describes them, and it downloads only when
-you press Run on that particular snippet.
+1.1 MB, against the 79 KB a snippet here usually weighs. The extra size is the
+checks and the code that prints their messages. It downloads only when you
+press Run on that particular snippet.
 
 The wrapping snippet is an ordinary `ReleaseSmall` build, because `+%`, `+|`
 and `@addWithOverflow` are defined in every mode and need no check to

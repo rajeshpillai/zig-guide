@@ -35,10 +35,10 @@ pub fn main(init: std.process.Init) !void {
 
 ## Why
 
-It is the same argument as `Allocator`. A function's signature now tells you
-whether it performs I/O. The *caller* decides how that I/O is executed,
-threaded or evented or something else, instead of the standard library
-choosing on your behalf.
+A function's signature now tells you whether it performs I/O, in the same way
+an `Allocator` parameter tells you it allocates. The *caller* decides how that
+I/O is executed: threaded, evented or something else. The standard library
+does not choose for you.
 
 ## Reading a whole file
 
@@ -63,10 +63,10 @@ are handed to it rather than opened.
 
 ## Directories are handles, not strings
 
-`std.Io.Dir` is an open directory, and paths are resolved relative to it. That
-buys more than tidiness. A path resolved against an open handle cannot be
-changed underneath you between the check and the use, and that gap is the
-shape of a whole family of security bugs.
+`std.Io.Dir` is an open directory, and paths are resolved relative to it. This
+also makes the code safer. A path resolved against an open handle cannot be
+changed by someone else between the check and the use. That gap is the cause
+of a whole family of security bugs.
 
 The practical version is that you open the directory once and do everything
 through it:
@@ -95,17 +95,17 @@ For a recursive walk, `walk` does the descent for you and yields paths
 relative to the starting directory. It needs an allocator, because the depth
 is not known in advance.
 
-## Errors are the interesting part
+## Handle each error
 
-Filesystem calls fail for reasons that are ordinary rather than exceptional,
-and the error set is the list of them. `error.FileNotFound`,
+Filesystem calls fail for ordinary reasons, and the error set is the list of
+them. `error.FileNotFound`,
 `error.AccessDenied`, `error.IsDir`, `error.NoSpaceLeft`: each is a case a
 real program handles differently, and switching on the error is how you do it.
 
-The one worth designing around is that a check followed by an action is not
-atomic. `if (exists) open()` can fail between the two lines. Attempt the
-operation and handle the error instead; `openFile` returning
-`error.FileNotFound` is the check, done atomically, for free.
+Design around one fact: a check followed by an action is not atomic.
+`if (exists) open()` can fail between the two lines. Attempt the operation and
+handle the error instead. When `openFile` returns `error.FileNotFound`, that
+is the check, done atomically, with no extra call.
 
 ## Writing a file safely
 
@@ -115,9 +115,9 @@ everywhere: write a temporary file in the same directory, flush it, then
 rename it over the target. Rename is atomic within a filesystem, so a reader
 sees either the old contents or the new ones and never a half-written mixture.
 
-`dir.rename(io, "config.json.tmp", "config.json")` is the last step, and it is
-worth doing for anything a user would be upset to lose. Same directory
-matters: a rename across filesystems is a copy and not atomic.
+`dir.rename(io, "config.json.tmp", "config.json")` is the last step. Use this
+pattern for anything a user would be upset to lose. Keep the temporary file in
+the same directory: a rename across filesystems is a copy and not atomic.
 
 There is no `AtomicFile` helper in the standard library on master; older code
 that used one is writing the three steps by hand now. Four lines, and writing
@@ -129,8 +129,7 @@ missing.
 `std.Io.Dir.path` holds the pure string manipulation, no `Io` instance needed:
 `join`, `dirname`, `basename`, `extension`, `isAbsolute`. It is
 separator-aware, so `join` produces backslashes on Windows and forward slashes
-elsewhere, which is why building a path by concatenation is worse than it
-looks. Older code spells this `std.fs.path`, which moved with the rest of the
+elsewhere. Building a path by concatenation gets this wrong. Older code spells this `std.fs.path`, which moved with the rest of the
 filesystem API.
 
 There is a second reason to prefer it. `join` allocates and returns a slice

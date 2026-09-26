@@ -22,10 +22,9 @@ means standing both up for every case.
 
 The fix is the same seam the
 [ORM's Repo chapter](/learn/orm/repo/) built: put storage behind an
-interface, and hand the handler whichever implementation the moment
-calls for. Here the handler takes request bytes and a store, and
-returns response bytes. The in-memory store needs no server, no socket
-and no database. That is why this chapter runs in your browser.
+interface, and hand the handler whichever implementation it needs at
+the time. The in-memory store needs neither a server nor a database, so
+this chapter runs in your browser.
 
 ## The plan
 
@@ -55,16 +54,16 @@ the store for SQL, this trace is what must still be true.
 route, which means a link whose slug is literally `links` could never
 be reached. The slugs chapter's alphabet makes that collision
 impossible today: `links` decodes to a huge id, not an early one. But
-route shadowing arrives silently. Someone adds `/stats` next to a
+route shadowing happens with no warning. Someone adds `/stats` next to a
 growing slug space and nothing complains. Keeping every reserved
-path under one prefix, as `/links/...` does, is the cheap insurance.
+path under one prefix, as `/links/...` does, is a cheap way to prevent it.
 
 ## Variations
 
 - **No allocation anywhere:** the store is a fixed array and every
   response is built in a caller-owned buffer. A service this size can
-  simply decide its limits up front; 507 is what honesty looks like
-  when the array fills.
+  simply decide its limits up front. When the array is full, the
+  service answers 507.
 - **Add a route:** a `GET /links` listing is one more branch and one
-  more store method. Notice the handler cannot cheat: whatever it
-  needs, it has to ask the seam for.
+  more store method. The handler cannot go around the seam: it
+  has to ask the store for everything it needs.

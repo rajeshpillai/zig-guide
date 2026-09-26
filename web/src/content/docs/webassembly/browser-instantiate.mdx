@@ -16,8 +16,8 @@ functions on `instance.exports`. The module calls back into JavaScript through
 
 You have a reactor module and a web page. You want the page to load the `.wasm`,
 call its functions, and let the module call back into JavaScript when it needs
-to. This is what this very site does on every Run button, and the moving parts
-are worth seeing whole.
+to. This site does the same on every Run button. This page shows all the parts
+together.
 
 ## The plan
 
@@ -69,22 +69,22 @@ instance.exports.greet();   // logs "hello from wasm"
 The module declared `extern "env" fn log(...)`. Those two names are the contract:
 the module name `env` and the field `log`. The imports object must have exactly
 `imports.env.log`, or instantiation throws a `LinkError` naming what was missing.
-Rename either side and it stops resolving. This is a hard interface, checked at
-instantiation, not a loose convention.
+Rename either side and it stops resolving. The engine checks this interface at
+instantiation.
 
 Notice `log` reads the string out of `memory` using the offset and length the
 module passed. The module put "hello from wasm" in its linear memory and passed
-where it lives; the host decodes it there. It is the [boundary
+where it lives. The host decodes it there. It is the [boundary
 protocol](../linear-memory/) again, this time with the module as the caller.
 
 ## Order of operations
 
-There is a small chicken-and-egg here. The import `log` needs `memory` to read
+There is a small circular dependency here. The import `log` needs `memory` to read
 the string, but `memory` only exists after the instance is created, and creating
 the instance needs the imports object. It works because `log` is not *called*
 during instantiation, only *defined*. By the time `greet` runs and calls `log`,
 `memory` has been assigned. Capturing it in a closure that reads it lazily, as
-above, is the usual way to tie the knot.
+above, is the usual way to solve this.
 
 ## A note on `instantiateStreaming`
 
@@ -108,5 +108,5 @@ what this site's runner does, since it already has the bytes in hand.
   structured (a JSON string, a packed struct) crosses the same way, decoded on
   the host from `memory`.
 - **This site, exactly:** the playground fetches the verified `.wasm`, builds a
-  WASI import object instead of a single `log`, and calls `_start`. Different
-  imports, identical mechanism.
+  WASI import object instead of a single `log`, and calls `_start`. The
+  imports differ, but the mechanism is the same.

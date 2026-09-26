@@ -11,16 +11,16 @@ In Python or JavaScript, a number is just a number. You add one to it and you
 get one more, and you can keep doing that for as long as you like.
 
 Down here a number is a fixed number of bytes, and a fixed number of bytes can
-only hold so many different patterns. One byte has 256 patterns. That is not a
-limitation someone chose to impose on you; it is a count. If you have eight
-switches, there are 256 ways to set them, and there is no 257th.
+only hold so many different patterns. One byte has 256 patterns. Nobody chose
+this limit. It comes from counting. If you have eight switches, there are 256
+ways to set them, and there is no 257th.
 
 So a `u8` counts from 0 to 255. Then what?
 
-That question has three answers, and the difference between them is a whole
-category of famous bugs. It can wrap around to 0. It can stop the program. Or
-it can hand back "that did not fit" and let you decide. Zig makes you say
-which one you meant.
+A language can do one of three things here, and many well-known bugs come from
+the difference between them. The value can wrap around to 0. The program can
+stop. Or the operation can report "that did not fit" and let you decide. Zig
+makes you say which one you meant.
 
 ## The program
 
@@ -62,8 +62,8 @@ is: the ones you develop in.
 
 ## If you have written C
 
-This is the single biggest behavioural difference between the two languages,
-and it is the reason this material is easier to learn here.
+This is a large behavioural difference between the two languages. It is the
+reason this material is easier to learn in Zig.
 
 ```c
 unsigned char x = 255;
@@ -73,10 +73,10 @@ int y = 2147483647;
 y = y + 1;        /* undefined behaviour: the compiler may assume it cannot happen */
 ```
 
-The first line silently wraps. The second is worse than wrong. Signed overflow
+The first line silently wraps. The second is more dangerous. Signed overflow
 is undefined behaviour in C. An optimiser is therefore allowed to assume it
-never happens, and to delete the check you wrote to catch it. Beginners lose
-days to this and mostly conclude they are bad at programming.
+never happens, and to delete the check you wrote to catch it. Beginners can
+spend days on a bug like this, and many decide they are bad at programming.
 
 Zig's mapping is: C's silent wrap is `+%`, and you have to type the `%`. C's
 undefined behaviour is a crash you can see, in Debug and ReleaseSafe builds.

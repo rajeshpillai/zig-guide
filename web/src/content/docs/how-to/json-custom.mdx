@@ -21,8 +21,8 @@ value you compute rather than store. You want that control without
 hand-rolling string concatenation and without giving up the checks that keep
 the output valid.
 
-Zig's answer is a hook: declare `pub fn jsonStringify` on the type and
-`std.json.Stringify` calls it instead of walking the fields.
+When the type declares `pub fn jsonStringify`, `std.json.Stringify` calls it
+instead of walking the fields.
 
 ## The plan
 
@@ -59,8 +59,8 @@ itself.
 `write(value)` serializes a Zig value as JSON: numbers stay numbers, strings
 get quoted. When you need to emit a literal fragment, `jws.print("{d}", .{n})`
 writes raw text into the stream, so you are responsible for the quotes and
-escaping. Prefer `write` unless you specifically need the raw form; it is the
-one that cannot produce invalid output.
+escaping. Prefer `write` unless you specifically need the raw form. `write`
+cannot produce invalid output.
 
 ## Variations
 

@@ -15,8 +15,8 @@ parallel arrays `field_names` and `field_types`, not the old `fields` slice.
 
 You want to dump any struct for debugging or [logging](/learn/standard-library/logging/): field names, values,
 strings quoted, without writing a print function per type and without runtime
-reflection machinery. In most languages this costs a reflection API and some
-runtime overhead. In Zig it is a loop that runs at compile time.
+reflection machinery. In most languages this needs a reflection API and some
+runtime overhead.
 
 ## The plan
 
@@ -30,7 +30,7 @@ runtime overhead. In Zig it is a loop that runs at compile time.
 
 ## The shape of `@typeInfo` changed
 
-If you learned this API before, note the delta: `@typeInfo(T).@"struct"` used
+If you learned this API before, note the change: `@typeInfo(T).@"struct"` used
 to expose one `fields` slice of `StructField` structs, each with a `name` and
 a `type`. Current master splits that into parallel arrays: `field_names`,
 `field_types`, and `field_attrs`, guaranteed to have the same length. Iterating
@@ -43,13 +43,13 @@ inline for (info.field_names, info.field_types) |name, Field| {
 ```
 
 A tutorial showing `.fields` with `field.name` and `field.type` no longer
-compiles. The idea is unchanged; only the field layout moved.
+compiles. The approach is the same. Only the shape of the type info changed.
 
 ## Why the branch costs nothing
 
 `if (comptime Field == []const u8)` is decided while compiling, per field.
-For `host` the compiler emits only the quoted-string print; for `port` only
-the `{any}` print. The other branch is not compiled at all, which also means
+For `host` the compiler emits only the quoted-string print. For `port` it
+emits only the `{any}` print. The other branch is not compiled at all, which also means
 this works even when a branch would be a type error for the other fields.
 
 ## Variations
@@ -59,5 +59,5 @@ this works even when a branch would be a type error for the other fields.
 - **The built-in shortcut:** `{any}` on a whole struct already prints
   something usable. Write a custom printer when you need control over
   format, indentation, or which fields appear.
-- **Enums and unions:** `{t}` prints tag names directly; combine with this
+- **Enums and unions:** `{t}` prints tag names directly. Combine it with this
   recipe for tagged unions.

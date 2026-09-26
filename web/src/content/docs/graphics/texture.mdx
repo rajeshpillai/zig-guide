@@ -33,7 +33,7 @@ nothing outside `sample` mentions that. Normalized coordinates mean the same
 four corners address a 16 pixel texture, or a 4096 pixel one, without the
 geometry knowing which it got.
 
-**Going past 1 is a decision, not an error.** The right-hand square asks for
+**Going past 1 is not an error.** The right-hand square asks for
 coordinates up to 2. Wrapping turns that into the image twice in each
 direction. Clamping would have stretched the edge texels into a smear. Both
 are reasonable and the sampler has to be told which.
@@ -44,7 +44,7 @@ agree along the edge they share.
 
 ## The seam is not a bug in the rasteriser
 
-It is the honest result of what an affine map can represent. A triangle's
+It comes from the limit of what an affine map can represent. A triangle's
 three corners fix a linear relationship between position and texture
 coordinate exactly, with nothing left over. Four corners are one constraint
 too many, so splitting into two triangles solves two separate problems and the
@@ -54,13 +54,13 @@ Draw a parallelogram instead and the seam disappears, because there a single
 affine map does satisfy all four corners and the two triangles agree by
 construction.
 
-This is the same defect as perspective in 3D, seen in 2D where it is easier to
+The seam is the same defect as perspective in 3D, seen in 2D where it is easier to
 look at. A wall receding into the distance is a trapezoid on the screen, so
 texture coordinates vary non-linearly across it. Interpolating them linearly
 is what produced the wobbling floors in games of the mid nineties. The fix is
 to interpolate the reciprocals along with the coordinates and divide at each
-pixel. "Perspective correct" names that fix, and it cost more than the
-hardware of the day wanted to spend.
+pixel. "Perspective correct" names that fix, and it was too expensive for much
+of the hardware of that time.
 
 ## Why a texture is not a canvas
 
@@ -70,8 +70,8 @@ canvas](/learn/graphics/sub-canvas/). Nothing in this program samples a
 rectangle out of the middle of a larger image, so there is no second width to
 carry.
 
-It buys a real guarantee. `Texture` has no `set`, and its pixels are `[]const
-u32`, so the direction of travel is in the type rather than in a comment.
+The separate type gives a guarantee. `Texture` has no `set`, and its pixels are
+`[]const u32`, so the type says which image is read and which is written.
 Passing the destination where the source belongs does not compile.
 
 The alternative, one type used for both ends, is what olive.c does, and it is
@@ -118,7 +118,7 @@ and floats must use @rem or @mod
 ```
 
 `@rem(-1, 8)` is `-1`, matching C. `@mod(-1, 8)` is `7`, taking the sign of
-the divisor, the wrapping a sampler wants. Both exist, neither is the default,
-and the operator that would have quietly chosen for you is gone.
+the divisor, the wrapping a sampler wants. Both exist and neither is the
+default, so you must choose one.
 
 Next: moving the shape rather than the pixels inside it.

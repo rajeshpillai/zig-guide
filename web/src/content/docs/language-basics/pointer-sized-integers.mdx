@@ -31,8 +31,7 @@ program is concerned.
 
 Writing `u64` where you mean `usize` produces code that works on your machine
 and breaks on a 32-bit one. Writing `usize` where you mean "a 64-bit counter"
-produces code that silently narrows on wasm. The distinction is worth keeping
-straight.
+produces code that silently narrows on wasm. So choose between them with care.
 
 ## Which one to reach for
 
@@ -50,8 +49,8 @@ The rule is about what the number *is*, not how big you expect it to get.
   interfaces that use `ssize_t`, usually as a length that can also be an error
   code.
 
-The failure mode for getting this wrong is the worst kind: correct on the
-machine you tested and wrong on the one you shipped to. Embedded targets are
+When this goes wrong, the code is correct on the machine you tested and wrong
+on the one you shipped to. Embedded targets are
 16-bit, wasm is 32-bit, your laptop is 64-bit, and the same source is expected
 to build for all three.
 
@@ -70,7 +69,7 @@ promise you made, and breaking it is undefined behaviour. So `@intCast` is for
 when you know the bound (a length you just checked, an index you just
 validated), not for silencing a type error.
 
-When the value genuinely might not fit, do the check yourself and produce an
+When the value might not fit, do the check yourself and produce an
 error:
 
 ```zig

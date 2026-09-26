@@ -7,7 +7,7 @@ order: 95
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, plain `+` panics on overflow in safe builds. To handle overflow
+Plain `+` in Zig panics on overflow in safe builds. To handle overflow
 instead, choose one of four explicit forms: `std.math.add` returns
 `error.Overflow`, `+|` saturates, `+%` wraps, and `@addWithOverflow` returns
 the result with a flag.
@@ -18,11 +18,8 @@ You are adding numbers that come from outside your control: user input, a
 file, a network peer. `200 + 100` does not fit in a `u8`. In C that overflow
 is undefined behavior (signed) or silent wraparound (unsigned). In Zig, plain
 `+` on a value that does not fit **panics** in safe builds. That panic is
-correct for a programming bug, and wrong for input handling: bad input is an
-expected condition, and the program should handle it, not die.
-
-Zig's answer is to make the overflow policy part of the code. There are four,
-and choosing one is the recipe.
+correct for a programming bug, and wrong for input handling. The program
+should handle bad input, not die.
 
 ## The plan
 
@@ -39,15 +36,15 @@ Pick the operator that states what overflow means for this value:
 
 ## Choosing between them
 
-- **`std.math.add`** belongs at trust boundaries. The caller gets a real
+- **`std.math.add`** belongs at trust boundaries. The caller gets an
   error value and decides what "too big" means: reject the request, log it,
   fall back to a default.
 - **Saturating (`+|`)** fits quantities where pinning at the limit is
-  meaningful: volume, progress, brightness. The result is still wrong as
-  arithmetic, but right as behavior.
-- **Wrapping (`+%`)** is for domains that are genuinely modular: hashes,
-  checksums, ring buffer indices, sequence numbers. Using it to silence a
-  panic on a quantity is a bug you have chosen not to hear about.
+  meaningful: volume, progress, brightness. The result is not the true sum,
+  but stopping at the limit is the behavior you want.
+- **Wrapping (`+%`)** is for domains that are modular: hashes, checksums,
+  ring buffer indices, sequence numbers. Using it on a quantity only to avoid
+  a panic hides a bug.
 - **`@addWithOverflow`** is the low-level tool: you get the wrapped result
   and a `u1` flag, so multi-word arithmetic can propagate the carry.
 
@@ -57,8 +54,7 @@ and `std.math.mul`, the `-|` and `*|` operators, `-%` and `*%`, and
 
 ## Why plain `+` should stay plain
 
-It is tempting to reach for `+%` everywhere so nothing ever panics. Resist
-it. A panic in a safe build points at the exact line where an assumption
-broke; a wrap keeps running with a corrupt value. Use plain `+` where
-overflow would be a bug, and one of the four explicit forms where overflow
-is an input condition.
+It is tempting to use `+%` everywhere so nothing ever panics. Don't. A panic
+in a safe build points at the exact line where an assumption broke. A wrap
+keeps running with a corrupt value. Use plain `+` where overflow would be a
+bug, and an explicit form where overflow is an input condition.

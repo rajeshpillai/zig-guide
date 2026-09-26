@@ -35,29 +35,29 @@ calls, and each got a frame, used it, and gave it back.
 
 **`bump(1)` printed 2 and the global `x` stayed 100.** The parameter is defined
 in the new frame, so it shadows the global rather than overwriting it. Look at
-`lookup`: current frame first, globals second, and nothing else. Two lines,
-and they are the entire scoping rule of this language.
+`lookup`: current frame first, globals second, and nothing else. Those two
+lines are the complete scoping rule of this language.
 
 **`return` is implemented as an error.** `error.Return` is not a failure and
 does not mean anything went wrong. It is the only mechanism Zig offers that
 unwinds through an arbitrary depth of recursive calls. It is caught in exactly
-one place: immediately after evaluating the body. Catching it nowhere else is
-what turns it from an error into a jump to a known point.
+one place: immediately after evaluating the body. Because nothing else catches
+it, it works as a jump to a known point.
 
-This is a real technique rather than a hack, and interpreters written in
-languages with exceptions do the same thing with a `ReturnException`. What
+Interpreters use this technique on purpose. Interpreters written in languages
+with exceptions do the same thing with a `ReturnException`. What
 makes it safe here is that the error set is written out. The return signal is
 visible in every signature that can produce it, and a caller that forgot to
 handle it would not compile.
 
 **Arguments are evaluated before the frame is pushed.** They have to be: they
 are expressions in the *caller's* scope. Evaluating them after pushing would
-let a parameter see the new, empty frame instead of the caller's. That is a
-bug which produces plausible-looking wrong answers rather than a crash.
+let a parameter see the new, empty frame instead of the caller's. That bug does
+not crash. It gives wrong answers that look plausible.
 
 **The stack depth is 64 and the limit is enforced.** `loop(n)` calling itself
-forever stops with `StackOverflow` rather than exhausting the host's stack and
-taking the whole program down. That is the advantage of building your own call
+forever stops with `StackOverflow`. It does not exhaust the host's stack and
+crash the whole program. That is the advantage of building your own call
 stack: the limit is a number you chose and can report on, instead of a
 segfault somewhere in the runtime.
 
@@ -76,17 +76,17 @@ more thing a compiler does that an interpreter has to be told to do.
 
 ## If you have written C
 
-C gives you the frame for free: locals live on the machine stack, and `return`
+C creates the frame for you: locals live on the machine stack, and `return`
 is an instruction. The work in this chapter is the work the C compiler is
 doing for you. That is why writing an interpreter is a good way to understand
 what your compiler emits.
 
-Two comparisons worth drawing. C's stack depth is whatever the OS gave the
+Compare two things with C. C's stack depth is whatever the OS gave the
 thread, and exceeding it is a segfault with no useful message, because nothing
 is checking. The interpreter above checks on every call, which costs one
-comparison and buys an error you can report with a line number.
+comparison and gives you an error you can report with a line number.
 
-And C's `return` genuinely unwinds nothing, because there is nothing to
+And C's `return` unwinds nothing, because there is nothing to
 unwind: the frame is popped by adjusting a register. The C equivalent of what
 this chapter does is `setjmp`/`longjmp`. C programs use it for exactly this
 shape of problem, and it comes with all the caveats about what is left in an

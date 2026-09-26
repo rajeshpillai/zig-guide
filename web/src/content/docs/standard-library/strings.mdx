@@ -22,7 +22,8 @@ pointer and length, not the content, and the compiler will tell you so.
 Content comparison is `std.mem.eql(u8, a, b)`. To put two strings in order,
 `std.mem.order(u8, a, b)` returns `.lt`, `.eq` or `.gt`. Everything else you would
 expect from a string class is a free function in `std.mem` that works on any
-slice type. That is why each call names the element type first.
+slice type. Because they work on any slice, each call names the element type
+first.
 
 ## `indexOf` is now `find`
 
@@ -44,8 +45,8 @@ The whole family moved the same way: `indexOfScalar` to `findScalar`,
 
 The old names are still there, as one-line aliases marked `Deprecated` in
 `std/mem.zig`. Code written against them compiles and behaves identically.
-That is exactly why this is worth a section: nothing fails, so a guide could
-teach the old spelling for another year and never find out.
+Nothing fails, so a guide could teach the old spelling for another year and
+never find out.
 
 ## split or tokenize
 
@@ -63,15 +64,15 @@ a set of single bytes, `splitSequence` matches it whole.
 
 ## What allocates and what does not
 
-`trim`, `split`, and `tokenize` return views into the original bytes: no copy,
-but the result is only valid as long as the original. `join`, `replaceOwned`,
+`trim`, `split`, and `tokenize` return views into the original bytes. They do
+not copy, so the result is only valid as long as the original. `join`, `replaceOwned`,
 and `std.ascii.allocLowerString` build new strings, so they take an allocator
 and you own the result.
 
-## ASCII on purpose
+## ASCII only
 
 `std.ascii` stops at byte 127. Case mapping beyond that needs Unicode tables
-the standard library does not ship; see the Unicode chapter for what it does
+the standard library does not ship. See the Unicode chapter for what it does
 give you.
 
 Case-insensitive search, padding a column, joining at runtime and replacing

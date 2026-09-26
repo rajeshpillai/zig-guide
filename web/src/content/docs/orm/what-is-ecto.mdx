@@ -34,7 +34,7 @@ query = from u in User, where: u.age > 18
 adults = Repo.all(query)
 ```
 
-Three separable ideas are hiding in those lines:
+Those lines contain three separate ideas:
 
 1. **The schema is a declaration**, not a class with behavior. It states
    the shape of a row and nothing else.
@@ -47,7 +47,7 @@ Three separable ideas are hiding in those lines:
 
 ## Why this maps so well to Zig
 
-Each of those ideas lands on a Zig feature almost exactly:
+Each of those ideas matches a Zig feature closely:
 
 | Ecto idea | Zig mechanism |
 | --- | --- |
@@ -87,19 +87,19 @@ Ecto style
       Database
 ```
 
-The difference is where database behaviour lives. In Active Record, the
+That one difference is where database behaviour lives. In Active Record, the
 record knows how to persist itself, so a `User` carries a connection
 with it wherever it goes. In the design these chapters build, a `User`
 stays data. It has no methods that touch a socket and no idea a database
 exists. `Repo` owns persistence, and it is the only thing that does.
 
-That sounds like extra plumbing, and it is. What you buy with it is that
-every piece can be tested alone: a schema is a struct, a query is a
+This design adds extra code between the pieces. In return, every piece
+can be tested alone: a schema is a struct, a query is a
 value you can inspect without running it, and the Repo is the single
-seam you swap in a test. The [Repo chapter](/learn/orm/repo/) exploits
-exactly that with a recording driver that never opens a connection.
-Active Record's convenience is real, and the bill arrives as a test
-suite that needs a live database to check a validation rule.
+seam you swap in a test. The [Repo chapter](/learn/orm/repo/) uses
+that with a recording driver that never opens a connection.
+Active Record is convenient. The cost is a test suite that needs a live
+database even to check a validation rule.
 
 ## Where each idea lives in this group
 

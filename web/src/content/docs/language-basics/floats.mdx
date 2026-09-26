@@ -25,8 +25,8 @@ const n: i32 = @intFromFloat(f);   // truncates toward zero
 ```
 
 This is deliberate. Implicit int-to-float conversion silently loses precision
-for large integers, and float-to-int silently truncates; both are common
-enough sources of bugs to be worth two extra words.
+for large integers, and float-to-int silently truncates. Both cause enough
+bugs that the two extra words are worth writing.
 
 `@intFromFloat` truncates rather than rounds, and the result has to be
 representable. Converting a value outside the target's range, or a NaN, is
@@ -39,7 +39,7 @@ cannot lose anything.
 
 ## `comptime_float` is `f128`, not magic
 
-This one trips people up, and it caught an earlier draft of this page. Unlike
+An earlier draft of this page got this wrong. Unlike
 `comptime_int`, which really is arbitrary precision, `comptime_float` is
 backed by `f128`. Doing arithmetic at compile time gives you more bits, not
 exact decimal:
@@ -49,7 +49,7 @@ const x = 0.1 + 0.2;
 // x != 0.3, even at comptime
 ```
 
-Floating point is still floating point. Compare with a tolerance:
+Comptime floats still have rounding error. Compare with a tolerance:
 
 ```zig
 std.math.approxEqAbs(f64, a, b, 1e-12)
@@ -63,26 +63,26 @@ around a billion, and far too loose for values around `1e-15`.
 ## NaN and infinity
 
 `std.math.nan(f32)` and `std.math.inf(f32)` construct them; `isNan` and
-`isInf` test for them. Remember `nan != nan`. That is exactly why
-`approxEqAbs` exists and why `==` on floats deserves suspicion.
+`isInf` test for them. Remember `nan != nan`. This is why `approxEqAbs`
+exists, and why you should be careful with `==` on floats.
 
-NaN failing every comparison is the property that breaks things quietly. `a <
+Because NaN fails every comparison, it can break code without any error. `a <
 b` and `a >= b` are both false when either is NaN. So a sort with a NaN in it
 does not merely put that value in an odd place. It breaks the ordering the
-algorithm assumes. Filter NaNs out before sorting rather than hoping the
-comparator copes.
+algorithm assumes. Filter NaNs out before sorting. Do not expect the
+comparator to handle them.
 
 Division by zero follows IEEE rather than trapping: `1.0 / 0.0` is infinity
-and `0.0 / 0.0` is NaN. Integer division by zero is a different thing
-entirely, and that one is illegal behaviour.
+and `0.0 / 0.0` is NaN. Integer division by zero is different: it is illegal
+behaviour.
 
 ## Which width to use
 
-`f64` unless you have a reason. `f32` halves the memory and is what graphics
+Use `f64` unless you have a reason not to. `f32` halves the memory and is what graphics
 and audio pipelines expect. It gives roughly seven decimal digits of
-precision, which runs out faster than people expect once values are added up
-in a loop. `f16` is for storage and for machine learning weights, not for
-arithmetic. `f80` and `f128` exist for the cases that genuinely need them and
+precision. That precision runs out quickly once values are added up in a
+loop. `f16` is for storage and for machine learning weights, not for
+arithmetic. `f80` and `f128` exist for the cases that need them and
 are software-emulated on most targets, so they are slow.
 
 The precision question that actually matters is usually not the width. Money

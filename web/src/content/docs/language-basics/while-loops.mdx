@@ -24,8 +24,8 @@ while (i <= 10) : (i += 1) { ... }
 ```
 
 The `: (i += 1)` part runs after **every** iteration, including ones cut short
-by `continue`. That is precisely why it exists, rather than just putting the
-increment at the end of the body. Once `continue` is involved the two are not
+by `continue`. That is why the continue expression exists, instead of just
+putting the increment at the end of the body. Once `continue` is involved the two are not
 the same, and the resulting bug is easy to miss.
 
 Concretely, this terminates:

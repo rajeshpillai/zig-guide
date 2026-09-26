@@ -14,7 +14,7 @@ with `.*`, a postfix operator, so it chains left to right like field access.
 
 ## Exactly one
 
-"Exactly one" is the part that does the work. A `*T` is not a cursor into a
+A `*T` is not a cursor into a
 sequence, and there is no pointer arithmetic on it: `p + 1` does not compile.
 Anything that walks memory needs a type that says how much memory there is.
 
@@ -36,11 +36,11 @@ and [many-item pointers](/learn/language-basics/many-item-pointers/).
 ## Never null
 
 There is no null `*T`. If a pointer may be absent, its type says so: `?*T`.
-This is not merely a convention: the compiler will not let you dereference the
+The compiler enforces this. It will not let you dereference the
 optional without unwrapping it first.
 
 The representation costs nothing. Zig uses the null address as the `null` tag,
-so `?*T` is the same size as `*T`. You get the safety without the wrapper.
+so `?*T` is the same size as `*T`.
 
 The practical effect is that "did I check this for null" stops being a question
 about the code and becomes a question about the type. A function taking `*T`
@@ -84,7 +84,7 @@ and on others is slow and silently correct.
 ## Getting the number out
 
 `@intFromPtr` gives you the address as a `usize` and `@ptrFromInt` goes back.
-Both exist for the cases that genuinely need an integer: talking to hardware,
+Both exist for the cases that really need an integer: talking to hardware,
 tagging pointers, printing an address while debugging. Neither is a general way
 to move between types, and a round trip through an integer discards everything
 the compiler knew about what was there.

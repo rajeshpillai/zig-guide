@@ -18,9 +18,9 @@ path, including the paths that only happen when something else fails. Reading
 the code very carefully does not scale. You want the test suite to fail, with
 a stack trace, the moment a path leaks.
 
-Zig ships this. `std.testing.allocator` tracks every allocation made through
-it, and a test that ends with anything still allocated **fails**, printing
-where the orphaned memory was allocated.
+A test that ends with anything still allocated through
+`std.testing.allocator` **fails**, printing where the orphaned memory was
+allocated.
 
 ## The plan
 
@@ -29,7 +29,7 @@ where the orphaned memory was allocated.
    failure with `std.testing.FailingAllocator`, which succeeds N times and
    then returns `error.OutOfMemory` on purpose.
 3. Where many small allocations share one lifetime, use an arena so cleanup
-   is a single call instead of a bookkeeping exercise.
+   is a single call instead of one `free` per allocation.
 
 <Playground name="06-cookbook.catching-leaks" />
 
@@ -43,15 +43,15 @@ error return and nowhere else.
 The second test proves it. `FailingAllocator` with `fail_index = 1` lets the
 first allocation through and fails the second, forcing `init` down the error
 path. If you delete the `errdefer` line, this test fails with a leak report.
-That is the pattern worth copying: every multi-allocation `init` deserves a
-test that fails each allocation in turn.
+Copy this pattern: give every multi-allocation `init` a test that fails each
+allocation in turn.
 
 ## Why this works in ReleaseFast too
 
 Leak detection here is a property of the allocator, not of a build mode.
-`std.testing.allocator` is a `std.heap.SafeAllocator`, which keeps its own
-record of every live allocation regardless of how the code under test is
-compiled, so CI catches leaks without shipping a debug build.
+`std.testing.allocator` is a `std.heap.SafeAllocator`. It keeps its own
+record of every live allocation, whatever mode the code under test is
+compiled in. So CI catches leaks without shipping a debug build.
 
 ## Variations
 

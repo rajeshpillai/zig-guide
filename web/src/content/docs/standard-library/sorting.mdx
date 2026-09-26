@@ -37,7 +37,7 @@ std.mem.sort(usize, &indices, values, byReferencedValue);
 
 The context parameter is what saves you from reaching for a global.
 
-The pattern generalises further than it first looks. Sorting an array of
+The pattern has more uses than it first seems. Sorting an array of
 indices, rather than the data itself, gives you several orderings of one
 dataset without copying it. It is also how you sort something too large to
 move around cheaply. The context is whatever the comparator needs to do its
@@ -59,9 +59,9 @@ inside each group. Sort by name, then by department, and each department's
 entries are still in name order. Do the same with `sortUnstable` and the
 second sort scrambles the first.
 
-When elements are genuinely interchangeable, such as plain integers, stability
-is unobservable and `sortUnstable` is the better choice: it does less work and
-uses no extra memory.
+When elements are fully interchangeable, such as plain integers, you cannot
+see the difference stability makes. Then `sortUnstable` is the better choice:
+it does less work and uses no extra memory.
 
 ## Comparators as anonymous structs
 
@@ -92,7 +92,7 @@ a three-way comparison rather than a less-than, because it needs to know which
 half to keep. `std.sort.isSorted` checks the invariant, and it is a cheap
 assertion to put in a test.
 
-Two neighbours are worth knowing when you do not need the whole thing ordered.
+Two related functions help when you do not need the whole thing ordered.
 `std.sort.lowerBound` and `upperBound` find insertion points, which is what a
 "how many are below this threshold" query wants. And when you only need the
 largest few, sorting everything is the wrong algorithm; a [priority

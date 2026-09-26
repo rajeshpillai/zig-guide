@@ -40,8 +40,8 @@ Two files, two different questions:
 - `build.zig` answers **where should that dependency be used?**
 
 Keeping them separate is why a checkout plus `zig build` reproduces the same
-dependency set on any machine. The manifest is the fact; the build script is
-the wiring. Neither file can be edited into a state where the other silently
+dependency set on any machine. The manifest records what you
+depend on. The build script wires it in. Neither file can be edited into a state where the other silently
 disagrees, because a name in `build.zig` that the manifest does not declare is
 an error rather than an empty module.
 
@@ -136,6 +136,5 @@ same way.
 
 Fetched packages go into a global cache (under `~/.cache/zig` on Linux),
 shared across every project, keyed by hash. Your repository holds only
-`build.zig.zon`, the small manifest, so a checkout plus `zig build` reproduces
-the exact dependency set on any machine. There is nothing to commit into a
-`vendor/` directory and nothing to `npm install`.
+`build.zig.zon`, the small manifest. You do not commit a `vendor/` directory
+or run a separate install step like `npm install`.

@@ -23,13 +23,13 @@ capacity and above six, so a change that quietly stops spawning shows up.
 
 ## An index is not enough
 
-The obvious way to refer to an entity is its index. That creates the kind of bug
-you almost never reproduce on purpose.
+The obvious way to refer to an entity is its index. That leads to a bug that is
+very hard to reproduce.
 
 An event says "coin 12 was collected". A frame later, slot 12 has been freed and
 given to a newly spawned block. Anything still holding 12 now reads a block and
-believes it is a coin. Nothing crashes. The score is just wrong about once an
-hour, and never while you are looking.
+believes it is a coin. The program does not crash. The score is wrong about
+once an hour, usually when nobody is watching.
 
 Storing a pointer instead of an index does not help, since the slot is reused
 either way.
@@ -43,7 +43,7 @@ occupant stops resolving.
 <GameSource file="src/sim/pool.zig" decl="Pool" />
 
 The generation is odd while a slot is live and even while it is free. One
-counter answers both "which occupant" and "is anyone home". Generation zero is
+counter answers both "which occupant" and "is the slot in use". Generation zero is
 never handed out, so a zeroed handle is a null handle.
 
 `create` returns an optional rather than asserting. A full pool is not an error
@@ -58,15 +58,15 @@ The test names the bug:
 />
 
 The first assertion is there to prove the slot really was reused. Without it the
-test could pass because the pool handed out a fresh slot, which is not the case
-worth checking.
+test could pass because the pool handed out a fresh slot, and that case does not
+test the bug.
 
 ## One pool, two users
 
-The pool is generic because it is general. The particle system uses the same one
-with a capacity of 256 and a different element type, even though particles
-belong to the renderer rather than the simulation. Writing it once meant the
-renderer got fixed-capacity storage with no allocator for free.
+The pool is generic, so other code can use it. The particle system uses the same
+pool with a capacity of 256 and a different element type, even though particles
+belong to the renderer and not the simulation. Writing it once gave the renderer
+fixed-capacity storage with no allocator, at no extra cost.
 
 ## Events
 
@@ -89,14 +89,14 @@ debris. None of that is visible to the simulation.
 
 ## What this split buys
 
-Sound was added after the game was already playable. It changed no rule, because
-it reads the same events the particles read.
+Sound was added after the game was already playable. It did not change any rule
+of the game, because it reads the same events the particles read.
 
 <GameSource file="src/platform/audio.zig" decl="onEvent" />
 
 Event systems are easy to over-build. Six variants in a tagged union, a fixed
-buffer and one loop are enough here. The useful question is whether adding a
-reaction means touching the thing that caused it. Here it does not. The same
+buffer and one loop are enough here. The test of the design is whether adding a
+reaction means changing the code that caused it. Here it does not. The same
 property lets
 [the difficulty tests](/learn/lane-dodger/fair-by-design/) run the entire game
 with no renderer and no audio device.

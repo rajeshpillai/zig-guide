@@ -16,22 +16,22 @@ and `[4]u8` are as different as `u8` and `u16`.
 
 ## Arrays are values
 
-Assigning an array copies it. This is the opposite of C, where an array decays
-to a pointer at the slightest provocation. If you want a reference, take one
+Assigning an array copies it. This is the opposite of C, where an array
+turns into a pointer in almost every expression. If you want a reference, take one
 explicitly with `&`, which gives you a
 [slice](/learn/language-basics/slices/).
 
 `.len` is a compile-time constant, not a field read at runtime.
 
-Being a value has a consequence worth planning for: passing a `[4096]u8` to a
-function passes 4096 bytes, or at least gives the compiler the option. Passing
-`&buffer` passes a slice, which is a pointer and a length. For anything larger
-than a few words, the slice is what you meant.
+Because an array is a value, passing a `[4096]u8` to a function passes 4096
+bytes, or at least gives the compiler the option. Passing `&buffer` passes a
+slice, which is a pointer and a length. For anything larger than a few words,
+pass the slice.
 
 ## Writing one down
 
-`[_]T` lets the compiler count for you, which is the form to prefer because
-the length cannot fall out of sync with the contents:
+`[_]T` lets the compiler count for you. Prefer this form, because the length
+cannot fall out of sync with the contents:
 
 ```zig
 const a = [_]u8{ 1, 2, 3 };        // [3]u8
@@ -76,7 +76,7 @@ Older tutorials, including the current zig.guide, show array repetition:
 const dashes = "-" ** 5;   // does not compile on master
 ```
 
-The `**` operator has been **removed**; `**` no longer even tokenises, so the
+The `**` operator has been **removed**. `**` is no longer even a token, so the
 compiler reports a confusing message about whitespace around `*`. Use `@splat`
 instead:
 
@@ -100,11 +100,9 @@ to it, and the length comes along:
 const s: []const u8 = &a;    // len 3, checked
 ```
 
-That is the usual direction. Build with an array, where the size is known and
+Array to slice is the usual direction. Build with an array, where the size is known and
 the memory is on the stack. Then pass a slice, where the length travels with
 the pointer. Going back the other way, turning a slice into a fixed-size
-array, needs the length to be comptime-known and is covered in [array
-recipes](/learn/language-basics/array-recipes/).
-
-Grids, tables computed at compile time, and getting a fixed-size array back
-out of a slice are in [Array Recipes](/learn/language-basics/array-recipes/).
+array, needs the length to be comptime-known. It is covered in [array
+recipes](/learn/language-basics/array-recipes/), along with grids and tables
+computed at compile time.

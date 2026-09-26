@@ -11,9 +11,9 @@ import GameSource from "../../../components/GameSource.astro";
 The course generator lays down rows of blocks. The rows have to get harder and
 stay possible.
 
-Getting that wrong does not look like a bug from the outside. Every row still
-leaves a lane open. The game still runs. Nothing fails. It has just become
-unwinnable, and the only report is that people stop playing.
+Getting that wrong does not show up as a bug. Every row still leaves a lane
+open and the game still runs, but nobody can survive the course. The only sign
+is that people stop playing.
 
 ## There is a floor under the spacing
 
@@ -50,8 +50,8 @@ The margin above unwinnable is now one named constant.
 
 ## Prove it by playing it
 
-All of that is still an argument about four constants. Arguments about constants
-are wrong more often than anyone expects, so a program plays the game instead.
+All of that is still reasoning about four constants. That kind of reasoning is
+easy to get wrong, so a program plays the game instead.
 
 <GameSource file="src/sim/bot.zig" decl="targetLane" />
 
@@ -84,8 +84,8 @@ The regression test states the case in its title:
 
 Every unit test passed while this bug existed. The collision code was correct on
 its own, and so were the generator and the spacing. What was wrong was the
-reasoning that joined them together, and the only thing that exercises that is a
-run.
+reasoning that joined them together. Only a full run of the game tests that
+reasoning.
 
 ## Solvable is not the same as playable
 
@@ -113,8 +113,7 @@ The numbers it produces are the difficulty curve:
 | 300 ms | 24 s |
 
 That gives half a minute for an unhurried player and a minute for a sharp one.
-Everybody loses eventually, which is the part that took the most work to get
-right.
+Everybody loses eventually. That part took the most work to get right.
 
 The test asserts the shape rather than the values, so the numbers can be tuned
 without rewriting it.
@@ -138,8 +137,7 @@ average by three tenths of a second.
 
 **Coins mark the safe lane.** A coin only ever goes in a lane its own row leaves
 open. When a row blocks two of three lanes, the coin sits in the one gap. A
-player chasing coins is being steered through the course without being told
-anything. It is four statements in the spawner, and it is the only tutorial the
-game has.
+player who chases coins follows the safe path without being told. The rule is
+four statements in the spawner. The game has no other tutorial.
 
 <GameSource file="src/sim/sim.zig" decl="spawnRow" />

@@ -18,9 +18,8 @@ one go. One that straddles the boundary takes two reads and some assembly, and
 on some processors it is not allowed at all. So the rule for a number is that
 it starts at an address divisible by its own size.
 
-Follow that rule through a struct whose fields are different sizes and
-something falls out that surprises people: **the struct is bigger than its
-fields**. The gaps inserted to keep each field aligned are called **padding**,
+Apply that rule to a struct whose fields are different sizes, and you get a
+result you may not expect: **the struct is bigger than its fields**. The gaps inserted to keep each field aligned are called **padding**,
 and you are paying for them whether or not you know they are there.
 
 ## The program
@@ -60,19 +59,20 @@ ordinary case rather than a surprise.
 
 ## If you have written C
 
-Same rules, same padding, same arithmetic. Two differences are worth knowing.
+The rules, the padding and the arithmetic are the same. There are two
+differences.
 
 C guarantees the declaration order, so you can reason about a struct's layout
 from its source and rely on it. Zig only guarantees that for `extern struct`
-and `packed struct`; a plain struct is the compiler's business. That is the
+and `packed struct`. For a plain struct, the compiler decides. That is the
 better default. Most structs never leave your program, and packing them is
 free performance. It is the wrong default in exactly one place: the moment you
 assume otherwise at a boundary with C. Reach for `extern struct` there and the
 two languages agree.
 
 C also gives you `offsetof` from `<stddef.h>`; Zig's `@offsetOf` is a builtin
-and needs no include. The program above used it to show the gaps rather than
-asking you to take them on trust.
+and needs no include. The program above used it to show the gaps, so you do
+not have to take them on trust.
 
 The rest of the layout controls, `align`, `packed struct` for bit fields, and
 the C ABI in detail, are in the [memory layout](/learn/how-to/memory-layout/)

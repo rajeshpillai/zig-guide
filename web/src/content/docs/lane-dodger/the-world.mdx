@@ -36,7 +36,7 @@ One is the lane being steered towards. The other is where the body actually is.
 
 `lane` changes the instant a key is pressed. `x` slides towards the centre of
 that lane over `lane_change_time`. They disagree for about a tenth of a second
-after every press, and that gap is the whole feel of the game.
+after every press, and that gap is what gives the game its feel.
 
 <GameSource file="src/sim/config.zig" decl="lane_change_time" />
 
@@ -46,11 +46,11 @@ The slide runs at constant speed rather than easing in and out.
 
 Easing would look smoother. It would also make two lanes cost less than twice
 one lane, and [the spacing rule](/learn/lane-dodger/fair-by-design/) is built on
-two lanes costing exactly twice one. Feel and fairness point in opposite
-directions here, and fairness wins.
+two lanes costing exactly twice one. Constant speed looks less smooth, but it
+keeps the spacing rule correct.
 
-Because `x` is continuous, the player genuinely occupies the space between
-lanes. Clipping a block while sliding is a real crash, not a rounding error.
+Because `x` is continuous, the player really occupies the space between
+lanes. Clipping a block while sliding counts as a crash.
 
 ## Everything else in the field
 

@@ -14,15 +14,15 @@ tokens and keys.
 <Playground name="03-standard-library.random-numbers" />
 
 There is no global `rand()`. You create a generator, seed it, and pass its
-`Random` interface where it is needed: the same explicitness Zig applies to
-allocators and I/O.
+`Random` interface where it is needed. Allocators and I/O are passed in the
+same way.
 
 ```zig
 var prng = std.Random.DefaultPrng.init(seed);
 const random = prng.random();
 ```
 
-Two values, and the distinction matters. `prng` is the generator and owns the
+There are two values here, and they do different jobs. `prng` is the generator and owns the
 state, so it has to be a `var` and has to outlive everything using it.
 `random` is the interface: a pointer to that state plus a function pointer,
 the same shape as `Allocator`. Functions take the interface, never the
@@ -46,13 +46,12 @@ what to use for tokens, keys, or anything an attacker should not predict.
 `DefaultPrng` is fast, not secure. Do not use it for secrets.
 
 If you have seen `std.crypto.random` in older code or tutorials, that is what
-these replaced. There is no longer a global secure generator to reach for,
-which is the same change that removed global stdout: the capability is passed
-in rather than imported.
+these replaced. There is no longer a global secure generator. The same change
+removed global stdout: the capability is passed in, not imported.
 
-The difference between the two is not about quality of randomness in the
-statistical sense. `DefaultPrng` passes statistical tests fine. It is that its
-internal state can be reconstructed from a modest number of outputs, so an
+The difference between the two generators is not statistical quality.
+`DefaultPrng` passes statistical tests fine. The problem is that its internal
+state can be reconstructed from a modest number of outputs, so an
 attacker who sees a few session tokens can compute the next one. The secure
 generator is built so that observing output tells you nothing about the state.
 
@@ -75,11 +74,11 @@ toward low values.
 
 `shuffle` permutes a slice in place.
 
-The bias is small but it is real and it is easy to reason about. There are 256
+The bias is small, but it is real, and it is easy to work out. There are 256
 values a `u8` can take and 6 outcomes wanted. 256 is not a multiple of 6, so
 four of the outcomes get 43 chances and two get 42. A dice roll biased by 2%
 is fine in a game and a problem in a simulation you are drawing conclusions
-from. It also costs nothing to avoid: the standard library functions already
+from. You do no extra work to avoid it: the standard library functions already
 reject and redraw the values that would skew the result.
 
 ## Other things on the interface
@@ -89,6 +88,6 @@ reject and redraw the values that would skew the result.
 is how you generate an identifier or test payload in one call.
 
 For picking a random element of a slice, `uintLessThan(usize, s.len)` is the
-correct spelling, and it is worth writing that rather than `int(usize) %
-s.len` for the reason above. It also fails loudly on an empty slice instead of
+correct spelling. Write it instead of `int(usize) % s.len`, for the reason
+above. It also fails loudly on an empty slice instead of
 dividing by zero.

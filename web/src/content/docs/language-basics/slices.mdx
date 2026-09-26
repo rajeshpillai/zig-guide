@@ -36,7 +36,7 @@ Because a slice borrows, its lifetime is tied to whatever it points at. A
 slice of a local array must not outlive that array; Zig will not catch this
 for you.
 
-That is the one unchecked hazard in the type. The slice will not stop you
+Lifetime is the one hazard the type does not check. The slice will not stop you
 indexing it, because as far as the type is concerned it still has a valid
 pointer and a valid length. What changed is that the memory it points at now
 belongs to something else. Returning a slice
@@ -60,7 +60,7 @@ Take `[]const T` in function parameters unless you intend to mutate. It
 documents intent and accepts more callers, since `[]T` coerces to `[]const T`
 but not the reverse.
 
-This is the single most useful habit on this page. A signature taking `[]const
+A signature taking `[]const
 u8` says "I will read your bytes and not keep them", which is what most
 functions do. It is also the difference between a function that works on a
 literal and one that does not. String literals are const, so a parameter typed
@@ -70,14 +70,14 @@ literal and one that does not. String literals are const, so a parameter typed
 
 Zig has no dedicated string type. A literal like `"hello"` is a `*const
 [5:0]u8` (a pointer to a null-terminated array), which coerces to `[]const
-u8`. Consequences worth internalising:
+u8`. This has three consequences:
 
 - `.len` is the byte count, not a character count. UTF-8 is bytes here.
 - Compare with `std.mem.eql(u8, a, b)`, never `==`, which would compare
   pointers.
 - The null terminator is present for C interop but is *not* included in `.len`.
 
-The absence of a string type is a real design decision rather than a gap. A
+Zig leaves out a string type on purpose. A
 string in Zig is a slice of bytes, so every function that works on `[]const
 u8` works on strings, and none of them had to be written twice. What you give
 up is any guarantee that the bytes are valid UTF-8. That is why
@@ -98,6 +98,6 @@ it:
 - **A container.** `list.items` is a slice into memory the list owns, and it is
   invalidated the moment the list reallocates. Do not hold it across an append.
 
-That last one catches everyone once. The slice is still a valid pair of
-numbers after the list grows; they just point at the memory the list used to
+The last case is an easy mistake to make. The slice is still a valid pair of
+numbers after the list grows. They just point at the memory the list used to
 be in.

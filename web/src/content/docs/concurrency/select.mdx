@@ -68,8 +68,8 @@ gained by leaving it out.
 
 ## Use `concurrent` for the arms
 
-`select.async` exists and matches `Group.async`, but a race between arms that
-are allowed to run inline is not a race. On an `Io` that runs tasks inline,
+`select.async` exists and matches `Group.async`, but arms that are allowed to
+run inline do not really race. On an `Io` that runs tasks inline,
 the first arm spawned runs to completion first and wins every time. For a
 timeout arm, that means sleeping out the entire timeout before the request is
 even started. The arms here use `concurrent` for that reason, and the snippet
@@ -77,5 +77,6 @@ is native because `concurrent` is what wasm cannot provide.
 
 The durations in the snippet differ by an hour in each direction. That is
 deliberate: the winner is decided by the code rather than by how loaded the
-machine is, so the expected output holds on CI. A race whose margin is
-milliseconds is a flaky test, not a demonstration.
+machine is, so the expected output holds on CI. With a margin of
+milliseconds, the winner could change from run to run, and the test would
+sometimes fail.

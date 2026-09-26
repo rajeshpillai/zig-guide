@@ -13,8 +13,8 @@ The simulation runs at a fixed 120 Hz. The window runs at whatever the display
 does. Those do not divide evenly, so a rendered frame may owe the simulation
 zero ticks, or one, or three.
 
-A press has to reach exactly one of them. Drop it and the game eats inputs.
-Repeat it and one tap crosses three lanes.
+A press has to reach exactly one of them. If a press is dropped, the game
+ignores the player. If it is repeated, one tap crosses three lanes.
 
 <GameSource file="src/platform/input.zig" decl="Latch" />
 
@@ -42,16 +42,16 @@ presses for the next frame. A tap between two ticks is remembered rather than
 lost.
 
 If a frame produces three ticks, the first gets the press and the other two get
-nothing. That is what `take` clearing itself buys.
+nothing. This works because `take` clears the latch.
 
 ## Touch
 
 The same poll reads the mouse, and splits the window down the middle.
 
 Tapping the left half steers left, tapping the right half steers right, and
-either counts as the confirm that starts a run. That is the whole control scheme
-on a phone, and it needed one extra branch in `poll`, because the simulation
-already thought in lanes rather than in keys.
+either counts as the confirm that starts a run. That is all the control a phone
+needs. It took one extra branch in `poll`, because the simulation already works
+in lanes and not in keys.
 
 ## What the platform layer does not do
 
@@ -61,5 +61,5 @@ Mute is a keypress, and it never reaches the simulation:
 if (rl.IsKeyPressed(rl.KEY_M)) self.audio.toggleMute();
 ```
 
-Muting is not a rule of the game. Nothing in `sim/` knows sound exists, and
-adding a key for it would have been the first crack in that.
+Mute only affects the audio device. Nothing in `sim/` knows sound exists, and a
+mute key inside the simulation would change that.

@@ -35,7 +35,7 @@ const dx: i32 = @intCast(@abs(x1 - x0));
 const dy: i32 = -@as(i32, @intCast(@abs(y1 - y0)));
 ```
 
-That is what collapses the eight cases (four quadrants, shallow and steep)
+Keeping `dy` negative collapses the eight cases (four quadrants, shallow and steep)
 into one loop. Textbook presentations often swap the endpoints, or swap `x`
 and `y` for steep lines, and then need two nearly identical loops. This
 version needs neither.
@@ -50,7 +50,7 @@ if (e2 <= dx) { err += dx; y += sy; }
 On an exact diagonal both fire, and the line steps in both axes at once. Turn
 the second into an `else` and diagonals grow a stair-step.
 
-## The pixel count is the point
+## The pixel count
 
 A line lights up `max(|dx|, |dy|) + 1` pixels: exactly one per step of the
 major axis, whatever the slope. The snippet prints this for three slopes. It
@@ -58,9 +58,9 @@ is a useful invariant to check when you write your own version. The two ways
 to get it wrong, an off-by-one at the end or a doubled step on diagonals, both
 show up in that number before they show up in the picture.
 
-This is not free. It holds because the error term is symmetric, and it is
-worth verifying, because a renderer that draws shared edges from both
-directions will otherwise leave seams.
+The count holds only because the error term is symmetric. Check it, because a
+renderer that draws shared edges from both directions will otherwise leave
+seams.
 
 ## What this version does not do
 
@@ -74,5 +74,5 @@ idea [Antialiasing](../antialiasing/) applies to a circle.
 
 **No clipping beyond `putPixel`.** A line from far off one edge to far off
 another still walks every pixel in between and throws away most of them. That
-is fine at this size and wasteful at any real one; the Cohen-Sutherland
+is fine at this size and wasteful at larger ones; the Cohen-Sutherland
 algorithm trims the endpoints to the buffer before the loop starts.

@@ -19,8 +19,7 @@ Zig provides `c_char`, `c_short`, `c_int`, `c_long`, `c_longlong`, the
 
 ## Why not just use `i32`?
 
-Because `long` is not one size. It is 8 bytes on 64-bit Linux and macOS, 4
-bytes on Windows and on wasm32. Code that hardcodes `i64` for a C `long` is
+Because a C `long` does not have one size. Code that hardcodes `i64` for it is
 correct on one platform and silently wrong on another, the kind of bug that
 appears only after a port.
 
@@ -42,9 +41,9 @@ rather than one:
 | `size_t` | 8 | 8 | **4** |
 | pointer | 8 | 8 | **4** |
 
-`long` is the one that catches people, because the two most common desktop
-platforms disagree about it. `c_long` gets this right on every target Zig
-supports, which is the entire reason it exists.
+`long` causes the most trouble, because the two most common desktop platforms
+disagree about it. `c_long` exists to get this right on every target Zig
+supports.
 
 `c_char` has a second problem on top of the width: whether it is signed is
 also platform-defined, and it differs between x86 and ARM Linux. Zig models

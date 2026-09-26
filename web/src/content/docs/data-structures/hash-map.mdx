@@ -101,7 +101,7 @@ chain needs.
 
 The tombstone also has to be handled correctly on insert. The probe remembers
 the first tombstone it saw, but keeps walking, because the key might already
-exist further along the chain. Only when it reaches a genuinely empty slot
+exist further along the chain. Only when it reaches an empty slot
 does it go back and reuse the tombstone. Reusing it immediately would let the
 same key be inserted twice.
 
@@ -110,9 +110,8 @@ same key be inserted twice.
 There is a way, called backward-shift deletion. After removing an entry, walk
 forward through the rest of the run and move any entry back to its home slot
 if the removal made room. It keeps the table free of tombstones and costs more
-work per delete. Robin Hood hashing usually pairs with it. Worth knowing that
-tombstones are a choice rather than a law, and that the choice is between
-cheaper deletes and shorter probes.
+work per delete. Robin Hood hashing usually pairs with it. So tombstones are a design choice. The choice is between cheaper deletes and
+shorter probes.
 
 ## What std does differently
 
@@ -121,8 +120,7 @@ var std_map: std.StringHashMapUnmanaged(i32) = .empty;
 try std_map.put(allocator, key, 1);
 ```
 
-[Hash maps](/learn/standard-library/hash-maps/) covers the API. The structural
-difference worth knowing is that `std` stores a separate array of one-byte
+[Hash maps](/learn/standard-library/hash-maps/) covers the API. The main structural difference is that `std` stores a separate array of one-byte
 metadata alongside the entries. Each byte holds a few bits of the key's hash,
 plus the empty and tombstone flags. A probe scans that compact byte array
 instead of the full-sized entries. Many more probe steps fit in a cache line,

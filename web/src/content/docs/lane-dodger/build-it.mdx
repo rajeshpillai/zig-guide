@@ -33,7 +33,7 @@ sudo apt-get install libx11-dev libxrandr-dev libxinerama-dev \
                      libxi-dev libxcursor-dev libgl1-mesa-dev
 ```
 
-No ALSA package. raylib's audio backend loads libasound at runtime rather than
+No ALSA package is needed. raylib's audio backend loads libasound at runtime rather than
 including its header.
 
 ## Part one: the scaffolding
@@ -51,8 +51,8 @@ cd lane-dodger
 vendor/
 ```
 
-The fetch script below is the record of which raylib this is. The copy it pulls
-down is not, and it is 13 MB.
+The fetch script below records which raylib commit the game uses. The copy it
+downloads is 13 MB, so it stays out of git.
 
 **3. The package file.**
 
@@ -60,7 +60,7 @@ down is not, and it is 13 MB.
 
 `zig build` will refuse the fingerprint and print the one to use. Paste that in.
 
-Note what is *not* in `.dependencies`: raylib. That is the whole trick, and
+raylib is *not* in `.dependencies`. That is deliberate, and
 [Vendoring raylib](/learn/lane-dodger/the-build/) explains why.
 
 **4. The fetch script.**
@@ -106,11 +106,12 @@ Fifty-five tests. A bot plays four minutes of the game at every seed, a second
 bot plays it with a human reaction time, and two worlds replay from one seed and
 are compared tick by tick.
 
-You have not written a line of drawing code. There is no window, no `main.zig`,
-and no audio device. The game is complete enough to be played and checked, and
-that is the point the whole design is arranged around.
+You have not written any drawing code, input code or `main.zig` yet, and no
+window or audio device is needed. The game is still complete enough to be played
+and checked. The design is arranged so that this checkpoint exists.
 
-If this passes, the rules are right. Everything after it is presentation.
+If this passes, the rules are right. The remaining files draw the game, read
+input and play sound.
 
 ## Part three: the game you can see
 

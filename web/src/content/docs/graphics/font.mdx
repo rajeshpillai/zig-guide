@@ -7,7 +7,7 @@ order: 133
 
 import Playground from "../../../components/Playground.astro";
 
-Every chapter so far has drawn shapes described by maths: a line from an
+The earlier chapters drew shapes described by maths: a line from an
 equation, a circle from a radius. Text is not like that. There is no formula
 for the letter `G`, so the shape has to be stored, and the oldest way to store
 it is the simplest one that works.
@@ -62,12 +62,11 @@ stop a stem landing half in one column and half in the next.
 The font table is `static const unsigned char font[][7]`, indexed by
 character, and the classic version indexes it directly with `c - 32` to skip
 the control characters. That is fast and is an out-of-bounds read the moment a
-byte above 127 arrives, which on any non-ASCII input is immediately. The
+byte above 127 arrives, and any non-ASCII input contains such bytes. The
 version above uses a switch that returns null for anything it does not know.
 
 The other traditional detail is that fonts were stored column-major as often
 as row-major, because some displays wanted vertical strips of eight pixels,
-which is exactly one byte. That is not a style preference: it is the shape the
-hardware read.
+which is exactly one byte. The storage order followed what the hardware read.
 
 Next: sprites, which are the same copy with more than one bit per pixel.

@@ -18,17 +18,17 @@ punctuation ignored, and with a stable order so two runs never disagree about
 ties. It is the shape behind log analysis, tag clouds, and "top N by count"
 reports of every kind.
 
-The catch that trips people up in Zig: a hash map is the right tool for
-counting, but a hash map **has no order**. Ranking needs a second structure.
+One thing to watch for: a hash map is the right tool for counting, but a hash
+map **has no order**. Ranking needs a second structure.
 
 ## The plan
 
-1. **Tokenize** with `std.mem.tokenizeAny`, treating whitespace and
-   punctuation as delimiters. It never yields an empty token.
-2. **Count** into a `StringHashMapUnmanaged(u32)` using `getOrPut`, one
-   lookup per word instead of a `get` followed by a `put`.
-3. **Rank** by copying the entries into an `ArrayList` and sorting it with a
-   comparator that breaks count ties alphabetically.
+1. **Tokenize**, treating whitespace and punctuation as delimiters.
+   `tokenizeAny` never yields an empty token.
+2. **Count** with `getOrPut`: one lookup per word instead of a `get`
+   followed by a `put`.
+3. **Rank** by sorting a copy of the entries with a comparator that breaks
+   count ties alphabetically.
 
 <Playground name="06-cookbook.word-frequency" />
 
@@ -38,9 +38,10 @@ counting, but a hash map **has no order**. Ranking needs a second structure.
 map stored that slice as a key, every key would alias one buffer and the last
 word written would overwrite them all. `gpa.dupe` gives each key its own bytes.
 
-This is the recipe's one real ownership decision, and the arena makes it cheap:
-map, list, and duplicated keys all share a lifetime, so a single
-`arena_state.deinit()` frees the lot. No per-key `free`, no leak.
+Duplicating the keys is the one ownership decision in this recipe, and the
+arena makes it cheap. The map, the list, and the duplicated keys all share a
+lifetime, so a single `arena_state.deinit()` frees all of them. No key needs
+its own `free`, and nothing leaks.
 
 ## Why sort a copy
 
@@ -52,15 +53,16 @@ not even stable across compiler versions. Moving `(word, count)` pairs into an
 The comparator sorts by count descending, then alphabetically. Without the
 tie-break the order of equal counts would depend on hash order, and the output
 would change from run to run. This page's output is verified character-for-
-character by CI, so determinism is not optional here.
+character by CI, so the output must be the same on every run.
 
 ## Variations
 
 - **Top N of a large set:** sorting everything to take five is wasteful at
-  scale. `std.PriorityQueue` gives you the heap; keep it at five by popping the
+  scale. `std.PriorityQueue` gives you the heap. Keep it at five by popping the
   smallest on every push. The standard library sorts whole slices only, so the
-  partial selection itself is code you write. Do either once profiling says so.
+  partial selection itself is code you write. Do either only when profiling
+  shows you need it.
 - **Unicode:** `std.ascii.lowerString` is ASCII-only by design. Real
   case-folding needs a Unicode library, and
-  [Unicode Recipes](/learn/standard-library/unicode-recipes/) names one; the standard library deliberately
+  [Unicode Recipes](/learn/standard-library/unicode-recipes/) names one. The standard library deliberately
   does not guess.

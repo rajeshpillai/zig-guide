@@ -26,9 +26,9 @@ critical section. Atomics do the same job without a lock.
 
 1. Share two atomics: `next`, the index of the next unclaimed job, and
    `total`, the running result.
-2. Each worker loops: claim an index with `fetchAdd(1, .monotonic)`, stop
-   when it is past the end, otherwise process the job and fold the result
-   into `total` with another `fetchAdd`.
+2. Each worker loops: claim an index, stop when it is past the end,
+   otherwise process the job and add the result into `total` with another
+   `fetchAdd`.
 3. Spawn the workers, `join` them, read the total.
 
 <Playground
@@ -40,31 +40,31 @@ critical section. Atomics do the same job without a lock.
 ## Why fetchAdd cannot double-serve a job
 
 `fetchAdd` is a single indivisible read-modify-write: it returns the old
-value and stores the incremented one, and no other thread can slip in
-between. Two threads racing on the same counter get two different
-indices, always. That property, not speed, is the reason to use an atomic
-here; the lock-free part is a bonus.
+value and stores the incremented one. No other thread can run between the
+read and the write. Two threads racing on the same counter get two different
+indices, always. That guarantee is the reason to use an atomic here, more
+than speed. Being lock-free is an extra benefit.
 
 Both atomics use `.monotonic` ordering because each one is independent:
 no thread reads `total` until after `join`, and `join` already provides
-the visibility guarantee. The moment one atomic is supposed to publish
-writes to *other* memory, ordering gets subtle; keep counters independent
-and the simplest ordering stays correct.
+the visibility guarantee. When one atomic has to publish writes to *other*
+memory, ordering gets harder. Keep counters independent, and the simplest
+ordering stays correct.
 
 ## When threads out-claim the work
 
 Every worker exits by claiming an index past the end. With 4 threads, up
-to 4 claims overshoot; the counter ends beyond `jobs.len`. That is
+to 4 claims overshoot, and the counter ends beyond `jobs.len`. That is
 harmless and normal. Do not reuse the counter's final value as "jobs
-done"; count completions separately if you need the number.
+done". Count completions separately if you need the number.
 
 ## Variations
 
 - **Batch claiming:** `fetchAdd(16, ...)` hands out sixteen jobs per
   claim, cutting contention on the counter when jobs are tiny.
 - **Results per job:** when each job produces data rather than a number
-  to fold, write to `results[i]`; index ownership makes the slot private,
-  so the write needs no lock.
+  to fold, write to `results[i]`. Only the thread that claimed `i` writes
+  that slot, so the write needs no lock.
 - **Compare with chunking:** the [parallel sum](/learn/how-to/parallel-sum/)
-  recipe is the static version; prefer it when per-item cost is uniform,
-  since it touches the shared counter zero times.
+  recipe is the static version. Prefer it when per-item cost is uniform,
+  since it never touches a shared counter.

@@ -14,8 +14,7 @@ ordinary C functions.
 ## The problem
 
 You need to shrink a buffer before writing or sending it, and zlib is the
-library already on every machine. It is C, so the job is calling three
-functions and linking `libz`. This recipe compresses a buffer and decompresses
+library already on every machine. This recipe compresses a buffer and decompresses
 it back, checking the round trip.
 
 ## The plan
@@ -34,13 +33,12 @@ it back, checking the round trip.
 
 ## Naming the header and the library separately
 
-zlib is the case that shows why a header and a library are not the same name.
-The library is `z` (you link it with `-lz`), but the header is `zlib.h`. This
+zlib shows that a header and a library can have different names. The library is `z` (you link it with `-lz`), but the header is `zlib.h`. This
 guide's `build.zig` reads two markers from the snippet: `//! link: z` for the
 library and `//! cinclude: zlib.h` for the header. It synthesizes a header that
 includes `zlib.h`, translates it with a translate-c step, links `z`, and hands
 the snippet the module as `c`. For SQLite the two names happen to match, so it
-needs only `//! link: sqlite3`; zlib needs both.
+needs only `//! link: sqlite3`. zlib needs both.
 
 ## Sizing the output buffer
 
@@ -67,7 +65,7 @@ what the snippet asserts. Print `comp_len` yourself to see the real ratio.
   size. Level 6 is the usual default.
 - **Streaming:** for data too large to hold at once, zlib's `deflate`/`inflate`
   work on chunks through a `z_stream`, at the cost of more bookkeeping.
-- **Gzip framing:** `compress2` writes a zlib stream; for a `.gz` file with its
+- **Gzip framing:** `compress2` writes a zlib stream. For a `.gz` file with its
   header and CRC, use `deflateInit2` with the gzip window bits.
 - **Pure Zig:** `std.compress.flate` does deflate and gzip in the standard
   library, no C linking, when you would rather not depend on the system zlib.

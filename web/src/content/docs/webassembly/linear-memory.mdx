@@ -15,10 +15,9 @@ and a length.
 ## The problem
 
 The [last recipe](../export-to-js/) passed numbers, which fit in a wasm value.
-A string does not. Neither does a slice, a struct, or a buffer. There is exactly
-one place they can live where both sides can see them: the module's linear
-memory. So the call passes an offset into that memory and a length, and the two
-sides agree on what the bytes mean.
+A string does not. Neither does a slice, a struct, or a buffer. Linear memory
+is the only place both sides can see them, and the two sides must agree on
+what the bytes there mean.
 
 ## The plan
 
@@ -31,9 +30,9 @@ sides agree on what the bytes mean.
 
 The test in the snippet is the host's script written in Zig: reserve space, copy
 bytes in, call `sumBytes`, mutate in place with `upperInPlace`, read the bytes
-back. A JavaScript host does the identical dance through `instance.exports` and
+back. A JavaScript host does the same steps through `instance.exports` and
 a typed-array view. Building it as a reactor and calling it is the
-[browser recipe](../browser-instantiate/); here the focus is the memory
+[browser recipe](../browser-instantiate/). This page covers the memory
 protocol itself.
 
 ## Why an offset and not a pointer
@@ -46,8 +45,8 @@ that number.
 
 ## The JavaScript side
 
-`WebAssembly.Memory` exposes an `ArrayBuffer` you view with typed arrays. Writing
-into it and reading back out is the whole protocol:
+`WebAssembly.Memory` exposes an `ArrayBuffer` you view with typed arrays. The
+protocol is only writing into it and reading back out:
 
 ```js
 const { instance } = await WebAssembly.instantiate(bytes, {});
@@ -74,18 +73,18 @@ console.log(new TextDecoder().decode(out));   // "ZIG"
 
 `memory.buffer` can change. When the module grows its linear memory (any
 allocation might), the old `ArrayBuffer` is *detached* and every typed array
-over it reads as empty. So build the `Uint8Array` view right before you use it,
-never cache it across a call that might allocate. The `pass` helper above takes
+over it reads as empty. So build the `Uint8Array` view right before you use it.
+Never cache it across a call that might allocate. The `pass` helper above takes
 a fresh view each time for exactly this reason.
 
 ## Who owns the memory
 
 In this snippet the module owns it: `alloc` hands out slices of a fixed 4 KiB
-buffer and `reset` reclaims all of it at once, a bump allocator. That is enough
+buffer, and `reset` reclaims all of it at once. This is a bump allocator. It is enough
 for request-scoped work where the host fills a buffer, calls, and moves on. For
 longer-lived data, export a real allocator (`free` included) or have the host
 track the offsets it was given. Either way the rule holds: the module manages
-its linear memory, and the host only reaches in at offsets the module blessed.
+its linear memory, and the host only reaches in at offsets the module handed out.
 
 ## Variations
 
@@ -94,6 +93,6 @@ its linear memory, and the host only reaches in at offsets the module blessed.
   in memory and return that struct's offset.
 - **Strings are UTF-8 on both ends:** Zig source is UTF-8 and JavaScript's
   `TextEncoder` emits UTF-8, so bytes copied across need no re-encoding.
-- **Growing on demand:** `alloc` here cannot fail usefully; a real one calls
+- **Growing on demand:** `alloc` here cannot fail usefully. A real one calls
   `@wasmMemoryGrow` when the buffer is exhausted, which the
   [freestanding recipe](../freestanding/) shows.

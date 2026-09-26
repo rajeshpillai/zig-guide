@@ -15,7 +15,7 @@ into a module imported as `@import("c")`, and the program links `sqlite3`.
 ## The problem
 
 You want a real database from Zig, and SQLite is the obvious first one. It is
-a C library with no server, so the whole thing is a header and a linked
+a C library with no server, so all you need is a header and a linked
 library. Zig calls C directly, so there is no binding layer to install. The
 work is learning SQLite's own open/prepare/bind/step/finalize shape and
 translating its integer return codes into Zig errors.
@@ -43,8 +43,8 @@ builtin was removed. Headers now come through a build-system step,
 `b.addTranslateC`, which produces a normal Zig module you import by name. This
 guide's `build.zig` does it from a marker on the snippet. It synthesizes a
 header that includes `sqlite3.h`, translates it, links `sqlite3`, and hands
-the module to the snippet. The payoff is that C imports are cached and
-configured like any other dependency rather than re-run on every compile.
+the module to the snippet. As a result, C imports are cached and configured
+like any other dependency, instead of being re-run on every compile.
 
 ## Return codes become errors
 
@@ -58,8 +58,8 @@ main thing a Zig wrapper adds over the raw API.
 ## Prepared statements, not string building
 
 The insert uses `?` placeholders and `sqlite3_bind_text`, never string
-concatenation. That is the rule that keeps user data out of the SQL grammar,
-so a name containing a quote is data, not syntax. Binding with `SQLITE_STATIC`
+concatenation. Placeholders keep user data out of the SQL grammar, so a name
+containing a quote is data, not syntax. Binding with `SQLITE_STATIC`
 as the destructor argument is a promise that the string outlives the step, so
 SQLite does not copy it. That is true here, because the values are string
 literals. `sqlite3_reset` rewinds the compiled statement so the next row
@@ -80,6 +80,6 @@ into a Zig slice for printing. The loop ends when `sqlite3_step` returns
 - **Transactions:** wrap a batch of inserts in `BEGIN`/`COMMIT` via
   `sqlite3_exec` to make them atomic and much faster.
 - **Other C libraries:** the same `//! link:` mechanism works for any system
-  library whose header matches its name; that is how
+  library whose header matches its name. That is how
   [struct memory layout](/learn/how-to/memory-layout/) and the
   [ABI chapter](/learn/working-with-c/abi/) connect to the C side.

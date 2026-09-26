@@ -13,8 +13,8 @@ tuple or the fields of a struct.
 
 <Playground name="02-language.inline-loops" />
 
-`inline for` unrolls at compile time. That is occasionally about performance,
-but the real reason it exists is **types**.
+`inline for` unrolls at compile time. Sometimes that helps performance, but
+the main reason it exists is **types**.
 
 ## Iterating heterogeneous things
 
@@ -47,7 +47,7 @@ names):
 const arr: [i]u8 = undefined;   // only valid because i is comptime
 ```
 
-That is what makes reflection work. `@typeInfo(T).@"struct".field_names` is a
+A comptime loop variable is what makes reflection work. `@typeInfo(T).@"struct".field_names` is a
 comptime array of strings, and walking it with `inline for` gives you each
 name as a comptime string, which `@field(value, name)` can then use to read
 the field. A normal `for` gives you a runtime string, and there is no runtime
@@ -59,7 +59,7 @@ inline for (@typeInfo(@TypeOf(value)).@"struct".field_names) |name| {
 }
 ```
 
-Nine tenths of the generic code in the standard library is that shape.
+Much of the generic code in the standard library has this shape.
 
 If you have seen `info.fields[i].name` in older Zig code, that is the shape
 this replaced. `Type.Struct` now carries parallel arrays (`field_names`,
@@ -71,23 +71,24 @@ that only needs names does not touch the rest.
 The same idea appears on `while` and on `switch`. On `while` the condition has
 to be comptime-known, so the compiler can decide how many copies to make. On
 `switch`, `inline else` generates one arm per remaining case, with the tag
-available as a comptime value. Reach for those in the same situations: when
-the body needs to know something the runtime version would have erased.
+available as a comptime value. Use them in the same situations: when the body
+needs to know something at compile time that the runtime version would only
+know at runtime.
 
 ## Use it deliberately
 
 Unrolling multiplies generated code by the iteration count. For a 3-element
-tuple that is free; for `inline for (0..10000)` it is a compile-time and
-binary-size disaster. Reach for `inline` when you need comptime-ness, not as a
-performance reflex.
+tuple the cost is tiny. For `inline for (0..10000)`, compile time and binary
+size grow badly. Use `inline` when you need comptime values, not as a habit to
+make code faster.
 
-The performance reflex is wrong for a second reason: the optimiser already
+Using `inline` for speed is wrong for a second reason: the optimiser already
 unrolls loops it thinks are worth unrolling, using cost information about the
 target that you do not have. Writing `inline` to make a loop fast overrides a
-decision that was probably better than yours. It also does it in a way that
-shows up as compile time rather than in a benchmark.
+decision that was probably better than yours. The cost then shows up as
+longer compile times, not in a benchmark.
 
-The honest test is whether the body would still compile without `inline`. If
-it would, you probably do not need it. If it would not, because the body uses
-the loop variable where a comptime value is required, then `inline` is not an
-optimisation at all. There was never a choice to make.
+A simple test is whether the body would still compile without `inline`. If it
+would, you probably do not need it. If it would not, because the body uses the
+loop variable where a comptime value is required, then `inline` is required.
+It is not an optimisation at all.

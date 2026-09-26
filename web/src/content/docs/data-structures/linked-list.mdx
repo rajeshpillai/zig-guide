@@ -30,7 +30,7 @@ const Node = struct {
 `?*Node` is an optional pointer: either null, or the address of a node.
 `*?Node` would be a pointer to a slot that may contain a node, which needs the
 slot to exist somewhere and is a different structure entirely. The order reads
-outside in, and getting it backwards is the most common early mistake with
+outside in, and getting it backwards is a common early mistake with
 linked structures.
 
 The optional is free:
@@ -59,19 +59,17 @@ while (current) |node| {
 
 Reading `node.next` after destroying `node` is a use-after-free. It usually
 appears to work, because the allocator has not yet handed that memory to
-anyone else, which is what makes it a bug that ships.
+anyone else, so the bug often ships.
 
 The snippet runs under `std.heap.SafeAllocator` (`DebugAllocator` in older
 code), whose `deinit` returns the number of allocations that were never freed.
-A container that hands out memory is exactly where a leak comes from, so it is
-worth having the allocator check rather than reasoning about it. [Catching
+A container that hands out memory is exactly where a leak comes from, so let the allocator check rather than reasoning about it. [Catching
 Memory Leaks](/learn/how-to/catching-leaks/) covers the tooling.
 
 ## Two fields that are not obvious
 
 **`tail`** exists so `append` is O(1). Without it, appending walks the whole
-list first, and building a list of n items is O(n²). Almost every hand-rolled
-list on the internet omits it.
+list first, and building a list of n items is O(n²). Many hand-written lists leave it out.
 
 **`len`** is stored rather than counted. Counting is O(n), and a `len()` that
 walks the list turns an innocent `if (list.len() > 0)` inside a loop into a

@@ -37,10 +37,9 @@ message or knowing its size in advance.
 ```
 
 Cheap to write, cheap to read, and readable on the wire, which is why HTTP,
-SMTP, IMAP and Redis all use it for their text parts. You can debug it with
-`nc` and your eyes.
+SMTP, IMAP and Redis all use it for their text parts. You can debug it with `nc` by reading the bytes.
 
-The cost is permanent: that byte can never appear in a payload. The last line
+The cost is that this byte can never appear in a payload. The last line
 of the output shows what happens when it does. The reader stops early and
 reports no error at all. From its point of view the message ended exactly
 where a message is supposed to end. The rest gets treated as the next message.
@@ -69,7 +68,7 @@ rather than trusting them.
 Both of the others are special cases of a length prefix. A delimiter is a
 length you have to go looking for. A tag is a length whose meaning comes with
 it. If you are designing something new and have no reason to prefer
-readability, use a length prefix and stop thinking about it.
+readability, use a length prefix.
 
 If you want it debuggable by hand, use a delimiter for the envelope and a
-length for the body. That combination has survived thirty years of HTTP.
+length for the body. HTTP has used that combination for thirty years.

@@ -9,20 +9,20 @@ import Playground from "../../../components/Playground.astro";
 
 The first three tools never held more than a bufferful. `sort` cannot: you
 cannot know which line comes first until you have seen the last one. So this
-is the chapter where the streaming loop breaks down and a question the earlier
-tools never faced arrives.
+is the chapter where the streaming loop stops working. It raises a question the
+earlier tools never faced.
 
 **Where do the lines live?**
 
 Reading them means holding all of them. Sorting them means moving them around.
 And a moment after you have sorted, something has to still be pointing at the
-right bytes. That is the ownership question from [Who Owns This
-Memory](/learn/systems-from-scratch/who-owns-this-memory/), turning up in the
-first program where it is unavoidable.
+right bytes. This is the ownership question from [Who Owns This
+Memory](/learn/systems-from-scratch/who-owns-this-memory/). `sort` is the first
+program where you cannot avoid it.
 
-There are two honest answers. Copy each line into memory you allocated, or
+There are two workable answers. Copy each line into memory you allocated, or
 keep the whole input in one buffer and sort a list of *pointers into it*. The
-second is what real `sort` does for anything that fits, because moving an
+second is what the real `sort` does for anything that fits, because moving an
 8-byte pointer is cheaper than moving a 200-byte line, and it costs nothing to
 set up.
 
@@ -43,7 +43,7 @@ that owned the buffer and you have the dangling pointer from [The
 Stack](/learn/systems-from-scratch/the-stack/), except now it is a whole array
 of them.
 
-**`Zebra` sorted before `apple`.** Not a bug: byte order. `Z` is 90 and `a` is
+**`Zebra` sorted before `apple`.** This is not a bug. It is byte order. `Z` is 90 and `a` is
 97, so every capital letter sorts before every lower-case one. This is what
 `LC_ALL=C sort` does. Plain `sort` follows the locale's collation instead,
 which puts `apple` first, and that is why the two disagree on the same file. Anything friendlier than byte order is a locale
@@ -55,9 +55,9 @@ only cheap once they are sorted.
 
 **The whole program touched no heap.** `FixedBufferAllocator` hands out chunks
 of a 4 KB array on the stack. When it runs out it returns `error.OutOfMemory`
-like any other allocator, which is the honest failure for a tool with a fixed
-budget. The hand-carved arena in a C version of this is the same idea with the
-bookkeeping written out by hand.
+like any other allocator. That is the correct failure for a tool with a fixed
+memory budget. A C version would use a hand-written arena for the same job,
+with the bookkeeping written out by hand.
 
 ## Check yourself
 
@@ -81,8 +81,8 @@ char *lines[MAX_LINES];       /* pointers into one big buffer */
 qsort(lines, n, sizeof(char *), cmp);
 ```
 
-Two things Zig removes. `qsort`'s comparator receives `const void *` and
-starts with a cast. That is where the classic bug lives. The argument is a
+Zig removes two problems. `qsort`'s comparator receives `const void *` and
+starts with a cast. The classic bug is in that cast. The argument is a
 pointer to the array *element*, so for an array of `char *` it is a `char **`.
 Get that one indirection wrong and it compiles cleanly and sorts garbage.
 `std.mem.sort` is generic over the element type, so the comparator receives

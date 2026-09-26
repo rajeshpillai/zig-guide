@@ -21,8 +21,8 @@ Fields may declare a default, so a literal only mentions what differs:
 const v = Vec3{ .x = 5 };   // y and z default to 0
 ```
 
-A field with no default must be supplied; there is no zero-initialisation by
-fiat. When every field has one, `.{}` constructs the whole thing, which is why
+A field with no default must be supplied. Zig does not fill it with zero for
+you. When every field has one, `.{}` constructs the whole thing, which is why
 options structs in the standard library are usually called with `.{}` and one
 override.
 
@@ -40,9 +40,9 @@ Choose the receiver deliberately: `Vec3` for small value types you want
 copied, `*const Vec3` for large ones you only read, `*Vec3` to mutate.
 
 There is nothing special about a method. `v.length()` is `Vec3.length(v)`, and
-the only rule is that the first parameter is the receiver. That means no
-dynamic dispatch, no vtable and no hidden `this`: the function that runs is
-decided by the type at the call site, at compile time, always.
+the only rule is that the first parameter is the receiver. There is no hidden
+`this`, and a method call never goes through a vtable. The function that runs
+is decided by the type at the call site, at compile time, always.
 
 A struct can also hold declarations that are not methods, so a type can carry
 its own constants and nested types:
@@ -101,6 +101,6 @@ of those is what you want, that is what `extern` and `packed` are for. See
 [struct layout](/learn/systems-from-scratch/structs-are-layout/) for what the
 padding is actually doing.
 
-A struct with no fields has size zero, and so does an array of them. That is
-not a curiosity: it is how a type carries only behaviour, and how a hash map
-with no values costs nothing per entry beyond its keys.
+A struct with no fields has size zero, and so does an array of them. This is
+useful. It lets a type carry only behaviour, and it lets a hash map with no
+values cost nothing per entry beyond its keys.

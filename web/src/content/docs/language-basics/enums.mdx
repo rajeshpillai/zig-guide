@@ -25,8 +25,8 @@ takeDirection(.south);
 
 This keeps `switch` prongs and struct literals readable without repeating the
 type name everywhere. `.north` on its own has a type of its own, the enum
-literal type, which coerces to any enum that has a matching tag. That is why
-the same `.north` works for two unrelated enums in two different calls.
+literal type, which coerces to any enum that has a matching tag. So the same
+`.north` works for two unrelated enums in two different calls.
 
 ## Pinning the representation
 
@@ -41,8 +41,8 @@ integer is a valid tag.
 
 Without a tag type, the compiler picks the smallest integer that fits and
 numbers the tags from zero. So `@intFromEnum` still works on a plain enum, and
-the values are still ordered by declaration, but neither is something to write
-into a file format. Pin the type when the numbers leave your program.
+the values are still ordered by declaration, but do not write either into a
+file format. Pin the type when the numbers leave your program.
 
 ## Non-exhaustive enums
 
@@ -53,7 +53,7 @@ const Opcode = enum(u8) { get = 1, set = 2, _ };
 ```
 
 This is the right type for a byte that arrives from a network or a C library,
-where the set of values is not yours to decide. `@enumFromInt` on one of these
+where you do not control the set of values. `@enumFromInt` on one of these
 cannot fail, because every value is legal. A `switch` handles the unnamed case
 with `_` rather than `else`, which keeps the exhaustiveness check alive for
 the named ones. See [switch](/learn/language-basics/switch/).
@@ -61,8 +61,9 @@ the named ones. See [switch](/learn/language-basics/switch/).
 ## Methods
 
 Enums can declare functions. `Suit.hearts.isRed()` is exactly
-`Suit.isRed(Suit.hearts)`: method syntax is sugar for passing the receiver as
-the first argument. There is no dynamic dispatch and no vtable.
+`Suit.isRed(Suit.hearts)`: method syntax is a shorter way to pass the receiver
+as the first argument. The call goes straight to that function, with no
+dynamic dispatch.
 
 They can hold constants and nested types too, so an enum is a fine place to
 put the parsing and formatting that belong to it. A `fromString` returning
@@ -83,12 +84,12 @@ info.mode;             // .exhaustive
 ```
 
 Note these are **parallel arrays**, not one array of field structs. Older
-tutorials show `info.fields[i].name`; that shape is gone. The split landed
+tutorials show `info.fields[i].name`. That shape is gone. The split landed
 between `0.17.0-dev.644` and `dev.1441`, and was the only break anywhere in
 this guide when the compiler was updated.
 
-`@tagName` gives the name as a string. Together this is how generic code
-prints or parses enums without a hand-written table. Walk `field_names` with
+`@tagName` gives the name as a string. With `@tagName` and these arrays,
+generic code prints or parses enums without a hand-written table. Walk `field_names` with
 `inline for` and you have a parser, a formatter or a table of every case,
 built from the declaration and unable to fall out of sync with it. See [inline
 loops](/learn/language-basics/inline-loops/).

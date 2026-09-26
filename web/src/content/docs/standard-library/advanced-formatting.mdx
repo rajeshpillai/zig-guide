@@ -28,12 +28,11 @@ struct) no longer applies. If you find a tutorial showing `format(self,
 comptime fmt: []const u8, options: FormatOptions, writer: anytype)`, it
 predates the change.
 
-The reason for the change is worth knowing, because it explains the rest of
-this page. Under the old design, every type's `format` had to parse the format
+The reason for the change explains the rest of this page. Under the old design, every type's `format` had to parse the format
 string itself and decide what `{d:>8}` meant for it. So every implementation
 was slightly different, and most ignored the options entirely. Now a type says
 how it prints, once, and the specifiers that control width and alignment are
-the formatter's job rather than yours.
+the formatter's job.
 
 ## `{f}` calls it
 
@@ -44,14 +43,14 @@ it with `{f}`:
 try writer.print("{f}", .{point});   // (1, 2)
 ```
 
-This is the other half of the same change, and it is the one that surprises
-people mid-port. Under the old scheme `{}` found your method, so a type with a
-`format` printed nicely everywhere by accident. Now `{}` prints the struct the
-way the compiler sees it and `{f}` asks for yours. The upside is that you can
-see, at the call site, whether you are getting the type's own rendering or the
-generic dump, which used to be invisible.
+This is the other half of the same change, and it often breaks code being
+ported. Under the old scheme `{}` found your method, so a type with a `format`
+printed nicely everywhere without you asking. Now `{}` prints the struct the
+way the compiler sees it, and `{f}` asks for yours. The benefit is that the
+call site now shows whether you get the type's own rendering or the generic
+dump. Before, you could not tell.
 
-## The specifiers worth knowing
+## Common specifiers
 
 | Specifier | Prints |
 | --- | --- |
@@ -72,8 +71,8 @@ on a float.
 
 Every one of these is checked at compile time against the tuple you passed. A
 `{d}` aimed at a string, or four specifiers with three arguments, is a build
-error rather than a runtime one. The format string has to be a comptime value
-for exactly that reason.
+error, not a runtime one. This check is why the format string has to be a
+comptime value.
 
 ## `{t}` for tag names
 
@@ -111,6 +110,6 @@ If you have seen `std.fmt.bufPrint` and `std.fmt.allocPrint`, those are what
 this replaced: they are `std.mem.print` and `Allocator.print` now.
 
 Both are the same underlying `std.Io.Writer` interface that a file or a socket
-implements. That is why the same `print` call works against all of them, and
-why a function taking a `*std.Io.Writer` can be tested by handing it a buffer.
+implements. So the same `print` call works against all of them, and a
+function taking a `*std.Io.Writer` can be tested by handing it a buffer.
 See [readers and writers](/learn/standard-library/readers-and-writers/).

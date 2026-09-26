@@ -50,9 +50,8 @@ ship, or link. `run` puts the same artifact in the cache and executes it
 immediately, so there is nothing to clean up and nothing to add to
 `.gitignore`.
 
-For anything up to a few hundred lines, `zig run main.zig` is the whole
-workflow. It compiles to a cache directory and executes, so there is no binary
-left in your working tree and no build step to remember. Arguments for the
+For anything up to a few hundred lines, `zig run main.zig` is all you need,
+and there is no build step to remember. Arguments for the
 program go after `--`:
 
 ```bash
@@ -60,9 +59,8 @@ zig run main.zig -- --verbose input.txt
 ```
 
 The cache is content-addressed, so running it again after no changes does not
-recompile. That makes `zig run` fast enough to use like a script interpreter,
-which is a reasonable way to work on a single-file tool for a surprisingly
-long time.
+recompile. That makes `zig run` fast enough to use like a script interpreter.
+You can work on a single-file tool this way for a long time.
 
 `zig test` works the same way, and needs no `main`. A file that is nothing but
 `test` blocks is a complete, runnable program as far as Zig is concerned.
@@ -75,7 +73,7 @@ to link, and adding `-dynamic` gives you a shared library instead. `build-obj`
 stops before linking and hands you a single object file, which is what you
 want when Zig is one part of a build driven by something else.
 
-That last one is the quiet route into an existing codebase. Compile one module
+`build-obj` is an easy way to bring Zig into an existing codebase. Compile one module
 with `build-obj` and link it into a C or C++ project exactly like any other
 object file. Nothing else about the project has to change.
 
@@ -99,13 +97,13 @@ The difference between the two is what the module expects the host to provide.
 `wasm32-wasi` assumes a filesystem-shaped interface and a `main`;
 `wasm32-freestanding` assumes nothing, so there is no entry point to call and
 you name the functions the host may call instead. `-OReleaseSmall` matters
-more here than anywhere else, because the artifact is downloaded before it
+a lot here, because the artifact is downloaded before it
 runs.
 
 ## When to graduate to `build.zig`
 
-Once you have more than one artifact, dependencies, generated files, or a test
-step worth naming, move to a build script. `zig build --help` then lists the
+Once you have more than one artifact, dependencies, generated files, or a named
+test step, move to a build script. `zig build --help` then lists the
 steps and options that script defines.
 
 The threshold in practice is usually the second target or the first

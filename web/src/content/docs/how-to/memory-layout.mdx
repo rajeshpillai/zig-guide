@@ -7,7 +7,7 @@ order: 107
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `@sizeOf`, `@alignOf` and `@offsetOf` report the real size, alignment
+Zig's `@sizeOf`, `@alignOf` and `@offsetOf` report the real size, alignment
 and field offsets of a struct. A plain struct may reorder its fields, so use
 `extern struct` to match C and `packed struct` for exact bits.
 
@@ -16,8 +16,7 @@ and field offsets of a struct. A plain struct may reorder its fields, so use
 You need to know how a struct sits in memory: how big it is, where each field
 lands, and whether you can hand it to C or to hardware. Guessing from the
 field types is a mistake, because the default layout is allowed to reorder
-fields and insert padding. Zig gives you builtins to read the real numbers and
-keywords to pin them down when it matters.
+fields and insert padding.
 
 ## The plan
 
@@ -37,16 +36,15 @@ default layout is unspecified, and the current compiler uses that freedom. It
 places `b` at 0, `c` at 8, and `a` at 12, for a total of 16 bytes. Putting
 the largest field first cuts the padding from eleven bytes to three.
 
-The lesson is not the specific numbers, which belong to this compiler and this
-target. It is that you must not depend on the field order of an `auto` struct.
-If a byte offset matters, read it with `@offsetOf`, or use a layout that
+These specific numbers belong to this compiler and this target. Do not depend
+on the field order of an `auto` struct. If a byte offset matters, read it with `@offsetOf`, or use a layout that
 guarantees order.
 
 ## `align(N)` raises the whole struct
 
 `Aligned` forces `a` to a 16-byte boundary. A field's alignment cannot lower
 the struct's alignment, only raise it, so the whole struct becomes 16-aligned
-and 16 bytes. Reach for this when a buffer must be cache-line aligned or when
+and 16 bytes. Use this when a buffer must be cache-line aligned or when
 a device expects a specific boundary.
 
 ## Packed structs give you bits

@@ -26,7 +26,7 @@ const Payload = union { int: i64, float: f64 };
 Reading a field that is not the active one is illegal behaviour. Bare unions
 exist for C interop and for cases where the tag is already tracked elsewhere.
 
-"Illegal behaviour" is the strong version, not "you get garbage". In a safety
+"Illegal behaviour" means more than "you get garbage". In a safety
 build the wrong-field access is caught and panics. In ReleaseFast it is
 undefined, and the optimiser is allowed to assume it never happens. So a bare
 union is a promise you are making, and the only reason to make it is that
@@ -85,7 +85,7 @@ struct`, is for real boundaries rather than for saving a byte.
 
 ## Where you will actually use one
 
-Anywhere a value is genuinely one of several shapes. A token from a lexer. A
+Anywhere a value is one of several shapes. A token from a lexer. A
 node in a syntax tree. A message from a protocol. A configuration value that
 can be a string or a number. The pattern to watch for in other people's code
 is a struct with a "kind" field and several fields that are only valid for
@@ -93,5 +93,5 @@ some kinds. That is a tagged union written by hand, without the exhaustiveness
 check.
 
 The [tiny language](/learn/tiny-lang/) track builds a lexer, parser and
-interpreter on exactly this construct, which is the best way to see why it
-earns its place.
+interpreter on exactly this construct, so you can see it used in a real
+program.

@@ -49,12 +49,12 @@ compiler.
 This is not an ORM invention. `std.json` looks for `jsonStringify` on your
 type; formatting looks for a `format` declaration. When your library adopts
 the same shape (a documented declaration name, discovered with `@hasDecl`),
-Zig users already know how to hold it.
+Zig users already know how to use it.
 
 ## In a full ORM
 
 The draft this distills from runs validation inside insert and update,
 returning a typed error set with the violation attached. It also adds
 cross-field rules, such as unique-together and conditional requirements, as
-declarations following the same discovery pattern. The skeleton stays this
-page's twenty lines; everything else is more rules.
+declarations following the same discovery pattern. The core stays the twenty
+lines on this page. The extra features are added as more rules.

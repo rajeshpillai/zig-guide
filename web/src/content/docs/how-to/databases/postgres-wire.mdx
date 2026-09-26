@@ -15,14 +15,15 @@ that counts itself, and the payload.
 ## The problem
 
 A Postgres driver is mostly a codec for one TCP protocol. Seeing that protocol
-without a driver in the way is the fastest route to understanding what a query
-actually costs and where a hang comes from. This recipe implements enough of
+without a driver in the way shows you what a query actually costs and where a
+hang comes from. This recipe implements enough of
 both ends to complete a startup handshake and run one query, so the exact
 bytes are on the page.
 
-As with the other database recipes, it stands up a mock backend in the same
+As with the other database recipes, it runs a mock backend in the same
 process, so CI runs and diffs the whole exchange without a running `postgres`.
-The framing is the real thing; only the auth and the query engine are stubbed.
+The framing is the real protocol. Only the auth and the query engine are
+stubbed.
 
 ## The plan
 
@@ -47,7 +48,7 @@ type, an `Int32` length that counts itself but not the type byte, then `length
 - 4` bytes of payload. `sendMsg` and `readMsg` encode exactly that, so the
 rest of the code only cares about payloads. The startup message is the one
 exception: it predates the type-byte convention, so it is a bare length and
-body. That asymmetry is why `sendStartup` and `readMsg` are separate.
+body. Because of this difference, `sendStartup` and `readMsg` are separate.
 
 ## The handshake is a stream, not a call
 
@@ -70,16 +71,16 @@ parsing these messages need.
 
 ## Flush or hang
 
-Every send here is followed by a flush, and the reason is the bug this recipe
-first hit. The socket writer buffers, so a message you "sent" is still in your
-buffer until you flush. If both sides then block reading, nothing moves. That
-is the classic wire-protocol deadlock, and it is easy to introduce the moment
-a send stops being immediately followed by a flush.
+Every send here is followed by a flush, because the first version of this
+recipe hung without it. The socket writer buffers, so a message you "sent" is
+still in your buffer until you flush. If both sides then block reading,
+neither side can continue. This is a common wire-protocol deadlock. It is easy
+to introduce as soon as a send is not immediately followed by a flush.
 
 ## Variations
 
 - **Real auth:** the backend can answer startup with `AuthenticationCleartextPassword`
-  or an MD5/SCRAM challenge instead of `AuthenticationOk`; the client replies
+  or an MD5/SCRAM challenge instead of `AuthenticationOk`. The client replies
   with a `PasswordMessage` and the loop continues.
 - **Prepared statements:** the extended-query protocol replaces `Q` with
   `Parse`/`Bind`/`Execute`, which is how parameters stay out of the SQL text.

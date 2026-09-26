@@ -41,7 +41,7 @@ pub const std_options: std.Options = .{
 };
 ```
 
-Two things follow from "root," and both bite people:
+Two things follow from "root," and both cause mistakes:
 
 - It must be in the root source file (the one with `main`). A `pub const
   std_options` in a library file, or in a `zig test` file, is **ignored**:
@@ -77,5 +77,6 @@ fn myLogFn(
 }
 ```
 
-Because there is one seam, a whole program's logging changes in one place, and
-libraries that call `std.log` inherit it for free without knowing it happened.
+Every message passes through this one function, so a whole program's logging
+changes in one place. Libraries that call `std.log` get the change too, with
+no code of their own.

@@ -7,7 +7,7 @@ order: 92.5
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, the same 100,000 records written with `std.json.Stringify.value` take
+The same 100,000 records written with Zig's `std.json.Stringify.value` take
 4.62 times the bytes of a fixed 24-byte binary record written with
 `std.mem.writeInt`. JSON repeats every field name and spells numbers out as
 decimal text.
@@ -15,13 +15,12 @@ decimal text.
 ## The problem
 
 You are choosing a wire format for a stream of records and want a concrete
-number, not a guess. JSON is readable and self-describing; a packed binary
+number, not a guess. JSON is readable and self-describing. A packed binary
 layout is compact. This recipe encodes the same 100,000 events both ways and
-prints the exact byte counts, so the trade is a measurement rather than an
-argument.
+prints the exact byte counts, so you can compare measured numbers.
 
-The data is seeded, so the sizes are reproducible: you get the same numbers
-every run, which is also why this page can assert them.
+The data is seeded, so the sizes are reproducible. You get the same numbers
+every run, and that is also why this page can assert them.
 
 ## The plan
 
@@ -40,15 +39,15 @@ repeats its field names as text (`"player_id"`, `"timestamp"`) where the
 binary form carries none. Numbers expand. A `u32` that is four bytes in binary
 becomes up to ten decimal digits in JSON, and a float becomes a decimal string
 that is usually longer than its four raw bytes. The enum, one byte in binary,
-serializes as `"move"` or `"attack"`. None of this is waste in JSON's terms;
-it is the cost of being self-describing.
+serializes as `"move"` or `"attack"`. JSON pays this cost to be
+self-describing.
 
 The binary record is a flat 24 bytes regardless of the values: `i64`
 timestamp, `u32` id, two `f32` coordinates, a one-byte tag, three bytes of
 padding. `std.mem.writeInt` with an explicit `.little` endianness means the
-bytes are defined, not host-dependent, which is what makes the format a format
-rather than a memory dump. That discipline is the subject of [the binary
-round-trip recipe](/learn/how-to/binary-roundtrip/).
+bytes are the same on every host. Without that, the output would be a memory
+dump and not a format. [The binary round-trip
+recipe](/learn/how-to/binary-roundtrip/) covers this in detail.
 
 ## What about speed
 
@@ -66,8 +65,8 @@ widen as the records get more numeric.
 - **Smaller still:** drop the three padding bytes for a 21-byte record, or
   bit-pack the enum into spare bits, when density matters more than alignment.
 - **Compress the JSON:** gzip closes much of the size gap, at CPU cost on both
-  ends; measure that trade the same way.
-- **Schema evolution:** JSON tolerates added and missing fields; a fixed
+  ends. Measure that trade the same way.
+- **Schema evolution:** JSON tolerates added and missing fields. A fixed
   binary record does not, so a real binary format usually carries a version
   byte. See [struct memory layout](/learn/how-to/memory-layout/) for how the record
   is laid out.

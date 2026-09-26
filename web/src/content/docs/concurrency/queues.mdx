@@ -21,8 +21,8 @@ var queue: std.Io.Queue(u32) = .init(&storage);
 ```
 
 The queue allocates nothing. It is a ring over the array you give it, so its
-capacity, its lifetime and where it lives are all yours to decide, the same
-deal `Io.Writer` offers. A queue on the stack of the function that spawns both
+capacity, its lifetime and where it lives are all yours to decide, just as
+with `Io.Writer`. A queue on the stack of the function that spawns both
 tasks is the common case.
 
 ## `put` and `get` take a minimum
@@ -57,8 +57,8 @@ while (queue.getOne(io)) |value| {
 } else |err| { ... }
 ```
 
-The consumer never has to be told how many elements are coming, which is the
-detail that lets a producer decide as it goes.
+The consumer never has to be told how many elements are coming, so a producer
+can decide how many to send as it goes.
 
 ## Back pressure between two tasks
 
@@ -70,15 +70,15 @@ detail that lets a producer decide as it goes.
 
 With a capacity of two and five elements to send, the producer blocks partway
 through and resumes as the consumer drains. Nothing coordinates that: a full
-queue blocking the sender *is* the back pressure, and the pair self-regulates
-at the speed of the slower side.
+queue blocking the sender *is* the back pressure, and the pair runs at the
+speed of the slower side.
 
 This is the case that needs
 [`io.concurrent`](/learn/concurrency/async-future-group/) rather than
 `io.async`. A producer started with `async` may run inline, all the way to the
 point where it fills the queue and blocks. The consumer that would drain it is
-still waiting for `async` to return. That deadlock is the reason the two
-spellings exist, and it is why this snippet is native and the one at the top
+still waiting for `async` to return. The two spellings exist because of
+this deadlock. It is also why this snippet is native and the one at the top
 of the page is not.
 
 ## Cancellation

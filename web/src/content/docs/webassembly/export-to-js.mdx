@@ -13,8 +13,8 @@ To call Zig from JavaScript, mark the function `export fn`, build for
 
 ## The problem
 
-You want to call a Zig function from JavaScript: a hot loop, a parser, a bit of
-math the engine is slow at. The module has no `main`. JavaScript instantiates it
+Typical uses are a hot loop, a parser, or some math the JavaScript engine is
+slow at. The module has no `main`. JavaScript instantiates it
 once and then calls its functions on demand. That is the reactor shape from the
 [overview](../what-is-wasm/).
 
@@ -35,7 +35,7 @@ what the prose below claims.
 
 `export fn` does two things: it forces the function to survive dead-code
 elimination, and it puts it in the module's export table under its exact Zig
-name. No name mangling, no wrapper. `add` in Zig is `add` in the export table.
+name. There is no name mangling and no wrapper. `add` in Zig is `add` in the export table.
 
 The signatures use only `i32` and `u32`/`u64`, which is deliberate. Those map
 straight to wasm's numeric types, so there is no boundary marshalling to think
@@ -50,12 +50,12 @@ zig build-exe export-to-js.zig \
   --export=add --export=fib
 ```
 
-`-fno-entry` says there is no `_start`; this is a reactor, not a command.
+`-fno-entry` says there is no `_start`. This is a reactor, not a command.
 `--export=` names each function to expose. `export fn` marks them in the source,
 but on a freestanding link the symbols are still garbage-collected unless
 something roots them, and `--export` is that root. (Passing `-rdynamic` instead
 exports every public symbol, including compiler internals like the stack
-pointer; naming them keeps the module to what you meant to ship.)
+pointer. Naming them keeps the module to what you meant to ship.)
 
 The result is tiny. These two functions and the memory come to about 135 bytes.
 

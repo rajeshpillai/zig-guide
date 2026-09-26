@@ -39,11 +39,11 @@ headers.
 The application binary interface is the set of agreements two separately
 compiled pieces of code need in order to call each other. Where a struct's
 fields sit. Which registers hold which arguments. Who cleans up the stack. How
-a name appears in the symbol table. None of it is in the source language. All
-of it is decided by the platform, and both sides have to already agree,
+a name appears in the symbol table. The source language does not say any of
+this. The platform decides it, and both sides have to already agree,
 because by the time they meet there is no type information left to check.
 
-That is why the mistakes here are quiet. A mismatched field offset is not a
+Because nothing is left to check, mistakes here are quiet. A mismatched field offset is not a
 compile error in either language; it is a program that reads the wrong four
 bytes and keeps going.
 
@@ -58,7 +58,7 @@ comptime {
 }
 ```
 
-Worth doing at any real C boundary: it turns a silent mismatch into a build
+Do this at any real C boundary. It turns a silent mismatch into a build
 failure.
 
 The stronger version of the same idea is to not hand-write the declaration at

@@ -11,7 +11,7 @@ The previous chapter's tree turns into a linked list on sorted input. An AVL
 tree fixes that with three additions: a height stored in each node, a check
 after every insert, and a rotation to repair the shape when the check fails.
 
-The result on the exact input that ruined the plain tree:
+The result on the input that broke the plain tree:
 
 ```
 final height 4, ideal 4, rotations 11
@@ -108,7 +108,7 @@ rotation. Inside is two. A single rotation on a zig-zag shape just produces
 the mirror image of the same problem. Rotate the child first to straighten it
 out, then rotate the node.
 
-Four cases, and they are mirror images in pairs. That is the entire algorithm.
+Four cases, and they are mirror images in pairs.
 
 ## It is cheap
 
@@ -147,11 +147,10 @@ fn isBalanced(maybe: ?*Node) bool {
 The snippet walks the whole tree and checks the invariant at every node,
 rather than trusting that the four cases were written correctly. It also
 confirms all fifteen values are still findable afterwards, because a rotation
-that is subtly wrong produces a tree that is beautifully balanced and has lost
-a subtree.
+that is subtly wrong produces a tree that is well balanced and has lost a
+subtree.
 
-For a structure whose entire purpose is maintaining an invariant, the
-invariant check belongs in the code and not only in the prose.
+When a structure exists to maintain an invariant, the invariant check belongs in the code and not only in the prose.
 
 ## Deletion, and why it is not here
 

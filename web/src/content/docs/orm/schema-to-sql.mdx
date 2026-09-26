@@ -9,12 +9,12 @@ import Playground from "../../../components/Playground.astro";
 
 The library these pages build is a miniature ORM in the style of Elixir's
 Ecto. Each page takes one pattern and shrinks it to a snippet small enough to
-verify. A full ORM adds drivers, pooling and migrations around exactly these
-bones.
+verify. A full ORM adds drivers, pooling and migrations around these same basic
+parts.
 
 ## The problem
 
-A library's hardest interface question in Zig is: how does the caller hand you
+A hard interface question for a Zig library is: how does the caller hand you
 *their* data shape? Dynamic languages take a dict or use runtime reflection; C
 takes void pointers and trusts you. Zig's answer is a function that runs at
 compile time, takes a `type`, and returns a new `type` wrapping it.
@@ -42,20 +42,20 @@ character-for-character.
 
 Note where the errors go. A schema field of an unmapped type hits the compile
 error in the mapping function. The user of your library learns about it at
-their build, with a message you wrote, naming their type. Designing those
-messages is part of the API surface.
+their build, with a message you wrote, naming their type. Those messages
+are part of your API, so design them.
 
 ## The caller's type is not consumed
 
-`Table` wraps; it does not transform. `Users.Row` is the caller's `User`,
-unchanged, so their code keeps constructing and passing plain structs. The
-additive shape matters: a library that makes callers use *your* struct in
-place of theirs infects every function signature they own.
+`Table` wraps the caller's type without changing it. `Users.Row` is the
+caller's `User`, unchanged, so their code keeps constructing and passing plain
+structs. This matters. If a library makes callers use *your* struct in place
+of theirs, that struct spreads into every function signature they own.
 
 ## In a full ORM
 
-This page's `Table` is the seed of the real thing. Grow it by adding
+This page's `Table` is the starting point for the real one. Grow it by adding
 declarations to the returned struct: `insert_sql` with placeholders,
 per-column metadata (primary key, nullability) read from sentinel types, and
-the query builder from the [next page](/learn/orm/query-builder/). The public
-API never changes shape; it only gains members.
+the query builder from the [next page](/learn/orm/query-builder/). Existing members
+of the public API do not change. The API only gets new members.

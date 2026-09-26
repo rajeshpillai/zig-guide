@@ -7,21 +7,20 @@ order: 10
 
 import Playground from "../../../components/Playground.astro";
 
-Higher up the stack, failure has somewhere to go. You raise or throw, and
-something you did not write unwinds the calls between you and whoever is
-prepared to deal with it. It works because a runtime is watching.
+In a higher-level language, failure has somewhere to go. You raise or throw an
+exception. Code you did not write then unwinds the calls between you and the
+code that is ready to deal with it. This works because a runtime is watching.
 
-Down here nobody is watching. There is no runtime under your program to catch
-anything, and the machine has no notion of an exception. So failure has to be
-carried the only way anything is carried: as a value, in the return.
+In Zig, nobody is watching. There is no runtime under your program to catch
+anything, and the machine has no idea what an exception is. So failure has to
+travel the same way every result travels: as a value, in the return.
 
-Which raises the question that decides how pleasant the language is to use:
-**what stops the caller from ignoring it?**
+One question then decides how pleasant the language is to use: **what stops
+the caller from ignoring it?**
 
-The answer separates error handling that works from error handling everybody
-agrees is important and nobody does. If ignoring a failure is a keystroke
-shorter than handling it, it gets ignored, and the program carries on with a
-number that means "this did not happen".
+The answer decides whether error handling works in practice. If ignoring a
+failure takes less typing than handling it, people ignore it. The program then
+carries on with a number that means "this did not happen".
 
 Zig's answer is to put the failure in the **type**. A function that can fail
 does not return a `u16`. It returns "either a `u16` or an error", and those
@@ -34,8 +33,7 @@ the second, because until you do, you do not have a `u16` at all.
 
 ## What just happened
 
-**The return type is `!u16`, and the `!` is the whole idea.** It reads as "a
-`u16` or an error". The caller receives one value in one of two states. The
+**The return type is `!u16`.** The `!` means "a `u16` or an error". The caller receives one value in one of two states. The
 language will not let you treat it as a number until you have dealt with the
 other state.
 
@@ -51,15 +49,16 @@ Nothing is unwound and nothing is searched for. The failure path is an
 ordinary return.
 
 **The errors were values.** `switch (err)` on them works like a switch on
-anything else. And there is **no `else` prong**. Slow down for that one. The
+anything else. And there is **no `else` prong**. The
 compiler worked out on its own that `parsePort` can return exactly three
 errors, so adding an `else` was rejected as unreachable code. So if you later
 make the function able to fail a fourth way, every switch like this one stops
-compiling until it is updated. The set of failures is checked, not documented.
+compiling until it is updated. The compiler checks the set of failures. You do
+not have to keep a list of them in a comment.
 
 **`catch 8080` handled it in one word.** When a default really is correct,
-`catch` says so without a branch that pretends to think about it. `catch` is
-also where the honest ignore lives: `catch unreachable` asserts it cannot
+`catch` says so without a whole branch. `catch` is also how you set an error
+aside on purpose: `catch unreachable` asserts it cannot
 happen, and `catch |e| std.debug.panic(...)` stops on purpose. All three are
 visible at the call site. What you cannot do is say nothing.
 
@@ -70,9 +69,9 @@ overflow. Where did that error come from?
 
 From `std.fmt.parseInt`, passed straight through by `try`. `parsePort`'s error
 set is inferred, and it is the union of what it returns itself
-(`error.ReservedPort`) and everything its `try` lines can propagate. That is
-why the switch has three prongs for a function with one `return error` in it.
-It is also why you can trust the set. It comes from the code, not from a
+(`error.ReservedPort`) and everything its `try` lines can propagate. The
+inferred set is why the switch has three prongs for a function with one
+`return error` in it. It is also why you can trust the set. It comes from the code, not from a
 comment somebody remembered to update.
 
 ## If you have written C
@@ -91,9 +90,9 @@ that looks exactly like a success. Nothing stops you assigning `fd` and using
 it. The `strtol` case is the worst: you have to check `errno` and the end
 pointer to tell a real 0 from a failed parse, and almost nobody does.
 
-Zig's `!u16` is the same idea with the encoding taken away from you and given
-to the type system. There is one convention, it is in the signature, and
-skipping it is a compile error rather than a habit.
+Zig's `!u16` solves the same problem, but the type system owns the encoding
+instead of you. There is one convention, and it is in the signature. In C,
+skipping the check is a habit. In Zig, it is a compile error.
 
 The language-level detail, error sets as types, `errdefer`, and how error
 returns interact with cleanup, is in [Errors](/learn/language-basics/errors/).

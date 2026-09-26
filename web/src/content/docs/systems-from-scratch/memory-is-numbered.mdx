@@ -8,7 +8,7 @@ order: 3
 import Playground from "../../../components/Playground.astro";
 
 Memory is one long row of byte-sized boxes, and the boxes are numbered from
-one end. The number of a box is its **address**. That is the entire concept.
+one end. The number of a box is its **address**.
 
 Picture a street: every house has a number, the numbers run in order, and
 knowing a number is enough to go and look. A house number is not a house. You
@@ -17,8 +17,7 @@ the same house and repaint the door. The paint ends up on the real house, not
 on the paper.
 
 That scrap of paper is a **pointer**. It is a variable whose value is an
-address. Everything that sounds hard about pointers is either that sentence or
-a consequence of it.
+address. The rest of what you learn about pointers follows from this.
 
 ## The program
 
@@ -27,30 +26,30 @@ a consequence of it.
 Your numbers will not match the ones described below, and they will change if
 you Run it twice or open this page tomorrow. That is expected. Where a program
 gets put in memory is decided when it is loaded, not when it is written. What
-does not change is the **spacing**, and the spacing is what the page is about.
+does not change is the **spacing** between the addresses.
 
 ## What just happened
 
 **Four `u32` values printed at offsets 0, 4, 8 and 12.** They are four bytes
 apart because a `u32` is four bytes wide, and an array puts its elements
-directly against each other with no gap. This is why `row[2]` can be found
-without searching for it: the machine computes the address of `row[0]` plus
+directly against each other with no gap. Because of this, `row[2]` can be
+found without searching for it: the machine computes the address of `row[0]` plus
 two times four, and goes straight there. Finding element 999,999 of a large
 array takes the same arithmetic as finding element 0, which is not true of
 every data structure you will meet.
 
 **`@intFromPtr` did nothing.** It performs no work and produces no new
 information. A pointer is already a number, and `@intFromPtr` is how you ask
-Zig to let you look at it as one. Zig makes you ask because a number you can
-do arithmetic on is a number you can do wrong arithmetic on.
+Zig to let you look at it as one. Zig makes you ask because once you can do
+arithmetic on an address, you can also get that arithmetic wrong.
 
-**The pointer was 4 bytes wide.** That is because this page runs your program
+**The pointer was 4 bytes wide.** This page runs your program
 as 32-bit WebAssembly, where 4 bytes is enough to number every box. Compile
 the same file for your laptop and the same line prints 8. A pointer is exactly
-as wide as it needs to be to hold an address on the machine it is running on,
-and that is what "64-bit" describes.
+as wide as it needs to be to hold an address on the machine it is running on.
+That width is what "64-bit" describes.
 
-**`p.* = 99` changed `row[2]`.** Not a copy of `row[2]`. The pointer held the
+**`p.* = 99` changed `row[2]` itself, not a copy of it.** The pointer held the
 address of that specific box, so writing through it wrote that box, and the
 array sees the change. This is the repainted door.
 
@@ -77,8 +76,7 @@ without a length is how buffer overruns happen. Instead a pointer and a length
 travel together, as a [slice](/learn/language-basics/slices/).
 
 The language-level detail, including the null question and how constness
-travels, is in [Pointers](/learn/language-basics/pointers/). This page was
-about the street.
+travels, is in [Pointers](/learn/language-basics/pointers/).
 
 Next: [The Stack](/learn/systems-from-scratch/the-stack/), which is about who
 decides the addresses and for how long.

@@ -15,12 +15,12 @@ the same `std.Io.Reader` you use for files.
 ## The problem
 
 You want a TCP server and a client talking to it, in Zig, with today's API.
-This is the topic where stale tutorials hurt the most. Networking moved from
+Out-of-date tutorials cause a lot of trouble on this topic. Networking moved from
 `std.net` to `std.Io.net`, and every operation now takes the `Io` instance.
-Code copied from a last-year guide does not get past the compiler.
+Code copied from a guide written last year does not get past the compiler.
 
-The recipe runs both halves in one process. That is not a toy compromise; it
-is also how you write an integration test for any protocol code.
+The recipe runs both halves in one process. This is also how you write an integration test for any protocol
+code.
 
 ## The plan
 
@@ -58,14 +58,14 @@ parameter, and buffers are yours to supply.
 `stream.reader(io, &buf).interface` is the same `std.Io.Reader` you use for
 files and stdin, so `takeDelimiterExclusive('\n')` reads a line off a socket
 exactly as it would off a file. Protocol code written against the interface
-does not know or care that a socket is underneath, which is what makes it
+does not know that a socket is underneath, which is what makes it
 testable with `std.Io.Reader.fixed` in unit tests.
 
 ## Why a thread
 
 `accept` blocks until a client arrives, and `connect` blocks until the server
-accepts, so one thread cannot do both halves interleaved without relying on
-kernel queue subtleties. A second thread keeps each half straight-line. On the
+accepts, so one thread cannot do both halves interleaved without relying on details of the kernel's
+connection queue. A second thread keeps each half straight-line. On the
 wasm target none of this compiles (no sockets, no threads), which is why CI
 runs this snippet natively.
 
@@ -76,5 +76,4 @@ runs this snippet natively.
   [worker queue](/learn/how-to/worker-queue/).
 - **Timeouts:** `connect` takes an `Io.Timeout` in its options; reads can
   use `receiveTimeout` on the socket level.
-- **Structured protocols:** length-prefixed frames beat line-delimited
-  text for binary data; see [the wire format recipe](/learn/how-to/binary-roundtrip/).
+- **Structured protocols:** length-prefixed frames work better than line-delimited text for binary data; see [the wire format recipe](/learn/how-to/binary-roundtrip/).

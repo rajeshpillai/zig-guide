@@ -68,7 +68,7 @@ translate.defineCMacro("_GNU_SOURCE", null);
 macro defined with no value. `translate.createModule()` is then the module you
 hand to whatever needs it.
 
-The payoff for the extra indirection is that a C import is now cached and
+In return for the extra step, a C import is now cached and
 configured like any other dependency, instead of being re-translated on every
 compile.
 
@@ -201,8 +201,8 @@ The translate step is what decides which declarations Zig can see. Point it at
 a header that is not there and you get an error naming the header.
 `addCSourceFile` is what puts the compiled function in the binary. Forget that
 one and the code compiles cleanly and fails at link time with `ld.lld:
-undefined symbol: calc_add`, which is the more confusing of the two errors and
-is worth recognising on sight. That is not from memory: dropping the C file
+undefined symbol: calc_add`. This is the more confusing of the two errors, so
+learn to recognise it. The line is not from memory: dropping the C file
 from the snippet above produces exactly that line.
 
 Swapping the vendored file for a system library changes two lines:
@@ -225,20 +225,19 @@ C strings are `[*c]const u8` and null-terminated. Zig string literals are
 already null-terminated, so passing one to C needs no conversion. Coming back,
 `std.mem.span(ptr)` recovers a slice by scanning for the terminator.
 
-## What you are getting out of this
+## Compared with binding generators
 
-The comparison worth making is with every other language's answer to the same
-problem. Python has ctypes and cffi and a generator; Rust has bindgen; Go has
+Other languages solve the same problem with a separate tool. Python has ctypes and cffi and a generator; Rust has bindgen; Go has
 cgo with its own dialect of comments. All of them are a separate tool that
 reads the header and emits code in a third file, which then has to be
 regenerated and committed and kept in step.
 
-Zig reads the header as part of the build. There is no generated file to
-commit, nothing to regenerate by hand, and no way for a binding to drift from
-the header it was made from, because it is remade whenever the header changes.
+Zig reads the header as part of the build. The binding is remade whenever the
+header changes, so it cannot drift from the header it was made from. You do not
+commit a generated file or regenerate one by hand.
 Update the C library and a changed signature is a compile error the same day.
 
-That property is what lets this guide's X11 chapter link against the real
+Remaking the binding on every build is what lets this guide's X11 chapter link against the real
 system Xlib in CI. Nothing runs, but the header is translated and the calls
 are type-checked, so a change in libX11 turns the build red rather than going
 unnoticed until someone reads the page.
@@ -257,9 +256,9 @@ pub fn open(path: [:0]const u8) !Handle {
 }
 ```
 
-Doing that once per function is dull and it is the whole job. What you get is
-that the rest of the program uses `try`. No caller can forget to check a
-return code, because there is no return code to forget.
+You write this once for each function. The work is repetitive, and it is all
+the wrapper has to do. In return, the rest of the program uses `try`, and no
+caller has a return code it could forget to check.
 
 Ownership is the other half. C libraries have their own rules about who frees
 what, and the wrapper is where those become `defer` and `errdefer` in the Zig

@@ -19,8 +19,8 @@ const shapes = @import("_shapes.zig");
 shapes.Circle{ .radius = 2 };
 ```
 
-There is no separate module system to learn. A file is a struct, `@import`
-evaluates it, and you access its declarations with `.` like any other struct.
+There is no separate module system to learn. `@import` evaluates the file,
+and you access its declarations with `.` like any other struct.
 
 Because the result is a value, the name you bind it to is yours. `const s =
 @import("std")` works exactly as well as `const std = @import("std")`.
@@ -29,18 +29,17 @@ no duplicate-definition problem and no include guard.
 
 ## `pub` is the boundary
 
-Only `pub` declarations are visible to importers. Everything else is private
-to the file:
+Only `pub` declarations are visible to importers:
 
 ```zig
 pub const pi = 3.14159;   // visible
 const secret = 42;        // not
 ```
 
-This is the whole visibility system: no `private`, no header files, no export
-lists. The unit of privacy is the file. So splitting a type into its own file
-is also how you give it a private implementation, and merging two files is how
-you let them see each other's internals.
+Zig needs nothing more for visibility. There is no `private` keyword, and
+there are no header files or export lists. Splitting a type into its own file
+is how you give it a private implementation. Merging two files is how you let
+them see each other's internals.
 
 ## A file can be the type
 
@@ -63,14 +62,13 @@ const p: Point = .{ .x = 3, .y = 4 };
 This is the convention behind the capitalised filenames in the standard
 library. `std.Io.Writer` lives in `Writer.zig`, and the file has no wrapper
 declaration around it. A lowercase filename means a namespace full of
-declarations; a capitalised one means the file is a single type. Following
-that convention is the difference between reading the standard library's
-layout and being confused by it.
+declarations. A capitalised one means the file is a single type. Once you
+know this convention, the standard library's layout is much easier to read.
 
 ## `@import("std")` is not special
 
-The standard library is imported by the same mechanism; the name is resolved
-by the compiler rather than by path. Package dependencies declared in
+The standard library is imported by the same mechanism. The compiler
+resolves the name `std` itself instead of treating it as a path. Package dependencies declared in
 `build.zig.zon` work the same way, imported by their package name.
 
 A name resolves as a module when the build declared one, and as a file path
@@ -91,8 +89,7 @@ Two files may import each other. Zig resolves declarations lazily, so this
 works. What it will not accept is a real cycle in *values*: a `const` in A
 whose initialiser needs a `const` in B, whose initialiser needs the one in A.
 
-Types referring to each other is fine, which is what most cycles actually are.
-A `Node` in one file can hold a `?*Tree` from another while the `Tree` holds
+Most cycles are types that refer to each other, and those are fine. A `Node` in one file can hold a `?*Tree` from another while the `Tree` holds
 `[]Node`, and it resolves without complaint. The size of a pointer does not
 depend on what it points at. The cycle is only a problem when a value cannot
 be computed without itself, and the error names the loop.
@@ -101,6 +98,6 @@ be computed without itself, and the error names the loop.
 
 `@embedFile("table.bin")` reads a file at compile time and gives you a `*const
 [N:0]u8`: a pointer to the contents, with a zero byte after the last one. It is
-the right tool for a lookup table, a small template, or a test fixture. It also
-removes a whole class of "the data file was not next to the binary" failure. It
-is the wrong tool for anything large, since the bytes end up in the binary.
+the right tool for a lookup table, a small template, or a test fixture. The
+program can then never fail because the data file was not next to the binary.
+It is the wrong tool for anything large, since the bytes end up in the binary.

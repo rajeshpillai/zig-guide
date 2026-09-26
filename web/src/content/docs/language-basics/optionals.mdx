@@ -48,7 +48,7 @@ continue.
 which means: checked and panicking in Debug and ReleaseSafe, undefined
 behaviour in ReleaseFast.
 
-Use it where the invariant is genuinely local and visible, such as immediately
+Use it where the invariant is local and visible, such as immediately
 after inserting a key you are about to look up. Do not use it to quiet the
 compiler on a value that came from outside the function, because the assertion
 you are making is about someone else's code.
@@ -71,7 +71,7 @@ and usually worth saying.
 so optional pointers cost nothing: no extra byte, no wrapper struct. The last
 test above asserts exactly this with `@sizeOf`.
 
-Note that this only applies to pointers. A `?u32` genuinely needs a tag byte
+Note that this only applies to pointers. A `?u32` does need a tag byte
 alongside the payload, because every `u32` bit pattern is a valid `u32`.
 
 The rule is that an optional pays for a tag only when the payload has no bit
@@ -80,7 +80,7 @@ pattern to spare. A pointer has one, the null address, and `?T` uses it. A
 
 Error unions do not get the same treatment: `error{A}!*u8` is twice the size
 of a `*u8`, because it has to carry the error code as well as the pointer.
-Sometimes a value that is genuinely just "there or not" gets returned as an
+Sometimes a value that is just "there or not" gets returned as an
 error union to avoid writing an explanation. This is one more reason to make
 it a `?T` instead.
 

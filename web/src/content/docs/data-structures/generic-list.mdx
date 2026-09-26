@@ -67,8 +67,7 @@ does, reached without a second syntax and without a separate compilation
 phase.
 
 The nesting also means `List(i32).Node` and `List(u8).Node` are unrelated
-types, so a node from one list cannot be handed to the other. That falls out
-of the structure rather than being a rule anyone had to write down.
+types, so a node from one list cannot be handed to the other. This follows from the structure. Nobody had to write it down as a rule.
 
 ## Equality has to come from somewhere
 
@@ -76,7 +75,7 @@ of the structure rather than being a rule anyone had to write down.
 is written. `std.meta.eql` compares field by field and handles integers,
 enums, and structs of those, which covers the two examples in the snippet.
 
-It has a sharp edge worth knowing: it compares slices by pointer and length,
+Be careful with one case: it compares slices by pointer and length,
 not by content. `std.meta.eql` on two `[]const u8` holding the same characters
 at different addresses returns false. A container that needs to compare
 strings has to be told how. That is why `StringHashMap` exists as a separate
@@ -99,7 +98,7 @@ contiguous storage instead of nodes, and `std.ArrayList(i32)` is a call to a
 type function exactly like `List(i32)`. Reading `std` gets easier once that
 stops looking like special syntax.
 
-One difference worth copying: on master `ArrayList` does not store the
+One difference to copy: on master `ArrayList` does not store the
 allocator. Every method that can allocate takes one as an argument. The list
 in this chapter stores it, which is more convenient and costs a pointer in
 every instance, and means two lists can never share one arena's worth of

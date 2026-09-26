@@ -17,16 +17,15 @@ and secrets such as MACs and tokens are compared with
 Zig ships a substantial crypto library in `std.crypto` (hashes, AEADs, key
 exchange, signatures) with no external dependency.
 
-That last part matters more than it sounds. In most languages, doing anything
-cryptographic means linking OpenSSL or an equivalent, which is a build
-dependency, a version to track, and a large amount of C. Here it is in the
+In most languages, doing anything cryptographic means linking OpenSSL or
+something like it. That adds a build dependency, a version to track, and a
+large amount of C. In Zig the crypto code is in the
 standard library, written in Zig, and it cross-compiles wherever your program
 does.
 
 ## Picking the right tool
 
-The names are dense, so it is worth being clear about which problem each
-solves.
+The names are dense. This table shows which problem each one solves.
 
 | You want | Use | Not |
 | --- | --- | --- |
@@ -36,11 +35,11 @@ solves.
 | To store a password | `pwhash` (argon2) | any of the above |
 | Fast hashing for a hash map | `std.hash` | `std.crypto` |
 
-The last row is a real distinction. `std.hash` holds non-cryptographic hashes
-like Wyhash, which are much faster and are what a hash table wants.
+The last row is easy to get wrong. `std.hash` holds non-cryptographic hashes
+like Wyhash. They are much faster, and they are what a hash table wants.
 `std.crypto.hash` is for when an attacker must not be able to find two inputs
-with the same output. Using the wrong one is slow in one direction and unsafe
-in the other.
+with the same output. A crypto hash in a hash table is slow. A
+non-cryptographic hash where an attacker is involved is unsafe.
 
 ## One-shot and incremental
 
@@ -87,8 +86,9 @@ the feature: it is what makes an offline guessing attack expensive.
 SHA-256 is designed to be fast, and commodity hardware computes billions per
 second. A leaked table of SHA-256 password hashes is a table of passwords
 within hours. Argon2 is tuned so that one hash takes a measurable fraction of
-a second and a set amount of memory. That costs your login endpoint nothing.
-It costs an attacker running millions of guesses everything.
+a second and a set amount of memory. Your login endpoint computes one hash per
+login, so the cost is small. An attacker needs millions of guesses, so the cost
+multiplies by millions.
 
 The salt is the other half. It is stored next to the hash, in the clear. Its
 job is to make sure two users with the same password get different hashes, so

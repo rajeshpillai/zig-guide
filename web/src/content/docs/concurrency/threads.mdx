@@ -38,8 +38,8 @@ entitled to assume it does not happen.
 
 ## Synchronisation moved to `std.Io`
 
-This is the part that breaks older code. `std.Thread.Mutex` no longer exists.
-It is `std.Io.Mutex` now, and `lock` takes the io instance:
+This is the change that breaks older code. On `std.Io.Mutex`, `lock` takes the
+io instance:
 
 ```zig
 var mutex: std.Io.Mutex = .init;
@@ -51,7 +51,7 @@ defer mutex.unlock(io);
 compose with the rest of the `Io` machinery.
 See [Cancellation](/learn/concurrency/cancellation/) for what that means.
 
-The move is not cosmetic. A mutex that knows about the `Io` instance can be
+The move changes more than the name. A mutex that knows about the `Io` instance can be
 built differently depending on how the program is running. A real futex under
 an OS thread pool. A simple flag when everything is on one thread. A yield to
 the scheduler under green threads. Code written against `std.Io.Mutex` works
@@ -59,9 +59,9 @@ under all three without changing.
 
 The rule for using one is unchanged, and still the hard part. Every access to
 the shared data, read or write, has to hold the lock. And the lock has to be
-released on every path out. `defer` handles the second. Nothing handles the
-first except discipline, which is why the smallest possible amount of shared
-state is the design to aim for.
+released on every path out. `defer` handles the second. Nothing checks the
+first for you. So aim for a design with the smallest possible amount of shared
+state.
 
 ## Atomics for the simple cases
 
@@ -91,8 +91,7 @@ spawning raw threads. They are cancellable, they cannot leak a running task
 past their scope, and they work on targets that have no threads at all,
 including the one this site runs on.
 
-The general point is that a thread is a low-level resource, like a raw
-allocation. Most code wants "run these things concurrently and wait for them",
+A thread is a low-level resource, in the same way a raw allocation is. Most code wants "run these things concurrently and wait for them",
 which is a scope with a lifetime, not a handle to manage. Reach for
-`std.Thread.spawn` when you genuinely want a long-lived worker with its own
+`std.Thread.spawn` when you really want a long-lived worker with its own
 loop, and for the structured forms otherwise.

@@ -14,9 +14,8 @@ through exports.
 ## The problem
 
 You want the smallest possible module, with no dependency on a system
-interface. Something a JavaScript host or a native embedder drives, where
-WASI's files and clocks would only be dead weight. That is
-`wasm32-freestanding`. It gives you wasm and nothing else.
+interface. A JavaScript host or a native embedder drives it, so WASI's files
+and clocks would only add unused weight.
 
 ## The plan
 
@@ -53,8 +52,8 @@ Everything OS-shaped, because there is no OS:
   through the exports.
 - **No stdout, files, clock or sockets.** Files and clocks live behind
   `std.Io` now, and freestanding has no `Io` implementation to hand it. There
-  is nothing to lower onto, so reaching for them is a compile error rather
-  than a runtime surprise.
+  is nothing to lower onto, so using them is a compile error, not a failure
+  at run time.
 - **No OS heap.** There is no `mmap` underneath. `std.heap.page_allocator`
   still works, because on wasm it is backed by `@wasmMemoryGrow` rather than
   by the OS, and the general-purpose allocator layers on top of it.
@@ -65,7 +64,7 @@ there is. It never calls the OS because there is no OS to call.
 
 ## The memory builtins
 
-Freestanding does not mean you are stuck with the memory you started with. Two
+Freestanding does not limit you to the memory you started with. Two
 wasm builtins manage linear memory directly, with no runtime underneath:
 
 - `@wasmMemorySize(0)` returns the current size in 64 KiB pages.
@@ -73,15 +72,15 @@ wasm builtins manage linear memory directly, with no runtime underneath:
   previous size, or `-1` if the engine refuses.
 
 `growOnePage` in the snippet is the second one. A real allocator calls it when
-its buffer is exhausted, then carves the fresh pages into allocations. This is
-the layer beneath the fixed buffer: where the bytes ultimately come from when
-a freestanding module needs more than it was compiled with.
+its buffer is exhausted, then splits the new pages into allocations. This is
+the layer beneath the fixed buffer. When a freestanding module needs more
+memory than it was compiled with, the bytes come from here.
 
 ## When to choose it over WASI
 
-Reach for freestanding when a host is already there to give the module
+Choose freestanding when a host is already there to give the module
 whatever it needs, and you want the module itself to carry nothing extra. A
-browser is such a host, and so is a native program embedding wasmtime. Reach
-for WASI instead when the module is a program in its own right that has to run
-from a shell and do OS-shaped work. The [command recipe](../wasi-command/) is
-that case; this one is its opposite.
+browser is such a host, and so is a native program embedding wasmtime. Choose
+WASI instead when the module is a program in its own right that has to run
+from a shell and do OS-shaped work. The [command recipe](../wasi-command/)
+covers that case. This recipe covers the opposite one.

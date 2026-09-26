@@ -45,20 +45,20 @@ for (rows) |row| {
 }
 ```
 
-Three lines of bookkeeping, and the `if (found) break` has to be repeated at
-every level of nesting. Worse, the flag survives the loop, so later code can
+The flag adds three lines of bookkeeping, and the `if (found) break` has to
+be repeated at every level of nesting. Worse, the flag survives the loop, so later code can
 read it. And the `break` in the inner loop no longer tells you what it does
-until you read the two lines after it. C's answer is `goto` past the loops,
-which works but gives the jump target a name that is a location rather than a
+until you read the two lines after it. In C you would use `goto` to jump past
+the loops. That works, but the label then names a place in the code, not a
 loop.
 
-Being explicit about which loop is also what makes the code survive editing.
-Wrap either loop in one more level of nesting later and an unlabelled `break`
-silently changes meaning; `break :outer` does not.
+Naming the loop also keeps the code correct when it is edited later. If you
+wrap either loop in one more level of nesting, an unlabelled `break` silently
+changes meaning. `break :outer` does not.
 
 ## `continue :outer` runs the outer continue expression
 
-This is the part that is easy to get wrong when reasoning about it. A labelled
+A labelled
 `continue` does not jump to the top of the outer loop. It ends the current
 iteration of that loop, which means the outer loop's continue expression runs
 first, exactly as if the outer body had reached its end:
@@ -83,7 +83,7 @@ Label a loop and never mention the label, and the program does not build:
 error: unused for loop label
 ```
 
-That matters more than it sounds. Labels usually appear because a `break
+Labels usually appear because a `break
 :outer` was added, and they usually become dead when that `break` is deleted
 or moved during a refactor. A dead label is a strong hint that the control
 flow it was written for is gone. Zig treats it the way it treats an unused

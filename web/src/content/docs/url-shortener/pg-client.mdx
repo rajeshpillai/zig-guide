@@ -15,16 +15,14 @@ its tests run against scripted bytes instead of a database.
 
 ## The problem
 
-The [cookbook recipe](/learn/how-to/databases/postgres-wire/) proved the
+The [cookbook recipe](/learn/how-to/databases/postgres-wire/) showed the
 wire protocol is just tagged, length-prefixed messages. A recipe is not
-a client. The service in this project needs something it can call
-without thinking about bytes: connect and authenticate, send SQL, walk
-the rows, and find out what went wrong when a query fails, without
-losing the connection.
+a client. The service in this project needs a client it can call
+without thinking about bytes.
 
-That last part matters more than it sounds. A shortener will hit
-constraint violations in normal operation; a client that treats every
-error as fatal reconnects all day.
+Keeping the connection after an error is important. A shortener will
+hit constraint violations in normal operation. A client that treats
+every error as fatal would reconnect all the time.
 
 ## The plan
 
@@ -40,10 +38,10 @@ error as fatal reconnects all day.
    first, so the connection is immediately usable again.
 
 The demo talks to a scripted backend: the server half of two
-conversations written into a buffer in advance. The client cannot tell.
-It parses a `Reader`, and bytes from a script are bytes. That is the
-guide's usual seam, and it is how a driver gets regression tests
-without a database in CI.
+conversations written into a buffer in advance. The client cannot tell
+the difference, because it parses a `Reader` and does not know where the
+bytes came from. This guide uses the same seam in other chapters. It
+lets a driver have regression tests without a database in CI.
 
 <Playground name="22-url-shortener.pg-client" />
 
@@ -54,25 +52,25 @@ The client does not decide how to authenticate; it answers whatever the
 in the clear, which is what loopback setups use and what this client
 speaks. A stock Postgres asks for SCRAM instead, a
 challenge-response exchange that never puts the password on the wire.
-It slots into the same `switch` as one more case, and the
+It fits into the same `switch` as one more case, and the
 [final chapter](/learn/url-shortener/the-server/) says how to configure
 a local server down to the method this client knows.
 
 ## Rows are borrowed, not owned
 
 Column values returned by `next` are slices into the client's message
-buffer, valid until the next message is read. That is how real drivers
-work too, and for the same reason: the alternative is an allocation per
+buffer, valid until the next message is read. Real drivers work the
+same way, for the same reason: the alternative is an allocation per
 row. The cost of borrowing is a rule the caller must follow: copy what
 you keep. The server chapter's store copies each value it returns, and
-the comment on `drain` in that file is this paragraph in one line.
+the comment on `drain` in that file states this rule in one line.
 
 ## An error is a message, not a hangup
 
 Watch the failing INSERT at the end of the trace. The server sends an
 `ErrorResponse` carrying a five-character SQL state (`23505` is unique
-violation), then a `ReadyForQuery` as if nothing happened, because from
-its side nothing did: the transaction failed, the connection is fine.
+violation), then a `ReadyForQuery`. For the server, only the transaction
+failed, and the connection is still fine.
 The client stores the code and message, drains to ready, and returns
 `error.QueryFailed`. The routes can now turn "duplicate slug" into a
 response instead of a reconnect.

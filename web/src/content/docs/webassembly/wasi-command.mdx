@@ -15,9 +15,9 @@ wasm-specific code.
 ## The problem
 
 You have a Zig program with a `main`, and you want a single `.wasm` that runs
-the same on Linux, macOS, and Windows, without recompiling. WASI is the piece
-that makes it possible: it is the system interface a wasm command calls for the
-OS-shaped things (stdout here) that pure wasm cannot do.
+the same on Linux, macOS, and Windows, without recompiling. WASI makes that
+possible. It is the system interface a wasm command calls for the OS-shaped
+things (stdout here) that pure wasm cannot do.
 
 ## The plan
 
@@ -29,7 +29,7 @@ OS-shaped things (stdout here) that pure wasm cannot do.
 
 The source is a normal program. It splits an embedded document, counts lines
 and words, and writes the totals to stdout through the `Io` instance `main`
-receives. There is no wasm ceremony in the code, which is the point.
+receives. The code has no wasm-specific setup.
 
 ## Building it
 
@@ -69,7 +69,7 @@ instantiation. Swap the runtime and stdout goes somewhere else (a real terminal
 under wasmtime, a captured buffer under this page's shim) with the module byte
 for byte the same.
 
-The capability is the runtime's to grant. A runtime can refuse to preopen any
+The runtime decides which capabilities to grant. A runtime can refuse to preopen any
 directories, and then the identical program can print but cannot read a file.
 That refusal is the sandbox from the [overview](../what-is-wasm/) made concrete.
 
@@ -78,7 +78,7 @@ That refusal is the sandbox from the [overview](../what-is-wasm/) made concrete.
 - **Arguments and env:** WASI passes `argv` and environment variables when the
   runtime chooses to. You read them off the `std.process.Init` that `main`
   receives, the same way as on native. On WASI the argument iterator needs an
-  allocator, so reach for `Args.Iterator.initAllocator`.
+  allocator, so use `Args.Iterator.initAllocator`.
 - **Files:** `std.Io.Dir` works, but only inside directories the runtime
   preopened. Nothing else on disk is reachable, by construction.
 - **Exit status:** returning an error from `main` sets a non-zero exit code, and

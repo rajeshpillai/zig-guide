@@ -20,8 +20,8 @@ fn histogram(src: []const u32) [256]u32 {
 }
 ```
 
-Two hundred and fifty six counters and one pass. That is the whole analysis
-step, and everything on this page is derived from it.
+Two hundred and fifty six counters and one pass. The analysis needs nothing
+more, and everything else on this page is derived from these counts.
 
 <Playground name="09-graphics.histogram" />
 
@@ -46,8 +46,7 @@ const black = percentile(hist, total, 10);   // 1%
 const white = percentile(hist, total, 990);  // 99%
 ```
 
-Clipping a fraction at each end first is not an approximation, it is the
-point. A single hot pixel at 255, or one dead pixel at 0, would otherwise set
+Clipping a fraction at each end first is deliberate. A single hot pixel at 255, or one dead pixel at 0, would otherwise set
 the whole range and the stretch would do nothing. Every auto-levels
 implementation clips, and the fraction is the only knob.
 
@@ -70,7 +69,7 @@ and the range is compressed to almost nothing. The `cdf_min` subtraction
 anchors the darkest occupied level at 0, without which a picture containing no
 true black never reaches black.
 
-The result in the output is dramatic: the background ramp, which was three
+The change in the output is large: the background ramp, which was three
 barely distinguishable shades, becomes a broad gradient with visible
 structure.
 
@@ -85,10 +84,11 @@ that spike to wherever the CDF puts it and leaves the gaps on either side. A
 perfectly flat histogram is only achievable with as many distinct input values
 as output levels.
 
-The other thing worth knowing is that equalization amplifies whatever is in
-the sparse regions, including noise. A flat sky with sensor grain becomes a
+Equalization also amplifies whatever is in the sparse regions, including
+noise. A flat sky with sensor grain becomes a
 flat sky with visible sensor grain, because the algorithm cannot tell the
-difference between detail worth stretching and noise worth leaving alone. This
+difference between detail that should be stretched and noise that should be
+left alone. This
 is why photo tools offer it and photographers rarely use it as-is. The usual
 answer is CLAHE, which equalizes small tiles independently and limits how far
 any one level may be stretched.
@@ -123,4 +123,5 @@ and moves only the brightness.
 Per-channel is not always wrong. It is what "auto colour" does deliberately.
 Running levels on each channel separately also removes a colour cast: if the
 blue channel never exceeds 200, stretching it to 255 corrects a yellow tint.
-Which one you want depends on whether the cast is the problem or the picture.
+Use per-channel when the colour cast is the problem. Use luma when the colours
+are part of the picture.

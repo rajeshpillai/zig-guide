@@ -6,9 +6,9 @@ order: 10
 ---
 
 A URL shortener: you hand it a long address, it hands you a short one,
-and anyone who follows the short one lands on the long one. It is the
-classic first service for a reason. It is small enough to finish and
-real enough to need everything a bigger service needs: a database, a
+and anyone who follows the short one lands on the long one. It is a
+common first service. It is small enough to finish, and it still needs
+everything a bigger service needs: a database, a
 schema, validation, and an HTTP surface with all four verbs.
 
 The finished service speaks five routes:
@@ -83,7 +83,7 @@ Content-Length: 2
 ```
 
 The slug is `1` because it is the row id written in base62, not a random
-string. Following it is the redirect the whole service exists for:
+string. Following it gives the redirect, which is the service's main job:
 
 ```bash
 curl -i http://127.0.0.1:8080/1
@@ -109,24 +109,24 @@ Content-Length: 34
 1 -> https://ziglang.org (1 hits)
 ```
 
-Those are not illustrations. They are the exchanges in the routes
-chapter's expected output, which CI replays on every build.
+The routes chapter's expected output contains these same exchanges,
+and CI replays them on every build.
 
 ## Decision one: no driver
 
 The service talks to Postgres directly, over its wire protocol. The
 [cookbook recipe](/learn/how-to/databases/postgres-wire/) showed that
 protocol byte by byte: every message is a tag, a length, and a payload.
-This project turns that recipe into something a program can lean on: a
+This project turns that recipe into something a program can use: a
 client that connects, authenticates, sends SQL, iterates rows, and
-survives errors. That is what a driver is, and writing one small enough
-to read removes the last box marked magic between your code and the
-database.
+survives errors. That is what a driver is. Writing one small enough to
+read means no part of the path between your code and the database stays
+hidden.
 
 ## Decision two: the seams
 
-Almost nothing in this project needs a network to run. That is not an
-accident; it is the same rule the rest of the guide follows: protocol
+Almost nothing in this project needs a network to run. This follows the
+same rule as the rest of the guide: protocol
 code parses from a `Reader`, never from a socket. The Postgres client is
 tested against scripted bytes. The slug logic is arithmetic. The HTTP
 handlers take request bytes and return response bytes, against a store
@@ -142,8 +142,8 @@ real Postgres can answer.
 
 ## What is deliberately missing
 
-Naming what a small project skips is more honest than hoping nobody
-asks, and each gap here is one seam away from this design.
+This small project skips some things. Each gap below could be filled
+behind one of the seams in this design.
 
 - **Connection pooling.** One connection serves every request, which is
   fine at tutorial scale.

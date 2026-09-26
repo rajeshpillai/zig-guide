@@ -7,9 +7,9 @@ order: 121
 
 import Playground from "../../../components/Playground.astro";
 
-A buffer nobody can look at is not much of a picture. PPM is the shortest
-route out: a short text header, then the pixel bytes. That is the whole format
-worth knowing, and it needs no library at all.
+A buffer becomes useful as a picture once you can look at it. PPM is the
+shortest way to save one: a short text header, then the pixel bytes. There is
+nothing more to the format, and it needs no library at all.
 
 It belongs to the Netpbm family, which is six formats along two axes: what a
 pixel is, and whether the data is text or binary.
@@ -21,7 +21,7 @@ pixel is, and whether the data is text or binary.
 | **PPM** (pixmap) | `P3` | `P6` | three samples: R, G, B |
 
 `P6` is the one to write. `P3` holds the same pixels as decimal numbers in
-text, which is larger and slower but worth generating once if you want to read
+text, which is larger and slower but useful to generate once if you want to read
 your own image in an editor.
 
 ## The header
@@ -34,7 +34,7 @@ Four fields, then data: the magic, the width, the height, and the maxval (the
 largest value a sample may take). They are separated by any mix of spaces,
 tabs, and newlines, so `P6 64 32 255 ` is as valid as the form above.
 
-Then the rule that actually matters:
+Then one strict rule:
 
 > **Exactly one whitespace byte follows the maxval.** Everything after that
 > single byte is pixel data.
@@ -56,7 +56,7 @@ Sample size follows from the maxval:
 - **maxval below 256** gives one byte per sample. `640 * 480 * 3` is 921,600
   bytes.
 - **maxval from 256 to 65535** gives *two* bytes per sample, **big-endian**.
-  This is the only place PPM has a byte order, and it trips people up on
+  This is the only place PPM has a byte order, and it causes bugs on
   little-endian machines.
 
 Anything other than 255 means your samples are scaled: with a maxval of 100, a
@@ -74,7 +74,7 @@ const header = try std.mem.print(out, "P6\n{d} {d}\n255\n", .{ width, height });
 ```
 
 The header comes from the same `width` and `height` that size the buffer.
-Hardcoding `"P6\n640 480\n255\n"` works right up until someone changes a
+Hardcoding `"P6\n640 480\n255\n"` works until someone changes a
 constant, at which point the header and the data disagree, the image tears
 diagonally, and nothing anywhere reports an error.
 
@@ -94,7 +94,7 @@ until [Alpha Blending](../blending/) it is the entire compositing model here.
 
 The `defer` that deletes `output.ppm` is there so the build that verifies this
 page leaves nothing behind. Drop that one line when you run it yourself, or
-the file you came here to look at will be gone before you can.
+the program deletes the file before you can look at it.
 
 To look at the result, most Linux viewers open PPM directly (`feh
 output.ppm`), and both ImageMagick and the netpbm tools convert it:

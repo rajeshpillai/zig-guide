@@ -8,16 +8,16 @@ order: 6
 import Playground from "../../../components/Playground.astro";
 
 An array of four numbers occupies a stretch of memory, and the stretch ends.
-What is at the address just past it? Something. Another variable, part of a
-frame, the machinery of the program itself. Memory does not run out at the end
-of your array; your claim on it does.
+What is at the address just past it? Something is always there: another
+variable, part of a frame, or the machinery of the program itself. Memory keeps
+going past the end of your array. Only your right to use it ends there.
 
 So what should `row[4]` do?
 
 There are only three possible answers and every language picks one. Read
 whatever happens to be there and carry on. Stop the program. Or refuse to be
-asked, by making the caller check first. The third is the only one that is
-free, so that is where to start.
+asked, by making the caller check first. The third needs nothing from the
+language except an `if`, so that is where to start.
 
 ## The program
 
@@ -26,10 +26,9 @@ free, so that is where to start.
 ## What just happened
 
 **The slice knew where it ended.** A slice is a pointer and a length travelling
-together as one value, so a function receiving one cannot be ignorant of the
-size. This is the single most useful thing Zig does with memory, and it is why
-`[]const u32` rather than a bare pointer is the normal way to pass a sequence
-around. The pointer alone would have told the function where the data starts
+together as one value, so a function receiving one always knows the size. This
+is why `[]const u32`, and not a bare pointer, is the normal way to pass a
+sequence around. The pointer alone would have told the function where the data starts
 and nothing about where to stop.
 
 **The slice printed as 8 bytes.** Four for the pointer and four for the length,
@@ -40,7 +39,7 @@ prints 16, for the same reason a pointer there is 8 bytes rather than 4.
 index against `.len` and returns `error.OutOfBounds` when it does not fit.
 Nothing was read. The caller was told, in the return type, that the answer
 might not exist, and had to deal with both cases before it could use the
-result. One comparison bought that.
+result. All of that cost one comparison.
 
 **And then the last line said `safety checks in this build: false`.**
 
@@ -83,7 +82,7 @@ teach you a message you would never see.
 
 This snippet is about 1.1 MB, against 46 KB for the program at the top of this
 page. That gap is what the safety checks and the machinery to describe them
-cost, and it is the honest reason the rest of the site does not carry them. It
+cost, and it is the reason the rest of the site does not carry them. It
 downloads only when you press Run.
 
 The general rule behind this, what each build mode turns off and what you are
@@ -102,7 +101,7 @@ do not actually need the number.
 
 ## If you have written C
 
-This is the difference that shows up first and matters most.
+This is a difference you will meet early.
 
 ```c
 int row[4] = {10, 20, 30, 40};
@@ -110,7 +109,7 @@ int x = row[4];        /* reads something. no error, no warning, no crash */
 ```
 
 C's array does not carry a length, so a function receiving `int *row` cannot
-check anything; the length has to be passed alongside and kept correct by
+check anything. The length has to be passed alongside and kept correct by
 hand. Reading past the end is undefined behaviour, which in practice means it
 usually works, sometimes returns nonsense, and occasionally corrupts something
 that fails much later somewhere unrelated.

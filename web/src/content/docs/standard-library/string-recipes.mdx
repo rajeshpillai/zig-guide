@@ -22,7 +22,7 @@ a width, and the grammar is the one
 the width is counted in.
 
 Right is the default for every type, so `{s:8}` puts the spaces *before* the
-text. That surprises people arriving from languages where strings left-align
+text. This is unexpected if you come from a language where strings left-align
 and numbers right-align. Say which one you want:
 
 ```zig
@@ -33,7 +33,7 @@ and numbers right-align. Say which one you want:
 ```
 
 Width is a minimum. A value wider than the field is printed whole and pushes
-the column out; formatting never truncates for you.
+the column out. Formatting never truncates for you.
 
 ## The width can be a value
 
@@ -51,8 +51,8 @@ program runs, `std.mem.concat` is the equivalent and it takes an allocator.
 for handing the result to a C API.
 
 When you would rather size the buffer yourself, `std.fmt.count` runs the
-formatter against a writer that discards and returns the exact length. That
-turns "allocate and hope" into one allocation of the right size.
+formatter against a writer that discards its output, and returns the exact
+length. Then you make one allocation of the right size instead of guessing.
 
 ## Replacing without an allocator
 
@@ -67,13 +67,12 @@ many substitutions it made, which the owned version throws away.
 `endsWithIgnoreCase`, `findIgnoreCase`, and `orderIgnoreCase` for sorting
 without allocating a lowercased copy first.
 
-`findIgnoreCase` is worth naming, because it is not a rename. There used to be
-an `indexOfIgnoreCase` and it was removed outright, so code written against
-the old name fails to compile rather than quietly working. That is the
-opposite of what happened to the `std.mem` search family, where the old names
-survive as aliases.
+`findIgnoreCase` replaced a removed function. There used to be an
+`indexOfIgnoreCase`, and it was removed outright. Code written against the old
+name fails to compile instead of quietly working. The `std.mem` search family
+went the other way: its old names survive as aliases.
 
-All of it stops at byte 127, on purpose.
+All of it stops at byte 127.
 
 ## When you want a String type
 
@@ -82,6 +81,6 @@ nothing that behaves like a string class. If that shape is what you are after,
 [zig-string](https://github.com/JakubSzark/zig-string) is a UTF-8 aware
 `String` with the methods you would expect, MIT licensed and still maintained.
 
-It is a dependency rather than part of `std`, which matters here specifically.
-Every snippet on this site is compiled and run against Zig master nightly, and
+It is a dependency, not part of `std`, and on this site that matters. Every
+snippet on this site is compiled and run against Zig master nightly, and
 an external library tracks the compiler on its own schedule.

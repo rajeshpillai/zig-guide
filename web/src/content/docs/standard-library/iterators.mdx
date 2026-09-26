@@ -21,8 +21,7 @@ optional, because that is exactly what this loop needs:
 while (it.next()) |value| { ... }
 ```
 
-Writing your own is a struct with state and a `next`. That is the whole
-mechanism.
+To write your own, make a struct with state and a `next` method.
 
 ```zig
 const Countdown = struct {
@@ -60,8 +59,8 @@ The split/tokenize distinction is the one to remember: parsing CSV wants
 
 All of them yield slices of the original string. Nothing is copied and nothing
 is allocated, so splitting a megabyte of text costs no memory and the pieces
-stay valid as long as the original does. The flip side is the usual one: if
-the source is freed, every piece you kept is dangling.
+stay valid as long as the original does. The usual downside applies: if the
+source is freed, every piece you kept is dangling.
 
 `peek()` looks at the next value without consuming it. `rest()` gives you
 everything not yet returned. Reach for it when a header is parsed field by
@@ -86,11 +85,10 @@ to check.
 There is no `.map().filter().take()`. Write the loop: it is usually shorter
 than the chain, and there is nothing hidden about its cost.
 
-The reason it is absent rather than missing is that Zig has no closures. A
-`map` would have to take a function pointer plus a context struct, which is
-three lines of ceremony to express what one line of loop body says directly.
-The languages where chains read well are the ones where a lambda captures its
-environment for free.
+Chains were left out because Zig has no closures. A `map` would have to take
+a function pointer plus a context struct. That is three lines of setup for
+what one line of loop body says directly. Chains read well in languages where
+a lambda captures its environment automatically.
 
 What you lose is real. A chain of transformations over a large collection can
 be expressed once and read in one pass, whereas nested loops build up

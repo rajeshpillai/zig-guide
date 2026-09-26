@@ -45,9 +45,9 @@ Swap two vertices and you must swap their colours with them, or the shading
 comes out mirrored on triangles that happened to be wound the other way. That
 pairing is easy to lose when this code grows attributes.
 
-A real pipeline usually does not normalize. It rejects one winding on purpose.
-That is *backface culling*, and it is how a renderer discards the far side of
-a closed mesh for free, before touching a single pixel.
+A production pipeline usually does not normalize. It rejects one winding on
+purpose. That is *backface culling*, and it is how a renderer cheaply discards
+the far side of a closed mesh, before touching a single pixel.
 
 ## Barycentric coordinates come free
 
@@ -62,8 +62,8 @@ return @intCast(@divTrunc(sum, total));
 
 Colour is the demonstration, and the left triangle in the output is Gouraud
 shading in three lines. The same three weights interpolate texture
-coordinates, normals, and depth. This is the whole reason edge functions won
-over scanline approaches: the inside test and the attribute interpolation are
+coordinates, normals, and depth. This is the main reason edge functions replaced
+scanline approaches: the inside test and the attribute interpolation are
 the same arithmetic.
 
 For a perspective projection the interpolation has to happen in `1/w` space,

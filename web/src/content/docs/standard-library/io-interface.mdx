@@ -25,10 +25,9 @@ operations, reading, writing, waiting, scheduling, and a concrete
 implementation fills them in. The standard one is `std.Io.Threaded`, backed by
 a real thread pool; [Choosing an Io](/learn/concurrency/choosing-an-io/)
 covers the others and when you would swap. It is the same dependency-injection
-pattern the allocator uses, applied to blocking instead of to memory. That is
-why this chapter sits next to
-[Allocators](/learn/standard-library/allocators/): learn the two together and
-the rest of the library stops surprising you.
+pattern the allocator uses, applied to blocking instead of to memory. So this
+chapter sits next to [Allocators](/learn/standard-library/allocators/). Once
+you know the two, most of the standard library follows the same pattern.
 
 ## Where an `Io` comes from
 
@@ -48,20 +47,20 @@ argument for that reason.
 
 ## Why route everything through one interface
 
-Two payoffs justify the parameter that is now on every I/O call.
+Every I/O call now has this parameter. It gives two benefits.
 
-**The signature tells the truth.** A function that takes an `Io` announces that
-it may block; one that does not, cannot. You can see a function's effects from
-its type, with no documentation and no surprises, the same guarantee the
-allocator parameter gives you for memory.
+**The signature shows what the function does.** A function that takes an `Io`
+may block. A function that does not take one cannot block. You can see a
+function's effects from its type, without reading its documentation. The
+allocator parameter gives you the same guarantee for memory.
 
 **The caller chooses the execution model.** Because blocking goes *through* the
-interface, the interface can also schedule it. `io.async` starts a task: on
-`Io.Threaded` it runs on another thread; hand the same code an event-loop `Io`
+interface, the interface can also schedule it. `io.async` starts a task. On
+`Io.Threaded` it runs on another thread. Hand the same code an event-loop `Io`
 and the identical call suspends a coroutine instead. The function being called
-never changes. This is Zig's answer to the "function coloring" problem, there
-is no separate `async` version of `readFile`, only one function that does
-whatever the `Io` it was given does.
+never changes. This is Zig's answer to the "function coloring" problem. There
+is no separate `async` version of `readFile`. There is one function, and it
+does whatever the `Io` it was given does.
 
 The [Concurrency](/learn/concurrency/async-future-group/) chapter builds on this
 with `async` and `Group`, and

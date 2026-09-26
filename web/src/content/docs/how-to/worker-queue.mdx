@@ -7,25 +7,25 @@ order: 103
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, a producer/consumer queue is `std.Io.Queue(T)`. Workers block on
+A producer/consumer queue in Zig is `std.Io.Queue(T)`. Workers block on
 `getOne`, and after the producer calls `close` they drain what is left and
 then get `error.Closed`.
 
 ## The problem
 
-One part of your program discovers work; another part does it. The classic
-answer is a queue between them. Hand-rolled versions keep growing parts: a
-mutex, a condition variable, a "no more work" flag, and a subtle bug where
-workers sleep forever on shutdown.
+One part of your program discovers work. Another part does it. The usual
+answer is a queue between them. Hand-written versions tend to collect extra
+parts: a mutex, a condition variable, a "no more work" flag, and a subtle bug
+where workers sleep forever on shutdown.
 
-Current Zig master ships the whole thing: `std.Io.Queue(T)` is a bounded,
+On current Zig master, `std.Io.Queue(T)` covers all of this. It is a bounded,
 thread-safe channel with blocking put and get and a close protocol.
 
 ## The plan
 
 1. Create `std.Io.Queue(u64)` over a fixed buffer you provide. The buffer
-   length is the queue's capacity, and capacity is backpressure: a
-   producer more than that far ahead blocks until workers catch up.
+   length is the queue's capacity. A producer more than that far ahead
+   blocks until workers catch up (this is called backpressure).
 2. Spawn workers that loop on `getOne`, which blocks until an item
    arrives.
 3. Produce, then call `close`. Workers drain the remaining items, then
@@ -41,8 +41,8 @@ thread-safe channel with blocking put and get and a close protocol.
 ## Close is the shutdown protocol
 
 The traditional failure mode of worker queues is shutdown: a sentinel value
-per worker, or a flag plus a broadcast, each easy to get wrong. `close` folds
-it into the queue's contract: puts after close fail, items already queued are
+per worker, or a flag plus a broadcast, each easy to get wrong. `close` makes
+shutdown part of the queue's contract: puts after close fail, items already queued are
 still delivered, and only then do getters see `error.Closed`. The worker loop
 is therefore two lines with no special cases, and no worker can sleep through
 shutdown.
@@ -51,17 +51,17 @@ shutdown.
 
 Every blocking operation goes through the `std.Io` interface, queues included.
 That is the same design the rest of the standard library follows now. Whoever
-provides the `Io` implementation decides how blocking works, OS threads here
-and an event loop elsewhere, and blocking operations become cancellation
-points. Passing `io` into the worker is not noise; it is what makes the same
-worker code portable across execution models.
+provides the `Io` implementation decides how blocking works (OS threads here,
+an event loop elsewhere). Blocking operations also become cancellation
+points. Passing `io` into the worker makes the same worker code portable
+across execution models.
 
 ## Variations
 
 - **Batching:** `put` and `get` move slices, not just single items, and
-  return how many they moved; `putAll` blocks until everything is in.
-  Batches amortize the synchronization per item.
-- **Multiple producers:** put is threadsafe; several producers can feed
+  return how many they moved. `putAll` blocks until everything is in.
+  Batches spread the synchronization cost over many items.
+- **Multiple producers:** put is threadsafe, so several producers can feed
   one queue. Close once, from the coordinator that knows production is
   finished.
 - **Results channel:** for a full pipeline, give workers a second queue

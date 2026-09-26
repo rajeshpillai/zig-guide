@@ -14,11 +14,11 @@ Zig has two ways to introduce a value, and the default is the immutable one.
 ## `const` unless proven otherwise
 
 `const` is not a hint: it is enforced. Reassigning a `const` is a compile
-error, and so is declaring a `var` you never mutate. That second rule
-surprises people coming from C, but it means a `var` in Zig is a real signal:
+error, and so is declaring a `var` you never mutate. If you come from C, you
+may not expect the second rule. Because of it, a `var` in Zig always means
 *this changes*.
 
-The payoff shows up when reading unfamiliar code. Every `const` is a value you
+This helps when you read unfamiliar code. Every `const` is a value you
 can follow to its single assignment and stop. Every `var` is one you have to
 trace. In a language where `var` is the default and unused mutability is
 allowed, that distinction carries no information, because most `var`s are only
@@ -41,7 +41,8 @@ items = other;       // error: cannot assign to constant
 
 What blocks the write is the element type: `[]const u8` cannot be written
 through, `[]u8` can, regardless of whether the variable holding it is `const`.
-Two independent questions, and the answer to one says nothing about the other.
+These are two separate questions. The answer to one says nothing about the
+other.
 [Pointers](/learn/language-basics/pointers/) has the same split for `*T`.
 
 ## Types are inferred, but literals have no size
@@ -50,8 +51,8 @@ Type annotations are optional when the compiler can infer them. `@as(i32, 5)`
 is an explicit cast used here to pin down what would otherwise be an untyped
 `comptime_int`.
 
-The distinction explains a class of error message you will meet early. A bare
-`5` is not an `i32`; it is a `comptime_int`, an arbitrary precision integer
+This explains an error message you will see early. A bare `5` is not an
+`i32`. It is a `comptime_int`, an arbitrary precision integer
 that exists only during compilation. It coerces to whatever the context needs,
 and when there is no context, there is nothing to coerce to:
 
@@ -61,8 +62,8 @@ var b = 5;               // error: must be const or comptime
 var c: u8 = 5;           // fine: the annotation gives the literal a size
 ```
 
-A `var` has to live in memory at runtime, and "arbitrary precision" is not a
-thing memory can hold. The fix is always the same: say what size you meant.
+A `var` has to live in memory at runtime, and memory cannot hold a value of
+arbitrary precision. The fix is always the same: say what size you meant.
 
 ## `undefined` is a promise, not a value
 
@@ -72,16 +73,16 @@ var x: i32 = undefined;
 
 This says "I will write to this before I read it". It does **not** mean zero.
 Reading `x` before assigning is illegal behaviour. In a safety-enabled build
-Zig fills the memory with `0xaa` bytes so the mistake is loud rather than
-silently plausible.
+Zig fills the memory with `0xaa` bytes, so the mistake is easy to notice
+instead of looking like a normal value.
 
 The `0xaa` choice is deliberate. As a pointer it is wildly out of range. As a
-length it is enormous. As a float it is a signalling NaN. As a small integer
-it is a suspiciously round negative number. A bug that reads uninitialised
+length it is enormous. As a float it is a signalling NaN. As a signed integer
+it is negative, which is easy to spot. A bug that reads uninitialised
 memory tends to produce a value you notice rather than a plausible zero that
 happens to be the right answer in your test.
 
 In ReleaseFast the fill is gone and the memory holds whatever was there
-before. That is why `undefined` is reserved for buffers you are about to fill,
-and why `var x: i32 = 0` is the right thing to write when you actually meant
+before. So `undefined` is for buffers you are about to fill, and
+`var x: i32 = 0` is the right thing to write when you actually meant
 zero.

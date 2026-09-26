@@ -14,10 +14,9 @@ up the slots. `std.Thread.Pool` is gone from current master.
 ## The problem
 
 You have a big slice and a per-element computation, and one core is doing
-all the work. The textbook fix is to give each thread a chunk. The part
-that goes wrong in practice is sharing: as soon as threads write to common
-state, you need locks, and with locks come contention and deadlock
-opportunities.
+all the work. The usual fix is to give each thread a chunk. The part
+that goes wrong in practice is sharing. As soon as threads write to common
+state, you need locks. Locks bring contention and the risk of deadlock.
 
 This recipe gets parallelism with no locks at all, by making sure the
 threads share nothing.
@@ -26,8 +25,9 @@ threads share nothing.
 
 1. Divide the slice into one chunk per worker, ceiling-division so the
    last chunk absorbs the remainder.
-2. Give each thread its own input chunk and its own output slot. Disjoint
-   data, disjoint results: there is no shared mutable state to protect.
+2. Give each thread its own input chunk and its own output slot. No two
+   threads touch the same data, so there is no shared mutable state to
+   protect.
 3. `join` every thread, then combine the slots on the main thread.
 
 <Playground
@@ -50,11 +50,11 @@ single merge loop at the end.
 
 ## Where the pool went
 
-Older tutorials reach for `std.Thread.Pool` with a `WaitGroup`. Both are
-gone from current master; `std.Thread.spawn` and `join` are the
+Older tutorials use `std.Thread.Pool` with a `WaitGroup`. Both are
+gone from current master. `std.Thread.spawn` and `join` are the
 primitives, and task-level fan-out is moving to the `std.Io` interface
 (`io.async` and `Io.Group`). For a fixed number of long-lived workers,
-spawn and join directly, as here; for structured task concurrency, see
+spawn and join directly, as here. For structured task concurrency, see
 [Concurrency](/learn/concurrency/async-future-group/).
 
 ## Variations
@@ -62,8 +62,8 @@ spawn and join directly, as here; for structured task concurrency, see
 - **Thread count:** real code starts from `std.Thread.getCpuCount()`
   instead of a constant, capped by the amount of work worth splitting.
 - **Uneven work:** equal chunk sizes assume equal cost per element. When
-  items vary wildly, static chunks leave threads idle; the
+  items vary a lot, static chunks leave threads idle. The
   [atomic work index](/learn/how-to/work-index/) recipe fixes that.
 - **False sharing:** adjacent `u64` slots can share a cache line. It does
-  not change correctness, and for a demo it does not matter; pad slots to
+  not change correctness, and for a demo it does not matter. Pad slots to
   cache-line size if profiling shows the merge pattern hot.

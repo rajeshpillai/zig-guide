@@ -36,17 +36,16 @@ case into the type. `getLastOrNull()` is a deprecated alias for `last()`.
 There is also `lastPtr()`, which returns `?*T` when you want to modify the top
 element in place rather than copy it.
 
-Using the end rather than the front is what makes it cheap. Removing from the
-back is one decrement of the length; removing from the front would shift every
-remaining element. That is the entire reason a stack is a natural fit for an
-array and a queue is not.
+Using the end, not the front, is what makes it cheap. Removing from the back
+is one decrement of the length. Removing from the front would shift every
+remaining element. This is why a stack fits an array well and a queue does
+not.
 
 ## When the depth is bounded
 
 If you know the maximum, skip the allocator entirely: a fixed array plus a
 length index is a complete stack with no failure mode. This matters for
-embedded targets and hot paths, and it is the sort of thing Zig makes
-comfortable rather than exotic.
+embedded targets and hot paths, and in Zig it is ordinary code.
 
 ```zig
 var buf: [64]Frame = undefined;
@@ -58,9 +57,8 @@ top -= 1; const f = buf[top]; // pop
 
 No allocator means no `try` on push, which changes the shape of the code that
 uses it. A parser with a bounded nesting depth has no error path for "ran out
-of stack", only a check against the limit. That check is the thing to write,
-and it is the difference between rejecting deeply nested input and crashing on
-it.
+of stack", only a check against the limit. Write that check. With it, deeply
+nested input is rejected. Without it, the program crashes.
 
 ## Where you will actually want one
 
@@ -74,21 +72,21 @@ Almost every case where you need to remember what to come back to.
 - **An evaluator** for postfix expressions, which is exactly a stack machine.
 
 The [tiny language](/learn/tiny-lang/) track uses the second and fourth of
-those, and the recursion-versus-explicit-stack trade is the reason.
+those. It uses them to trade recursion for an explicit stack.
 
 ## Why not a linked list
 
 A linked-list stack allocates per element and scatters them across memory.
-`ArrayList` amortises to one allocation and keeps everything contiguous, which
-is faster for essentially every real workload. Reach for a linked list only
+`ArrayList` amortises to one allocation and keeps everything contiguous. That
+is faster for almost every real workload. Reach for a linked list only
 when you need stable addresses or O(1) splicing.
 
-"Faster" here is not a small constant factor. A pop from an array reads memory
-the CPU has already fetched; a pop from a linked list follows a pointer to
-somewhere the cache knows nothing about, and waits. Textbooks present the two
-as equivalent because they compare instruction counts, which stopped being the
-thing that decides performance decades ago.
+The difference is more than a small constant factor. A pop from an array
+reads memory the CPU has already fetched. A pop from a linked list follows a
+pointer to memory that is not in the cache, and waits. Textbooks
+present the two as equivalent because they compare instruction counts.
+Instruction counts stopped deciding performance decades ago.
 
-The exception is real: if something else holds pointers to the elements, an
-array cannot be used, because growing it moves everything. That is the case
-where the extra allocation gives you something.
+There is one real exception. If something else holds pointers to the
+elements, an array cannot be used, because growing it moves everything. In
+that case the extra allocations give you something.
