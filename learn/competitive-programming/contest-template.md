@@ -1,0 +1,266 @@
+# A Contest Template
+
+> The one program in the section that reads real stdin, and the three things a judge punishes that a browser never shows.
+
+Every other chapter in this section parses its input from a `const` string.
+
+A judge doesn't give you a string.
+
+It gives you standard input, and it compares what you write to standard output.
+
+This program is the shape that sits around every solution in the section.
+
+It reads real stdin.
+
+So it can't run in your browser, where the WASI sandbox has no standard input.
+
+CI builds it for the host instead, feeds it a file, and compares the output, the same way a judge does.
+
+```zig
+const std = @import("std");
+
+/// The largest `n` the problem promises. Contest statements always give one,
+/// and sizing storage from it means no allocation at all.
+const max_n = 200_000;
+
+/// Declared at container level, not inside `main`.
+///
+/// 200,000 values of 8 bytes is 1.6 MB. A local array lives on the stack,
+/// which is commonly 8 MB on Linux and often less on a judge, so a bound ten
+/// times larger would crash before the first read. A global lives in the
+/// program's zeroed data instead, and is reused by every test case.
+var values: [max_n]i64 = undefined;
+
+/// Skip whitespace, then read one integer.
+///
+/// It reads byte by byte and never looks at line breaks, so it does not care
+/// how the input is laid out. Judges promise the tokens and their order, not
+/// which line each one is on.
+fn nextInt(in: *std.Io.Reader) !i64 {
+    var c = try in.takeByte();
+    while (c == ' ' or c == '\n' or c == '\r' or c == '\t') c = try in.takeByte();
+
+    const negative = c == '-';
+    if (negative) c = try in.takeByte();
+    if (c < '0' or c > '9') return error.NotANumber;
+
+    var value: i64 = 0;
+    while (true) {
+        value = value * 10 + (c - '0');
+        c = in.takeByte() catch |err| switch (err) {
+            error.EndOfStream => break,
+            else => return err,
+        };
+        if (c < '0' or c > '9') break;
+    }
+    return if (negative) -value else value;
+}
+
+/// One test case: the sum of the values and the largest of them.
+///
+/// The sum is `i64` on purpose. Three values of 10^9 add up to 3 * 10^9, and
+/// `i32` stops at 2,147,483,647.
+fn solve(in: *std.Io.Reader, out: *std.Io.Writer) !void {
+    const n: usize = @intCast(try nextInt(in));
+    if (n == 0 or n > max_n) return error.BadLength;
+
+    const items = values[0..n];
+    for (items) |*v| v.* = try nextInt(in);
+
+    var sum: i64 = 0;
+    var largest = items[0];
+    for (items) |v| {
+        sum += v;
+        largest = @max(largest, v);
+    }
+    try out.print("{d} {d}\n", .{ sum, largest });
+}
+
+pub fn main(init: std.process.Init) !void {
+    var in_buf: [64 * 1024]u8 = undefined;
+    var stdin = std.Io.File.stdin().readerStreaming(init.io, &in_buf);
+    const in = &stdin.interface;
+
+    // Every answer goes into this buffer, and the operating system sees one
+    // write each time it fills, not one per line.
+    var out_buf: [64 * 1024]u8 = undefined;
+    var stdout = std.Io.File.stdout().writerStreaming(init.io, &out_buf);
+    const out = &stdout.interface;
+
+    const cases = try nextInt(in);
+    for (0..@intCast(cases)) |_| try solve(in, out);
+
+    try out.flush();
+}
+```
+
+*Built and run natively by CI with the input below on stdin. The browser has no stdin to give it. (`23-competitive.contest-template`)*
+
+## The problem
+
+The problem is deliberately small, so the template is what you look at.
+
+The first number is how many test cases follow.
+
+Each test case is a count `n`, then `n` integers.
+
+For each case, print the sum of the integers and the largest one.
+
+This is the input CI feeds it:
+
+```
+3
+4
+3 -1 4 1
+3
+1000000000 1000000000
+1000000000
+5
+-5 -2 -9 -1 -3
+```
+
+And this is the output it has to match, byte for byte:
+
+```
+7 4
+3000000000 1000000000
+-20 -1
+```
+
+Look at the second test case.
+
+Its three numbers are split across two lines.
+
+A judge is allowed to do that.
+
+The statement promises which tokens come in which order, not which line each one sits on.
+
+## Read tokens, not lines
+
+The other chapters read a line with `takeDelimiter` and split it.
+
+That works when we wrote the input ourselves.
+
+On a judge, a reader that expects three numbers on one line breaks on the second test case above.
+
+So the template reads one integer at a time, and treats every kind of whitespace the same:
+
+<SnippetSource name="23-competitive.contest-template" decl="nextInt" />
+
+`takeByte` returns the next byte from the reader's buffer.
+
+It only asks the operating system for more when the buffer is empty.
+
+The buffer here is 64 KB, so a large input costs one system call per 64 KB, not one per number.
+
+The parser never builds a string for each number.
+
+It multiplies by ten and adds the digit as the bytes go past.
+
+That's also why `std.fmt.parseInt` isn't used here: it needs the number as a slice first.
+
+Reading the next byte after the last digit is where the input may end.
+
+`EndOfStream` there just means the file stopped right after a number, which is normal, so the loop breaks.
+
+Anywhere else, running out of input is an error and the program stops.
+
+## Stdin is just another reader
+
+<SnippetSource name="23-competitive.contest-template" decl="main" />
+
+`std.Io.File.stdin().readerStreaming` wraps standard input in the same `std.Io.Reader` interface the other chapters use.
+
+`nextInt` takes a `*std.Io.Reader` and has no idea where the bytes come from.
+
+That's why every other chapter parses through a reader instead of slicing its `const` string by hand.
+
+To move any of those solutions to a judge, you replace the reader and nothing else.
+
+[Readers and Writers](https://www.ziglang.in/learn/standard-library/readers-and-writers/) covers the interface.
+
+## Write once, at the end
+
+Output goes through a 64 KB buffer as well.
+
+`print` copies the answer into the buffer.
+
+The operating system only sees a write when the buffer fills, or when we call `flush`.
+
+A problem with 200,000 answers of about 20 bytes each writes 4 MB, and that takes about 60 writes.
+
+Without a buffer, each line would be its own system call.
+
+That's a common reason a correct solution fails the time limit.
+
+The cost is that nothing appears until you flush.
+
+If the program returns early without flushing, the buffered answers are lost.
+
+[Readers and Writers](https://www.ziglang.in/learn/standard-library/readers-and-writers/) shows that failure.
+
+## Size storage from the bound
+
+Every contest statement gives limits, like `1 ≤ n ≤ 200 000`.
+
+The template turns that into a constant and a fixed array:
+
+<SnippetSource name="23-competitive.contest-template" decl="max_n" />
+
+<SnippetSource name="23-competitive.contest-template" decl="values" />
+
+The array is declared outside `main` on purpose.
+
+A local array lives on the stack.
+
+On Linux the main thread's stack is commonly 8 MB, and a judge may set it lower.
+
+This array is 1.6 MB, which fits.
+
+Raise the bound to 2,000,000 and it's 16 MB, which crashes before the first number is read.
+
+A container-level `var` lives in the program's data instead, so its size isn't limited by the stack.
+
+Every test case reuses the same array.
+
+Nothing is allocated, and nothing needs freeing between cases.
+
+When the bound is too large for a fixed array, pass an allocator in and allocate once for the largest case.
+
+[Allocators](https://www.ziglang.in/learn/standard-library/allocators/) covers that.
+
+## Pick integer widths from the limits
+
+<SnippetSource name="23-competitive.contest-template" decl="solve" />
+
+The second test case sums three values of 1,000,000,000.
+
+The answer is 3,000,000,000.
+
+`i32` stops at 2,147,483,647.
+
+So the sum is an `i64`, even though every single value would fit in an `i32`.
+
+The rule to use is: multiply the largest value by the largest count, and pick a type that holds the result.
+
+What happens when you get this wrong depends on how you built the program.
+
+A safe build stops with an overflow panic.
+
+A `ReleaseFast` build, which is what you would submit, has no check, and the result is undefined.
+
+[Integer Rules](https://www.ziglang.in/learn/language-basics/integer-rules/) covers the widths and the overflow operators.
+
+## Before you submit
+
+Build with `-O ReleaseFast`.
+
+A Debug build keeps every safety check and does no optimising, so it can be many times slower.
+
+Check which Zig version the judge has, if it has one at all.
+
+This guide targets Zig master.
+
+A judge running an older release may reject much of this code.
+
+[What Changed in Zig 0.17](https://www.ziglang.in/learn/getting-started/zig-0-17/) and [Coming from an Older Zig](https://www.ziglang.in/learn/getting-started/coming-from-older-zig/) list the differences.

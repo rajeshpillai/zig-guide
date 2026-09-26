@@ -1,0 +1,113 @@
+# Zig Build
+
+> The build system is a Zig program.
+
+`build.zig` is not a configuration file. It is a Zig program that constructs a
+graph of steps, which `zig build` then executes.
+
+```zig
+const std = @import("std");
+
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    const exe = b.addExecutable(.{
+        .name = "myapp",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    b.installArtifact(exe);
+
+    const run = b.addRunArtifact(exe);
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run.step);
+}
+```
+
+## Note the module indirection
+
+`addExecutable` takes a `root_module`, not a source file directly. Older
+examples pass `.root_source_file`, `.target`, and `.optimize` straight to
+`addExecutable`; that form is gone. Build the module first.
+
+## Steps and options
+
+```bash
+zig build              # the default step
+zig build run          # a step you declared
+zig build --help       # lists your steps and options
+zig build -Dtarget=wasm32-wasi -Doptimize=ReleaseSmall
+```
+
+`b.option(...)` declares your own flags, which then appear in `--help`.
+
+## Why a program and not a config file
+
+People often say a build script should be declarative. But every declarative
+build system ends up adding a way to run ordinary code, and the hard parts of
+the build end up there. For example, Make runs shell commands, and CMake has
+its own language. Zig lets you write the build in Zig from the start.
+
+So everything you already know about Zig applies in `build.zig`. You can use
+loops, functions, and a `switch` on the target. This
+site's own build walks a directory, classifies each file by reading its first
+lines, and creates a compile step and a run step per snippet. That is thirty
+lines of ordinary Zig, and in a declarative system it would be a plugin.
+
+The cost is that a build script can do anything, including things that are
+slow or that break caching. The next section covers caching.
+
+## Configure time vs run time
+
+People often confuse these two. `build()` runs
+**once** to construct the graph; the steps run afterwards. Anything `build()`
+observes directly (reading a directory, checking whether a file exists) is
+invisible to the caching layer.
+
+If you do that, say so:
+
+```zig
+b.graph.poisonCache();
+```
+
+Without it, the configuration is cached and your `build()` will not re-run
+when the thing it observed changes. This guide's own `build.zig` discovers
+snippets by walking a directory, and it needs this call. Before the call was
+added, a new snippet was silently ignored.
+
+To avoid the problem, give inputs to the graph as files it knows about, instead
+of having `build()` look at them. `b.path("src/main.zig")`
+is tracked, and a step depending on it re-runs when it changes.
+`std.fs.cwd().openFile(...)` inside `build()` is not tracked, and nothing will
+notice.
+
+## Steps are a graph, not a list
+
+`dependOn` is the only way to order steps, and the rest follows from that.
+Independent steps run in parallel across cores automatically, because nothing
+declared an order between them. A step runs at most once per build no matter
+how many things depend on it. And `zig build test` runs exactly the subgraph
+that step needs, not the whole file.
+
+So to make one step run before another, add a `dependOn` between them. Moving
+lines in the file does nothing: the order of declarations in `build()` has no
+meaning at all.
+
+## Dependencies
+
+`build.zig.zon` declares them, and `b.dependency("name", .{})` retrieves one in
+`build.zig`. Fetching is content-addressed and hash-verified.
+
+`zig fetch --save <url>` adds an entry and records the hash. Use this command
+instead of editing the file by hand. Because the hash covers
+the contents, a dependency that changes underneath you fails the build instead
+of being fetched, and packages land in a global cache shared between projects.
+
+A dependency's own `build.zig` runs as part of yours, so it can expose modules
+(`dep.module("name")`) and artifacts (`dep.artifact("name")`) that you wire
+into your own targets. There is no separate package manifest format and no
+install step. Fetching, building and linking are all part of the same graph.

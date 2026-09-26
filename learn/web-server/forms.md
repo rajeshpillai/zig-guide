@@ -1,0 +1,148 @@
+# Form Bodies
+
+> The same encoding as a query string, arriving somewhere it can be much larger.
+
+A submitted HTML form arrives as `name=Ada+Lovelace&role=engineer`, which is
+exactly a query string with the `?` removed. This is on purpose. HTML
+specifies one encoding. The method decides whether it travels in the URL or in
+the body.
+
+So the parser is the one from the last chapter. What is new is everything
+around it, because a body is not a URL. It can be megabytes, and it arrives
+after the headers.
+
+And **the client tells you how much is coming**. This chapter is about what
+the server does with that number, because the client can lie.
+
+## The program
+
+```zig
+const std = @import("std");
+const routes = @import("routes.zig");
+
+pub const Field = routes.Param;
+
+/// A urlencoded body is a query string without the `?`. HTML forms were
+/// specified to produce one encoding, and the method decides where that
+/// encoding travels.
+pub fn parseForm(body: []const u8, dest: []u8, out: []Field) ![]Field {
+    var joined: [1024]u8 = undefined;
+    if (body.len + 1 > joined.len) return error.TooLong;
+    joined[0] = '?';
+    @memcpy(joined[1..][0..body.len], body);
+    return routes.parseQuery(joined[0 .. body.len + 1], dest, out);
+}
+
+/// How many bytes of body to read. A server that trusts this number without a
+/// limit lets the client decide how much memory the server uses.
+pub fn bodyLength(declared: ?[]const u8, limit: usize) !usize {
+    const text = declared orelse return 0;
+    const n = std.fmt.parseInt(usize, text, 10) catch return error.Malformed;
+    if (n > limit) return error.TooLarge;
+    return n;
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [2048]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &stdout_writer.interface;
+
+    var scratch: [512]u8 = undefined;
+    var fields: [8]Field = undefined;
+
+    const bodies = [_][]const u8{
+        "name=Ada+Lovelace&role=engineer",
+        "note=100%25+done&tags=a%26b",
+        "consent=on&newsletter=",
+        "",
+    };
+
+    for (bodies) |body| {
+        const parsed = try parseForm(body, &scratch, &fields);
+        try out.print("\"{s}\"\n", .{body});
+        for (parsed) |f| try out.print("  {s} = \"{s}\"\n", .{ f.name, f.value });
+        if (parsed.len == 0) try out.writeAll("  (no fields)\n");
+    }
+
+    try out.writeAll("\nContent-Length, with a ceiling of 1 MB\n");
+    for ([_]?[]const u8{ "13", null, "99999999", "twelve" }) |declared| {
+        const label = declared orelse "(absent)";
+        if (bodyLength(declared, 1 << 20)) |n| {
+            try out.print("  {s: <10} -> read {d} bytes\n", .{ label, n });
+        } else |err| {
+            try out.print("  {s: <10} -> {t}\n", .{ label, err });
+        }
+    }
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`19-web-server.forms`)*
+
+## What just happened
+
+**The parsing is reused verbatim.** `parseForm` puts a `?` on the front and
+calls `parseQuery`. There is one encoding, so there is one parser. No second
+implementation exists that could drift out of step with the first.
+
+**`100%25+done` became `100% done`.** The rules are the same as for a query
+string: `+` is a space, `%25` is a literal percent. A form containing a percent sign is a good
+test, because getting it wrong produces a value that looks almost right.
+
+**`Content-Length` was checked against a ceiling.** `99999999` was refused
+before a single byte of body was read. Without that check, this happens: the
+client claims a 4 GB body, the server allocates or reads toward it, and the
+server dies. The check costs nothing. Without it, the client controls how much
+memory the server uses.
+
+A GET has no body and sends no length. If the server treats a missing length
+as "no limit", it waits forever on a connection that has nothing more to
+send.
+
+**`twelve` was rejected and not treated as zero.** A malformed length is a
+malformed request. Using 0 as a default sounds forgiving. But then the body
+that was sent stays in the socket buffer. The next request on a keep-alive
+connection reads that body as its own request line. That is request smuggling.
+This is the second time in this section that accepting bad input has caused
+the vulnerability.
+
+## Check yourself
+
+The parser handles `application/x-www-form-urlencoded`. What does a form with
+a file upload send instead, and why can it not use this encoding?
+
+It sends `multipart/form-data`, which is a completely different format. Each
+field becomes a section. A boundary string separates the sections, and the
+client chooses it and announces it in the `Content-Type` header.
+
+There are two reasons for this format. First, urlencoding a megabyte of binary
+would roughly triple it: every byte that is not a letter, a digit or one of
+`*-._` becomes three characters. Second, a file has its own filename and
+content type, and the urlencoded format has nowhere to put them.
+
+So a server that supports uploads has two body parsers. The multipart one has to handle a boundary appearing inside
+the data, sections arriving split across reads, and a filename that must never
+be trusted as a path. Each of those has caused real bugs. [File
+Uploads](https://www.ziglang.in/learn/web-server/multipart/) is the chapter that builds this parser.
+
+## If you have written C
+
+The body arrives on the same descriptor as the headers. The common C mistake
+is to read it with the same call:
+
+```c
+read(fd, buf, sizeof buf);   /* may return the headers AND part of the body */
+```
+
+By the time you have found the blank line you have probably already read some
+of the body. So the parser has to work with what is in the buffer, and only
+then read more. Any code that assumes "headers, then a fresh read for the
+body" is correct on a fast loopback and wrong over a real network.
+
+The other mistake is `atoi(content_length)`. It returns 0 for `"twelve"` and
+for `"0"` alike, and it has no way to report overflow. `parseInt` returns an
+error, so the malformed case is one the compiler makes you handle.
+
+Next: [cookies and sessions](https://www.ziglang.in/learn/web-server/sessions/), which is how the
+server remembers who sent the form.
