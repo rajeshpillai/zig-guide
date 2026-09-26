@@ -37,9 +37,9 @@ Zig has no ternary operator because it does not need one:
 const x: u16 = if (a) 1 else 2;
 ```
 
-Both branches must agree on a type. Used as an expression, the `else` is
-mandatory, and the error says so in terms of what is missing rather than what
-is absent:
+Both branches must agree on a type. When `if` is used as an expression, the
+`else` is required. Without it, the missing branch produces `void`, and the
+error names that type:
 
 ```
 error: expected type 'u16', found 'void'
@@ -88,7 +88,7 @@ payload through a different path that forgot the test.
 
 ## When to use something shorter
 
-`if` on an optional is the general form, and two shorthands cover the common
+`if` on an optional is the general form. Three shorter forms cover the common
 cases:
 
 - `maybe orelse default` when you only want a fallback value.

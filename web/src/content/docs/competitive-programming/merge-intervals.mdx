@@ -10,7 +10,13 @@ order: 80
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Suppose we have several intervals and want to combine all overlapping ones.
+The example below has eleven intervals, and we want to combine the ones that overlap.
+
+Some are completely inside `[1, 20]`.
+
+`[3, 5]` ends where `[5, 8]` begins.
+
+`[40, 40]` contains a single coordinate.
 
 If the intervals are in random order, it is difficult to know which intervals may overlap.
 
@@ -20,14 +26,6 @@ After sorting, we can process the intervals from left to right and keep one merg
 
 For each new interval, we only need to check whether it overlaps the current merged interval.
 
-The example below contains eleven intervals.
-
-Some are completely inside `[1, 20]`.
-
-`[3, 5]` ends where `[5, 8]` begins.
-
-`[40, 40]` contains a single coordinate.
-
 The program sorts the intervals, shows what happens at each step, and also checks the final result by marking every covered coordinate.
 
 <Playground name="23-competitive.merge-intervals" />
@@ -35,8 +33,6 @@ The program sorts the intervals, shows what happens at each step, and also check
 ## Sort by start, then make one pass
 
 <SnippetSource name="23-competitive.merge-intervals" decl="merge" />
-
-After sorting, we keep one merged interval open.
 
 For each new interval, there are two cases.
 
@@ -96,9 +92,7 @@ Sorting takes O(n log n).
 
 The merge itself takes O(n).
 
-So the total time complexity is:
-
-`O(n log n)`
+So the whole algorithm takes O(n log n).
 
 ## The merged end must use @max
 
@@ -108,17 +102,9 @@ When two intervals overlap, it is tempting to replace the current end with the e
 
 That is wrong when one interval is completely inside another.
 
-For example, start with:
+For example, start with `[1, 20]` and then process `[3, 5]`.
 
-`[1, 20]`
-
-Then process:
-
-`[3, 5]`
-
-If we simply assign the new end, the merged interval becomes:
-
-`[1, 5]`
+If we simply assign the new end, the merged interval becomes `[1, 5]`.
 
 But the original interval already covered everything up to 20.
 
@@ -148,9 +134,7 @@ The final result becomes:
 
 The correct result has four merged intervals.
 
-The correct update is:
-
-`end = @max(end, iv.end)`
+The correct update is `end = @max(end, iv.end)`.
 
 When intervals overlap, the merged interval must keep whichever end reaches further.
 
@@ -193,23 +177,13 @@ It is not suitable for very large coordinates such as timestamps or values in th
 
 The intervals in this example are closed.
 
-A closed interval:
+The closed interval `[3, 5]` contains 3, 4 and 5.
 
-`[3, 5]`
+The interval `[5, 8]` also contains 5.
 
-contains 3, 4 and 5.
+So the two intervals overlap at coordinate 5.
 
-Another interval:
-
-`[5, 8]`
-
-also contains 5.
-
-So the intervals overlap at coordinate 5.
-
-That is why the merge condition is:
-
-`iv.start <= current.end`
+For this reason the merge condition uses `<=`: `iv.start <= current.end`.
 
 The same situation appears here:
 
@@ -226,63 +200,41 @@ They would still cover the same coordinates, but the result would contain more i
 
 ## Half-open intervals
 
-Half-open intervals use the form:
-
-`[start, end)`
+Half-open intervals use the form `[start, end)`.
 
 The start is included.
 
 The end is excluded.
 
-For example:
+For example, `[3, 5)` contains 3 and 4.
 
-`[3, 5)`
-
-contains 3 and 4.
-
-`[5, 8)`
-
-contains 5, 6 and 7.
+`[5, 8)` contains 5, 6 and 7.
 
 These two intervals do not overlap.
 
 However, they touch without leaving a gap.
 
-If the goal is to represent their union using as few intervals as possible, they can still be combined into:
-
-`[3, 8)`
+If the goal is to represent their union using as few intervals as possible, they can still be combined into `[3, 8)`.
 
 So the same `<=` test can still be useful when touching half-open intervals should be merged.
 
-The important part is to choose one interval convention and use it consistently.
+Choose one interval convention and use it in every part of the solution.
 
 ## Intervals over whole-number positions
 
 Some problems use intervals to represent discrete values such as days, seats or integer coordinates.
 
-In that case:
+In that case, `[1, 3]` contains 1, 2 and 3.
 
-`[1, 3]`
-
-contains 1, 2 and 3.
-
-And:
-
-`[4, 6]`
-
-contains 4, 5 and 6.
+And `[4, 6]` contains 4, 5 and 6.
 
 There is no unused integer between 3 and 4.
 
-If the problem wants adjacent integer ranges merged, these can become:
+If the problem wants adjacent integer ranges merged, these can become `[1, 6]`.
 
-`[1, 6]`
+The condition then becomes `iv.start <= out[count - 1].end + 1`.
 
-The condition then becomes:
-
-`iv.start <= out[count - 1].end + 1`
-
-This is different from ordinary continuous closed intervals.
+Ordinary continuous closed intervals do not use the `+ 1`.
 
 So before writing the merge condition, decide what the interval boundaries mean in the problem.
 
@@ -292,11 +244,7 @@ Merged intervals tell us which coordinates are covered.
 
 They do not tell us how many original intervals overlap at the same point.
 
-For example, the merged interval:
-
-`[1, 21]`
-
-is only one interval in the output.
+For example, the merged interval `[1, 21]` is only one interval in the output.
 
 But at coordinate 5, four original intervals are active at the same time.
 
@@ -320,7 +268,7 @@ Sort all events by coordinate and process them from left to right.
 
 The running total tells us how many intervals are active.
 
-For example:
+Here are the first seven events:
 
 ```
   at  interval  event   rooms
@@ -351,11 +299,9 @@ That allows both intervals to count as active at the same coordinate.
 
 <SnippetSource name="23-competitive.merge-intervals" decl="startsFirst" />
 
-The event ordering must match the same interval convention used by the merge.
+The event ordering must match the interval convention used by the merge.
 
-For closed intervals:
-
-starts at the same coordinate are processed before ends.
+For closed intervals, starts at the same coordinate are processed before ends.
 
 The program verifies the sweep by counting active intervals coordinate by coordinate:
 
@@ -375,9 +321,7 @@ The dots at coordinates 22 and 23 show the gap between the first and second merg
 
 ## Half-open intervals change the overlap count
 
-Now interpret the same intervals as half-open:
-
-`[start, end)`
+Now read the same intervals as half-open, `[start, end)`.
 
 Then `[3, 5)` is no longer active at coordinate 5.
 
@@ -396,34 +340,16 @@ the same 11 intervals read as half-open, [start, end)
 
 The peak overlap falls from four to three.
 
-Also:
-
-`[40, 40)`
-
-is empty.
+Also, `[40, 40)` is empty.
 
 It contains no coordinates, so it does not need start and end events.
 
-This shows why interval conventions matter.
-
-The merged output may look the same while other answers, such as overlap counts, change.
+The merged runs did not change, but the overlap count did.
 
 ## Merge and sweep solve different questions
 
-Both algorithms start by sorting and then make one pass.
+Merging keeps the start and end of the current combined interval, so it tells us which regions are covered.
 
-Merging answers:
+The sweep keeps a running count, so it tells us how many intervals are active at the same time.
 
-Which regions are covered?
-
-A sweep answers:
-
-How many intervals are active at the same time?
-
-The merge keeps the start and end of the current combined interval.
-
-The sweep keeps a running count.
-
-Neither one automatically gives the information stored by the other.
-
-If a problem asks for both the merged ranges and the maximum overlap, handle them as two separate operations over the sorted data.
+If a problem asks for both the merged ranges and the maximum overlap, run them as two separate passes over the sorted data.

@@ -7,13 +7,14 @@ order: 30
 
 import Playground from "../../../components/Playground.astro";
 
-This is the chapter that decides whether your server works under load.
+A server that ignores what this chapter covers can work in testing and fail
+under load.
 
-TCP is a byte stream. It preserves order and it preserves every byte, and it
-promises nothing whatsoever about grouping. The three writes the sender made
-can arrive as one read, or as seventeen. Nothing in the socket API tells you
-which happened, because as far as TCP is concerned there was never anything
-there to group.
+TCP is a byte stream. It keeps the bytes in order and delivers every one of
+them. It promises nothing about how they are grouped. The three writes the
+sender made can arrive as one read, or as seventeen. Nothing in the socket API
+tells you which happened, because TCP never kept track of where one write
+ended and the next began.
 
 Press Run. The same bytes are delivered one at a time and then all at once,
 and the parser cannot tell the difference.
@@ -31,9 +32,10 @@ const message = parse(buf[0..n]);
 
 That code is correct only when the whole message arrived in one read. On
 loopback, with a small message and an idle machine, it always does. It stops
-being true when the message crosses an MTU, when the network is busy, when the
-sender uses two writes, or when a proxy sits in between. The failure arrives
-in production and looks like corruption rather than truncation.
+being true when the message is larger than one packet (the MTU), when the
+network is busy, when the sender uses two writes, or when a proxy sits in
+between. The failure shows up in production. It looks like corrupted data,
+not like a message that was cut short.
 
 ## Two indices, no copying
 
@@ -46,15 +48,15 @@ const Incoming = struct {
 ```
 
 `len` grows as the network delivers. `at` grows as complete messages are taken
-off the front. Because nothing is shifted down, the slices `next` returns stay
-valid, which means a message can be handed to a handler without copying it
-first.
+off the front. Nothing is shifted down, so the slices `next` returns stay
+valid. A message can be handed to a handler without copying it first.
 
-The alternative, compacting the buffer after every message, invalidates every
-slice you already returned. That is a use-after-free that a `[256]u8` will
-happily hide from you, because the memory is still there and still readable.
+The other approach is to compact the buffer after every message: move the
+remaining bytes to the front. That makes every slice you already returned
+point at the wrong bytes. It is a use-after-free, and a `[256]u8` hides it
+from you, because the memory is still there and still readable.
 
-## `null` is the whole idea
+## `null` means "not yet"
 
 ```zig
 fn next(self: *Incoming) ?[]const u8 {
@@ -71,7 +73,8 @@ fn next(self: *Incoming) ?[]const u8 {
 
 Two `null` returns, for the two ways a message can be incomplete: not enough
 bytes to know the length, and not enough bytes to satisfy it. A parser that
-cannot say "not yet" has no choice but to assume, and assuming is the bug.
+cannot say "not yet" has to assume the message is complete. That assumption
+is the bug from the start of this chapter.
 
 Note also the `while` in the caller. One read can complete more than one
 message, so a handler that processes a single message per read will fall
@@ -79,8 +82,8 @@ steadily further behind a fast client and never catch up.
 
 ## What this gives you
 
-The parser never learns how the bytes were chunked, so chunking stops being
+The parser never learns how the bytes were chunked, so chunking is no longer
 part of your protocol. You can test it against a byte array, which is what
-[Three Ways to Frame](/learn/networking/framing/) does next. The test is worth
-something, because the delivery pattern it does not simulate is one the parser
+[Three Ways to Frame](/learn/networking/framing/) does next. That test is
+meaningful. The delivery patterns it does not simulate are ones the parser
 cannot observe anyway.

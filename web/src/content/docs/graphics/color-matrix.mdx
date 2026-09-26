@@ -17,9 +17,9 @@ multiplying the channel vector.
 [ B' ]   [ g h i ] [ B ]
 ```
 
-The reason to write them this way is not elegance. It is that matrices
-multiply, so a chain of four colour filters becomes one matrix computed before
-the image is touched, and then one pass.
+Writing them this way lets them multiply. A chain of four colour filters
+becomes one matrix, computed before the image is touched, and then one pass
+over the image.
 
 <Playground name="09-graphics.color-matrix" />
 
@@ -37,8 +37,8 @@ const luma_matrix: Matrix = .{
 
 Every output channel becomes the same weighted average, which is grayscale.
 The entries are scaled by 256 and the multiply divides by 256 at the end, so
-this stays in integers throughout. Floats would buy precision that the final
-cast to `u8` throws away, and cost a conversion at each end.
+this stays in integers throughout. Floats would add precision that the final
+cast to `u8` throws away, and would need a conversion at each end.
 
 ## Saturation is a line through grey
 
@@ -60,11 +60,9 @@ fn saturation(s: i32) Matrix {
 }
 ```
 
-Writing it as a matrix rather than as a special case is what lets it compose
-with the others.
+Because it is a matrix and not a special case, it composes with the others.
 
-There is a property worth noticing in the output. Saturation moves chroma and
-leaves brightness alone:
+The output shows that saturation moves chroma and leaves brightness alone:
 
 ```
 luma under saturation (original, sat 0, sat 200%)
@@ -75,10 +73,10 @@ luma under saturation (original, sat 0, sat 200%)
 
 Grayscale preserves luma exactly, because the grey it produces is defined as
 the luma. At 200% the numbers drift, and the red disc drops from 97 to 76.
-That is clipping, not a flaw in the maths. Extrapolating red past 100%
-saturation pushes the channels into the wall, and a clipped colour no longer
-has the luma the matrix asked for. Any saturation control pushed far enough
-loses brightness in exactly the colours it was supposed to intensify.
+The cause is clipping. The maths is correct. Pushing red past 100% saturation
+pushes the channels past 0 or 255, where they are clamped. A clipped colour no
+longer has the luma the matrix asked for. So any saturation control, pushed
+far enough, loses brightness in the colours it was supposed to intensify.
 
 ## Sepia's rows do not sum to 256
 
@@ -90,14 +88,14 @@ const sepia: Matrix = .{
 };
 ```
 
-Those rows sum to 346, 308 and 241. A row summing to 256 preserves brightness;
-these deliberately do not. Sepia is meant to lift the image as it tints it,
-and the red row gains the most, which is where the warmth comes from. Getting
-this matrix "wrong" in the direction of 256 gives a muddy grey-brown that
-looks nothing like the effect.
+Those rows sum to 346, 308 and 241. A row summing to 256 preserves brightness.
+These rows do not, on purpose. Sepia is meant to brighten the image as it
+tints it, and the red row gains the most, which gives the warm colour. If you
+"correct" the rows to sum to 256, you get a muddy grey-brown that looks
+nothing like sepia.
 
-It is worth knowing the difference, because a matrix that unintentionally sums
-to more than 256 blows out highlights for no reason.
+So know which kind of matrix you have. A matrix that sums to more than 256 by
+mistake blows out highlights for no reason.
 
 ## Composition, and what it costs
 
@@ -116,8 +114,8 @@ Sepia after 62% saturation, as one matrix:
 ```
 
 One pass over the image instead of two, and the saving grows with the length
-of the chain. A photo app applying six adjustments does one multiply per
-pixel, not six.
+of the chain. A photo app applying six adjustments does one matrix multiply
+per pixel instead of six.
 
 The composition is not exact:
 
@@ -125,20 +123,20 @@ The composition is not exact:
 two passes vs one composed matrix: 1560 of 2048 pixels differ, by at most 1
 ```
 
-Two passes round to a byte in between; the composed matrix rounds once, inside
-the matrix product. This is the difference from the lookup tables in
-[per-pixel transforms](/learn/graphics/per-pixel/), where composing was exact
-to the last bit. A table maps bytes to bytes and there is nowhere for an error
-to hide. A matrix carries fractions, and rounding them earlier or later gives
+Two passes round to a byte in between. The composed matrix rounds once, inside
+the matrix product. The lookup tables in
+[per-pixel transforms](/learn/graphics/per-pixel/) were different: composing
+them was exact to the last bit. A table maps bytes to bytes, so composing adds
+no error. A matrix carries fractions, and rounding them earlier or later gives
 different answers.
 
-Off by one per channel is below what anyone can see, and the two-pass version
-is the closer of the two. Composing truncates the nine matrix entries
-themselves, and each of those errors is then multiplied by a channel value as
-large as 255. Rounding twice on the way through costs less than rounding the
-matrix once. It matters because "same filter, different order of operations"
-does not give bit-identical output, and a test that compares images byte for
-byte will fail on it.
+Off by one per channel is too small for anyone to see, and the two-pass
+version is the more accurate of the two. Composing truncates the nine matrix
+entries themselves, and each of those errors is then multiplied by a channel
+value as large as 255. Rounding twice on the way through loses less than
+rounding the matrix once. This affects testing: the same filter with a
+different order of operations does not give bit-identical output, and a test
+that compares images byte for byte will fail on it.
 
 ## What a matrix cannot do
 
@@ -148,7 +146,7 @@ detection need neighbours, which is
 cost.
 
 **Anything non-linear.** Gamma, curves and thresholds are not linear functions of
-the channels, so no matrix expresses them. Those are lookup tables, and a real
+the channels, so no matrix expresses them. Those are lookup tables. A full
 pipeline mixes both: tables for the curves, a matrix for the colour mixing.
 
 **Alpha.** These are 3x3 over RGB. Systems that include alpha use a 4x5 (four
@@ -157,6 +155,7 @@ rows, four coefficients plus a constant offset), which is what the CSS
 is what lets a matrix add a constant, and that is how tinting toward a fixed
 colour works.
 
-Everything on this page also multiplies sRGB bytes directly, with the same
-caveat [alpha blending](/learn/graphics/blending/) sets out: those bytes are
-not linear light. Colour operations that care convert to linear first.
+Everything on this page also multiplies sRGB bytes directly. The warning from
+[alpha blending](/learn/graphics/blending/) applies here too: those bytes are
+not linear light. Colour operations that need to be accurate convert to
+linear first.

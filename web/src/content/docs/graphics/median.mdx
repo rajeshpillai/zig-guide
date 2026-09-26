@@ -9,8 +9,8 @@ import Playground from "../../../components/Playground.astro";
 
 A [convolution](/learn/graphics/convolution/) is a weighted sum. Every pixel
 under the kernel contributes something, and there is no weight that means
-"this value is wrong, disregard it". That limitation has a name and a whole
-family of filters that get around it.
+"this value is wrong, ignore it". A family of filters, the rank filters, gets
+around that limit.
 
 Sort the neighbourhood and pick by position instead.
 
@@ -24,12 +24,12 @@ fn rankFilter(dst: []u32, src: []const u32, comptime rank: usize) void
 
 Sort the nine pixels of a 3x3 window by brightness and take the one at `rank`.
 Rank 4 is the median. Rank 0 is the minimum, which is erosion. Rank 8 is the
-maximum, which is dilation. The whole of basic morphology and the standard
-denoiser are the same loop with a different index. And because the choice is
-comptime, each one compiles to its own specialised function rather than a
-branch in the inner loop.
+maximum, which is dilation. Basic morphology and the standard denoiser are
+all the same loop with a different index. Because the choice is comptime,
+each one compiles to its own specialised function instead of a branch in the
+inner loop.
 
-The output confirms the morphology at the end: the block covers 153
+The output checks the morphology at the end: the block covers 153
 pixels brighter than 200, which erosion cuts to 105 and dilation grows to 209.
 Bright regions shrink and grow by a pixel of boundary. Running one then the
 other is opening and closing, which is how small specks get removed without
@@ -37,9 +37,9 @@ changing the size of anything large.
 
 ## Why the median beats the blur on this noise
 
-Salt and pepper noise replaces a pixel outright with black or white. The
-corrupted value has no relationship to what was there, which is precisely the
-case a weighted average handles badly:
+Salt and pepper noise replaces a pixel completely with black or white. The
+corrupted value has no relationship to what was there. A weighted average
+handles this case badly:
 
 ```
             black white  mean luma error vs clean
@@ -48,20 +48,22 @@ case a weighted average handles badly:
     median:     0     2        1.59
 ```
 
-Read the first two columns alone and the gaussian looks perfect: not a single
-pure black or pure white pixel survives. It is a useless measurement. The
-gaussian removed each noisy pixel by averaging it into a grey smudge nine
-pixels wide. The third column says what that cost: mean error against the
-clean picture went *up*, from 9.03 to 11.80. The filter made the image worse
-than the noise did.
+If you read only the first two columns, the gaussian looks perfect: not a
+single pure black or pure white pixel survives. But those two columns do not
+measure image quality. The gaussian removed each noisy pixel by averaging it
+into a grey smudge nine pixels wide. The third column shows the cost: mean
+error against the clean picture went *up*, from 9.03 to 11.80. After the
+gaussian, the image is further from the clean picture than the noisy input
+was.
 
 The median throws the outlier away. In a window of nine where one value is
-extreme, the extreme value sorts to an end and the middle element is one of
+extreme, the extreme value sorts to an end, and the middle element is one of
 the eight that were fine. Error drops to 1.59.
 
-This is the general principle. A mean is dragged by any outlier no matter how
-few; a median ignores up to half of them entirely. It is the same reason
-statistics reports medians for income.
+This holds in general. Even a few outliers pull a mean away from the true
+value. A median ignores outliers completely, as long as they are fewer than
+half of the values. For the same reason, statistics reports medians for
+income.
 
 ## And why it keeps the edge
 
@@ -78,9 +80,9 @@ not move it at all. At any pixel on the dark side, at least five of the nine
 neighbours are still dark, so the middle element is dark. The edge stays
 exactly where it was.
 
-Edge-preserving smoothing is the property that makes rank filters worth their
-cost, and the cost is real: nine values sorted per pixel against nine
-multiplies and one divide.
+Rank filters are used because they smooth without moving edges. They cost
+more than a blur: nine values sorted per pixel, against nine multiplies and
+one divide.
 
 ## The sort
 
@@ -101,23 +103,23 @@ while (i < window.len) : (i += 1) {
 The quadratic bound does not matter at this size, and insertion sort has
 almost no constant overhead. Production implementations go further and use a
 fixed compare-exchange network, in straight-line code with no loop and no
-data-dependent branches at all. That matters because a mispredicted branch per
-pixel is expensive, and a network has none. It is also directly vectorisable,
-which the loop above is not.
+data-dependent branches at all. A mispredicted branch per pixel is expensive,
+and a network has no branches. A network can also be vectorised directly,
+which the loop above cannot.
 
 The size of the network depends on what you ask for. Sorting nine elements
-takes 25 compare-exchanges, but the median alone takes 19, because a selection
-network may leave the rest of the window in any order it likes. You only need
-the middle value, so you only pay for the middle value.
+takes 25 compare-exchanges, but the median alone takes 19. A selection
+network only has to put the middle value in place, and may leave the rest of
+the window in any order.
 
 ## Sort whole pixels, not channels
 
 The window holds packed pixels and sorts them by luma, so the output is a
-colour that genuinely appeared in the neighbourhood. Taking the median of the
+colour that actually appeared in the neighbourhood. Taking the median of the
 red channel, the green channel and the blue channel independently is easier,
 and it is wrong. The three medians can come from three different pixels,
-producing a colour that was nowhere in the window. On coloured noise that
-invents colours that were never in the image.
+producing a colour that was nowhere in the window. On coloured noise, this
+creates colours that were never in the image.
 
 ## Where the family goes next
 

@@ -11,16 +11,16 @@ Read a line. Work out what it means. Print the result. Go back to the start.
 That is the loop every shell, every database prompt and every language REPL
 runs, and it is four lines of code.
 
-The part that is not obvious is how it ends. There are **two** ways, they are
-completely different, and a loop that handles only one of them is broken in a
-way that is easy to ship.
+How the loop ends is less obvious. There are **two** ways, and they are
+completely different. A loop that handles only one of them is broken, and the
+bug is easy to miss before release.
 
 The first is the user asking: they type `quit`. The second is the input
 running out. On a terminal that is Ctrl-D, and in a pipeline it is simply the
-end of the file, which is what happens every single time somebody writes `echo
+end of the file, which is what happens every time somebody writes `echo
 "help" | yourshell`. A loop that watches for `quit` and nothing else spins
 forever the first time it meets end of input, because the read keeps returning
-nothing and nothing is not `quit`.
+an empty result, and an empty result is not `quit`.
 
 ## The program
 
@@ -33,19 +33,20 @@ second ran out of input and printed `(end of input)`. Both are normal endings,
 neither is an error, and the code paths are different.
 
 **The empty line did nothing and did not stop the loop.** Pressing enter on a
-blank prompt is not a command and not an error, and a REPL that treats it as
-either is annoying within about four keystrokes.
+blank prompt is neither a command nor an error. A REPL that treats it as either
+quickly annoys the user.
 
 **An unknown command printed a message and carried on.** This is the difference
 between a REPL and a batch program. A batch program that meets bad input
-should usually stop; a REPL that exits on a typo is unusable. Same input,
-opposite correct behaviour, decided entirely by whether a human is waiting.
+should usually stop. A REPL that exits on a typo is unusable. The input is
+the same in both cases. What decides the correct behaviour is whether a person
+is waiting at the prompt.
 
-That is what makes this page possible at all. The loop reads through a
-`std.Io.Reader`, and here that reader is built over a string rather than over
-a terminal. Move where the reader comes from and the rest of the loop is
-unchanged. It is also how you test a REPL, which is otherwise one of the
-more annoying things to test.
+This page can run the loop because of how the loop reads input. The loop reads
+through a `std.Io.Reader`, and here that reader is built over a string instead
+of a terminal. If you change where the reader gets its bytes, the rest of the
+loop stays the same. You test a REPL the same way, and a REPL is otherwise
+awkward to test.
 
 ## Check yourself
 
@@ -59,8 +60,8 @@ show it. Echoing the line makes the transcript readable.
 
 That difference matters in real programs too. A password prompt has to turn
 the terminal's echo *off* before reading. That is a call into the terminal
-driver rather than anything to do with the read itself, and it is why reading
-a password is not just reading a line.
+driver, separate from the read itself. So reading a password takes more than
+reading a line.
 
 ## If you have written C
 
@@ -77,10 +78,9 @@ while (1) {
 }
 ```
 
-`read` returning 0 is end of input, and it is not an error, so a check for `n
-< 0` alone passes straight over it and loops forever on an empty read. That is
-the bug this chapter exists to name, and it is a rite of passage for anyone
-who has written a shell.
+`read` returning 0 is end of input, and it is not an error. A check for `n < 0`
+alone misses it and loops forever on an empty read. Almost everyone who writes
+a shell makes this mistake at least once.
 
 The `sizeof buf - 1` is the same off-by-one from the [strings
 chapter](/learn/terminal/strings/), leaving room for the terminator that

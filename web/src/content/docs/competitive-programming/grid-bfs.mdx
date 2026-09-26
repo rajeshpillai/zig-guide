@@ -12,9 +12,9 @@ import SnippetSource from "../../../components/SnippetSource.astro";
 
 Breadth-first search, or BFS, is useful for finding the shortest path on a grid when every move has the same cost.
 
-The queue itself does not know anything about shortest paths.
+The queue itself knows nothing about shortest paths.
 
-What matters is the order in which BFS visits cells.
+The shortest paths come from the order in which BFS visits cells.
 
 Cells one move away are processed before cells two moves away.
 
@@ -92,11 +92,9 @@ Rows and columns are stored as `usize` because they are used as array indices.
 
 That creates a problem when moving up or left.
 
-Suppose the current row is 0.
+Take a cell in row 0.
 
-This expression is invalid:
-
-`p.r - 1`
+For that cell, the expression `p.r - 1` is invalid.
 
 A `usize` cannot represent `-1`.
 
@@ -106,17 +104,15 @@ The same problem happens when moving left from column 0.
 
 The code avoids this by doing the movement calculation using `isize`.
 
-For example, moving up from `(0, 0)` produces:
+For example, moving up from `(0, 0)` produces `(-1, 0)`.
 
-`(-1, 0)`
-
-That is a valid `isize` value.
+Both coordinates are valid `isize` values.
 
 We can then check whether both coordinates are inside the grid.
 
 Only after the bounds check do we convert them back to `usize`.
 
-For example:
+From `(0, 0)`, the four moves give:
 
 ```
   move    dr  dc     r     c  on the grid
@@ -134,15 +130,11 @@ Moving down and right is valid.
 
 Another approach is to check before subtracting.
 
-For example:
-
-`if (p.r > 0)`
-
-before calculating `p.r - 1`.
+For example, test `if (p.r > 0)` before calculating `p.r - 1`.
 
 Both approaches are valid.
 
-The important rule is not to subtract 1 from a zero `usize` and then try to check the result afterwards.
+Do not subtract 1 from a zero `usize` and then try to check the result afterwards.
 
 ## Why BFS gives the shortest distance
 
@@ -160,7 +152,7 @@ And so on.
 
 The queue preserves this order.
 
-For example:
+Here is the search partway through:
 
 ```
   distance 4 is out of the queue, and the 6 cells at distance 5 are in it
@@ -184,13 +176,9 @@ This ordering gives us the shortest-path guarantee.
 
 Suppose a cell is first reached from another cell at distance `d`.
 
-We assign it:
+We assign it `d + 1`.
 
-`d + 1`
-
-Could a shorter route appear later?
-
-No.
+A shorter route cannot appear later.
 
 Anything processed later is at distance `d` or greater.
 
@@ -198,7 +186,7 @@ So any later route to the same cell would also have length at least `d + 1`.
 
 The first distance written is therefore already the shortest distance.
 
-That means BFS does not need to keep comparing possible distances for the same cell.
+So BFS does not need to keep comparing possible distances for the same cell.
 
 It can mark the cell once and never revisit it.
 
@@ -232,7 +220,7 @@ One remains unreachable.
 
 ## Mark a cell when it enters the queue
 
-A very common BFS bug is marking cells too late.
+A common BFS bug is marking cells too late.
 
 The correct version marks a cell as visited when it is pushed into the queue.
 
@@ -280,9 +268,7 @@ The result is still correct because the code checks `seen` when the cell is popp
 
 But the queue does much more work.
 
-The correct rule is:
-
-Mark a node when you enqueue it, not when you dequeue it.
+The correct rule is to mark a node when you enqueue it, not when you dequeue it.
 
 ## Why marking on push matters
 
@@ -328,17 +314,11 @@ With correct marking, every reachable cell is pushed exactly once.
 
 So a grid with `rows * columns` cells needs at most that many queue slots.
 
-For this grid:
-
-`9 * 13 = 117`
-
-So 117 slots are enough.
-
-No dynamic growth is required.
-
-No circular buffer is required.
+For this grid, `9 * 13 = 117`, so 117 slots are enough.
 
 The queue can simply allocate space for all cells once.
+
+It never needs to grow or wrap around.
 
 This works because the number of cells is known before BFS starts.
 
@@ -346,11 +326,9 @@ With marking on pop, the number of pushes is no longer bounded by the number of 
 
 The example fills a queue of 117 slots even though only 94 cells are reachable.
 
-That is another practical reason to mark on push.
+The overflow is another practical reason to mark on push.
 
-A circular queue would reuse old slots and avoid the fixed-array overflow, but it would not solve the real problem.
-
-The duplicate pushes would still happen.
+A circular queue would reuse old slots and avoid the fixed-array overflow, but the duplicate pushes would still happen.
 
 Where the maximum number of nodes is not known in advance, a growable structure can be used.
 
@@ -398,7 +376,7 @@ The shortest-path guarantee above depends on every move costing the same amount.
 
 Here every move costs exactly one.
 
-That is why distance levels line up with queue order.
+Because of that, distance levels line up with queue order.
 
 If moving right cost 1 but moving down cost 5, the first time a cell enters the queue would no longer necessarily be its cheapest route.
 
@@ -411,5 +389,3 @@ For example:
 - BFS for edges that all have the same cost
 - 0-1 BFS for edge costs of only 0 and 1
 - Dijkstra's algorithm for non-negative edge weights
-
-The key idea is that ordinary BFS gives shortest paths because the queue processes nodes in increasing number of moves from the start.

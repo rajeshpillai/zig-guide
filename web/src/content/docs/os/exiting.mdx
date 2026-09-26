@@ -23,25 +23,24 @@ try out.writeAll("second line, still sitting in the buffer\n");
 std.process.exit(0);
 ```
 
-`std.process.exit` is `noreturn` in the strongest sense available: it does not
-return to the caller, so nothing between the call and the end of `main` ever
-happens. No `defer` at any depth of the stack. No `errdefer`. No flush.
+`std.process.exit` is `noreturn`: it never returns to the caller, so nothing
+between the call and the end of `main` happens. No `defer` runs at any depth of
+the stack, no `errdefer` runs, and nothing is flushed.
 
-The lost line is the part worth internalising. Those bytes were in a buffer in
-your process's memory, the operating system never heard about them, and the
-process ended. This is the most common way output goes missing from a program
-that "definitely printed it". It is also why the second `defer` above, the one
-that would have flushed, is a trap. It looks like the safety net and it is not
-attached to anything.
+Look at the lost line. Those bytes were in a buffer in your process's memory.
+The operating system never received them, and then the process ended. This is
+a common way for output to go missing from a program that "definitely printed
+it". The second `defer` above, the one that would have flushed, looks like it
+protects the output. It never runs, so it protects nothing.
 
-Returning from `main` normally does run every `defer`, which is why `main`
+Returning from `main` normally does run every `defer`, so `main`
 returning an error and `exit(1)` are not interchangeable. The first unwinds
-and cleans up; the second stops the process where it stands.
+and cleans up. The second stops the process immediately.
 
 ## The status you leave
 
-`exit` takes a `u8`. Zero means success and every other value is yours to
-define, which is the same one-bit protocol the parent sees as `Term` in
+`exit` takes a `u8`. Zero means success, and you decide what every other
+value means. This is the same one-bit protocol the parent sees as `Term` in
 [Spawning a Process](/learn/os/spawning/).
 
 Returning an error from `main` sets a nonzero status for you and prints the
@@ -72,16 +71,17 @@ itself calls it.
 
 That mode dependence is why this page describes the call rather than running
 it. A snippet whose output changed between `-Doptimize=Debug` and the
-`ReleaseSmall` this site ships would be a snippet that passes CI and lies to
-half its readers.
+`ReleaseSmall` this site ships would pass CI and still show the wrong output
+to readers using the other build mode.
 
 ## `abort` is not an exit
 
 `std.process.abort` ends the process abnormally: it raises `SIGABRT`, which
 runs a handler if you installed one, and then makes sure the process dies
-anyway. No status code, no cleanup, and typically a core dump.
+anyway. It sets no status code and runs no cleanup, and it typically leaves a core
+dump.
 
-That is the correct response to a broken invariant, where continuing would do
-damage and there is nothing sensible to report. It is the wrong response to a
-file that was not found. The distinction the reader should carry: `exit` is a
-program finishing, `abort` is a program admitting it should not have got here.
+`abort` is the correct response to a broken invariant, where continuing would
+do damage and there is nothing sensible to report. It is the wrong response to
+a file that was not found. Use `exit` when the program has finished. Use
+`abort` when the program has reached a state that should be impossible.

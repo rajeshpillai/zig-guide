@@ -11,10 +11,11 @@ Every drawing routine in this section so far has assumed it owns the whole
 buffer. The type says so. There is one width, it is a constant, and the pixel
 at the end of a row is followed by the pixel at the start of the next.
 
-A panel inside a window. A cell inside a chart. A widget inside a toolbar. The
-region has its own origin and its own edges, and the buffer underneath it does
-not. You can pass an offset and a clip rectangle to every routine and add them
-in every routine, or you can change what a routine is given.
+Often you want to draw into a region of the buffer instead: a panel inside a
+window, a cell inside a chart, or a widget inside a toolbar. The region has
+its own origin and its own edges, which differ from the buffer's. You can pass
+an offset and a clip rectangle to every routine and apply them in every
+routine. Or you can change what a routine is given.
 
 ## The program
 
@@ -26,50 +27,50 @@ in every routine, or you can change what a routine is given.
 edge. The panel beside it is untouched, and neither `rect` nor the caller
 mentions the panel's position to make that happen.
 
-**Three canvases, one buffer, one stride.** The table at the end is the whole
-idea in four rows. `width` differs for each region. `stride` is 60 for all of
-them, including the one nested two levels deep, because all of them address
-the same memory and that memory has not changed shape.
+**Three canvases share one buffer and one stride.** The table at the end shows
+this in four rows. `width` differs for each region. `stride` is 60 for all of
+them, including the one nested two levels deep. All of them address the same
+memory, and that memory has not changed shape.
 
 **The child does not know where it is.** `Canvas` has no `x` and no `y`. A
-sub-canvas is its pixels, its size, and the distance between its rows, and
-that is genuinely all a drawing routine needs. There is no parent coordinate
-to forget to add, because there is no parent coordinate.
+sub-canvas is its pixels, its size, and the distance between its rows. A
+drawing routine needs nothing else. The canvas stores no parent coordinate,
+so no routine can forget to add one.
 
 **Dumping the right panel copied nothing.** The second picture is the same
 memory as the first, read through different bounds.
 
 ## Stride is what width cannot say
 
-For a canvas over a whole buffer, stride and width are the same number, which
-is why the distinction can stay hidden for an entire section. They come apart
-the moment a canvas is a region. The pixel below one in a region is one full
+For a canvas over a whole buffer, stride and width are the same number. So the
+earlier chapters never needed to tell them apart. They differ as soon as a
+canvas is a region. The pixel below one in a region is one full
 buffer row further on, and the region's own width has nothing to do with how
 far that is.
 
 So the addressing splits in two. `width` and `height` bound what the region
-*is*. `stride` says how its rows are *spaced*. Use the same value for both, and every row after the first lands progressively
-further left. That draws a picture which shears diagonally across the screen.
-It looks like a bug in whatever you were drawing, rather than in the
-addressing.
+*is*. `stride` says how its rows are *spaced*. If you use the width as the
+stride, every row after the first lands a little further left than the one
+before. The picture shears diagonally across the screen. It looks like a bug
+in whatever you were drawing, when the bug is in the addressing.
 
 ## A rectangle is not a slice
 
-This is where Zig asks a question C does not.
+Here Zig raises a question that C does not.
 
 `sub` has to hand back a `[]u32`, and no `[]u32` describes exactly these
 pixels. A rectangle inside a wider buffer is not contiguous. The slice
 returned runs from the region's first pixel to the last pixel of its bottom
-row. So it spans the region, and the gap at the end of each row belongs to the
-parent. That bound buys less than it looks like it buys. Indexing past the end
-of the framebuffer is caught. Writing into the panel next door is not, because
-those pixels are inside the slice.
+row. So it covers the region, and also the gap at the end of each row, which
+belongs to the parent. That bound protects less than it seems to. Indexing
+past the end of the framebuffer is caught. Writing into the panel next door is
+not caught, because those pixels are inside the slice.
 
-What keeps the panels apart is the clip in `set`, comparing against the
-region's own `width` and `height`. Two different guarantees, from two
-different mechanisms, and only one of them is the language's. Reach past `set`
-and index `pixels` directly and you keep the bounds check and lose the
-containment.
+The clip in `set` keeps the panels apart. It compares against the region's
+own `width` and `height`. So there are two different guarantees from two
+different mechanisms, and only the bounds check comes from the language. If
+you skip `set` and index `pixels` directly, you keep the bounds check and lose
+the clip that keeps drawing inside the region.
 
 ## Check yourself
 
@@ -79,12 +80,11 @@ painting them?
 `fill` goes through `set`, and `set` rejects any `x` that is at least `width`.
 Those gap pixels sit at the end of a row, so reaching one means asking for an
 `x` past the region's right edge, which is exactly the case `set` refuses. The
-pixels are reachable through the slice and unreachable through the API, which
-is the arrangement the clip exists to produce.
+pixels can be reached through the slice but not through the API.
 
-Note which line is doing the work. Not the slice bound, and not the type: one
-comparison in `set`, written by hand. That is the part to check when a widget
-paints over its neighbour.
+The protection comes from one comparison in `set`, written by hand. The slice
+bound and the type do not provide it. When a widget paints over its
+neighbour, check that comparison first.
 
 ## If you have written C
 
@@ -92,12 +92,12 @@ This struct is `Olivec_Canvas` from
 [olive.c](https://github.com/tsoding/olive.c), Alexey Kutepov's
 dependency-free 2D graphics library, field for field, and `sub` is
 `olivec_subcanvas`. The C version carries a bare pointer with no length. The
-bounds check discussed above does not exist at all, and the clip is the only
-thing standing between a widget and the rest of the window. A wrong comparison
-there writes into another widget's pixels, silently, and the symptom is a
-smear in a part of the screen whose code is correct.
+bounds check discussed above does not exist at all. Only the clip stops a
+widget from drawing over the rest of the window. A wrong comparison there
+silently writes into another widget's pixels. The symptom is a smear in a part
+of the screen whose code is correct.
 
-The same shape turns up well outside graphics libraries. A GUI toolkit hands a
+The same design appears outside graphics libraries too. A GUI toolkit hands a
 widget a region to paint and a stride it does not own. A compositor hands a
 client a buffer with a stride the client did not choose, usually rounded up
 for alignment. That is the common case where stride is larger than width for a

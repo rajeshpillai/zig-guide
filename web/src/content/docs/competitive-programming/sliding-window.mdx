@@ -10,7 +10,7 @@ order: 30
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Suppose we have ten numbers and want to answer two questions.
+We have ten numbers and two questions about them.
 
 First, what is the largest sum of four consecutive values?
 
@@ -40,9 +40,7 @@ The problem is the amount of repeated work.
 
 There are `n - k + 1` windows, and each window takes `k` additions.
 
-So the time complexity is:
-
-`O(n * k)`
+So the time complexity is `O(n * k)`.
 
 For 200,000 values with a window size of 1,000, this means about 200 million additions.
 
@@ -70,7 +68,7 @@ Add the new value.
 
 Subtract the old value.
 
-For example:
+The first four windows look like this:
 
 ```
   move     enter leave   sum  window
@@ -92,7 +90,9 @@ The program also counts how many additions are performed by both approaches:
   16 additions sliding, 28 re-summing every window
 ```
 
-The difference is small for ten values, but it becomes important for large arrays.
+The difference is small for ten values.
+
+It grows as the array grows.
 
 The sliding version does about `2n - k` additions and subtractions.
 
@@ -101,8 +101,6 @@ The re-summing version does `k(n - k + 1)` additions.
 So the sliding version is O(n), while calculating every window from scratch is O(nk).
 
 The running total uses `i64` even though each individual value is `i32`.
-
-This is important when the array is large.
 
 A large number of `i32` values may produce a sum that does not fit inside an `i32`.
 
@@ -167,25 +165,11 @@ If we removed the value first and checked afterwards, we could miss a valid cand
 
 <SnippetSource name="23-competitive.sliding-window" decl="everyStartAtLeast" />
 
-The code contains a `while` loop inside another loop.
+The `while` loop inside the `for` loop is still O(n), for the reason explained in [The Monotonic Stack](/learn/competitive-programming/monotonic-stack/).
 
-That can look like O(n²), but this sliding-window version is still O(n).
+Each value enters the window once and leaves it at most once.
 
-The important point is that `lo` never moves backwards.
-
-The right edge visits each value once.
-
-The left edge also passes each value at most once.
-
-So each array position can be added once and removed once.
-
-Across the entire function, both pointers together move at most about `2n` times.
-
-Some iterations may shrink the window several times.
-
-Other iterations may not shrink it at all.
-
-That does not change the total number of pointer movements.
+Here `lo` never moves backwards, so the two edges together move at most about `2n` times.
 
 For this example:
 
@@ -206,17 +190,11 @@ That version is quadratic.
 
 The sliding-window version reuses the existing state and never resets `lo`.
 
-This is a useful way to analyse similar algorithms.
-
-A nested loop is not automatically O(n²).
-
-If the inner loop only moves a pointer forward, and that pointer never resets, the total work can still be O(n).
-
 ## When the shrinking rule fails
 
 <SnippetSource name="23-competitive.sliding-window" decl="with_a_negative" />
 
-The variable-size window above depends on an important property.
+The variable-size window above depends on one property.
 
 When we remove a value from the left, the sum must stay the same or become smaller.
 
@@ -270,7 +248,7 @@ For example, with non-negative numbers, adding another value cannot reduce the s
 
 Removing a value cannot increase the sum.
 
-That gives us a safe rule for deciding when to grow and when to shrink.
+These two facts give us a safe rule for deciding when to grow and when to shrink.
 
 Other examples include keeping a limit on the number of distinct characters or the number of forbidden values inside a window.
 

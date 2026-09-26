@@ -10,7 +10,7 @@ order: 50
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Suppose we have an array and, for every value, we want to find the first larger value to its right.
+For every value in an array, we want the first larger value to its right.
 
 Some values find a larger value immediately.
 
@@ -24,9 +24,7 @@ That works, but in the worst case it checks almost every pair of values.
 
 A monotonic stack solves the same problem in one pass.
 
-Instead of asking, "What is the answer for this index?", we ask a different question:
-
-"Which earlier indices can the current value answer?"
+Instead of asking "What is the answer for this index?", we ask which earlier indices the current value can answer.
 
 The stack stores the indices that are still waiting for a larger value.
 
@@ -50,19 +48,11 @@ The problem is the number of comparisons.
 
 The cost depends on the input.
 
-For an increasing array:
-
-`1 2 3 4 5`
-
-each value except the last finds its answer immediately.
+For an increasing array such as `1 2 3 4 5`, each value except the last finds its answer immediately.
 
 So each index needs only one comparison.
 
-For a decreasing array:
-
-`9 8 7 6 5`
-
-no value ever finds a larger value to its right.
+For a decreasing array such as `9 8 7 6 5`, no value ever finds a larger value to its right.
 
 The first index checks four values.
 
@@ -72,9 +62,7 @@ Then two.
 
 Then one.
 
-The total is:
-
-`n(n - 1) / 2`
+The total is `n(n - 1) / 2` comparisons.
 
 So the worst-case time complexity is O(n²).
 
@@ -90,17 +78,11 @@ Instead, the current value may answer some earlier indices.
 
 The stack contains indices whose next greater value has not been found yet.
 
-Suppose the current value is:
-
-`items[i]`
+Let the current value be `items[i]`.
 
 Look at the index on top of the stack.
 
-If:
-
-`items[i] > items[stack_top]`
-
-then the current value is the next greater value for that stored index.
+If `items[i] > items[stack_top]`, the current value is the next greater value for that stored index.
 
 So we pop that index and record the answer.
 
@@ -112,17 +94,13 @@ After that, we push `i`.
 
 The values represented by the stack stay in decreasing order from bottom to top.
 
-For example, if the stack contains values:
-
-`9 7 5 3`
-
-then a new value of 6 can answer 3 and 5.
+For example, if the stack contains the values `9 7 5 3`, a new value of 6 can answer 3 and 5.
 
 It cannot answer 7.
 
 So the popping stops there.
 
-This ordering happens naturally.
+The stack keeps this order without any extra work.
 
 Before pushing a new value, every smaller value at the top has already been removed.
 
@@ -158,11 +136,7 @@ The `resolved` column shows which earlier indices received an answer.
 
 The final column shows the stack after processing the current value.
 
-Each stack entry is written as:
-
-`index:value`
-
-from bottom to top.
+Each stack entry is written as `index:value`, from bottom to top.
 
 ```
    i  val  resolved (index -> answer)   stack after (bottom to top)
@@ -208,13 +182,7 @@ Then it reaches index 5, whose value is 9.
 
 7 is not larger than 9, so the popping stops.
 
-At the end, two indices remain:
-
-`5:9`
-
-and:
-
-`10:7`
+At the end, two indices remain: `5:9` and `10:7`.
 
 Neither has a larger value to its right.
 
@@ -232,11 +200,9 @@ The program compares the stack solution with the direct scanning solution:
 
 The algorithm contains a `while` loop inside a `for` loop.
 
-At first this can look like O(n²).
+At first this can look like O(n²), but it is O(n).
 
-It is not.
-
-The important question is how many times an index can enter and leave the stack.
+To see why, count how many times an index can enter and leave the stack.
 
 Each index is pushed exactly once.
 
@@ -260,7 +226,7 @@ The inner loop may run several times during one outer-loop iteration.
 
 But those pops cannot happen again later.
 
-This is why the total work stays linear.
+So the total work over the whole array stays linear.
 
 The example compares both approaches on different inputs:
 
@@ -295,15 +261,13 @@ If every item can enter the inner loop only a fixed number of times across the w
 
 <SnippetSource name="23-competitive.monotonic-stack" decl="previousSmaller" />
 
-The same idea can solve another common problem:
-
-For each value, find the nearest smaller value to its left.
+The same idea solves another common problem: for each value, find the nearest smaller value to its left.
 
 The structure is almost the same.
 
 The comparison changes, and we read the answer from the index that remains on the stack after larger or equal values have been removed.
 
-For example:
+The program prints:
 
 ```
   idx  val  prev smaller   at
@@ -361,5 +325,3 @@ What changes is:
 - whether the stack is increasing or decreasing
 - whether we pop on greater or smaller values
 - whether the answer comes from the current value or from the stack after popping
-
-The main idea stays the same: keep only the indices that can still be useful later.

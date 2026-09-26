@@ -7,8 +7,8 @@ order: 2
 
 import Playground from "../../../components/Playground.astro";
 
-A `test` block is a language construct, not a framework. No imports, no
-registration, no annotations.
+A `test` block is part of the Zig language. You do not import a test
+framework, register the test or add annotations to it.
 
 <Playground name="01-getting-started.running-tests" />
 
@@ -21,8 +21,8 @@ zig test file.zig --test-filter "name"
 ```
 
 Tests in a file only run if that file is the test root or is reachable from it
-via `@import`. A test in a module nobody imports never runs, which is worth
-knowing when a test you expected to fail stays quiet.
+via `@import`. A test in a module nobody imports never runs. So if a test you
+expected to fail stays quiet, check that its file is imported.
 
 ## The assertion helpers
 
@@ -40,8 +40,8 @@ the values actually were.
 ## Leak detection is on by default
 
 `std.testing.allocator` fails the test if anything it allocated was not freed.
-This is not an optional tool you remember to run. Every test that allocates is
-a leak test:
+You do not have to turn this on or run a separate tool. Every test that
+allocates is a leak test:
 
 ```zig
 const buf = try std.testing.allocator.alloc(u8, 10);
@@ -50,27 +50,26 @@ defer std.testing.allocator.free(buf);   // omit this and the test fails
 
 ## Skipping
 
-`return error.SkipZigTest` marks a test skipped rather than failed. It is the
-way to handle a test that only applies to some targets.
+`return error.SkipZigTest` marks a test as skipped instead of failed. Use it
+for a test that only applies to some targets.
 
 ## Where to put them
 
-Next to the code they test, in the same file. That is the convention in the
-standard library and it is worth following, for two reasons that are easy to
-miss.
+Put tests next to the code they test, in the same file. The standard library
+does this, and you should too, for two reasons.
 
-The test can reach private declarations, because privacy is per file. A helper
+First, the test can reach private declarations, because privacy is per file. A helper
 that is not `pub` has no other way to be tested. Moving tests to a separate
 file pushes you toward making things public that should not be.
 
-And the test is read as the example. Someone opening the file to work out how
-a function is called finds a call, with real arguments and a checked result, a
-few lines below the definition. Documentation in a separate directory does not
-get read that way.
+Second, the test works as an example. Someone opens the file to see how a
+function is called. A few lines below the definition, they find a call with
+real arguments and a checked result. People do not read documentation in a
+separate directory that way.
 
 Tests are not compiled into your program. A `test` block only exists in a
-build produced by `zig test` or a test step. So there is no cost to leaving
-them in place, and no reason to move them at release time.
+build produced by `zig test` or a test step. So leaving them in place costs nothing, and
+you do not need to move them at release time.
 
 ## Naming them
 
@@ -80,24 +79,23 @@ The name is a plain string, so write a sentence:
 test "parseInt rejects a trailing space" { ... }
 ```
 
-That name is what the runner prints on failure and what `--test-filter`
-matches, so a description of the behaviour is more useful than a label.
-Reading a failing test's name and knowing what broke, without opening the
-file, is the whole benefit.
+The runner prints that name on failure, and `--test-filter` matches it. So a
+description of the behaviour is more useful than a label. When a test fails,
+you can read its name and know what broke without opening the file.
 
 ## Reading a failure
 
 A failed assertion prints the values, then a stack trace pointing at the line.
-The trace is the useful part and it is only there because tests are built in
-Debug by default, with safety checks on. That is also why a test can catch an
-out-of-bounds index that a release build would let through.
+The trace is there because tests are built in Debug by default, with safety
+checks on. Those safety checks also let a test catch an out-of-bounds index
+that a release build would let through.
 
 ## These pages are the tests
 
 Every snippet in this guide is compiled and run by CI, and the `test` ones
 report through this same runner. The output you see when you press Run is the
-real `zig test` output, executed in your browser as WebAssembly.
+real `zig test` output. It runs in your browser as WebAssembly.
 
-There is more in [testing](/learn/standard-library/testing/). The assertions
-that report what actually differed. Checking that error paths clean up after
-themselves. And why the testing allocator turns every test into a leak test.
+The [testing](/learn/standard-library/testing/) chapter covers more: the
+assertions that report what differed, and how to check that error paths clean
+up after themselves.

@@ -14,19 +14,18 @@ the `std.Io` reader and writer interfaces.
 
 ## The problem
 
-You want to make an HTTP request from Zig, or handle one, using only the
-standard library. Both halves exist in `std.http`, both were rebuilt on the
-`std.Io` reader/writer interfaces, and most tutorial code for either predates
-the rebuild.
+Both halves were rebuilt on the `std.Io` interfaces. Most example code you
+will find for either half was written before that rebuild.
 
 As with [TCP](/learn/networking/tcp-echo/), the recipe runs server and client
-in one process. CI executes it and diffs the output, so the page cannot
-quietly rot.
+in one process. CI runs it and compares the output, so the page cannot go out
+of date without CI failing.
 
 ## The plan
 
 1. Listen on an ephemeral TCP port, exactly as in the TCP recipe. HTTP is
-   a layer, not a different kind of socket.
+   a layer on top of a TCP socket. It does not need a different kind of
+   socket.
 2. On the server thread, wrap the accepted stream's reader and writer in
    `std.http.Server.init`, then loop: `receiveHead()` gives a request,
    route on `request.head.target`, answer with `respond()`.
@@ -43,15 +42,14 @@ quietly rot.
 ## The layering is literal
 
 `std.http.Server.init(&reader.interface, &writer.interface)` takes the same
-two interfaces every stream in current Zig exposes. The HTTP layer never sees
-the socket; hand it a pipe or a fixed buffer and it works the same, which is
-how the standard library tests itself. If you understand the TCP recipe, the
+two interfaces that every stream in current Zig exposes. The HTTP layer never
+sees the socket. Give it a pipe or a fixed buffer and it works the same way.
+The standard library tests it like that. If you understand the TCP recipe, the
 only new machinery here is head parsing and response formatting, and both
 belong to `std.http`.
 
-The server loop also explains keep-alive concretely: both fetches in the
-snippet arrive over one TCP connection, as two iterations of the `receiveHead`
-loop. The loop exits when the client's connection pool closes the stream.
+The server loop also shows keep-alive in action. Both fetches in the snippet
+arrive over one TCP connection, as two iterations of the `receiveHead` loop. The loop exits when the client's connection pool closes the stream.
 
 ## What fetch does for you
 
@@ -59,14 +57,14 @@ loop. The loop exits when the client's connection pool closes the stream.
 opens one, sends the request, follows redirects (up to three by default for
 GET), decompresses the body if needed, and writes the body into the writer you
 supply. The result carries the status code. For streaming bodies, per-request
-headers, or long-lived requests, drop down to `client.request()`; the shape is
-the same, spelled out.
+headers, or long-lived requests, use `client.request()` instead. It does the
+same steps, but you write each one yourself.
 
 ## Status is data, not an error
 
 The 404 comes back as `FetchResult.status`, not as a Zig error. Errors are for
-the transport failing (refused connection, malformed response); whether a 404
-is a failure is your application's decision. Route on the status enum: `.ok`,
+the transport failing (refused connection, malformed response). Your
+application decides whether a 404 is a failure. Route on the status enum: `.ok`,
 `.not_found`, or the numeric value via `@intFromEnum`.
 
 ## Variations

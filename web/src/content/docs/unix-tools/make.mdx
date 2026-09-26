@@ -7,17 +7,17 @@ order: 7
 
 import Playground from "../../../components/Playground.astro";
 
-`make` has a reputation for being a language with strange rules about tabs. It
-is not. Strip the syntax away and what is left is two ideas, both small, and
-both worth building once so the tool stops being mysterious.
+`make` has a reputation for being a language with strange rules about tabs.
+Take away the syntax and two small ideas are left. We build both here, so the
+tool is easier to understand.
 
 The first: **the targets form a graph.** `app` needs `main.o` and `util.o`,
 each of which needs its `.c` file. Building in the right order means visiting
 a node only after everything it depends on, which is a topological sort.
 
 The second: **a timestamp decides whether work happens.** A target is stale if
-anything it depends on is newer than it is. That single comparison is the
-entire reason `make` is faster than a shell script that rebuilds everything.
+anything it depends on is newer than it is. This one comparison is why `make`
+is faster than a shell script that rebuilds everything.
 
 ## The program
 
@@ -31,26 +31,26 @@ built. `util.c` is 10 against `util.o` at 20, so that one is current.
 
 **The build order put the objects before the binary.** Nothing declared that
 order. It falls out of visiting dependencies first and appending each target
-only on the way back out. That is depth-first post-order, and it is what
-"topological sort" means when you write it rather than name it.
+only on the way back out. This is depth-first post-order, and it is how you
+write a topological sort in code.
 
 **Only `main.o` needed rebuilding.** Its source is newer than it is. `util.o`
-is newer than its source, so it was skipped. That is the whole
-value proposition. On a large project almost everything is up to date, and the
-comparison that establishes it is one integer against another.
+is newer than its source, so it was skipped. This is where `make` saves time.
+On a large project almost everything is up to date, and checking that costs
+one integer comparison per target.
 
-**The `state` array is not bookkeeping, it is the cycle check.** Each target is
+**The `state` array is the cycle check.** Each target is
 marked 1 while its dependencies are being visited and 2 when it is done.
 Meeting a target still on 1 means the graph loops, and the program returns
-`error.CircularDependency` rather than recursing until the stack runs out. Real
+`error.CircularDependency` instead of recursing until the stack runs out. Real
 `make` notices the same thing, prints `Circular b <- a dependency dropped`, and
 carries on with the edge removed.
 
-**What the program does not model** is worth naming: once `main.o` is rebuilt,
-its timestamp becomes *now*, which makes `app` stale in turn. Real `make`
-recomputes as it goes, so staleness propagates up the graph. The program above
-reports a single snapshot, which is the honest thing for it to do given it
-never runs a command.
+**One thing the program does not model:** once `main.o` is rebuilt, its
+timestamp becomes *now*, which makes `app` stale in turn. Real `make`
+recomputes as it goes, so staleness moves up the graph. The program above
+never runs a command, so it reports a single snapshot of which targets are
+stale.
 
 ## Check yourself
 
@@ -58,11 +58,11 @@ never runs a command.
 Given what you have just built, is that rule doing any work?
 
 Almost none, and its author has said as much. The tab distinguishes a recipe
-line from a continuation of the rule, which a smarter parser could infer. It
-survives because changing it would break every Makefile ever written, which is
-the same reason a great many things in Unix are the way they are. The graph
-and the timestamps are the design; the tab is an accident that could not be
-undone.
+line from a continuation of the rule, which a smarter parser could work out
+by itself. The rule stays because changing it would break every Makefile ever
+written. Many things in Unix stay the way they are for the same reason. The
+graph and the timestamps are the design. The tab is an early choice that could
+not be changed later.
 
 ## If you have written C
 
@@ -78,9 +78,9 @@ what the C version does, and it is the correct simplification.
 
 ## Where to go next
 
-That is the toolbox. Seven programs, and between them the techniques that keep
-coming back. A fixed buffer and a streaming loop. A state machine. A search.
-An ownership decision. A delimiter. A conversion. And a graph.
+This is the last of the seven programs. Between them they use a fixed buffer
+with a streaming loop, a state machine, a search, an ownership decision, a
+delimiter, a conversion and a graph.
 
 If you want the same treatment of the language itself,
 [Groundwork](/learn/systems-from-scratch/) starts from what a byte is. If you

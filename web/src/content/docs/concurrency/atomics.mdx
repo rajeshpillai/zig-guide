@@ -14,15 +14,15 @@ Adding one to a number is three steps.
 
 Read it. Add one. Write it back.
 
-On a single thread nobody can tell.
+On a single thread, that makes no difference.
 
-With two threads it is a gap, and an update can fall into it.
+With two threads, another thread can act between those steps, and an update can be lost.
 
-This chapter is about the operations that close the gap, and about the argument every one of them takes that most tutorials skip.
+This chapter covers the operations that prevent that, and the ordering argument that every one of them takes.
 
 The program runs in your browser.
 
-It starts no threads and needs none, because what an atomic operation *is* does not depend on having something to race against.
+It starts no threads and needs none, because what an atomic operation does is the same whether or not another thread is running.
 
 <Playground name="03-standard-library.atomics" />
 
@@ -54,7 +54,7 @@ Nothing above is undefined behaviour and nothing is racing.
 
 It is the same sequence a race would have produced, run in an order we chose so the result is the same every time.
 
-## `fetchAdd` welds the three steps together
+## `fetchAdd` joins the three steps together
 
 `std.atomic.Value(T)` wraps one value and gives it operations that cannot be split.
 
@@ -68,7 +68,7 @@ The difference is that no other core can observe or modify the value between tho
 two increments, atomic: 2
 ```
 
-The wrapper is not doing anything clever.
+The wrapper adds no logic of its own.
 
 On x86 that line is one `lock xadd` instruction, and the guarantee comes from the hardware.
 
@@ -80,9 +80,9 @@ On x86 that line is one `lock xadd` instruction, and the guarantee comes from th
 fetchAdd returned 2, counter is now 12
 ```
 
-The choice is deliberate, and it is the useful one.
+This is deliberate, and it is useful.
 
-It makes the counter a ticket dispenser: two threads calling `fetchAdd(1, ...)` are guaranteed different numbers, and each one knows which number it got.
+It lets the counter hand out tickets: two threads calling `fetchAdd(1, ...)` are guaranteed different numbers, and each one knows which number it got.
 
 If it returned the new value you could not tell "I am the third caller" from "I am the fourth", because two callers could see the same total.
 
@@ -96,11 +96,11 @@ It stores your value and hands back what was there.
 
 There is no `fetchMul`.
 
-There is no `fetchWhateverYourProblemNeeds` either, and there never will be.
+There is no special operation for every problem either.
 
-What exists instead is compare-and-swap.
+Instead, there is compare-and-swap.
 
-Every other operation on this page is built out of it.
+Every other operation on this page can be built from it.
 
 You say what you think the value is, and what you want it to become.
 
@@ -108,7 +108,7 @@ The swap happens only if you were right.
 
 <SnippetSource name="03-standard-library.atomics" decl="multiplyBy" />
 
-Read the loop condition carefully, because the shape is backwards from what it looks like.
+Read the loop condition carefully, because it works the opposite way from how it looks.
 
 `cmpxchgWeak` returns an optional.
 
@@ -126,9 +126,11 @@ The counter was 36, we guessed 0, and the swap did not happen.
 
 The 36 we got back is the counter telling us what it actually holds.
 
-`cmpxchgWeak` is allowed to fail spuriously even when your guess was right, which sounds unhelpful and is not.
+`cmpxchgWeak` is allowed to fail spuriously, even when your guess was right.
 
-On ARM and RISC-V it compiles to a load-linked/store-conditional pair that a context switch can interrupt, so permitting the odd false failure produces a tighter loop.
+This helps on ARM and RISC-V.
+
+There it compiles to a load-linked/store-conditional pair that a context switch can interrupt, so allowing an occasional false failure produces a tighter loop.
 
 Inside a retry loop a spurious failure costs one more turn.
 
@@ -150,9 +152,9 @@ It constrains what the compiler and the CPU may do with **the other memory aroun
 
 Both are allowed to reorder your instructions.
 
-Usually that is invisible and free.
+Usually you cannot see the difference, and it costs nothing.
 
-Once another thread is watching, the order it sees becomes part of your program's meaning.
+Once another thread is watching, the order that thread sees affects what your program does.
 
 `.monotonic` is the weakest ordering a read-modify-write accepts.
 
@@ -160,17 +162,17 @@ It promises the operation itself is indivisible and promises nothing about neigh
 
 That is exactly right for a statistics counter, where you want the total at the end and nothing else depends on when each increment landed.
 
-Reach past it when the atomic is a **signal about other data**.
+Use a stronger ordering when the atomic is a **signal about other data**.
 
 `.seq_cst` is the strongest, and it is the one to use when you are unsure.
 
-It is slower and it is never wrong.
+It is slower, but it is never wrong.
 
 There is no `@fence` builtin to pair with these.
 
-Ordering rides on the operations themselves.
+The ordering is an argument of each operation.
 
-The compiler rejects the combinations that make no sense, so this is not something you have to hold in your head:
+The compiler rejects the combinations that make no sense, so you do not have to remember them:
 
 ```
 c.fetchAdd(1, .unordered)   error: @atomicRmw atomic ordering must not be unordered
@@ -191,7 +193,7 @@ error: failure atomic ordering must be no stricter than success
 
 ## Acquire and release are a pair
 
-The pattern worth learning by name is publishing.
+The most common pattern is called publishing.
 
 One thread fills in some data and then sets a flag.
 
@@ -214,21 +216,19 @@ Without the pairing, a reader could see `ready` as true and `payload` as zero.
 
 The two writes are to different addresses, and nothing otherwise stops the store to `payload` from becoming visible second.
 
-The bug that produces is the worst kind.
+That bug is very hard to find.
 
 The window is a few nanoseconds wide, it depends on the CPU, and it does not reproduce under a debugger.
 
-On this page both calls run on one thread, so the output only shows the shape.
+On this page both calls run on one thread, so the output only shows the pattern.
 
-The guarantee is real on the targets that need it, and the shape is what you want in your fingers.
+On targets with real threads, the guarantee holds, and the pattern is the one to learn.
 
 `.acq_rel` is for an operation that does both at once, which means a read-modify-write and not a plain load or store.
 
 ## A lock is a compare-and-swap
 
-Atomics can look like an exotic layer under the ordinary tools.
-
-They are the layer the ordinary tools are made of.
+Ordinary tools such as locks are built from atomics.
 
 <SnippetSource name="03-standard-library.atomics" decl="SpinLock" />
 
@@ -254,11 +254,11 @@ What it does not do is wait.
 
 A caller that loses either spins or gives up.
 
-A real mutex has to park the thread and have something wake it, and that part belongs to the operating system.
+A real mutex has to put the thread to sleep and have something wake it, and the operating system does that part.
 
-[`Io.Mutex`](/learn/concurrency/locks/) takes an `Io` for exactly that reason.
+[`Io.Mutex`](/learn/concurrency/locks/) takes an `Io` for that reason.
 
-This does not.
+`SpinLock` does not.
 
 ## When a mutex is the better answer
 
@@ -266,15 +266,17 @@ Atomics are for one machine word.
 
 Two related fields cannot be updated atomically together.
 
-If your invariant spans a counter and a pointer, no combination of atomic operations protects it, and reaching for a lock is the answer rather than a compromise.
+If your invariant covers a counter and a pointer, no combination of atomic operations protects it.
+
+A lock is the right tool there.
 
 Lock-free is also not the same as fast.
 
-A contended `fetchAdd` bounces a cache line between cores on every call, and eight threads hammering one counter can be slower than eight threads taking a mutex.
+A contended `fetchAdd` moves a cache line between cores on every call.
+
+Eight threads all updating one counter can be slower than eight threads taking a mutex.
 
 `std.atomic.cache_line` exists so you can pad separate counters onto separate lines when profiling says they are fighting.
-
-The honest rule is narrow.
 
 Use an atomic for a counter, a flag, or a single pointer swapped as a unit.
 
@@ -290,7 +292,9 @@ Two things here differ from what an older tutorial will show you.
 
 `@fence` is gone.
 
-Code that called it was almost always writing an ordering it could have put on the operation, and that is now the only way to say it.
+Code that called it could almost always have put the ordering on the operation instead.
+
+That is now the only way to write an ordering.
 
 The builtins are still there under the wrapper.
 

@@ -8,14 +8,14 @@ order: 5
 import Playground from "../../../components/Playground.astro";
 
 `cut -d: -f2` pulls the second field out of each line. It is the smallest tool
-here and the one whose correctness lives entirely in its edge cases, which
-makes it a good place to be precise about what "splitting" means.
+here, and whether it is correct depends entirely on its edge cases. So we need
+to say exactly what "splitting" means.
 
-Split `a:b:c` on `:` and you get three fields. The rule that makes every other
-case fall out is: **n delimiters produce n+1 fields, always.** No exceptions,
-no collapsing, no skipping. Adopt that and the awkward inputs answer
-themselves. Adopt anything else and you spend the rest of the tool's life
-patching it.
+Split `a:b:c` on `:` and you get three fields. One rule covers every other
+case: **n delimiters produce n+1 fields, always.** Runs of delimiters are not
+merged, and empty fields are not skipped. With that rule, the awkward inputs
+have clear answers. With any other rule, you keep adding special cases to fix
+them.
 
 ## The program
 
@@ -24,40 +24,39 @@ patching it.
 ## What just happened
 
 **`carol::berlin` has three fields, and the middle one is empty.** Two
-delimiters, three fields, exactly as the rule says. This is the case that
-separates a correct splitter from a plausible one. It is tempting to treat a
-run of delimiters as one, because that is what splitting on whitespace feels
-like it should do. For a delimited data format it is wrong, and it is wrong in
-the worst way, because it silently shifts every field after it. Field 3 of a
-CSV row becomes field 2 and the data is corrupted rather than rejected.
+delimiters, three fields, exactly as the rule says. Many splitters that look
+correct get this case wrong. It is tempting to treat a run of delimiters as
+one, because that is how splitting on whitespace usually works. For a
+delimited data format it is wrong, and the error is silent. Every field after
+it shifts by one. Field 3 of a CSV row becomes field 2, and the data is
+corrupted without any error being reported.
 
 **An empty field and a missing field printed differently.** `carol::berlin`
-field 2 is `""`; `dave` field 2 is `(no such field)`. That distinction is the
-reason the function returns `?[]const u8` rather than `[]const u8`. An empty
-string is a value that was there and was empty. Null is the absence of a
-field. Collapse them and a caller cannot tell "this record has no email" from
-"this record's email is blank". That difference matters as soon as anyone acts
-on it.
+field 2 is `""`. `dave` field 2 is `(no such field)`. This is why the function
+returns `?[]const u8` instead of `[]const u8`. An empty string is a field that
+was there and was empty. Null means there is no field. If you merge the two, a
+caller cannot tell "this record has no email" from "this record's email is
+blank". A program that acts on the record needs to know which one it has.
 
-Each field is a slice of the line it came from. That is the same trick as the
-last chapter, and the reason `cut` runs at the speed of the disk.
+Each field is a slice of the line it came from, as in the last chapter. No
+bytes are copied, which is why `cut` runs at the speed of the disk.
 
 ## Check yourself
 
 The real `cut` treats a line with no delimiter at all specially: `cut -d: -f2`
-prints the whole line rather than nothing. Does the rule above explain that,
+prints the whole line instead of nothing. Does the rule above explain that,
 or is it an exception?
 
 It is an exception. By the rule, zero delimiters means one field, so field 1
 is everything and field 2 does not exist. The program above answers the rule:
-`dave` gives `"dave"` for field 1 and no field 2. POSIX makes `cut` pass an
-undelimited line through intact whatever field you asked for, on the grounds
-that dropping a line you did not parse is worse than passing it on. `-s` is
-the flag that turns the exception off.
+`dave` gives `"dave"` for field 1 and no field 2. POSIX makes `cut` print a
+line with no delimiter unchanged, whatever field you asked for. The reason
+given is that dropping a line you did not parse is worse than passing it on.
+The `-s` flag turns the exception off.
 
 ## If you have written C
 
-C has `strtok`, and it is worth knowing why not to reach for it:
+C has `strtok`. Here is why you should not use it for this:
 
 ```c
 char *field = strtok(line, ":");
@@ -67,15 +66,15 @@ while (field) field = strtok(NULL, ":");
 Three problems. It **modifies the input**, writing `\0` over each delimiter,
 so the line you were handed is destroyed and you cannot use the original
 afterwards. It **collapses runs of delimiters**, so `carol::berlin` gives two
-fields, not three, which is the exact bug described above baked into the
+fields instead of three. That is the bug described above, built into the
 standard library. And it keeps its position in a **static variable**, so it is
-not reentrant and two loops using it at once corrupt each other.
+not reentrant, and two loops using it at once corrupt each other.
 
-`strtok_r` fixes only the third. The collapsing behaviour is by design,
-because `strtok` was written for whitespace, and using it on a data format is
-one of those habits that gets passed down.
+`strtok_r` fixes only the third problem. The collapsing is by design, because
+`strtok` was written for whitespace. Programmers still use it on data formats
+out of habit.
 
-Zig's `splitScalar` returns slices of the original, changes nothing, and
-collapses nothing. Same job, and none of the three problems.
+Zig's `splitScalar` returns slices of the original. It does not modify the
+input, does not merge delimiters, and keeps no static state.
 
 Next: [printf](/learn/unix-tools/printf/), where a number has to become text.

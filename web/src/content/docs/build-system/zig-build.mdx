@@ -52,23 +52,23 @@ zig build -Dtarget=wasm32-wasi -Doptimize=ReleaseSmall
 
 ## Why a program and not a config file
 
-The usual objection is that a build script should be declarative. The usual
-answer is that every declarative build system grows an escape hatch, and the
-escape hatch is where the difficulty ends up. Make has shell, CMake has its
-own language, npm has scripts. Zig skips the intermediate step.
+People often say a build script should be declarative. But every declarative
+build system ends up adding a way to run ordinary code, and the hard parts of
+the build end up there. For example, Make runs shell commands, and CMake has
+its own language. Zig lets you write the build in Zig from the start.
 
-What you get for it is that everything you already know applies. A loop is a
-loop, a function is a function, a `switch` on the target is a `switch`. This
+So everything you already know about Zig applies in `build.zig`. You can use
+loops, functions, and a `switch` on the target. This
 site's own build walks a directory, classifies each file by reading its first
 lines, and creates a compile step and a run step per snippet. That is thirty
 lines of ordinary Zig, and in a declarative system it would be a plugin.
 
 The cost is that a build script can do anything, including things that are
-slow or that break caching, which is what the next section is about.
+slow or that break caching. The next section covers caching.
 
 ## Configure time vs run time
 
-This is the distinction that causes the most confusion. `build()` runs
+People often confuse these two. `build()` runs
 **once** to construct the graph; the steps run afterwards. Anything `build()`
 observes directly (reading a directory, checking whether a file exists) is
 invisible to the caching layer.
@@ -81,38 +81,38 @@ b.graph.poisonCache();
 
 Without it, the configuration is cached and your `build()` will not re-run
 when the thing it observed changes. This guide's own `build.zig` discovers
-snippets by walking a directory, and needs exactly this call: adding a snippet
-was silently ignored until it was added.
+snippets by walking a directory, and it needs this call. Before the call was
+added, a new snippet was silently ignored.
 
-The general rule that avoids the problem: express inputs as files the graph
-knows about rather than as things `build()` looks at. `b.path("src/main.zig")`
+To avoid the problem, give inputs to the graph as files it knows about, instead
+of having `build()` look at them. `b.path("src/main.zig")`
 is tracked, and a step depending on it re-runs when it changes.
 `std.fs.cwd().openFile(...)` inside `build()` is not tracked, and nothing will
 notice.
 
 ## Steps are a graph, not a list
 
-`dependOn` is the only sequencing mechanism, and everything else follows.
+`dependOn` is the only way to order steps, and the rest follows from that.
 Independent steps run in parallel across cores automatically, because nothing
 declared an order between them. A step runs at most once per build no matter
 how many things depend on it. And `zig build test` runs exactly the subgraph
 that step needs, not the whole file.
 
-That is why the answer to "how do I make this run before that" is always an
-edge, never a position in the file. The order declarations appear in `build()`
-has no meaning at all.
+So to make one step run before another, add a `dependOn` between them. Moving
+lines in the file does nothing: the order of declarations in `build()` has no
+meaning at all.
 
 ## Dependencies
 
-`build.zig.zon` declares them; `b.dependency("name", .{})` retrieves one in
+`build.zig.zon` declares them, and `b.dependency("name", .{})` retrieves one in
 `build.zig`. Fetching is content-addressed and hash-verified.
 
-`zig fetch --save <url>` adds an entry and records the hash, which is the
-command to use rather than editing the file by hand. Because the hash covers
+`zig fetch --save <url>` adds an entry and records the hash. Use this command
+instead of editing the file by hand. Because the hash covers
 the contents, a dependency that changes underneath you fails the build instead
 of being fetched, and packages land in a global cache shared between projects.
 
 A dependency's own `build.zig` runs as part of yours, so it can expose modules
 (`dep.module("name")`) and artifacts (`dep.artifact("name")`) that you wire
 into your own targets. There is no separate package manifest format and no
-install step: fetching, building and linking are all the one graph.
+install step. Fetching, building and linking are all part of the same graph.

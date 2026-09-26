@@ -8,8 +8,8 @@ order: 20
 import Playground from "../../../components/Playground.astro";
 
 A task you started is a task you may need to stop: the client hung up, the
-timeout fired, the user pressed Ctrl-C. Cancellation in Zig is a request, not
-a kill. You ask, and the task finds out at its next *cancellation point*.
+timeout fired, the user pressed Ctrl-C. Cancellation in Zig is a request. It does
+not kill the task. You ask, and the task finds out at its next *cancellation point*.
 
 <Playground
   name="03-standard-library.cancellation"
@@ -26,8 +26,8 @@ if (sleeping.cancel(io)) |_| { ... } else |err| { ... }
 
 `Future.cancel` blocks until the task is done, exactly like `await`, and hands
 back what the task returned. The difference is that it first asks the task to
-stop. So a cancelled task still gets to run its `defer`s and release what it
-holds; there is no point at which its stack is yanked out from under it.
+stop. So a cancelled task still runs its `defer`s and releases what it
+holds. Its stack is never removed while it is still using it.
 
 Cancelling a task that already finished is not an error. There was no
 cancellation point left to reach, so `cancel` just returns the result. Both
@@ -37,7 +37,7 @@ cancellation point left to reach, so `cancel` just returns the result. Both
 
 The request is delivered at the next function the task calls on its `Io` that
 can return `error.Canceled`: a sleep, a read, a lock, an accept. That is the
-whole rule, and it has a consequence:
+rule, and it has a consequence:
 
 ```zig
 fn count(io: std.Io, counter: *u64) std.Io.Cancelable!void {
@@ -51,22 +51,22 @@ fn count(io: std.Io, counter: *u64) std.Io.Cancelable!void {
 Pure computation calls nothing on `Io`, so it has no cancellation point and
 cannot be cancelled. Delete the `checkCancel` above and the loop spins forever
 with the request sitting undelivered. `io.checkCancel` exists to put a point
-into code that would otherwise have none. Long compute loops need one; how
-often depends on how quickly you need it to stop.
+into code that would otherwise have none. Long compute loops need one. How
+often to call it depends on how quickly you need the loop to stop.
 
 ## `error.Canceled` is not a failure to swallow
 
 Only the *next* cancellation point reports it. After that the request is
-spent, and later points return normally, so a task that catches
-`error.Canceled` and carries on will not be told again. That makes ignoring it
-a bug in almost every case: propagate it, and let the caller who asked for the
+used up, and later points return normally. So a task that catches
+`error.Canceled` and carries on will not be told again. Ignoring it is
+a bug in almost every case. Propagate it, and let the caller who asked for the
 cancellation see that it happened.
 
 `io.recancel` re-arms a request you have already handled, so the next point
 reports it again. `io.swapCancelProtection(.blocked)` stops delivery entirely
-across a region that must not be interrupted, such as a rollback or a flush;
-it returns the previous state, so you put it back in a `defer`. Both are for
-the cleanup path, not for staying alive.
+across a region that must not be interrupted, such as a rollback or a flush.
+It returns the previous state, so you restore it in a `defer`. Both are for
+the cleanup path. Do not use them to keep a cancelled task running.
 
 ## A `Group` cancels as a whole
 
@@ -77,8 +77,8 @@ group.cancel(io);
 ```
 
 Every member gets the request, and `cancel` returns once all of them have
-stopped. This is what makes [structured
-concurrency](/learn/concurrency/async-future-group/) worth the extra parameter.
+stopped. This is the main benefit of [structured
+concurrency](/learn/concurrency/async-future-group/), and it is why the extra parameter is worth passing.
 A server holding one `Group` of connection handlers shuts down by cancelling
 the group. There is no list of threads to track, and no handler left running
 after the scope that started it is gone.
@@ -92,31 +92,31 @@ way the snippet writes each task's outcome into a slot.
 
 ## Use `concurrent` for a task you intend to cancel
 
-That loop says `group.concurrent`, not `group.async`, and the difference is not
-style. `async` is allowed to run the task on the calling thread. The threaded
+That loop uses `group.concurrent`, not `group.async`, and the difference
+changes what the program does. `async` is allowed to run the task on the calling thread. The threaded
 `Io` does exactly that once it runs out of spare capacity. Its `async_limit`
 defaults to one less than the number of logical cores, and past that limit
 `async` runs the task immediately instead of scheduling it.
 
-For a task that finishes on its own that is fine. It is why
+For a task that finishes on its own, that is fine. It is why
 [`concurrency`](/learn/concurrency/async-future-group/) starts eight `accumulate`
 tasks with `group.async`: each one adds a number and returns, so running inline
 costs nothing but parallelism.
 
-For a task that only ends when cancelled it is a deadlock. `trackedNap` sleeps
+For a task that only ends when cancelled, it is a deadlock. `trackedNap` sleeps
 for an hour. Run inline, it sleeps for an hour on the thread that was about to
 call `group.cancel`, and that call is never reached.
 
-This is not a race. It happens every time the group is at least as large as the
+This is not a race. The deadlock happens every time the group is at least as large as the
 core count, and never below it. Three sleepers hang on a machine with one, two
-or three cores and pass on four. That is the worst shape a bug can have: it
-passes on the machine you wrote it on, and hangs on the smaller one you deploy
-to. This snippet had it, and it took a CI runner with four cores and something
+or three cores and pass on four. This kind of bug is very hard to catch: the
+program passes on the machine you wrote it on, and hangs on the smaller one
+you deploy to. This snippet had it, and it took a CI runner with four cores and something
 else running to find it.
 
-`concurrent` makes the promise `async` withholds. The task runs somewhere else,
-or the call fails with `error.ConcurrencyUnavailable` and you are told. That is
-also why `nap` and `count` further up are started with `io.concurrent`.
+`concurrent` makes a promise that `async` does not. The task runs somewhere
+else, or the call fails with `error.ConcurrencyUnavailable`. For the same
+reason, `nap` and `count` further up are started with `io.concurrent`.
 
 ## Cancellation is why `lock` can fail
 
@@ -124,6 +124,6 @@ also why `nap` and `count` further up are started with `io.concurrent`.
 [`Io.RwLock.lock`](/learn/concurrency/locks/) all return
 `Cancelable!void` where older code had a plain `void`. `Cancelable` is a
 one-member error set, and that member is `error.Canceled`. So a signature
-whose only error is that one is telling you it is a cancellation point and
-nothing more. Where a call genuinely must not be one, the standard library
-spells it out: `lockUncancelable`, `futexWaitUncancelable`.
+whose only error is that one tells you the call is a cancellation point and
+nothing more. Where a call must not be a cancellation point, the standard
+library says so in the name: `lockUncancelable`, `futexWaitUncancelable`.

@@ -12,9 +12,9 @@ reads a buffer that already has a picture in it and writes back a changed one.
 
 The simplest kind reads exactly one pixel to produce one pixel. Brightness,
 contrast, invert, threshold, gamma and every colour curve are point
-operations, and they share a property worth exploiting. On 8-bit channels
-there are only 256 possible inputs, so there are only 256 possible answers.
-Compute them once into an array and the filter becomes an array index.
+operations, and they share a useful property. On 8-bit channels there are
+only 256 possible inputs, so there are only 256 possible answers. Compute them
+once into an array, and the filter becomes an array index.
 
 ```zig
 const Lut = [256]u8;
@@ -27,12 +27,12 @@ fn apply(buf: []u32, lut: Lut) void {
 }
 ```
 
-That loop is the entire family. The difference between brightness and
-threshold is 256 bytes of data, not code.
+That loop runs every filter of this kind. Brightness and threshold use the
+same code and differ only in 256 bytes of data.
 
 <Playground name="09-graphics.per-pixel" />
 
-## The add is the interesting part
+## Brightness needs a saturating add
 
 Brightness adds a constant. On a `u8` at 250, adding 10 has three possible
 meanings and Zig makes you pick:
@@ -44,13 +44,13 @@ value +| 10   // saturates: 250 + 10 = 255
 ```
 
 Only the third is right here. The second is the bug that puts black speckles
-in a brightened sky, and it is the default in C, where unsigned overflow is
-defined to wrap and nothing warns. The first is the one most people want as a
-default and no language gives them, because there is no sensible value to
-return.
+in a brightened sky. It is the default in C, where unsigned overflow is
+defined to wrap and nothing warns. The first is what most people want as a
+default, but no language gives it to them, because there is no sensible value
+to return.
 
-`+|` and `-|` are language operators, not library calls, and they compile to a
-single instruction on every target that has one. [Integer
+`+|` and `-|` are language operators, and they compile to a single
+instruction on every target that has one. [Integer
 Rules](/learn/language-basics/integer-rules/) covers the full set.
 
 Contrast cannot use them. It pivots around mid-grey:
@@ -62,8 +62,9 @@ lut[i] = @intCast(std.math.clamp(scaled, 0, 255));
 ```
 
 The intermediate goes negative for dark pixels, and a saturating `u8`
-operation cannot help with a value that was never a `u8`. Widen, clamp,
-narrow. That order is not optional.
+operation cannot help with a value that was never a `u8`. So the code widens
+to `i32` first, clamps to 0..255, and only then narrows back to `u8`. Any
+other order gives wrong results.
 
 ## Grayscale is the exception
 
@@ -99,8 +100,7 @@ fn compose(second: Lut, first: Lut) Lut {
 Brightness then contrast then threshold is one table build and one pass over
 the image, however long the chain gets. The snippet checks this: the composed
 table matches running both passes at all 256 inputs, exactly, with no rounding
-to argue about. Every step maps bytes to bytes, so there is nowhere for an
-error to hide.
+difference. Every step maps bytes to bytes, so composing adds no error.
 
 That exactness is specific to point operations on 8-bit channels. The [colour
 matrices](/learn/graphics/color-matrix/) in a later chapter also compose, and
@@ -114,6 +114,6 @@ comes back. Contrast spends the available range on the middle of the histogram
 and takes it from the ends. Pixels that clip at 0 or 255 are identical
 afterwards, no matter how different they were before.
 
-This is why editing pipelines that care keep more than 8 bits per channel
-until the last step. At 8 bits every filter in the chain rounds, and the
+So editing pipelines that care about quality keep more than 8 bits per
+channel until the last step. At 8 bits every filter in the chain rounds, and the
 rounding is not recoverable.

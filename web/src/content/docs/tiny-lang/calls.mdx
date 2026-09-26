@@ -7,40 +7,40 @@ order: 7
 
 import Playground from "../../../components/Playground.astro";
 
-The compiler and the VM stopped short of functions, and the reason was not
-that calls are hard to implement. It is that implementing them means answering
-four questions that have no obvious answers, and the set of answers is called
-a
-**calling convention**.
+The compiler and the VM stopped before functions. Calls are not hard to
+implement. But implementing them means answering four questions that have no
+obvious answers. The set of answers is called a **calling convention**.
 
 1. Where do the arguments go?
 2. How does the callee find its own variables?
 3. Where does the machine go when the function returns?
 4. Who removes the arguments afterwards?
 
-Every one has alternatives, real machines disagree about them, and a mismatch
-between two pieces of code that disagree is why you cannot link a library
-built with different conventions.
+Each question has more than one answer, and real machines choose differently.
+Code built with one convention cannot call code built with another. That is
+why you cannot link a library built with different conventions.
 
 ## The answers this one gives
 
 **Arguments go on the stack, pushed by the caller, in order.** That is the
 oldest answer and the simplest. Real machines put the first few in registers
-because that is faster, which is what "the System V AMD64 ABI passes the first
-six integer arguments in `rdi, rsi, rdx, rcx, r8, r9`" means.
+because that is faster. For example, "the System V AMD64 ABI passes the first
+six integer arguments in `rdi, rsi, rdx, rcx, r8, r9`".
 
 **A local is a slot counted from the frame base.** When a call begins, the base
-points at the first argument the caller pushed. So parameter 0 is at base + 0,
-and the callee never has to be told where its arguments are: they are simply
-underneath it. Nothing is copied.
+points at the first argument the caller pushed. So parameter 0 is at base + 0.
+The callee never has to be told where its arguments are, because they are
+already on the stack at its base. Nothing is copied.
 
 **The return address is saved by the call.** The instruction pointer already
-points past the `call` when the frame is pushed, so remembering it is free.
+points past the `call` when the frame is pushed, so saving it costs no extra
+work.
 
 **The callee cleans up.** On `ret` it resets the stack to the frame base, which
-discards the arguments, and then pushes the result. The alternative is the
-caller cleaning up, which is what C does. The reason C does it is variadic
-functions: `printf` cannot clean up arguments it was never told the number of.
+discards the arguments, and then pushes the result. The other choice is for
+the caller to clean up, which is what C does. C does it because of variadic
+functions: `printf` cannot clean up arguments when it was never told how many
+there are.
 
 ## The program
 
@@ -51,22 +51,22 @@ functions: `printf` cannot clean up arguments it was never told the number of.
 **`square`'s body is four instructions.** `load_local 0` twice, `mul`, `ret`.
 The `push 0` after them in the listing is the epilogue every function gets,
 for the case where control reaches the end without a `return`.
-Look at what is absent: no name, no lookup, no argument copying. The parameter
-`n` became slot 0 at compile time, and reading it at run time is one array
-index off the frame base.
+The body has no name lookup and copies no arguments. The parameter `n` became
+slot 0 at compile time. Reading it at run time is one array index from the
+frame base.
 
 **`fact(5)` recursed through compiled bytecode and gave 120.** Each call pushed
 a frame; each `ret` popped one. The recursion works because the frame base is
-per-call. Five frames existed at once at different stack offsets, which is the
-same fact the frames chapter established at the tree-walking level.
+per-call. Five frames existed at once, at different stack offsets. The frames
+chapter showed the same thing in the tree-walking interpreter.
 
 **A jump goes around each function body.** Bodies are emitted inline, in the
 middle of the program, so running straight through would fall into `square`
 without anybody calling it. The jump is patched once the body's length is
-known, which is the same backpatching the compiler chapter used for `if`.
+known. This is the same backpatching the compiler chapter used for `if`.
 
-**The function is registered before its body is compiled.** That single
-ordering is what makes recursion possible: when the compiler reaches `fact(n -
+**The function is registered before its body is compiled.** This order makes
+recursion possible: when the compiler reaches `fact(n -
 1)` inside `fact`, it needs to already know that `fact` exists.
 
 ## Check yourself
@@ -82,11 +82,10 @@ resolver that walks the body first, collects every declaration, and assigns each
 above the parameters. The frame is then sized to hold both, and the base
 pointer addresses all of it uniformly.
 
-That work is the difference between "a function can take arguments" and "a
-function has a scope", and it is the next thing to build if you carry this
-further. It is also why the tree-walking interpreter and this compiler still
-differ in what they accept, which is the honest state of a language with two
-back ends.
+With that resolver, a function has its own scope, not just arguments. It is
+the next thing to build if you take this further. Without it, the tree-walking
+interpreter and this compiler still accept different programs. A language with
+two back ends often has gaps like this.
 
 ## If you have written C
 
@@ -102,16 +101,16 @@ leave             ; undo it
 ret               ; jump back
 ```
 
-`rbp` is the frame base, and a local at `[rbp-8]` is the slot arithmetic above
-with a real register doing the work. The reason a debugger can print a stack
-trace is that each frame stores the previous frame pointer. Walking the chain
-recovers the call history, which is exactly the array here made into a linked
-list in memory.
+`rbp` is the frame base. A local at `[rbp-8]` is the slot arithmetic above,
+with a real register doing the work. A debugger can print a stack trace
+because each frame stores the previous frame pointer. Walking that chain
+recovers the call history. It is the frame array from this chapter, stored as
+a linked list in memory.
 
-The convention is also why a stack overflow in C is a segfault rather than an
-error: nothing checks the depth, because checking would cost an instruction on
-every call. This VM checks, which it can afford because it is already paying
-for a switch dispatch.
+The convention is also why a stack overflow in C is a segfault, not an error.
+Nothing checks the depth, because checking would cost an instruction on every
+call. This VM checks. It can afford to, because it already pays for a switch
+dispatch.
 
 Next: [the virtual machine chapter](/learn/tiny-lang/vm/) if you skipped it,
 since this one is that dispatch loop with `load_local`, `call` and `ret`

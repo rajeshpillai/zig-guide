@@ -14,7 +14,7 @@ Binary search is a small loop, but a few details must be correct.
 
 One common mistake gives the wrong index. Another mistake can make the loop run forever.
 
-Both versions can compile correctly, so it is important to understand what each variable means.
+Both versions compile, so we need to know exactly what each variable means.
 
 The program below prints every step of the search. It shows `lo`, `hi`, `mid`, the value at `mid`, and the part of the array that is still being searched.
 
@@ -26,37 +26,25 @@ The program below prints every step of the search. It shows `lo`, `hi`, `mid`, t
 
 `lo` and `hi` describe the part of the array that is still being searched.
 
-The range is half-open:
-
-`items[lo..hi]`
+The range is half-open, `items[lo..hi]`.
 
 This means `lo` is included, but `hi` is not.
 
-At every step, we maintain one important rule:
+At every step, we keep one rule: every index that could still be the answer must remain inside the search window.
 
-Every index that could still be the answer must remain inside the search window.
-
-If:
-
-`items[mid] < key`
-
-then `mid` cannot be the answer.
+If `items[mid] < key`, then `mid` cannot be the answer.
 
 Everything before `mid` is also too small because the array is sorted.
 
-So we move:
-
-`lo = mid + 1`
+So we set `lo = mid + 1`.
 
 This removes `mid` and everything before it.
 
 Otherwise, `items[mid]` is greater than or equal to the key.
 
-`mid` may still be the answer, so we keep it inside the search window:
+`mid` may still be the answer, so we keep it inside the search window with `hi = mid`.
 
-`hi = mid`
-
-This difference between `mid + 1` and `mid` is important.
+So one branch moves past `mid`, and the other keeps `mid` in the window.
 
 When `lo == hi`, the search window is empty and the search is complete.
 
@@ -78,13 +66,9 @@ The dots show indices that have already been removed from consideration.
 
 Each step removes roughly half of the remaining search range.
 
-The midpoint is calculated as:
+The midpoint is calculated as `lo + (hi - lo) / 2`.
 
-`lo + (hi - lo) / 2`
-
-You may also see:
-
-`(lo + hi) / 2`
+You may also see `(lo + hi) / 2`.
 
 The second version is shorter, but `lo + hi` can overflow if the two values are large enough.
 
@@ -96,13 +80,7 @@ This matters more on smaller integer sizes and very large arrays. Using `lo + (h
 
 <SnippetSource name="23-competitive.binary-search" decl="stalledLowerBound" />
 
-A common mistake is writing:
-
-`lo = mid`
-
-instead of:
-
-`lo = mid + 1`
+A common mistake is writing `lo = mid` instead of `lo = mid + 1`.
 
 At first, this may look reasonable.
 
@@ -114,15 +92,9 @@ So it must be removed from the search window.
 
 If we keep `mid`, the loop can stop making progress.
 
-When `hi - lo` becomes 1, integer division gives:
+When `hi - lo` becomes 1, integer division gives `mid == lo`.
 
-`mid == lo`
-
-Now assigning:
-
-`lo = mid`
-
-does not change anything.
+Now `lo = mid` does not change anything.
 
 The next iteration sees exactly the same values again.
 
@@ -142,9 +114,7 @@ Without that limit, the loop would continue indefinitely.
 
 In a competitive programming judge, this normally appears as a time-limit error.
 
-A simple rule helps catch this bug:
-
-The search window must become smaller after every iteration.
+A simple rule helps catch this bug: the search window must become smaller after every iteration.
 
 In this implementation, both branches reduce the window by at least one index.
 
@@ -154,7 +124,7 @@ In this implementation, both branches reduce the window by at least one index.
 
 `lowerBound` and `upperBound` are almost the same search.
 
-The important difference is the comparison.
+The difference is in the comparison.
 
 `lowerBound` uses `<`.
 
@@ -188,7 +158,7 @@ This also makes counting duplicates easy:
 count = upperBound - lowerBound
 ```
 
-For example:
+For the example array:
 
 ```
   key  lower  upper  count  present
@@ -262,23 +232,23 @@ It does not guarantee the first matching index when duplicates exist.
 
 Use `lowerBound` when you need the first matching position.
 
-The final line shows another important difference.
+The final line shows how `binarySearch` and `lowerBound` differ.
 
-For key `5`:
+For key `5`, `binarySearch` returns null:
 
 ```
 binarySearch(5) = null
 ```
 
-because `5` is not present.
+The value `5` is not present.
 
-But:
+But `lowerBound` returns 4:
 
 ```
 lowerBound(5) = 4
 ```
 
-because index 4 is where `5` would be inserted.
+Index 4 is where `5` would be inserted.
 
 All of these functions assume that the input is already sorted.
 
@@ -300,13 +270,9 @@ So the example input is stored in the source file as a string.
 
 It accepts a `*std.Io.Reader`.
 
-That means the same parsing function can work with different input sources.
+So the same parsing function can work with different input sources.
 
 The bytes could come from a string, a file, a socket, or standard input.
-
-Only the reader changes.
-
-The parsing code does not.
 
 On a competitive programming judge, you can connect the same parsing function to stdin.
 

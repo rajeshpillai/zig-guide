@@ -31,49 +31,50 @@ zig build -Doptimize=ReleaseSafe
 
 - **`Debug`** is the default, and it is the one you develop in. Compilation is
   fast because there is almost no optimisation, every safety check is on, and
-  `undefined` memory is filled with `0xaa` so reading it uninitialised is loud.
-  Binaries are large and the code is slow, both of which are the correct trade
-  while you are editing.
+  `undefined` memory is filled with `0xaa`, so reading it uninitialised is easy
+  to spot. Binaries are large and the code is slow. That is fine while you are
+  editing.
 - **`ReleaseSafe`** is the one to ship unless you have a reason not to. Full
   optimisation, checks retained.
-- **`ReleaseFast`** removes the checks. Reach for it when a measurement says the
-  checks are the bottleneck, which is less often than instinct suggests.
+- **`ReleaseFast`** removes the checks. Use it when a measurement shows the
+  checks are the bottleneck. That happens less often than people expect.
 - **`ReleaseSmall`** optimises for size instead of speed and also drops the
-  checks. It is what an embedded target wants, and what this site uses: a
-  snippet here is about 70 KB, and the same snippet in `ReleaseSafe` is over a
-  megabyte, paid by the reader's browser before anything runs.
+  checks. Embedded targets use it, and so does this site: a snippet here is
+  about 70 KB, and the same snippet in `ReleaseSafe` is over a megabyte. The
+  reader's browser has to download that before anything runs.
 
-Those numbers are from this project, not an estimate. It is why the three
-chapters here that deliberately trigger a panic are the only ones built `.safe`.
+Those numbers are from this project, not an estimate. That is why only
+five snippets here are built `.safe`: the ones whose job is to show a panic.
 
 ## `ReleaseSafe` deserves more use than it gets
 
-The reflex from C and C++ is that release means unchecked. Zig makes that a
-separate axis: `ReleaseSafe` is optimised *and* keeps bounds checks, overflow
-checks, and null-unwrap checks. For most software the cost is small and the
+In C and C++, a release build usually means an unchecked build. Zig keeps
+the two choices separate: `ReleaseSafe` is optimised *and* keeps bounds checks,
+overflow checks, and null-unwrap checks. For most software the cost is small and the
 alternative is silent memory corruption.
 
-Reach for `ReleaseFast` when you have measured that the checks matter, not by
-default.
+Use `ReleaseFast` when you have measured that the checks matter. Do not use it
+by default.
 
-The asymmetry is what makes the argument. A retained check costs a compare and a
-predictable branch, which on modern hardware is close to free in code that is
-not already memory-bound. A removed check costs nothing until the day the index
-is wrong, and then it costs a corrupted heap and a bug that reproduces nowhere.
-Trading a small certain cost for a rare catastrophic one is a bad trade to make
-by default, and for decades it was the only option on offer.
+The two costs are very different. A check that stays in costs a compare and a
+predictable branch. On modern hardware that is close to free, unless the code
+is already memory-bound. A removed check costs nothing until the day an index
+is wrong. Then it costs a corrupted heap and a bug you cannot reproduce. That
+is a bad trade to make by default: a small cost you always pay, swapped for a
+rare but very large one. For decades, C and C++ offered no other option.
 
 ## Where the checks are removed, the rules do not change
 
 In `ReleaseFast` and `ReleaseSmall`, an out-of-bounds index is **illegal
-behaviour**, the same category as C's undefined behaviour. The check was a
-diagnostic for breaking the rule, not the definition of it. Code that only
+behaviour**, the same category as C's undefined behaviour. The check only
+reported that the rule was broken. Removing the check does not remove the
+rule. Code that only
 works because Debug caught the panic is already wrong.
 
-This is the sentence to keep. "It works in ReleaseFast" is not evidence that a
-program is correct; it is evidence that nothing has caught it yet. The optimiser
-is entitled to assume the rules are followed, and it uses that assumption to
-delete branches you thought were there.
+If a program works in ReleaseFast, that does not show it is correct. It only
+shows that nothing has caught the problem yet. The optimiser is allowed to
+assume the rules are followed, and it uses that assumption to delete branches
+you thought were there.
 
 ## Per-scope override
 
@@ -81,13 +82,13 @@ delete branches you thought were there.
 @setRuntimeSafety(true);
 ```
 
-Keeps checks in one function of an otherwise unchecked build, useful for the
-one routine parsing untrusted input.
+This keeps checks in one function of an otherwise unchecked build. It is
+useful for a routine that parses untrusted input.
 
 The reverse works too: `@setRuntimeSafety(false)` in one hot function of an
-otherwise safe build. That is the shape to prefer, because it makes the unsafe
-region small, visible, and reviewable, rather than making the whole program
-unchecked to speed up one loop.
+otherwise safe build. Prefer this approach. The unsafe code stays small and
+easy to find and review. The other way makes the whole program unchecked to
+speed up one loop.
 
 ## Knowing the mode at compile time
 
@@ -97,12 +98,12 @@ nothing at runtime: the dead branch is not compiled in.
 The tags are lowercase: `.debug`, `.safe`, `.fast`, `.small`. They used to be
 `.Debug`, `.ReleaseSafe`, `.ReleaseFast` and `.ReleaseSmall`, so a comparison
 copied from an older tutorial will not compile. The field was also renamed
-from `mode` to `optimize`; `builtin.mode` still works for now, and the std
+from `mode` to `optimize`. `builtin.mode` still works for now, and the std
 source marks it for removal after 0.18.0. On the command line both spellings
 work: `-O ReleaseFast` and `-O fast` build the same thing.
 
-That makes expensive assertions practical. A consistency check that walks an
-entire data structure can be written behind `if (builtin.optimize == .debug)` and it
-is not merely skipped in release, it is not present. `std.debug.assert` is a
+So expensive assertions are practical. You can put a consistency check that
+walks an entire data structure behind `if (builtin.optimize == .debug)`. In a
+release build, that check is not in the binary at all. `std.debug.assert` is a
 different tool: it lowers to `unreachable`, so it follows the safety checks
 rather than the mode name, and it still fires in `ReleaseSafe`.

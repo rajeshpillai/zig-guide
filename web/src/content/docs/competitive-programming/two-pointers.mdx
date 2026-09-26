@@ -10,7 +10,7 @@ order: 20
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Suppose we have a sorted array and a target sum.
+The input is a sorted array and a target sum.
 
 We need to find two values whose sum equals the target.
 
@@ -34,15 +34,11 @@ The trace below shows every step. The two active indices are marked, and positio
 
 `lo` and `hi` mark the part of the array that is still being considered.
 
-The current range is:
-
-`items[lo..hi + 1]`
+The current range is `items[lo..hi + 1]`.
 
 Everything outside this range has already been ruled out.
 
-At each step, we calculate:
-
-`items[lo] + items[hi]`
+At each step, we calculate `items[lo] + items[hi]`.
 
 There are three possible cases.
 
@@ -56,9 +52,7 @@ If even that pair is too small, then no other remaining value can make a large e
 
 So `items[lo]` cannot be part of the answer.
 
-We remove it by moving:
-
-`lo += 1`
+We remove it with `lo += 1`.
 
 If the sum is larger than the target, `hi` must move.
 
@@ -68,9 +62,7 @@ If that pair is already too large, then every other possible partner for `items[
 
 So `items[hi]` cannot be part of the answer.
 
-We remove it by moving:
-
-`hi -= 1`
+We remove it with `hi -= 1`.
 
 Each step removes exactly one index from the search.
 
@@ -79,10 +71,6 @@ Neither pointer ever moves backwards.
 The distance between `lo` and `hi` becomes smaller on every iteration.
 
 So the loop runs at most O(n) times.
-
-The brute-force approach checks pairs and takes O(n²).
-
-The two-pointer approach makes one pass and takes O(n).
 
 This reasoning depends on the array being sorted.
 
@@ -163,7 +151,7 @@ The other starts at the last byte.
 
 If the two bytes match, move both pointers inward.
 
-For example:
+For `racecar` the walk looks like this:
 
 ```
   step 1  r = r  >r  a  c  e  c  a  r<
@@ -178,11 +166,7 @@ Only three comparisons are needed.
 
 The middle `e` does not need to be compared with anything.
 
-The condition:
-
-`while (lo < hi)`
-
-naturally stops before the middle value.
+The condition `while (lo < hi)` stops before the middle value.
 
 If the two sides do not match, the function can return `false` immediately:
 
@@ -216,17 +200,11 @@ Each number represents the height of a vertical wall.
 
 For two walls at positions `lo` and `hi`, the amount of water they can hold is limited by the shorter wall.
 
-The width is:
+The width is `hi - lo`.
 
-`hi - lo`
+The height is `@min(heights[lo], heights[hi])`.
 
-The height is:
-
-`@min(heights[lo], heights[hi])`
-
-So the area is:
-
-`@min(heights[lo], heights[hi]) * (hi - lo)`
+So the area is `@min(heights[lo], heights[hi]) * (hi - lo)`.
 
 We start with the widest possible pair: the first and last walls.
 
@@ -234,7 +212,7 @@ After that, every move makes the width smaller.
 
 So if we move a pointer, we need a chance to find a taller wall.
 
-This tells us which pointer should move.
+That need decides which pointer should move.
 
 Suppose `heights[lo]` is shorter.
 
@@ -248,7 +226,7 @@ We can safely remove `lo`.
 
 The same reasoning applies to `hi` when the right wall is shorter.
 
-For example:
+The program prints the first four steps:
 
 ```
   step   lo   hi  h[lo]  h[hi]  width  area  best  moved
@@ -270,8 +248,6 @@ In that case, either pointer can move.
 
 The code moves `hi` because of how the comparison is written, but moving `lo` would also be valid.
 
-The important rule is to move the shorter wall.
+Always move the shorter wall.
 
-Moving the taller wall is not safe.
-
-It may work for some inputs, but it can remove a pair that would have produced the maximum area.
+Moving the taller wall may work for some inputs, but it can remove a pair that would have produced the maximum area.

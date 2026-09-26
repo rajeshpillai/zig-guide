@@ -7,29 +7,29 @@ order: 3
 
 import Playground from "../../../components/Playground.astro";
 
-Two stages down, the source is a tree. This is the chapter where it finally
-does something, and the machinery required is smaller than the parser's.
+After two stages, the source is a tree. In this chapter the tree runs, and
+the code needed is smaller than the parser.
 
 To evaluate `(+ 1 (* 2 3))`: it is a `+`, so evaluate its two children and add
 them. The left child is `1`, which evaluates to itself. The right child is a
 `*`, so evaluate *its* two children and multiply. There is no third rule. The
-function calls itself once per child, the recursion has the same shape as the
-tree, and it bottoms out at numbers and names.
+function calls itself once per child, so the recursion has the same shape as
+the tree. It stops at numbers and names.
 
-That is a **tree-walking interpreter**, and it is how most languages start,
-including several that never needed anything else.
+This is a **tree-walking interpreter**. Most languages start this way, and
+several never needed anything else.
 
 ## Two kinds of node
 
 The grammar already split expressions from statements, and the interpreter
-follows that split exactly:
+keeps the same split:
 
 - `eval` takes a node and returns an `i64`. Expressions produce values.
 - `exec` takes a node and returns nothing. Statements produce effects.
 
-Keeping them apart means a statement can never stand in for a value, because
-`exec` has nothing to return. The grammar is what stops `print` appearing
-inside an expression, so nothing has to check for that at run time.
+Because they are separate, a statement can never be used as a value: `exec`
+has nothing to return. The grammar stops `print` from appearing inside an
+expression, so nothing has to check for that at run time.
 
 ## The program
 
@@ -39,65 +39,64 @@ inside an expression, so nothing has to check for that at run time.
 
 **`while` in the interpreted language is `while` in the interpreter.** Look at
 the `.@"while"` case: it is a Zig loop whose body calls `exec`. The loop of the
-language being run is borrowed from the language doing the running. Same for
-`if`, and same for recursion when the next chapter adds functions. This is the
-defining property of a tree-walking interpreter and also its main limitation:
-it can only offer control flow the host language already has.
+language being run is borrowed from the language doing the running. The same
+is true for `if`, and for recursion when the next chapter adds functions. This
+defines a tree-walking interpreter, and it is also its main limitation: it can
+only offer control flow the host language already has.
 
 **Names are found by searching an array.** `Env` walks its list comparing
-strings. That is the right choice at 32 variables and the wrong one at a
-thousand, because the search happens *every time a variable is read*, inside
-the loop. Real interpreters fix this by resolving each name to a slot number
+strings. That works at 32 variables and is too slow at a thousand, because
+the search happens *every time a variable is read*, inside the loop. Real interpreters fix this by resolving each name to a slot number
 once, before running, so at run time a variable read is an array index. The
 compiler later in this section does exactly that: it emits `load` with a slot
 number, and by then the name is gone.
 
-**Division by zero is a decision, not an accident.** The machine's divide
-instruction traps; the language has to say what it means. Here it is an error
-in the return type, so it propagates up through `try` and out of `run` like
-any other. Choosing to return an error rather than crash is the same choice
-[Errors Are Values](/learn/systems-from-scratch/errors-are-values/) describes,
-arriving now in a language you wrote.
+**Division by zero is a choice the language makes.** The machine's divide
+instruction traps, so the language has to say what division by zero means.
+Here it is an error in the return type. It goes up through `try` and out of
+`run` like any other error. Returning an error instead of crashing is the
+choice [Errors Are Values](/learn/systems-from-scratch/errors-are-values/)
+describes, now in a language you wrote.
 
 **`(0 - 7) / 2` printed -3, not -4.** Truncation toward zero, because the
 implementation used `@divTrunc`. Flooring would have given -4, and both are
-defensible: C and Zig truncate, Python floors. It is worth noticing that this
-is not a fact about arithmetic. It is a decision your language makes, and if
-you do not make it deliberately you inherit whatever the host does.
+reasonable: C and Zig truncate, Python floors. Arithmetic does not decide
+this. Your language decides it. If you do not choose on purpose, you get
+whatever the host language does.
 
-**The undefined name was caught where it was used.** Not at parse time, because
-the parser never asked what names mean. A language that catches it earlier
-needs a separate pass between parsing and running, which is what a resolver is
-and what "compile-time error" means for this class of mistake.
+**The undefined name was caught where it was used.** It was not caught at
+parse time, because the parser never asked what names mean. To catch it
+earlier, a language needs a separate pass between parsing and running. That
+pass is called a resolver. For this kind of mistake, a "compile-time error"
+means an error from the resolver.
 
 ## Check yourself
 
 The `.let` and `.assign` cases do exactly the same thing. Should they?
 
-No, and this is a real simplification rather than a tidy one. `let x = 1;`
-declares; `x = 1;` assigns to something that should already exist. As written,
-assigning to an undeclared name silently creates it, so a typo in a variable
-name becomes a new variable rather than an error. That is the bug that made
-JavaScript add `"use strict"` and Visual Basic add `Option Explicit`. Fixing it
-is two lines: `assign` should look the name up and fail if it is missing. It is
-left as it is here because the fix is more interesting once you can see the
-hole.
+No. This simplification causes a real bug. `let x = 1;` declares a variable.
+`x = 1;` assigns to a variable that should already exist. As written,
+assigning to an undeclared name silently creates it. So a typo in a variable
+name becomes a new variable, not an error. This bug made JavaScript add
+`"use strict"` and Visual Basic add `Option Explicit`. The fix is two lines:
+`assign` should look the name up and fail if it is missing. The code here
+leaves the bug in so you can see it.
 
 ## If you have written C
 
-A tree-walking interpreter in C is the same recursive `switch`, and the two
-differences are the ones you would expect by now.
+A tree-walking interpreter in C is the same recursive `switch`. There are two
+differences, and you have seen both before.
 
-C's `eval` has to return the value and the error somehow, and the usual
-answers are a sentinel value, an out-parameter, or a global error flag. All
-three are how "divide by zero" ends up either silently returning 0 or setting
-a flag nobody checks. `Error!i64` makes the failure part of the return type,
+C's `eval` has to return both the value and the error. The usual ways are a
+sentinel value, an out-parameter, or a global error flag. With any of the
+three, "divide by zero" can end up silently returning 0 or setting a flag
+nobody checks. `Error!i64` makes the failure part of the return type,
 so a caller that ignores it does not compile.
 
 And the environment in C is a linked list of `{char *name; long value; struct
-Env *next;}` allocated as you go, which is fine until you ask who frees it. The
-version here is a fixed array inside the interpreter, so its lifetime is the
-interpreter's and there is nothing to free. That is the cheapest correct
-answer, and it stops being available exactly when closures arrive.
+Env *next;}` allocated as you go. That works until you ask who frees it. The
+version here is a fixed array inside the interpreter. It lives as long as the
+interpreter, so there is nothing to free. This is the cheapest correct
+design, but it stops working once the language has closures.
 
 Next: functions, which is where the environment stops being one flat thing.

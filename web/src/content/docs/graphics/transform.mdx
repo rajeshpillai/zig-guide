@@ -7,10 +7,10 @@ order: 139
 
 import Playground from "../../../components/Playground.astro";
 
-[The scene graph](/learn/graphics/scene/) stored two integers per node and
-admitted the limit in passing: two integers only let a node move. A real one
-carries a matrix, so a node can turn and resize as well, and composing a
-parent with a child becomes a multiply. This is that matrix.
+[The scene graph](/learn/graphics/scene/) stored two integers per node, and
+noted the limit: two integers only let a node move. A full scene graph stores
+a matrix, so a node can turn and resize as well. Composing a parent with a
+child then becomes a multiply. This chapter builds that matrix.
 
 ## The program
 
@@ -18,21 +18,21 @@ parent with a child becomes a multiply. This is that matrix.
 
 ## What just happened
 
-**Six numbers cover every case.** Moving, turning, scaling and shearing are not
-four features. They are four ways of filling in the same six slots, and a
-routine that applies a transform does not know which of them it was handed.
+**Six numbers cover every case.** Moving, turning, scaling and shearing are
+four ways of filling in the same six slots. A routine that applies a transform
+does not know which of them it was handed.
 
 **Order changes the answer.** The two arrows in the first picture come from the
 same quarter turn and the same offset, composed both ways round. Rotation is
 about the origin, so moving first means turning the offset too, and the shape
-travels a quarter circle to somewhere else entirely. Matrix multiplication is
-not commutative, and this is what that sentence looks like.
+travels a quarter circle to a different place. The picture shows that matrix
+multiplication is not commutative.
 
 **Turning about a point is three transforms.** There is no `rotate` that takes
-a centre. Move the pivot to the origin, turn, move it back, and the
-composition of those three is a single matrix costing exactly what one
-rotation costs. The arrows numbered 1, 2 and 3 orbit the `+` without any of
-them containing an orbit.
+a centre. Move the pivot to the origin, turn, and move it back. Those three
+compose into a single matrix, and applying it costs the same as one rotation.
+The arrows numbered 1, 2 and 3 move around the `+`, but no code for an orbit
+exists. Each one is just this matrix with a different angle.
 
 **The shape is never modified.** `shape` is one array of seven points, `const`,
 drawn eight times across the three pictures. Every difference is in the
@@ -40,14 +40,14 @@ matrix.
 
 ## Reading a composition
 
-The awkward part of transforms in practice is that the conventional way to
-write them runs backwards from the order things happen. As matrices, applying
+In practice, transforms are awkward because the usual way to write them runs
+backwards from the order things happen. As matrices, applying
 `A` and then `B` to a column vector is `B * A * p`: the one nearest the point
 acts first, so the chain reads right to left.
 
 `then` exists to hide that. `a.then(b)` means `a` first, and internally it
-computes `b * a`. The reversal happens once, in one function, rather than in
-the head of everyone reading the call:
+computes `b * a`. The reversal happens once, in one function. Nobody reading
+the call has to reverse it in their head:
 
 ```zig
 const about_pivot = Transform.translate(-pivot_x, -pivot_y)
@@ -55,37 +55,36 @@ const about_pivot = Transform.translate(-pivot_x, -pivot_y)
     .then(Transform.translate(pivot_x, pivot_y));
 ```
 
-That is three operations in the order they occur, and it is the same matrix a
-graphics text would write as `T * R * T⁻¹`.
+The code lists three operations in the order they occur. It builds the same
+matrix a graphics textbook would write as `T * R * T⁻¹`.
 
 The display's aspect ratio is composed the same way. A character cell is about
 twice as tall as it is wide, so every point gets a final non-uniform scale of
-`(2, 1)`. Keeping it out of the transforms above is why a rotation in this
-program is a rotation. The shape is reasoned about in square units and
-squashed once, at the end, by a matrix like any other.
+`(2, 1)`. This scale is kept out of the transforms above, so a rotation in
+this program keeps the shape's angles correct. The shape is worked out in
+square units and squashed once, at the end, by a matrix like any other.
 
 ## What the bottom row is for
 
 The matrix is 3x3 but only six numbers are stored. The missing row is always
-`0 0 1`, and storing a constant would be storing a constant.
+`0 0 1`, so there is no need to store it.
 
-It exists because translation is not a linear operation. A 2x2 matrix multiply
+The row exists because translation is not a linear operation. A 2x2 matrix multiply
 can rotate, scale and shear, and every one of those leaves the origin where it
 is. Nothing built from `a`, `b`, `c` and `d` alone can move a point away from
 the origin. Adding a third coordinate fixed at 1 gives translation a column to
 live in. The last column is that column: its entries are multiplied by the 1
 and added, which is exactly what a move does.
 
-That is the whole trick behind homogeneous coordinates. The payoff is not
-elegance. It is that translation joins the others as a multiply, so a chain of
-moves, turns and scales collapses into one matrix, applied once per point
-instead of a pipeline walked per point.
+This extra coordinate is what homogeneous coordinates means. With it,
+translation becomes a multiply like the others. So a chain of moves, turns and
+scales collapses into one matrix. Each point is multiplied by that one matrix,
+instead of going through every step of the chain.
 
-Perspective is the same idea taken one step further. Let the bottom row hold
-something other than 0 and 1, divide by the third coordinate afterwards, and
-the division is where the far end of a wall gets smaller. That division is
-also exactly what the trapezoid in [texture mapping](/learn/graphics/texture/)
-was missing.
+Perspective goes one step further. Let the bottom row hold something other
+than 0 and 1, and divide by the third coordinate afterwards. The division is
+what makes the far end of a wall smaller. The trapezoid in [texture
+mapping](/learn/graphics/texture/) was missing this division.
 
 ## Check yourself
 
@@ -94,11 +93,10 @@ transform to the points in turn?
 
 For seven points it makes no difference. The reason is what happens when there
 are seven thousand, or when the chain is deep: composing costs one multiply
-per
-*transform*, applying costs one per *point*. Fold the chain first and every point pays for one matrix, regardless of how
-many operations went into it. That is the same reason the scene graph
-accumulates an offset on the way down the tree, instead of re-walking from the
-root at every node.
+per *transform*, applying costs one per *point*. Fold the chain first and
+every point pays for one matrix, regardless of how many operations went into
+it. For the same reason, the scene graph adds up an offset on the way down the
+tree, instead of walking again from the root at every node.
 
 The second reason is accuracy. Each application rounds, so applying five
 transforms in turn rounds five times per point. Composing rounds once while
@@ -108,17 +106,17 @@ building the matrix, and the points are transformed once.
 
 The struct is the six-float affine matrix from every 2D graphics API you have
 met. Cairo's, Direct2D's, the six arguments to the web canvas `setTransform`,
-and Java's `AffineTransform`. Field order and naming differ, and it is always
-these six.
+and Java's `AffineTransform`. Field order and naming differ, but the six
+numbers are the same.
 
-Two differences in the Zig. The trigonometry is builtins rather than libc
-calls, so this snippet has no dependency to link and runs unchanged in a
-browser. That is why the program above is running in this page.
+The Zig version has two differences. The trigonometry uses builtins instead of
+libc calls, so this snippet has no dependency to link and runs unchanged in a
+browser, which is how the program above runs in this page.
 
-And the default field values in the struct declaration are doing real work.
-`identity` is `.{}`, and each constructor sets only the fields it cares about:
-`translate` writes `e` and `f` and the other four come back as the identity's
-`1, 0, 0, 1`. In C those are four more assignments per constructor, and
-forgetting one is the classic bug where a translate quietly zeroes the scale.
+The default field values in the struct declaration also matter.
+`identity` is `.{}`, and each constructor sets only the fields it needs:
+`translate` writes `e` and `f`, and the other four keep the identity's
+`1, 0, 0, 1`. In C those are four more assignments per constructor. Forgetting
+one gives a common bug: a translate that silently sets the scale to zero.
 
 Next: the same buffer, handed to a display server rather than to a file.

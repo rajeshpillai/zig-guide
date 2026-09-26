@@ -12,9 +12,8 @@ program that does so is the smallest one in the section.
 
 There is an instruction pointer, an index into the array. Read the instruction
 it points at, move it forward, do what the instruction says, repeat. That loop
-is called **fetch, decode, execute**, and it is what a physical processor does
-too. That is why this one is called a virtual machine rather than an
-interpreter.
+is called **fetch, decode, execute**. A physical processor runs the same loop,
+so this program is called a virtual machine, not an interpreter.
 
 Everything the machine needs is a stack and a table of slots. Instructions
 never name their operands: they take them from the top of the stack and put
@@ -27,38 +26,37 @@ the result back.
 ## What just happened
 
 **The answers match the tree-walking interpreter exactly.** 55 and 1 for the
-sum of squares, the same arithmetic results. That is the point worth stopping
-on: compiling and interpreting are not two computations. They are the same
-computation with the decisions made at different times. Anything else would
-mean one of them has a bug.
+sum of squares, the same arithmetic results. Compiling and interpreting do
+the same computation. The compiler only makes its decisions earlier. If the
+answers differed, one of them would have a bug.
 
 **A jump is an assignment.** `ip = instr.arg`, and that is the entire
 implementation of `while`, `if` and `else`. All the structure the parser
-carefully found is gone: the tree became a flat array where control flow is
-arithmetic on an index. This is what "lowering" means, and it is why a
-disassembly is hard to read and fast to run.
+found is gone. The tree became a flat array, and control flow is arithmetic on
+an index. This is what "lowering" means. It is why a disassembly is hard to
+read and fast to run.
 
-**Operand order is the bug waiting in this loop.** The right operand was pushed
-last, so it must be popped first. Get it backwards and `+` and `*` still look
-correct, because they commute, while `-` and `/` are silently wrong. A test
+**Operand order is an easy bug in this loop.** The right operand was pushed
+last, so it must be popped first. If you get it backwards, `+` and `*` still
+look correct, because order does not change their result. But `-` and `/`
+give wrong answers with no error. A test
 suite of `2 + 3` would pass.
 
-**45 instructions for a five-line program.** The count is printed so the cost is
-visible rather than assumed. Each one is a switch dispatch, which is the price
-of a bytecode VM: real ones use computed goto or a JIT precisely because this
-switch runs billions of times.
+**45 instructions for a five-line program.** The count is printed so you can
+see the cost. Each instruction is one switch dispatch, and that is the cost of
+a bytecode VM. Real VMs use computed goto or a JIT because this switch runs
+billions of times.
 
-Nothing in the running program knows a variable was ever given a name. That is
-why a stripped binary gives you a stack trace full of addresses, and why debug
-information is a separate thing you choose to keep.
+Nothing in the running program knows a variable ever had a name. So a stripped
+binary gives you a stack trace full of addresses. Debug information is a
+separate thing you choose to keep.
 
 ## The state of this language
 
 This VM has no `call` and no `ret`, so a program using functions compiles to
-bytecode that silently leaves them out. That is deliberate for one more
-chapter. A calling convention is four separate decisions: where arguments
+bytecode that silently leaves them out. This stays so for one more chapter. A calling convention is four separate decisions: where arguments
 live, how a frame is addressed, who restores the instruction pointer, and who
-cleans up the arguments. Each has alternatives worth seeing.
+cleans up the arguments. Each one has alternatives.
 
 [A Calling Convention](/learn/tiny-lang/calls/) makes those decisions and runs
 `fact(5)` through compiled bytecode. Read this VM first: the calling one is
@@ -74,31 +72,30 @@ Because the compiler is the one producing the bytecode, and it only emits
 sequences that balance. `add` is only ever emitted after two operands, so a
 correct compiler cannot produce an `add` that underflows. Real VMs move the
 check to the moment bytecode is *loaded*, verifying it once rather than on
-every instruction. That is exactly what the JVM's bytecode verifier does, and
-why it exists. The checks are here because they are cheap at this size and
-because a hand-written bad chunk should say so rather than read memory it does
-not own.
+every instruction. The JVM's bytecode verifier exists to do this. The checks
+are here because they are cheap at this size. Also, a hand-written bad chunk
+should report an error, not read memory it does not own.
 
 ## If you have written C
 
 The dispatch loop is a switch, and the standard trick to make it faster is
 computed goto. It is a GCC extension where each instruction ends by jumping
 directly to the next handler, instead of returning to the top of the switch.
-It helps because the branch predictor gets one indirect jump per opcode rather
-than one shared one, and it is the single most common optimisation in real
-interpreters.
+It helps because the branch predictor gets one indirect jump per opcode
+instead of one shared jump. It is a common optimisation in real interpreters.
 
-The difference is that pushing past the end in C reads and writes past the
-array with no complaint. This chapter's whole subject is a loop that runs
-millions of times, so a bug there corrupts something far away and much later.
+The stack is the other difference. The VM here checks every push and pop. In
+C, pushing past the end of the stack array reads and writes past it with no
+complaint. This loop runs millions of times, so a bug there corrupts something
+far away and shows up much later.
 
 ## Where to go next
 
 That is the pipeline: characters to tokens, tokens to a tree, the tree walked
-or lowered to instructions, and the instructions run. Every compiler and every
-interpreter you use is this, with more cases.
+or lowered to instructions, and the instructions run. The compilers and
+interpreters you use follow the same steps, with many more cases.
 
-If you want the machine underneath rather than the language on top,
+If you want to learn the machine under the language,
 [Groundwork](/learn/systems-from-scratch/) covers what a byte, an address and
 a stack frame actually are. If you would rather keep building tools, [the Unix
 toolbox](/learn/unix-tools/) is seven more programs in the same spirit.

@@ -9,8 +9,8 @@ import Playground from "../../../components/Playground.astro";
 
 Every filter so far kept the grid it was given: one output pixel for one input
 pixel, in the same place. Changing the size breaks that. Output pixels no
-longer line up with input pixels, and the question becomes what colour sits at
-a position that is not a pixel.
+longer line up with input pixels. So we need to decide what colour sits at a
+position between pixels.
 
 <Playground name="09-graphics.resample" />
 
@@ -42,34 +42,35 @@ The snippet upscales four pixels to eight, with and without the correction:
 The correct version puts a symmetric two-sample ramp across the edge. The
 buggy one puts a one-sample ramp starting later, and the whole image sits half
 an output pixel to the left of where it should. On a 2x upscale that is a
-visible offset, and it is the single most common resampling bug. Easy to
-write, hard to see in a single image, and obvious the moment you blend the
+visible offset, and it is a common resampling bug. It is easy to write and
+hard to see in a single image. It becomes obvious as soon as you blend the
 result against the original.
 
-Fixed point rather than floats here, because a resampler that rounds
+The code uses fixed point instead of floats, because a resampler that rounds
 differently on two machines produces different files. A difference of one in
 the last bit is enough to fail a checksum.
 
 ## Nearest and bilinear
 
-**Nearest** rounds the sample position to the closest pixel centre. One read per output pixel, no arithmetic on colours at all, and exact values
-preserved. That is why it is the right choice for pixel art, indexed colour,
-and any image whose values are labels rather than measurements. A segmentation
+**Nearest** rounds the sample position to the closest pixel centre. It reads
+one pixel per output pixel, does no arithmetic on colours, and keeps the exact
+values. So it is the right choice for pixel art, indexed colour, and any image
+whose values are labels instead of measurements. A segmentation
 mask interpolated bilinearly produces class 7.5, which is not a class.
 
 **Bilinear** reads the four surrounding pixels and weights them by how close the
-sample point is to each. It is a genuine interpolation, and for upscaling
-photographs it is the cheapest thing that does not look blocky. Bicubic reads
-16 and gives a slightly sharper result; Lanczos reads more still. The pattern
-continues, with each step buying less.
+sample point is to each. It is a true interpolation, and for upscaling
+photographs it is the cheapest method that does not look blocky. Bicubic reads
+16 and gives a slightly sharper result. Lanczos reads more still. Each step
+reads more pixels and improves the result less.
 
 ## Downscaling is a different problem
 
 Upscaling asks for values between the ones you have. Downscaling asks you to
-throw values away, and the way you throw them away decides whether the result
-is a smaller version of the picture or a different picture.
+throw values away. How you throw them away decides whether the result is a
+smaller version of the picture or a different picture.
 
-The snippet makes this unambiguous with a row of alternating black and white
+The snippet shows this clearly with a row of alternating black and white
 columns downscaled to a quarter width. The true average of that row is 127
 everywhere:
 
@@ -82,34 +83,34 @@ alternating black/white columns, 64 -> 16 (true average is 127)
 ```
 
 Nearest neighbour samples every fourth pixel, and every fourth pixel of an
-alternating pattern is the same colour. The answer is a solid black bar. Not
-approximately right, not noisy: confidently, uniformly wrong, and it would
-have been a solid white bar had the grid landed one pixel over.
+alternating pattern is the same colour. The answer is a solid black bar. Every
+output pixel is wrong by the same amount. If the grid had landed one pixel
+over, it would have been a solid white bar.
 
-That is aliasing. The input contained detail finer than the output grid can
-represent, and point-sampling turned it into a large false feature rather than
-losing it gracefully. The same effect is why a striped shirt strobes on video
+This is aliasing. The input contained detail finer than the output grid can
+represent. Point-sampling turned that detail into a large false feature,
+instead of smoothly losing it. The same effect is why a striped shirt strobes on video
 and why a brick wall in the distance turns into moiré.
 
 The fix is to remove the detail before discarding the samples. Average every
 input pixel that falls inside the output pixel, which is the box filter above,
 or blur first and then point-sample. Either way, the filter has to look at all
-the input. Any downscaler that reads one pixel per output pixel is guessing.
+the input. A downscaler that reads one pixel per output pixel ignores the
+rest, so its output can be wrong in the way shown above.
 
 ## Where this connects
 
 [Antialiasing](/learn/graphics/antialiasing/) took sixteen samples inside one
-pixel to turn a hard inside/outside test into a coverage fraction. This is the
-same idea arriving from the other direction. A pixel is not a point, it is an
-area, and treating it as a point is what produces both the staircase there and
-the solid bar here.
+pixel to turn a hard inside/outside test into a coverage fraction. Resampling
+uses the same idea from the other direction. A pixel covers an area. Treating
+it as a single point produces both the staircase there and the solid bar here.
 
 Two practical notes:
 
 **Filter in linear light.** Averaging sRGB bytes makes a downscaled image
-darker than it should be, and the error is largest exactly where contrast is
-highest. This is the same caveat [alpha blending](/learn/graphics/blending/)
-sets out, and downscaling is where it is most visible, because a checkerboard
+darker than it should be, and the error is largest where contrast is highest.
+[Alpha blending](/learn/graphics/blending/) gives the same warning.
+Downscaling is where the error is most visible, because a checkerboard
 of black and white averages to 127 in sRGB and to about 187 done correctly.
 
 Interpolating colours that carry their own alpha, without premultiplying,
