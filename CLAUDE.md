@@ -236,6 +236,16 @@ The rules below are what this site adds on top, and they win where the two docum
 - **No hype punctuation:** no exclamation marks in prose, no emoji, no rhetorical questions as section openers.
 - **Prefer short declarative sentences** over rule-of-three flourishes and adjective stacks. When a claim can be checked by the compiler or the reader, phrase it so they can check it.
 
+**Plain English for readers whose first language is not English.** Many readers here learned English second, and that is the bar for every sentence: understood on the first read, without knowing an idiom. From 2026-09-26 this is the rule for all prose, and it wins over the "do not retrofit an older chapter" rule below when a chapter's English is hard. The whole guide was rewritten to it in two passes (`1018a1f`, `4e385d9`). It is the same edit as removing AI tone, because the devices that trip a second-language reader are the ones that read as machine-written. Simplify the language, never the claim.
+
+- **Say it literally.** No idioms or metaphors ("for free", "under the hood", "rite of passage", "trips people up", "the bill arrives", "a for loop wearing a costume"), no irony, no understatement. An analogy stays only when the code on the same page pays it off, as in Groundwork. A Playground `note` prop is prose a reader sees, so the rule applies there too.
+- **End a section on the fact, not a punchline.** A closing aphorism ("Both are healthy. Neither will move.") is the hardest sentence on the page for a second-language reader and adds nothing the paragraph above did not say.
+- **State B, not "not A, it is B".** One contrast is fine when the contrast is what is being taught. A chain of them is a rhythm, and the reader has to undo each negation to find the point.
+- **Do not narrate the page.** "Worth knowing", "the whole idea", "the interesting part", "this is the sentence to keep", "matters more than it sounds". Delete them and state the fact. After the rewrite the guide held one "worth" + verb and two "the whole idea", down from about 60 and 29, so a new one is easy to spot: `grep -rniP 'worth (knowing|noticing|seeing|stating)|the (whole|entire) (idea|point)' web/src/content/docs`.
+- **Name the subject** instead of "that", "this" or "which" when the reader would have to look back to find it. Split a sentence at a semicolon or at an "and" that starts a second idea.
+- **Common words over formal ones** ("use", "about", "show"), and no undefined jargon: a term like "writergate" that only the Zig issue tracker explains does not belong in a chapter. Technical terms stay, explained the first time a chapter needs them.
+- **No unsupported superlatives** ("the single most common", "nine tenths of"). Write "a common" or give the number.
+
 **Where the two documents differ**, so the next writer is not left guessing:
 
 - **Em dashes.** The style guide is silent on them; this repo bans them outright. The ban stands, because it is the one AI tell that can be grepped for.
