@@ -22,7 +22,8 @@ pub const Error = error{
 };
 
 /// One call's variables. Frame 0 is the globals, which is why a name is looked
-/// up here first and there second: locals shadow, and nothing else does.
+/// up here first and there second: locals shadow globals, and nothing else
+/// shadows anything.
 const Frame = struct {
     names: [16][]const u8 = undefined,
     values: [16]i64 = undefined,
@@ -56,9 +57,9 @@ pub const Interpreter = struct {
     fn_nodes: [16]u32 = undefined,
     fn_count: usize = 0,
 
-    /// The call stack, as an array. Depth is bounded here on purpose: the
-    /// limit is a number you can point at rather than whatever the host's
-    /// stack happened to allow.
+    /// The call stack, as an array. Depth is limited here on purpose: the
+    /// limit is a fixed number in the code, not whatever the host's stack
+    /// happens to allow.
     frames: [64]Frame = undefined,
     depth: usize = 0,
     returned: i64 = 0,
@@ -84,8 +85,8 @@ pub const Interpreter = struct {
         const decl = vm.nodes[decl_index];
 
         // Arguments are evaluated in the *caller's* frame, before the new one
-        // exists. Getting this backwards is how a parameter accidentally sees
-        // the value it is about to be given.
+        // exists. If the order is reversed, a parameter can see the value it
+        // is about to be given.
         var args: [8]i64 = undefined;
         var count: usize = 0;
         var arg = node.first;

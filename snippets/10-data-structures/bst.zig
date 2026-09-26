@@ -20,9 +20,9 @@ const Tree = struct {
         return .{ .allocator = allocator };
     }
 
-    /// Post-order, and it has to be. Freeing a node before its children leaves
-    /// no way to reach them, which is a leak the compiler cannot catch and the
-    /// leak-checking allocator in `main` will.
+    /// Post-order, because it must be. Freeing a node before its children
+    /// leaves no way to reach them. The compiler cannot catch that leak, but
+    /// the leak-checking allocator in `main` will.
     fn deinit(self: *Tree) void {
         freeSubtree(self.allocator, self.root);
         self.root = null;
@@ -38,11 +38,10 @@ const Tree = struct {
 
     /// Insert, iteratively.
     ///
-    /// The recursive version reads better and is what most textbooks show. This
-    /// one is written as a loop over a pointer-to-pointer, which is the trick
-    /// worth knowing: `link` points at the slot the new node goes in, so the
-    /// null case and the ordinary case are the same code and there is no
-    /// special handling for an empty tree.
+    /// The recursive version is easier to read and is what most textbooks
+    /// show. This one is a loop over a pointer-to-pointer. `link` points at
+    /// the slot the new node goes in, so the null case and the ordinary case
+    /// are the same code. An empty tree needs no special handling.
     fn insert(self: *Tree, value: i32) !void {
         var link: *?*Node = &self.root;
         while (link.*) |node| {
@@ -65,9 +64,9 @@ const Tree = struct {
         return false;
     }
 
-    /// Left, self, right. The defining property: this visits the values in
-    /// sorted order, which is the reason to pay for a tree rather than a hash
-    /// table when order matters.
+    /// Left, self, right. This visits the values in sorted order. Sorted
+    /// order is the reason to use a tree instead of a hash table when order
+    /// matters.
     fn writeInOrder(self: *const Tree, out: *std.Io.Writer) !void {
         try walk(out, self.root);
         try out.writeByte('\n');
@@ -80,8 +79,8 @@ const Tree = struct {
         try walk(out, node.right);
     }
 
-    /// Longest path from the root to a leaf. This is the number that decides
-    /// whether lookup is fast, and nothing in `insert` controls it.
+    /// Longest path from the root to a leaf. This number decides whether
+    /// lookup is fast, and nothing in `insert` controls it.
     fn height(self: *const Tree) usize {
         return subtreeHeight(self.root);
     }
@@ -116,9 +115,9 @@ pub fn main(init: std.process.Init) !void {
     try out.print("contains(45) -> {}\n", .{tree.contains(45)});
     try out.print("len {d}, height {d}\n", .{ tree.len, tree.height() });
 
-    // Insertion order decides the shape, and the shape decides everything else.
+    // Insertion order decides the shape. The shape decides everything else.
     // A tree built from sorted input never branches: every value is larger than
-    // the last, so it goes right, every time.
+    // the last, so it always goes right.
     var sorted_values: [15]i32 = undefined;
     for (&sorted_values, 1..) |*v, i| v.* = @intCast(i);
 
@@ -134,11 +133,11 @@ pub fn main(init: std.process.Init) !void {
     try out.print("  balanced input: height {d:>2}\n", .{balanced.height()});
     try out.print("  ideal for 15 nodes: {d}\n", .{std.math.log2_int(usize, 15) + 1});
 
-    // Both still iterate in order. The invariant holds; only the cost changed.
+    // Both still iterate in order. The invariant holds. Only the cost changed.
     try out.writeAll("\ndegenerate tree, in-order: ");
     try degenerate.writeInOrder(out);
 
-    // Comparisons to find the largest value, counted rather than asserted.
+    // Count the comparisons needed to find the largest value, and print them.
     try out.print("\nlookups to find 15:\n", .{});
     try out.print("  degenerate tree: {d} comparisons\n", .{countSteps(&degenerate, 15)});
     try out.print("  balanced tree:   {d} comparisons\n", .{countSteps(&balanced, 15)});

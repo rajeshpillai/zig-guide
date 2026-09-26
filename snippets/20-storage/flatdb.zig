@@ -3,9 +3,9 @@
 
 const std = @import("std");
 
-/// One record per line, fields separated by `|`. The separator is the whole
-/// design decision, and it forces the next one: what happens when a value
-/// contains it.
+/// One record per line, fields separated by `|`. The separator is the main
+/// design decision. It forces a second decision: what happens when a value
+/// contains `|`.
 pub const Record = struct {
     op: enum { put, delete },
     key: []const u8,
@@ -52,9 +52,9 @@ pub fn append(log: *std.Io.Writer, record: Record) !void {
     try log.writeAll("\n");
 }
 
-/// Read the log forward, keeping the last thing said about each key. A delete
-/// is a record, not the absence of one, which is the only way an append-only
-/// file can express removal.
+/// Read the log forward, keeping the last record for each key. A delete is
+/// written as a record. An append-only file has no other way to express
+/// removal.
 pub fn lookup(log: []const u8, key: []const u8, scratch: []u8) !?[]const u8 {
     var result: ?[]const u8 = null;
     var used: usize = 0;
@@ -87,8 +87,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &stdout_writer.interface;
 
-    // A buffer standing in for the file. Every write is an append; nothing
-    // here can seek backwards, which is the constraint being explored.
+    // A buffer used in place of the file. Every write is an append. Nothing
+    // here can seek backwards, and this demo works within that limit.
     var file: [1024]u8 = undefined;
     var log: std.Io.Writer = .fixed(&file);
 

@@ -3,9 +3,9 @@ const std = @import("std");
 /// raylib's C sources, vendored by `fetch-raylib.sh` at a pinned commit.
 const raylib_root = "vendor/raylib/src";
 
-/// Which screen a headless `-Dframes` run should end up on. Being able to
-/// photograph the title and the game over screen without a human at the
-/// keyboard is what makes a visual check something CI can do.
+/// Which screen a headless `-Dframes` run should end up on. CI can then take a
+/// screenshot of the title and the game over screen with nobody at the
+/// keyboard, which lets CI check what the game draws.
 pub const Demo = enum { title, play, crash };
 
 /// raylib is built differently for a desktop window and for a canvas: a
@@ -18,7 +18,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // A headless smoke run, for CI and for checking the game still draws after
-    // a change without sitting in front of it. `-Dframes=N` plays N frames with
+    // a change without watching it. `-Dframes=N` plays N frames with
     // the bot at the controls and exits; `-Dshot=path` saves the last one.
     // Build options rather than environment variables, so they show up in
     // `zig build --help` and are comptime-known.
@@ -55,10 +55,10 @@ pub fn build(b: *std.Build) void {
     addWeb(b, optimize, options);
 }
 
-/// The simulation is a module on its own, and it imports nothing. No raylib, no
-/// window, no clock. That is what lets `zig build test` run the whole game
-/// headless, and what keeps the rules of the game in one place rather than
-/// smeared through a draw loop.
+/// The simulation is a module on its own, and it imports nothing: not raylib,
+/// a window or a clock. Because of this, `zig build test` can run the whole
+/// game headless, and the rules of the game stay in one place instead of
+/// being spread through a draw loop.
 fn simModule(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -90,8 +90,8 @@ fn addTests(
     const particle_tests = b.addTest(.{ .root_module = particles });
 
     // The synthesiser holds no raylib types either: it fills a buffer with
-    // samples. So the waveforms are checked without an audio device, which is
-    // just as well, because CI has no speakers.
+    // samples. So the waveforms are checked without an audio device. CI has no
+    // speakers.
     const synth = b.createModule(.{
         .root_source_file = b.path("src/audio/synth.zig"),
         .target = target,
@@ -185,8 +185,8 @@ fn addDesktop(
 ///
 /// Zig compiles our code and raylib's to a static library for
 /// `wasm32-emscripten`, and `emcc` does the link, because the JavaScript glue,
-/// the GL context and the canvas plumbing are all things only Emscripten knows
-/// how to emit. That split is also why `main.zig` has a `Game.frame`: emcc
+/// the GL context and the canvas setup are all things only Emscripten knows
+/// how to emit. The same split is why `main.zig` has a `Game.frame`: emcc
 /// hands the loop to the browser and never returns.
 fn addWeb(
     b: *std.Build,
@@ -229,10 +229,10 @@ fn addWeb(
         // A factory function instead of a global `Module`, so the page can
         // start the game when it wants and hand it its own canvas.
         //
-        // Deliberately not an ES6 module. The guide embeds this in a page built
-        // by Vite, and Vite rewrites `import()` even for a file it is only
-        // serving from `public/`, appending `?import` and then failing to
-        // transform a 190 KB Emscripten bundle. A classic script that defines
+        // This is deliberately not an ES6 module. The guide embeds this in a
+        // page built by Vite, and Vite rewrites `import()` even for a file it
+        // is only serving from `public/`, appending `?import` and then failing
+        // to transform a 190 KB Emscripten bundle. A classic script that defines
         // one global is loaded by a plain `<script>` tag, which no bundler
         // touches.
         "-sMODULARIZE=1",
@@ -259,9 +259,9 @@ fn addWeb(
         .{ .custom = "web" },
         "lane-dodger.wasm",
     );
-    // The page that hosts the canvas. Shipped alongside the two artefacts so
-    // `zig build web` produces a directory that is playable as it stands,
-    // rather than two files and instructions.
+    // The page that hosts the canvas. It ships with the two artefacts, so
+    // `zig build web` produces a directory that can be played with no other
+    // setup.
     const install_page = b.addInstallFileWithDir(
         b.path("web-shell/index.html"),
         .{ .custom = "web" },
@@ -274,12 +274,12 @@ fn addWeb(
 
 /// Compile raylib from its C sources and hand back a Zig module for `raylib.h`.
 ///
-/// raylib ships a perfectly good build.zig, and we deliberately do not use it.
+/// raylib ships its own build.zig, and we deliberately do not use it.
 /// Naming a package in build.zig.zon makes the build runner import that
 /// package's build.zig, so a dependency whose build script has not yet caught
 /// up with Zig master fails our build before a line of our code is compiled.
-/// raylib's had exactly that problem, and so did raylib-zig. Its C, on the
-/// other hand, does not move.
+/// raylib's build script had that problem, and so did raylib-zig's. raylib's C
+/// changes far more slowly.
 ///
 /// The macros below are copied from what raylib's own build.zig sets for each
 /// of these targets.
@@ -306,8 +306,8 @@ fn raylibModule(
         // Zig instruments C with UBSan by default in the debug modes and links
         // its own runtime to catch the reports. That runtime comes with a Zig
         // link, and the web build is linked by emcc, so the instrumentation
-        // would leave a few dozen undefined `__ubsan_*` symbols behind. Nothing
-        // here is our C anyway: it is a pinned upstream release.
+        // would leave a few dozen undefined `__ubsan_*` symbols behind. None of
+        // this C is ours: it is a pinned upstream release.
         .sanitize_c = .off,
     });
     const lib = b.addLibrary(.{
@@ -323,8 +323,8 @@ fn raylibModule(
         .{ "SUPPORT_MODULE_RTEXTURES", "1" },
         .{ "SUPPORT_MODULE_RTEXT", "1" },
         .{ "SUPPORT_MODULE_RAUDIO", "1" },
-        // 3D model loading pulls in cgltf, m3d and par_shapes for a game that
-        // draws rectangles. Off.
+        // 3D model loading pulls in cgltf, m3d and par_shapes, and this game
+        // only draws rectangles, so it is turned off.
         .{ "SUPPORT_MODULE_RMODELS", "0" },
     }) |macro| mod.addCMacro(macro[0], macro[1]);
 

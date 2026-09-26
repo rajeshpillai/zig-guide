@@ -8,8 +8,8 @@ const std = @import("std");
 const Atomic = std.atomic.Value;
 
 /// Two workers increment one plain counter, with the read-modify-write spelled
-/// out in the order a race would have run it. Nothing here races: this is what
-/// a race produces.
+/// out in the order a race would have run it. This code does not race. It
+/// shows the result a race produces.
 fn lostUpdate() u32 {
     var plain: u32 = 0;
     const a_read = plain; // worker A reads 0
@@ -29,7 +29,7 @@ fn atomicIncrements() u32 {
 }
 
 /// Multiplying takes a loop, because there is no `fetchMul`: read the value,
-/// compute the new one, and swap only if nobody changed it underneath us.
+/// compute the new one, and swap only if nobody changed it in the meantime.
 fn multiplyBy(counter: *Atomic(u32), factor: u32) void {
     var seen = counter.load(.monotonic);
     while (counter.cmpxchgWeak(seen, seen * factor, .monotonic, .monotonic)) |actual| {
@@ -50,8 +50,8 @@ fn consume(payload: *const u32, ready: *const Atomic(bool)) ?u32 {
     return payload.*;
 }
 
-/// A lock is not a primitive. One compare-and-swap takes it, one ordered store
-/// drops it, and that is the whole type. `std.atomic.Mutex` is this.
+/// A lock is not a primitive. One compare-and-swap takes it, and one ordered
+/// store drops it. The type needs nothing else. `std.atomic.Mutex` is this.
 const SpinLock = enum(u8) {
     unlocked,
     locked,
@@ -101,7 +101,7 @@ pub fn main(init: std.process.Init) !void {
     lock.unlock();
 
     // Ordering is an argument to each operation, weakest first. There is no
-    // separate fence builtin to reach for.
+    // separate fence builtin to call.
     try out.print("orderings:", .{});
     for (std.meta.tags(std.lang.AtomicOrder)) |order| {
         try out.print(" .{t}", .{order});

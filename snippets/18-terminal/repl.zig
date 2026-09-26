@@ -18,8 +18,8 @@ fn eval(line: []const u8, out: *std.Io.Writer) !Action {
     } else if (std.mem.eql(u8, trimmed, "help")) {
         try out.writeAll("echo <text> | help | quit\n");
     } else {
-        // Unknown input is not a reason to exit. A REPL that dies on a typo
-        // is a REPL nobody uses.
+        // Unknown input is not a reason to exit. A REPL that exits on a typo
+        // is not usable.
         try out.print("unknown command: {s}\n", .{trimmed});
     }
     return .printed;

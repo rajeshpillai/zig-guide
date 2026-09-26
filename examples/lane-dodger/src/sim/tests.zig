@@ -25,11 +25,11 @@ fn playWithBot(seed: u64, seconds: f32) World {
 /// pure latency: the decision made from the world as it looked `delay` ticks
 /// ago is the one acted on now.
 ///
-/// This is the only way the tests can say anything about whether the game is
-/// *fun*. The bot proves the course is solvable, but it is solvable by
-/// something with no reaction time at all, and a course only a machine can run
-/// is not a game. Putting a delay in front of the same policy turns "is this
-/// fair" into "is this fair to a person".
+/// With this model the tests can say something about whether the game is
+/// *fun*. The bot proves the course is solvable, but the bot has no reaction
+/// time at all, and a course only a machine can run is not a game. With a
+/// delay in front of the same policy, the test asks whether the game is fair
+/// to a person.
 const Human = struct {
     delay: usize,
     buffer: [64]u8 = @splat(config.lane_count / 2),
@@ -66,23 +66,23 @@ fn meanSurvival(reaction_seconds: f32, seeds: usize, cap: f32) f32 {
 }
 
 test "a run lasts about as long as a hyper casual run should" {
-    // A quarter second is an unhurried player. They should get a real go at it,
-    // not four seconds and a game over screen.
+    // A quarter second is a slow, relaxed player. They should get a proper run,
+    // not a game over screen after a few seconds.
     const casual = meanSurvival(0.25, 24, 300);
     std.testing.expect(casual > 12 and casual < 70) catch |err| {
         std.debug.print("casual player averaged {d:.1}s\n", .{casual});
         return err;
     };
 
-    // A sharp player must last longer, or there is no skill in it.
+    // A sharp player must last longer, or skill makes no difference.
     const sharp = meanSurvival(0.10, 24, 300);
     std.testing.expect(sharp > casual * 1.5) catch |err| {
         std.debug.print("sharp {d:.1}s vs casual {d:.1}s\n", .{ sharp, casual });
         return err;
     };
 
-    // And must still lose. This is the test that would have caught the
-    // saturating difficulty curve, where a sharp player simply never died.
+    // A sharp player must still lose. This check would have caught the
+    // saturating difficulty curve, where a sharp player never died.
     std.testing.expect(sharp < 180) catch |err| {
         std.debug.print("sharp player averaged {d:.1}s: the game stops getting harder\n", .{sharp});
         return err;
@@ -90,9 +90,9 @@ test "a run lasts about as long as a hyper casual run should" {
 }
 
 test "the row spacing never falls to the unwinnable floor" {
-    // Not just on the ramp: for an hour of play. The spacing decays towards
-    // the floor and must never touch it, or the game would become impossible
-    // while still looking perfectly reasonable, every row leaving a lane open
+    // Check an hour of play, not only the ramp. The spacing decays towards the
+    // floor and must never touch it. Otherwise the game would become
+    // impossible while still looking normal: every row would leave a lane open
     // that nobody could reach in time.
     var t: f32 = 0;
     while (t <= 3600) : (t += 0.5) {
@@ -110,14 +110,14 @@ test "the row spacing never falls to the unwinnable floor" {
 }
 
 test "the game keeps getting harder for as long as anyone can survive it" {
-    // An endless runner whose difficulty plateaus is one a good player never
-    // loses, and a score nobody can lose measures patience rather than skill.
+    // If an endless runner stops getting harder, a good player never loses, and
+    // the score then measures patience instead of skill.
     //
     // The spacing does eventually stop moving, at around eight minutes, when
-    // the decaying term drops below the last bit of an f32 near the floor. That
-    // is far outside what the reaction time test below says a person reaches,
-    // so the plateau is real but unreachable. What matters is that it is a
-    // plateau at the hardest setting rather than partway up.
+    // the decaying term drops below the last bit of an f32 near the floor. The
+    // reaction time test below says a person does not last nearly that long,
+    // so no player reaches the plateau. The plateau is also at the hardest
+    // setting, not partway up.
     var previous = sim.rowGapSeconds(sim.speedAt(0), 0);
     var t: f32 = 1;
     while (t <= 600) : (t += 1) {
@@ -134,7 +134,7 @@ test "the game keeps getting harder for as long as anyone can survive it" {
         try std.testing.expect(later < now);
     }
 
-    // And meaningfully harder late than early, not merely different.
+    // Late in a run must be clearly harder than early, not only different.
     const early = sim.rowGapSeconds(sim.speedAt(0), 0);
     const late = sim.rowGapSeconds(sim.speedAt(300), 300);
     try std.testing.expect(late < early * 0.6);
@@ -142,8 +142,8 @@ test "the game keeps getting harder for as long as anyone can survive it" {
 
 test "the opening never demands a two lane crossing" {
     // A first-time player has not learned the controls yet. Inside the grace
-    // window every row leaves two lanes open, so one nudge in either direction
-    // always answers it.
+    // window every row leaves two lanes open, so one lane change is always
+    // enough to pass it.
     for (0..32) |seed| {
         var w: World = .init(seed);
         w.start();
@@ -202,7 +202,7 @@ test "a row never blocks every lane" {
 }
 
 test "solvable course: the bot survives a long run at every seed" {
-    // The real proof that the generator is fair. Four minutes is well past the
+    // This test proves that the generator is fair. Four minutes is well past the
     // point where the difficulty ramp saturates, so this covers the hardest
     // spacing the game ever produces.
     for (0..24) |seed| {
@@ -247,7 +247,7 @@ test "the entity pool and event buffer never overflow" {
             try std.testing.expectEqual(@as(usize, 0), w.events.dropped);
             w.events.reset();
         }
-        // Headroom, but not so much that the array is silly.
+        // Room to spare, but not so much that the array is far too large.
         try std.testing.expect(peak < sim.EntityPool.capacity);
         try std.testing.expect(peak > 6);
     }
@@ -298,7 +298,7 @@ test "the player never leaves the field" {
     var w: World = .init(42);
     w.start();
     for (0..20_000) |tick| {
-        // Lean on one wall, then the other, harder than a human could.
+        // Press left every tick for a while, then right, faster than a human.
         w.step(if (tick % 400 < 200) .{ .left = true } else .{ .right = true });
         w.events.reset();
         try std.testing.expect(w.player.lane < config.lane_count);

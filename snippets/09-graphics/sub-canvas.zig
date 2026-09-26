@@ -23,9 +23,9 @@ const violet = rgb(120, 60, 180);
 /// `width` and `height` say how big this region is. `stride` says how far apart
 /// two vertically adjacent pixels are **in the buffer that actually holds
 /// them**, which is the parent's full width and has nothing to do with this
-/// region's. Splitting those two apart is the entire idea: without `stride`,
-/// `y * width + x` is the only addressing a routine can do, and it is only
-/// correct for a canvas that owns the whole buffer.
+/// region's. Keeping those two values separate is what makes a region work.
+/// Without `stride`, `y * width + x` is the only addressing a routine can do,
+/// and it is only correct for a canvas that owns the whole buffer.
 const Canvas = struct {
     pixels: []u32,
     width: usize,
@@ -47,7 +47,7 @@ const Canvas = struct {
         const cw = @min(w, self.width - cx);
         const ch = @min(h, self.height - cy);
 
-        // Here is where a slice stops fitting the shape of the thing. A
+        // Here a slice can no longer describe the shape of the data. A
         // rectangle inside a wider buffer is not contiguous, so no `[]u32` can
         // describe exactly these pixels: this one runs from the region's first
         // pixel to the last pixel of its bottom row, and every gap between one
@@ -92,8 +92,8 @@ fn dump(canvas: Canvas, out: *std.Io.Writer) !void {
     var row: [root_width]u8 = undefined;
     for (0..canvas.height) |y| {
         for (0..canvas.width) |x| {
-            // `stride`, not `width`. This one line is the difference between a
-            // view that works and one that reads the wrong pixels.
+            // `stride`, not `width`. With `width` here, a view reads the wrong
+            // pixels.
             const color = canvas.pixels[y * canvas.stride + x];
             const luma = (((color >> 16) & 0xff) * 77 +
                 ((color >> 8) & 0xff) * 150 +

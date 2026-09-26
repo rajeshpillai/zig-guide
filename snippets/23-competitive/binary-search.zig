@@ -18,8 +18,8 @@ const input =
 
 /// Read one line of whitespace-separated integers into `out`.
 ///
-/// Taking a `*std.Io.Reader` rather than the string is the same discipline the
-/// networking chapters use for protocols. The function turns bytes into
+/// It takes a `*std.Io.Reader` instead of the string, as the networking
+/// chapters do for protocols. The function turns bytes into
 /// values, so the same code works over a file, over a socket, and over a
 /// string literal that CI can check.
 fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
@@ -43,8 +43,8 @@ fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
 /// answer, which is why there is no separate not-found case.
 ///
 /// `lo + (hi - lo) / 2` and not `(lo + hi) / 2`. The second one adds two
-/// indices that are each valid on their own, and on a large array the sum is
-/// not.
+/// indices that are each valid on their own. On a large array their sum may
+/// not be.
 fn lowerBound(items: []const i32, key: i32) usize {
     var lo: usize = 0;
     var hi: usize = items.len;
@@ -84,8 +84,8 @@ fn writeCell(out: *std.Io.Writer, value: i32, width: usize) !void {
 /// One line of the trace: the counters, then the array with the live window
 /// drawn in and the middle value in brackets.
 ///
-/// Values outside `items[lo..hi]` print as a dot. The window halving is then
-/// something to watch rather than something to work out from three numbers.
+/// Values outside `items[lo..hi]` print as a dot, so you can watch the window
+/// halve instead of working it out from three numbers.
 fn writeStep(
     out: *std.Io.Writer,
     items: []const i32,
@@ -130,12 +130,12 @@ fn traceLowerBound(out: *std.Io.Writer, items: []const i32, key: i32) !usize {
 
 /// The off-by-one, shown rather than described.
 ///
-/// `lo = mid` reads as harmless next to `lo = mid + 1`. `mid` was too small,
+/// `lo = mid` looks harmless next to `lo = mid + 1`. `mid` was too small,
 /// so leaving it in the window looks like it only costs one comparison. It
-/// costs the loop. Once `hi - lo` is 1, `mid` is `lo`, and `lo = mid` leaves
+/// breaks the loop. Once `hi - lo` is 1, `mid` is `lo`, and `lo = mid` leaves
 /// the window exactly as it was, so the next step is identical to this one.
 ///
-/// The budget is what makes this printable. Without it the loop never ends.
+/// The step budget lets this be printed. Without it the loop never ends.
 fn stalledLowerBound(
     out: *std.Io.Writer,
     items: []const i32,
@@ -160,7 +160,7 @@ fn stalledLowerBound(
 
 /// The comparator `std.sort` wants: the key first, the element second.
 ///
-/// The argument order is the part worth checking against the source. A
+/// Check the argument order against the source. A
 /// comparator written the other way round compiles and returns a plausible
 /// wrong index.
 fn orderKeyFirst(key: i32, item: i32) std.math.Order {

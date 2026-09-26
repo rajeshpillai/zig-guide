@@ -61,8 +61,8 @@ pub fn main(init: std.process.Init) !void {
     // nothing behind on the machine that ran it.
     defer dir.deleteFile(io, "output.ppm") catch {};
 
-    // `.read = true` only so the check at the end can reopen nothing: a
-    // createFile handle is write-only by default.
+    // `.read = true` so the check at the end can read through this handle
+    // without reopening the file: a createFile handle is write-only by default.
     const file = try dir.createFile(io, "output.ppm", .{ .read = true });
     defer file.close(io);
 
@@ -73,8 +73,8 @@ pub fn main(init: std.process.Init) !void {
     try file.writeStreamingAll(io, &pixels);
 
     // Reading the header back is the only way to know the two writes above
-    // landed in the right order. A viewer would tell you eventually; this
-    // tells the build.
+    // landed in the right order. An image viewer would show the problem later.
+    // This check fails the build now.
     var check: [15]u8 = undefined;
     _ = try file.readPositionalAll(io, &check, 0);
 

@@ -16,9 +16,9 @@ const people = [_]Row{
     .{ .id = "8", .name = "heidi", .role = "designer" },
 };
 
-/// `SELECT <column> FROM <table> WHERE <column> = <value>`. A fixed shape, so
-/// the parser is a sequence of expectations rather than the precedence climb a
-/// real expression grammar needs.
+/// `SELECT <column> FROM <table> WHERE <column> = <value>`. The shape is fixed,
+/// so the parser checks for each expected token in order. A full expression
+/// grammar would need precedence climbing.
 const Query = struct {
     select: []const u8,
     table: []const u8,
@@ -61,7 +61,7 @@ fn columnOf(row: Row, name: []const u8) ?[]const u8 {
 
 const Plan = enum { index_lookup, table_scan };
 
-/// The whole of query planning, in miniature: can the filter be answered by a
+/// Query planning in a small form: can the filter be answered by a
 /// structure that already knows the answer, or must every row be looked at?
 /// A real planner asks the same question with statistics attached, because an
 /// index that matches most rows is slower than the scan it replaces.
@@ -85,8 +85,8 @@ fn execute(query: Query, indexed_column: ?[]const u8, out: *std.Io.Writer) !Resu
     try out.writeAll("  rows: ");
 
     switch (chosen) {
-        // The index is stood in for by the fact that `id` is the row number.
-        // What matters is that one row is touched, not how the jump happened.
+        // `id` is the row number, so it acts as the index here. Only one row
+        // is touched, and how the lookup finds it does not change that.
         .index_lookup => {
             const n = std.fmt.parseInt(usize, query.where_value, 10) catch 0;
             if (n >= 1 and n <= people.len) {

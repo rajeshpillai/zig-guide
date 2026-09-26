@@ -54,8 +54,8 @@ pub const System = struct {
         return self.pool.live;
     }
 
-    /// Oldest-wins: when the pool is full, new particles are simply dropped.
-    /// A dropped spark is invisible; stalling the frame to make room is not.
+    /// Oldest wins: when the pool is full, new particles are dropped. Nobody
+    /// sees a dropped spark, but a frame that stalls to make room is visible.
     fn emit(self: *System, p: Particle) void {
         _ = self.pool.create(p);
     }

@@ -56,8 +56,8 @@ const { zigVersion } = await buildInfo();
       <li>The URL of the chapter.</li>
       <li>
         Your Zig version, from <code>zig version</code>. The guide targets
-        master and was last verified against {zigVersion}; a good half of
-        reports turn out to be a tagged release meeting code written for
+        master and was last verified against {zigVersion}. About half of
+        reports turn out to be a tagged release running code written for
         master, which is what{" "}
         <a href={pageHref("getting-started/coming-from-older-zig")}
           >coming from an older Zig</a> covers.
@@ -66,8 +66,8 @@ const { zigVersion } = await buildInfo();
       <li>What happened instead, with the error message pasted in full.</li>
     </ul>
     <p>
-      If a snippet does not compile for you on current master, that is a build
-      failure waiting to happen and worth reporting immediately. Every snippet
+      If a snippet does not compile for you on current master, the nightly
+      build will fail on it soon, so please report it straight away. Every snippet
       is compiled and run nightly, so it should not be possible, and if it is
       happening then something about the check is wrong too. How that check
       works is written up in{" "}
@@ -78,8 +78,8 @@ const { zigVersion } = await buildInfo();
     <p>
       Also the issue tracker. Say what you were trying to do and where you got
       stuck. "I could not work out how to do X" is more useful than a proposed
-      table of contents, because the gap is usually somewhere other than where
-      it feels like it is.
+      table of contents, because the real gap is usually not where it seems to
+      be.
     </p>
 
     <h2>A correction you have already written</h2>

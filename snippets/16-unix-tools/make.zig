@@ -11,7 +11,7 @@ const Rule = struct {
 };
 
 /// Visit dependencies before the thing that depends on them, and refuse to
-/// loop. This is the whole of make's ordering, and the `visiting` flag is what
+/// loop. This is all of make's ordering, and the `visiting` flag is what
 /// turns an infinite recursion into an error you can report.
 fn order(
     rules: []const Rule,
@@ -73,8 +73,8 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("build order:\n");
     for (scheduled.items) |target| try out.print("  {s}\n", .{target});
 
-    // A target is stale when anything it depends on is newer than it is. That
-    // one comparison is the entire reason make is faster than a shell script.
+    // A target is stale when anything it depends on is newer than it is. This
+    // one comparison is why make is faster than a shell script.
     try out.writeAll("\nwhat actually needs rebuilding:\n");
     for (scheduled.items) |target| {
         const i = indexOf(&rules, target).?;

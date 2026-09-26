@@ -22,7 +22,7 @@ pub fn main(init: std.process.Init) !void {
     const out = &file_writer.interface;
 
     // Two calendars, each a set of free hours in a day. 24 possible
-    // members, so the whole set is one u24 under the hood; every
+    // members, so the whole set is stored as one u24. Every
     // operation below is a bitwise instruction or two.
     var ana: Hours = .empty;
     var raj: Hours = .empty;

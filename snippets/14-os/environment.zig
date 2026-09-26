@@ -10,7 +10,7 @@ pub fn main(init: std.process.Init) !void {
 
     // The real environment, already parsed into a map by the startup code.
     // This program is running in a wasm sandbox with no parent process to
-    // inherit from, so the count is the honest answer rather than a stub.
+    // inherit from, so the count is the real value and not a placeholder.
     const env = init.environ_map;
     try out.print("inherited variables: {d}\n", .{env.count()});
     try out.print("PATH: {?s}\n\n", .{env.get("PATH")});
@@ -26,8 +26,8 @@ pub fn main(init: std.process.Init) !void {
     _ = env.swapRemove("EDITOR");
     try out.print("after removing it: {?s}\n\n", .{env.get("EDITOR")});
 
-    // A name may not be empty and may not contain '='. The separator is not
-    // escapable, so a key holding one could never be read back.
+    // A name may not be empty and may not contain '='. There is no way to
+    // escape the separator, so a key holding one could never be read back.
     try out.print("\"HOME\" valid: {}\n", .{std.process.Environ.Map.validateKeyForPut("HOME")});
     try out.print("\"A=B\" valid: {}\n", .{std.process.Environ.Map.validateKeyForPut("A=B")});
 

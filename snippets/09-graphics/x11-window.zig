@@ -85,8 +85,8 @@ pub fn main(init: std.process.Init) !void {
         std.c.free(data);
         return error.ImageFailed;
     };
-    // XDestroyImage is another macro; it calls through the image's own
-    // function table, which is a thing Zig can do directly.
+    // XDestroyImage is another macro. It calls through the image's own
+    // function table, and Zig can call through that table directly.
     defer _ = image.*.f.destroy_image.?(image);
 
     _ = c.XMapWindow(display, window);

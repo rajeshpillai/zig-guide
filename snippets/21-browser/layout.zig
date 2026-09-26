@@ -18,7 +18,7 @@ pub const Box = struct {
 };
 
 /// Every line of text is this tall. A real engine measures the font, breaks
-/// the text into lines that fit the width, and the height falls out of how
+/// the text into lines that fit the width, and the height follows from how
 /// many lines there were. That is inline layout, and it is a different
 /// algorithm from the block layout below.
 const line_height: i32 = 20;
@@ -108,7 +108,7 @@ fn show(e: Engine, index: u32, depth: usize, out: *std.Io.Writer) !void {
     const label = if (node.kind == .text) "#text" else node.name;
     // Formatted into a string first, then padded. Giving an integer a width
     // makes this compiler print a sign with it (`{d:<4}` on 7 is "+7  "), and
-    // a column of plus signs is not what a box tree should look like.
+    // a box tree should not show a column of plus signs.
     var cell: [4][8]u8 = undefined;
     try out.print("{s: <8} x={s: <5} y={s: <5} w={s: <5} h={s}\n", .{
         label,

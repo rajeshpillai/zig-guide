@@ -128,5 +128,5 @@ test "a combining mark is two codepoints" {
     try expect(!std.mem.eql(u8, composed, decomposed));
 
     // Nothing in std normalizes these to each other, or counts what a reader
-    // would call a character. That is what a Unicode library is for.
+    // would call a character. You need a Unicode library for that.
 }

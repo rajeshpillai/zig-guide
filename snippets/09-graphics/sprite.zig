@@ -9,7 +9,7 @@ var canvas: [width * height]u8 = @splat('.');
 
 /// A sprite is a small image plus a rule for which pixels are see-through.
 /// Here the rule is a key colour: one value declared to mean "skip". That is
-/// how every 8-bit and 16-bit console did it, because a per-pixel alpha
+/// how 8-bit and 16-bit consoles did it, because a per-pixel alpha
 /// channel costs memory those machines did not have.
 const Sprite = struct {
     w: usize,
@@ -33,7 +33,7 @@ fn blit(sprite: Sprite, x: i32, y: i32) void {
     for (0..sprite.h) |sy| {
         for (0..sprite.w) |sx| {
             const value = sprite.pixels[sy * sprite.w + sx];
-            // The whole of transparency, in one comparison. Without it a
+            // All of transparency is this one comparison. Without it a
             // sprite is a rectangle and everything behind its corners is gone.
             if (value == sprite.transparent) continue;
 

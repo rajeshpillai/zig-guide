@@ -52,8 +52,8 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
 
     <h2>What "verified" means</h2>
     <p>
-      Three separate things, and it is worth being exact about which is which,
-      because most documentation that claims to be tested only does the first.
+      It means three separate things. Most documentation that claims to be
+      tested only does the first.
     </p>
     <ol>
       <li>
@@ -61,7 +61,7 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
         which is built from master rather than pulled from a release.
       </li>
       <li>
-        <strong>It runs.</strong> The binary is executed, not just built. A
+        <strong>It runs.</strong> The binary is built and then executed. A
         snippet that compiles and then panics on line one is a failure here.
       </li>
       <li>
@@ -79,7 +79,7 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
       page you are reading does not contain a copy of the code that someone
       pasted in: it reads the file from disk when the site is built. So the
       listing in a chapter and the file the compiler checked are the same
-      bytes, and they cannot drift apart, because there is nothing to drift.
+      bytes. They cannot drift apart, because there is only one copy.
     </p>
     <p>
       The Run button works the same way. Compiling a snippet produces a{" "}
@@ -108,7 +108,7 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
       </li>
       <li>
         A sibling <code>.expected</code> file turns on the exact-output
-        comparison. Adding one is the whole of the work.
+        comparison. Adding the file is all you need to do.
       </li>
       <li>
         A file whose name starts with an underscore is a helper module that
@@ -129,15 +129,15 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
       A few go one step further and are compiled and linked but never executed:
       the X11 chapter links against the real Xlib, and a build that opened a
       window and waited for a keypress would hang the check forever. Compiling
-      and linking still catches the thing that actually breaks, which is the
-      library's interface changing underneath the chapter.
+      and linking still catches what breaks these chapters: a change to the
+      library's interface.
     </p>
     <p>
       This is why the protocol chapters in the networking section still have Run
       buttons: the codec, the command parser and the connection handler take
       bytes and return bytes rather than reading a socket directly, so they can
-      be verified and run anywhere. Only the chapters that are genuinely about
-      the socket need a real one.
+      be verified and run anywhere. Only the chapters that teach the socket
+      itself need a real one.
     </p>
 
     <h2>The {mustFail} that are required to fail</h2>
@@ -147,7 +147,7 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
       with safety checks on and the verification is inverted. The build asserts
       that the program <em>stops</em>, and that it stops with the exact message
       recorded in a sibling file. If the snippet exits successfully, or fails
-      with different wording, the build is red.
+      with different wording, the build fails.
     </p>
     <p>
       That means a panic message quoted in a chapter is checked every night
@@ -173,11 +173,11 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
       passed.
     </p>
     <p>
-      The nightly is the part that matters. A check that runs when someone edits
+      A check that runs when someone edits
       a page proves the page was right when it was touched. This one proves it
       is right today, on a compiler that did not exist when the chapter was
-      written. When Zig changes something, this is what turns red, and the fix
-      is to teach the new shape and record what the old one was.
+      written. When Zig changes something, the nightly check fails. The fix is
+      to teach the new form and record what the old one was.
     </p>
 
     <h2>The browser check</h2>
@@ -191,8 +191,8 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
       at the ends.
     </p>
     <p>
-      It also measures things that are invisible on the page and so would break
-      silently: text contrast against its actual composited background in both
+      It also measures things that are invisible on the page, which could break
+      without anyone noticing: text contrast against its actual composited background in both
       light and dark themes, against the WCAG AA thresholds; that every page has
       a title, a description, one heading, one valid structured-data block and a
       canonical URL naming itself; and that every page is listed in the sitemap
@@ -202,17 +202,19 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
     <h2>What none of this checks</h2>
     <p>
       The prose. A chapter can compile, run, print exactly what it should, and
-      still explain it badly or be out of date about something the compiler has
-      no opinion on. Corrections are welcome and the fastest route is the{" "}
+      still explain it badly, or be out of date about something the compiler
+      does not check. Corrections are welcome and the fastest route is the{" "}
       <a href={`${base}contact/`}>issue tracker</a>.
     </p>
     <p>
       Two pages are deliberately outside the gate, and both say so where you
-      read them. The chapter on importing C headers needs real system headers
-      and a libc that a browser sandbox does not have. The chapter on{" "}
+      read them. The chapter on{" "}
       <a href={pageHref("getting-started/coming-from-older-zig")}
-        >coming from an older Zig</a> shows "before" examples that are supposed
-      not to compile, which is the entire point of them.
+        >coming from an older Zig</a> shows "before" examples that do not
+      compile on purpose, to show what changed. The chapter on{" "}
+      <a href={pageHref("getting-started/zig-0-17")}>what changed in Zig 0.17</a>
+      shows 0.16.0 code and error messages that were checked by hand against
+      both compilers, because CI only has the current one.
     </p>
 
     <p>

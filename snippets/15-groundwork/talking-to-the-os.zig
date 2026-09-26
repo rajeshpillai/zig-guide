@@ -16,8 +16,8 @@ pub fn main(init: std.process.Init) !void {
     try out.print("stdout is descriptor {d}\n", .{std.Io.File.stdout().handle});
     try out.print("stderr is descriptor {d}\n\n", .{std.Io.File.stderr().handle});
 
-    // They go to different places, which is the whole reason there are two
-    // output streams rather than one. This line is the program's result.
+    // They go to different places. That is why there are two output streams.
+    // This line is the program's result.
     try out.writeAll("this line went to stdout: the program's output\n");
     try out.flush();
 

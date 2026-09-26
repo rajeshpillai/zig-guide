@@ -10,8 +10,8 @@ const std = @import("std");
 /// The intervals, as text, one per line: start then end.
 ///
 /// A snippet here runs under WASI in a browser tab, where there is no stdin to
-/// read. The order is the order they arrived in, which is to say no order at
-/// all, and the parser below reads it the way it would read a real file.
+/// read. The order is the order they arrived in, which is no particular order,
+/// and the parser below reads it the way it would read a real file.
 ///
 /// `1 20` with `3 5` inside it is the case that catches a merge written
 /// without `@max`. `3 5` next to `5 8`, and `24 26` next to `26 29`, are the
@@ -52,8 +52,8 @@ fn byStart(_: void, a: Interval, b: Interval) bool {
 
 /// Read one interval per line into `out`.
 ///
-/// Taking a `*std.Io.Reader` rather than the string is the same discipline the
-/// networking chapters use for protocols. The function turns bytes into
+/// It takes a `*std.Io.Reader` instead of the string, as the networking
+/// chapters do for protocols. The function turns bytes into
 /// values, so the same code works over a file, over a socket, and over a
 /// string literal that CI can check.
 fn readIntervals(reader: *std.Io.Reader, out: []Interval) ![]Interval {
@@ -97,9 +97,9 @@ fn merge(sorted: []const Interval, out: []Interval) []Interval {
     return out[0..count];
 }
 
-/// The same pass with `@max` dropped, which is the shape people write first.
+/// The same pass with `@max` dropped, which is a common first attempt.
 ///
-/// It reads as harmless: the intervals are sorted, so the next end should be
+/// It looks harmless: the intervals are sorted, so the next end should be
 /// the larger one. That holds for every interval except the ones already
 /// inside the run.
 fn mergeTakingLast(sorted: []const Interval, out: []Interval) []Interval {
@@ -283,7 +283,7 @@ fn writeMap(out: *std.Io.Writer, label: []const u8, marks: []const u8) !void {
 
 /// Mark every coordinate any of `list` covers.
 ///
-/// The check shares no line of reasoning with the pass above. It does not
+/// The check uses none of the reasoning in the pass above. It does not
 /// sort, it does not know what a run is, and it would give the same answer if
 /// the input arrived backwards.
 fn paint(list: []const Interval, marks: []u8) void {

@@ -6,7 +6,7 @@ const expect = std.testing.expect;
 const expectEqualStrings = std.testing.expectEqualStrings;
 
 test "compare content, not pointers" {
-    // There is no == for slices; that would compare pointer and length.
+    // The compiler rejects == on slices, so compare content with eql.
     try expect(std.mem.eql(u8, "zig", "zig"));
     try expect(std.mem.startsWith(u8, "build.zig", "build"));
     try expect(std.mem.endsWith(u8, "build.zig", ".zig"));

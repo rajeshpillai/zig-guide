@@ -22,10 +22,10 @@ fn Repo(comptime Driver: type) type {
     return struct {
         driver: *Driver,
 
-        // The whole transaction contract in four lines. errdefer fires
-        // on every error return between BEGIN and COMMIT, so there is
-        // no path that leaves the transaction open: not an early return,
-        // not a failure inside the callback, not a failed COMMIT.
+        // These four lines are the transaction contract. errdefer runs
+        // on every error return between BEGIN and COMMIT. So no path
+        // leaves the transaction open, including an early return, a
+        // failure inside the callback, or a failed COMMIT.
         pub fn transaction(r: @This(), body: anytype) !void {
             try r.driver.exec("BEGIN");
             errdefer r.driver.exec("ROLLBACK") catch {};
@@ -69,7 +69,7 @@ test "a failing body rolls back and the error escapes" {
         (R{ .driver = &driver }).transaction(body),
     );
 
-    // The work happened, then was rolled back; nothing was committed.
+    // The work ran and was then rolled back. Nothing was committed.
     try expect(driver.log.items.len == 3);
     try expect(std.mem.eql(u8, driver.log.items[0], "BEGIN"));
     try expect(std.mem.eql(u8, driver.log.items[2], "ROLLBACK"));

@@ -7,9 +7,9 @@ const message_count = 8;
 const timeout_ticks = 3;
 
 /// The network, scripted by position: it drops the 2nd and 7th data
-/// transmission and the 4th ack, counting from 1. Positional, because
-/// the network does not know or care which message a transmission
-/// carries; a retry rolls the dice again.
+/// transmission and the 4th ack, counting from 1. It counts positions
+/// because the network does not know which message a transmission
+/// carries. A retry is a new transmission, so it can be dropped too.
 const Wire = struct {
     data_sent: usize = 0,
     acks_sent: usize = 0,
@@ -44,7 +44,8 @@ const Receiver = struct {
 
 /// The sender's state: everything below `base` is confirmed, everything
 /// from `base` to `next` is in flight, and each in-flight message
-/// remembers when it was last transmitted so the clock can judge it.
+/// remembers when it was last transmitted, so the clock can tell when it
+/// is overdue.
 const Sender = struct {
     base: u8 = 0,
     next: u8 = 0,
@@ -87,7 +88,7 @@ fn run(out: *std.Io.Writer, window: u8) !void {
 }
 
 /// One transmission and, if it arrives, the ack coming straight back.
-/// The whole round trip fits inside a tick; only loss stretches time.
+/// The whole round trip fits inside one tick. Only a loss makes it longer.
 fn transmit(
     out: *std.Io.Writer,
     wire: *Wire,

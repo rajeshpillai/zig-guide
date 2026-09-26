@@ -4,9 +4,9 @@
 const std = @import("std");
 const expect = std.testing.expect;
 
-// A dialect is any type with these declarations. There is no interface
-// to implement and no vtable; the requirement is structural, and a
-// missing declaration is a compile error at the call site that used it.
+// A dialect is any type with these declarations. It does not implement an
+// interface or use a vtable. The requirement is structural: a missing
+// declaration is a compile error at the call site that used it.
 const Postgres = struct {
     pub fn placeholder(w: *std.Io.Writer, n: usize) !void {
         try w.print("${d}", .{n});
@@ -25,12 +25,12 @@ const Mysql = struct {
     pub fn placeholder(w: *std.Io.Writer, _: usize) !void {
         try w.writeAll("?");
     }
-    pub const quote = "`"; // the one that is different
+    pub const quote = "`"; // differs from the other dialects
 };
 
 // The renderer takes the dialect as a comptime parameter. Each dialect
-// instantiates its own copy of this function with the calls inlined;
-// there is no dispatch at runtime.
+// instantiates its own copy of this function with the calls inlined.
+// Nothing is dispatched at runtime.
 fn renderSelect(
     comptime Dialect: type,
     w: *std.Io.Writer,

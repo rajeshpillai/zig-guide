@@ -26,9 +26,9 @@ const with_a_negative = [_]i32{ 2, -1, 2, 3 };
 
 /// Read one line of whitespace-separated integers into `out`.
 ///
-/// Taking a `*std.Io.Reader` rather than the string is the same discipline the
-/// networking chapters use for protocols. Point it at stdin on a judge and not
-/// a line of it changes.
+/// It takes a `*std.Io.Reader` instead of the string, as the networking
+/// chapters do for protocols. On a judge, pass a reader over stdin and the
+/// function stays the same.
 fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     const line = (try reader.takeDelimiter('\n')) orelse return error.MissingRow;
     var count: usize = 0;
@@ -54,9 +54,9 @@ const Span = struct {
 
 /// Largest sum of `k` consecutive values, by summing every window.
 ///
-/// `adds` counts the additions, because the cost is the point. Each of the
-/// `n - k + 1` windows costs `k` additions, so the work grows with the product
-/// and a wide window on a long array is slow for no reason.
+/// `adds` counts the additions, because the cost is what this shows. Each of
+/// the `n - k + 1` windows costs `k` additions, so the work grows with the
+/// product, and a wide window on a long array does a lot of repeated work.
 fn resumMaxWindow(items: []const i32, k: usize, adds: *usize) ?i64 {
     if (k == 0 or k > items.len) return null;
     var best: i64 = std.math.minInt(i64);
@@ -75,8 +75,8 @@ fn resumMaxWindow(items: []const i32, k: usize, adds: *usize) ?i64 {
 ///
 /// Two windows a step apart differ by two values: the one that entered on the
 /// right and the one that left on the left. Everything between them is in both
-/// sums, so re-adding it is work already done. Sum the first window, then keep
-/// the total and repair it.
+/// sums, so adding it again repeats work. Sum the first window, then keep the
+/// total and adjust it.
 ///
 /// `i64` and not `i32`. Ten small values fit either way, and a contest array of
 /// a hundred thousand values near the limit of `i32` does not.
@@ -99,7 +99,7 @@ fn slidingMaxWindow(items: []const i32, k: usize, adds: *usize) ?i64 {
 
 /// Shortest run of values summing to `target` or more.
 ///
-/// The right edge grows unconditionally, one value per pass. The left edge only
+/// The right edge grows by one value on every pass. The left edge only
 /// moves while the window still qualifies, and every window it passes through is
 /// a candidate. `lo` never goes backwards, so each index enters once and leaves
 /// at most once and the inner loop cannot run more than `items.len` times over
@@ -128,9 +128,9 @@ fn shortestAtLeast(items: []const i32, target: i64, moves: *usize) ?Span {
 
 /// The same answer, from every starting index in turn.
 ///
-/// This one is genuinely quadratic. The outer loop fixes a start, the inner one
-/// extends until the sum reaches the target, and the next start throws away
-/// everything the previous one learned. `sums` counts the additions so the two
+/// This one is quadratic. The outer loop fixes a start, the inner one extends
+/// until the sum reaches the target, and the next start reuses nothing from
+/// the previous one. `sums` counts the additions so the two
 /// numbers can be compared rather than asserted.
 fn everyStartAtLeast(items: []const i32, target: i64, sums: *usize) ?Span {
     var best: ?Span = null;
@@ -164,8 +164,8 @@ fn writeCell(out: *std.Io.Writer, value: i64, width: usize) !void {
 /// The array with the live window drawn into it.
 ///
 /// Four characters per value: a bracket or a space, the value in two, a bracket
-/// or a space. Every row lines up, so the window is something to watch move
-/// rather than something to reconstruct from two indices.
+/// or a space. Every row lines up, so you can watch the window move instead of
+/// working it out from two indices.
 fn writeWindow(out: *std.Io.Writer, items: []const i32, span: Span) !void {
     const inside = span.lo < span.hi;
     for (items, 0..) |value, i| {
@@ -173,7 +173,7 @@ fn writeWindow(out: *std.Io.Writer, items: []const i32, span: Span) !void {
         try writeCell(out, value, 2);
         const closing: u8 = if (inside and i + 1 == span.hi) ']' else ' ';
         // No trailing space at the end of a row: the expected output is diffed
-        // byte for byte, and an invisible column is a bad thing to depend on.
+        // byte for byte, and a space you cannot see is easy to get wrong.
         if (closing == ' ' and i + 1 == items.len) break;
         try out.writeByte(closing);
     }
@@ -278,7 +278,7 @@ pub fn main(init: std.process.Init) !void {
     for (values) |v| try writeCell(out, v, 4);
     try out.writeAll("\n\n");
 
-    // A fixed window. The sum is repaired rather than rebuilt.
+    // A fixed window. The sum is adjusted, not rebuilt.
     try out.print("largest sum of {d} consecutive values\n", .{k});
     const traced = try traceSlidingMaxWindow(out, values, k);
     var sliding_adds: usize = 0;
@@ -306,7 +306,7 @@ pub fn main(init: std.process.Init) !void {
         .{windowed.?.len() == brute.?.len()},
     );
 
-    // The amortised argument, as two numbers rather than a claim. Every index
+    // The amortised argument, checked with two numbers. Every index
     // enters the window once and leaves at most once, so the moves cannot pass
     // 2n however the inner loop happens to run.
     try out.print(

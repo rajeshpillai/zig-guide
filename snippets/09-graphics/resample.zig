@@ -10,8 +10,8 @@ const canvas = @import("_canvas.zig");
 var pixels: [canvas.width * canvas.height]u32 = undefined;
 
 /// Coordinates are in 16.16 fixed point: 16 bits of pixel index and 16 bits of
-/// position inside the pixel. Integers throughout keeps this exactly
-/// reproducible, which matters more here than anywhere else in the section
+/// position inside the pixel. Using integers throughout keeps this exactly
+/// reproducible. That is more important here than in the rest of the section,
 /// because a resampler that rounds differently on two machines produces
 /// different files.
 const frac_bits = 16;
@@ -66,8 +66,8 @@ fn mix4(a: u8, b: u8, c: u8, d: u8, tx: i64, ty: i64) u8 {
 }
 
 /// Box filter: average every source pixel that falls inside the output pixel.
-/// For downscaling this is the one that is actually correct, because it looks
-/// at all the input rather than a sample of it.
+/// For downscaling this is the correct one, because it looks at all the input
+/// instead of a sample of it.
 fn box(src: Image, dst_x: usize, dst_y: usize, dst_w: usize, dst_h: usize) u32 {
     const x_start = (dst_x * src.width) / dst_w;
     const x_end = @max(x_start + 1, ((dst_x + 1) * src.width) / dst_w);
@@ -94,15 +94,15 @@ const Sampler = enum { nearest, bilinear, box };
 
 /// Resample `src` into a `dst_w` x `dst_h` buffer.
 ///
-/// The mapping is the part that goes wrong. An output pixel covers a range of
+/// Mistakes happen in the mapping. An output pixel covers a range of
 /// the input, and the point to sample is the *centre* of that range:
 ///
 ///     src = (dst + 0.5) * scale - 0.5
 ///
 /// Dropping either half-pixel gives `src = dst * scale`, which lines the two
 /// images up by their top-left corners instead of their centres and shifts the
-/// result by half a source pixel. That is the single most common resampling
-/// bug, and on a 2x upscale it is a visible offset.
+/// result by half a source pixel. That is a common resampling bug, and on a
+/// 2x upscale it is a visible offset.
 fn resample(
     dst: []u32,
     dst_w: usize,
@@ -191,12 +191,12 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("\n64x32 -> 16x8, box filtered:\n");
     try printGrid(out, &small, small_w, small_h);
 
-    // Aliasing, with nowhere to hide. A row of alternating black and white
+    // Aliasing, shown clearly. A row of alternating black and white
     // columns has a real average of 127 everywhere. Nearest neighbour samples
     // every fourth pixel, and every fourth pixel of an alternating pattern is
     // the *same* colour, so the answer is a solid bar of whichever phase the
-    // grid happened to land on. The detail is not merely lost; it has become a
-    // large, confident, wrong feature.
+    // grid happened to land on. The detail is lost, and a large wrong feature
+    // appears in its place.
     var stripes: [64]u32 = undefined;
     for (&stripes, 0..) |*p, i| {
         p.* = if (i % 2 == 0) canvas.rgb(0, 0, 0) else canvas.rgb(255, 255, 255);

@@ -15,7 +15,7 @@ const Array = struct {
     len: usize = 0,
     allocator: std.mem.Allocator,
 
-    /// Counters so the growth policy can be watched rather than described.
+    /// Counters so the output can show the growth policy at work.
     growths: usize = 0,
     carried: usize = 0,
 
@@ -29,16 +29,16 @@ const Array = struct {
         self.len = 0;
     }
 
-    /// The live values. A slice into the buffer, valid until the next growth,
-    /// which is the whole hazard of this structure in one sentence.
+    /// The live values. A slice into the buffer, valid until the next growth.
+    /// Using the slice after a growth is the main hazard of this structure.
     fn items(self: *const Array) []i32 {
         return self.buffer[0..self.len];
     }
 
     /// Make room for at least `wanted` slots.
     ///
-    /// Written as allocate, copy, free rather than as `realloc`, because that
-    /// is what growing an array is and the copy is the cost being counted.
+    /// Written as allocate, copy, free instead of `realloc`, because growing
+    /// an array means those three steps and the copy is the cost being counted.
     /// `Allocator.realloc` does exactly this and may skip the copy when the
     /// allocation can be extended where it already sits.
     fn ensureCapacity(self: *Array, wanted: usize) !void {
@@ -53,7 +53,7 @@ const Array = struct {
         self.carried += self.len;
     }
 
-    /// Doubling, which is the choice that makes append amortised O(1).
+    /// Doubling. This choice makes append amortised O(1).
     /// Growing by a fixed number of slots instead would make building an
     /// array of n items cost O(n^2), because the copy happens n/k times and
     /// each one copies an average of n/2 items.
@@ -96,8 +96,8 @@ pub fn main(init: std.process.Init) !void {
     var array = Array.init(allocator);
     defer array.deinit();
 
-    // Every append that finds len == capacity pays for a copy. Watching the
-    // capacity rather than being told the rule is the point of this loop.
+    // Every append that finds len == capacity pays for a copy. This loop
+    // prints the capacity so you can see the rule at work.
     try out.writeAll("appending 1..16\n");
     for (1..17) |i| {
         const growths_before = array.growths;
@@ -115,7 +115,7 @@ pub fn main(init: std.process.Init) !void {
         .{ array.growths, array.carried },
     );
 
-    // The amortised claim, checked rather than asserted in prose.
+    // Check the amortised claim with a count.
     try out.print("copies < 2 * appends -> {}\n\n", .{array.carried < 2 * array.len});
 
     try out.print("len={d} capacity={d} last={d}\n", .{ array.len, array.buffer.len, array.items()[15] });
@@ -140,8 +140,8 @@ pub fn main(init: std.process.Init) !void {
     );
 
     // One allocation holding many values, against one allocation per value.
-    // That difference is why this is the container to reach for first, and
-    // why the next chapters have to earn their pointers.
+    // That difference is why this is the container to use first. The
+    // containers in the next chapters use pointers and must justify that cost.
     try out.print("\nreaching 39 values took {d} buffer allocations\n", .{buffers_allocated});
     try out.writeAll("the same values in a linked list take one allocation each\n");
 

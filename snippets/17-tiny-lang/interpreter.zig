@@ -51,8 +51,8 @@ pub const Interpreter = struct {
     out: *std.Io.Writer,
 
     /// Expressions produce a value. Every case is: evaluate the children,
-    /// then combine them. The recursion mirrors the tree exactly, which is
-    /// why this is the shortest correct interpreter there is.
+    /// then combine them. The recursion follows the shape of the tree
+    /// exactly, which keeps this interpreter short.
     pub fn eval(vm: *Interpreter, index: u32) Error!i64 {
         const node = vm.nodes[index];
         return switch (node.kind) {
@@ -66,7 +66,7 @@ pub const Interpreter = struct {
                     .plus => left + right,
                     .minus => left - right,
                     .star => left * right,
-                    // The language has to decide this; the machine will not.
+                    // The language must define division by zero. The machine does not.
                     .slash => if (right == 0) error.DivideByZero else @divTrunc(left, right),
                     .lt => @intFromBool(left < right),
                     .eq => @intFromBool(left == right),
@@ -92,7 +92,7 @@ pub const Interpreter = struct {
                 }
             },
             // The loop in the interpreted language is a loop in the
-            // interpreter. Nothing else was available.
+            // interpreter. The interpreter has no other way to repeat code.
             .@"while" => while (try vm.eval(node.a.?) != 0) {
                 try vm.exec(node.b.?);
             },
@@ -144,7 +144,7 @@ pub fn main(init: std.process.Init) !void {
     // Integer division truncates toward zero, and dividing by zero is an
     // error the language defines rather than a crash it inherits.
     try out.writeAll("\ndivision\n");
-    // The second one is the interesting direction: truncating toward zero
+    // The second one shows the difference: truncating toward zero
     // gives -3, where flooring would give -4.
     try run("print 7 / 2; print (0 - 7) / 2;", out);
     try report(out, "7 / 0", run("print 7 / 0;", out));

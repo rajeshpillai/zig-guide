@@ -7,7 +7,7 @@ const std = @import("std");
 
 /// A function from a type to a type. Called at compile time, so by the time the
 /// program runs `List(i32)` is an ordinary struct with no type parameter left
-/// in it and no indirection to pay for.
+/// in it and no extra indirection at run time.
 fn List(comptime T: type) type {
     return struct {
         head: ?*Node = null,
@@ -51,9 +51,9 @@ fn List(comptime T: type) type {
         }
 
         /// Equality has to come from somewhere. `std.meta.eql` compares field
-        /// by field and works for integers, structs of integers and enums; it
-        /// compares slices by pointer, not by content, which is why the string
-        /// list below uses its own comparison.
+        /// by field and works for integers, structs of integers and enums. It
+        /// compares slices by pointer, not by content, so the string list
+        /// below uses its own comparison.
         pub fn contains(self: *const Self, value: T) bool {
             var current = self.head;
             while (current) |node| : (current = node.next) {
@@ -103,16 +103,17 @@ pub fn main(init: std.process.Init) !void {
     try out.print("contains(Point 3,4)  -> {}\n", .{points.contains(.{ .x = 3, .y = 4 })});
 
     // The type function is memoized: calling it twice with the same argument
-    // returns the same type, not two structurally identical ones. That is what
+    // returns the same type, not two structurally identical ones. Memoization
     // makes `List(i32)` usable as a type annotation in a signature.
     try out.print("\n@typeName(List(i32))  = {s}\n", .{@typeName(List(i32))});
     try out.print("List(i32) == List(i32) -> {}\n", .{List(i32) == List(i32)});
     try out.print("List(i32) == List(u8)  -> {}\n", .{List(i32) == List(u8)});
 
     // The nested node type is instantiated along with its list, so each
-    // instantiation gets its own node type laid out for its own T. There is no
-    // boxing and no shared code path: this is monomorphization, the same thing
-    // a C++ template or a Rust generic does, reached without a second syntax.
+    // instantiation gets its own node type laid out for its own T. Values are
+    // not boxed and code paths are not shared. This is monomorphization, the
+    // same thing a C++ template or a Rust generic does, but Zig uses ordinary
+    // function syntax for it instead of a separate generics syntax.
     try out.print("\n@typeName(List(u8).Node)    = {s}\n", .{@typeName(List(u8).Node)});
     try out.print("@typeName(List(Point).Node) = {s}\n", .{@typeName(List(Point).Node)});
     try out.print("List(u8).Node == List(i32).Node -> {}\n", .{List(u8).Node == List(i32).Node});

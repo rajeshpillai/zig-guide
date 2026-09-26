@@ -7,8 +7,8 @@ const canvas = @import("_canvas.zig");
 
 var pixels: [canvas.width * canvas.height]u32 = undefined;
 
-/// Scans every pixel in the buffer, which is the obvious version and the wrong
-/// one: at r = 7 it tests 2048 pixels to fill about 150.
+/// Scans every pixel in the buffer. This is the simple version, and it wastes
+/// work: at r = 7 it tests 2048 pixels to fill about 150.
 fn fillCircleNaive(cx: i32, cy: i32, r: i32, color: u32) usize {
     var tested: usize = 0;
     for (0..canvas.height) |y| {
@@ -44,7 +44,7 @@ fn fillCircle(cx: i32, cy: i32, r: i32, color: u32) usize {
 }
 
 /// An outline is the same test twice: inside the outer radius and outside the
-/// inner one. No new algorithm, just a band.
+/// inner one. The algorithm is the same, and the result is a band.
 fn strokeCircle(cx: i32, cy: i32, r: i32, thickness: i32, color: u32) void {
     const outer = r * r;
     const inner = (r - thickness) * (r - thickness);

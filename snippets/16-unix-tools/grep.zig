@@ -3,9 +3,9 @@
 
 const std = @import("std");
 
-/// The naive search, written out rather than called, because it is the thing
-/// worth seeing once: try every start position, compare forward, give up on
-/// the first mismatch. O(n*m) in the worst case and fine for a line of text.
+/// The naive search, written out instead of called, so you can see it once:
+/// try every start position, compare forward, stop at the first mismatch.
+/// O(n*m) in the worst case and fine for a line of text.
 fn find(haystack: []const u8, needle: []const u8) ?usize {
     if (needle.len == 0) return 0;
     if (needle.len > haystack.len) return null;

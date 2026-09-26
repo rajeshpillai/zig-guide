@@ -5,15 +5,15 @@ const std = @import("std");
 const expect = std.testing.expect;
 
 // A type that owns two allocations. The second one is where init can fail
-// halfway, and where leaks hide.
+// halfway, and where a leak is easy to miss.
 const Buffers = struct {
     a: []u8,
     b: []u8,
 
     fn init(gpa: std.mem.Allocator, size: usize) !Buffers {
         const a = try gpa.alloc(u8, size);
-        // If the second alloc fails, `a` is already live and about to be
-        // orphaned. errdefer frees it on that path and only that path.
+        // If the second alloc fails, `a` is already allocated and would leak.
+        // errdefer frees it on that path and only that path.
         errdefer gpa.free(a);
         const b = try gpa.alloc(u8, size);
         return .{ .a = a, .b = b };
@@ -44,7 +44,7 @@ test "init that fails halfway leaks nothing" {
         error.OutOfMemory,
         Buffers.init(failing.allocator(), 64),
     );
-    // The testing allocator behind it now verifies nothing was orphaned.
+    // The testing allocator behind it now checks that nothing leaked.
 }
 
 test "an arena makes scoped cleanup trivial" {

@@ -3,9 +3,9 @@
 
 const std = @import("std");
 
-/// Everything the server understands. Keeping the verb an enum rather than a
-/// string means the switch below is exhaustive: adding a command without
-/// handling it is a compile error, not a request that silently does nothing.
+/// Everything the server understands. The verb is an enum, not a string, so
+/// the switch below is exhaustive. Adding a command without handling it is a
+/// compile error, so no request can silently do nothing.
 const Verb = enum { get, set, del, ping };
 
 const Command = struct {
@@ -15,7 +15,7 @@ const Command = struct {
 };
 
 /// Commands are case-insensitive on the wire, like Redis and SMTP and HTTP
-/// methods. Normalise once, here, so nothing downstream has to remember.
+/// methods. Normalise the case once, here, so later code does not have to.
 fn parse(line: []const u8) !Command {
     var it = std.mem.tokenizeScalar(u8, line, ' ');
     const word = it.next() orelse return error.EmptyCommand;
@@ -67,8 +67,8 @@ pub fn main(init: std.process.Init) !void {
     var wire: [128]u8 = undefined;
 
     // `takeDelimiter` consumes the '\n' and returns null at the end, so this
-    // is the whole read loop. The '\r' is still on the line: strip it, and
-    // do not assume it is there, because plenty of clients omit it.
+    // is the complete read loop. The '\r' is still on the line. Strip it, but
+    // do not assume it is there, because many clients omit it.
     while (try reader.takeDelimiter('\n')) |raw| {
         const line = std.mem.trimEnd(u8, raw, "\r");
 
@@ -77,12 +77,12 @@ pub fn main(init: std.process.Init) !void {
             try reply(&w, cmd);
         } else |err| {
             // An error is a reply too. A server that closes the connection
-            // instead leaves the client guessing which command was bad.
+            // instead leaves the client unable to tell which command was bad.
             try w.print("-ERR {s}\r\n", .{@errorName(err)});
         }
 
         // Print the reply with its CRLF escaped, so the framing is visible
-        // rather than being turned into layout by the terminal.
+        // instead of the terminal turning it into line breaks.
         try out.print("{s: <20} -> ", .{line});
         for (w.buffered()) |byte| switch (byte) {
             '\r' => try out.writeAll("\\r"),

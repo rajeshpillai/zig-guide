@@ -16,8 +16,8 @@ const std = @import("std");
 
 const rounds = 200;
 
-/// Read a counter, add one, write it back. Three steps, and the gap between
-/// the read and the write is where the other writer gets in.
+/// Read a counter, add one, write it back. That is three steps, and the other
+/// writer can change the file between the read and the write.
 fn increment(dir: *std.Io.Dir, io: std.Io, name: []const u8, lock: ?*std.Io.Mutex) void {
     for (0..rounds) |_| {
         if (lock) |m| m.lock(io) catch return;
@@ -75,9 +75,9 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &stdout_writer.interface;
 
-    // The working directory, with names nothing else uses, cleaned up at the
-    // end. Creating a directory is one more thing to tidy away on every exit
-    // path, and this demo does not need one.
+    // Files go in the working directory, with names nothing else uses, and
+    // are removed at the end. A new directory would be one more thing to
+    // remove on every exit path, and this demo does not need one.
     var dir = std.Io.Dir.cwd();
     defer dir.deleteFile(io, "storage-unlocked.tmp") catch {};
     defer dir.deleteFile(io, "storage-locked.tmp") catch {};

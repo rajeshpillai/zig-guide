@@ -47,7 +47,7 @@ test "padding counts bytes, not characters" {
     try expect(try std.unicode.utf8CountCodepoints(plain) == 8);
 
     // Same spec, same byte count, two different widths on screen. A table of
-    // names stops lining up the moment one of them has an accent in it.
+    // names stops lining up as soon as one of them has an accent in it.
 }
 
 test "concat is ++ with an allocator" {
@@ -70,7 +70,7 @@ test "measure the format before you allocate" {
     const gpa = std.testing.allocator;
 
     // count runs the formatter against a writer that discards, so the length is
-    // exact rather than a guess you have to grow out of.
+    // exact. You do not guess a size and grow the buffer later.
     const size = std.fmt.count("{d}:{d:0>2}", .{ 7, 5 });
     try expect(size == 4);
 
@@ -95,7 +95,7 @@ test "replace without allocating" {
 
 test "case-insensitive search" {
     // findIgnoreCase, not indexOfIgnoreCase: that one was removed rather than
-    // renamed, so old code fails to compile instead of quietly working.
+    // renamed, so old code that calls it no longer compiles.
     try expect(std.ascii.findIgnoreCase("Build.ZIG", "zig").? == 6);
     try expect(std.ascii.startsWithIgnoreCase("Build.zig", "BUILD"));
     try expect(std.ascii.endsWithIgnoreCase("Build.zig", ".ZIG"));

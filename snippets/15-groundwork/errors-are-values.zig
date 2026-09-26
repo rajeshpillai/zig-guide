@@ -39,8 +39,8 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // When a default is genuinely correct, say so in one word rather than
-    // writing a branch that pretends to handle it.
+    // When a default is the correct answer, say so in one word. Do not write
+    // a branch that only pretends to handle the error.
     const port = parsePort("nonsense") catch 8080;
     try out.print("\nfalling back: {d}\n", .{port});
 

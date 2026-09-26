@@ -10,8 +10,8 @@ pub fn main(init: std.process.Init) !void {
 
     const greeting = "hello";
 
-    // The type is the whole story: a pointer to five bytes, with a zero after
-    // them that the length does not count.
+    // The type shows everything that is stored: a pointer to five bytes, with
+    // a zero after them that the length does not count.
     try out.print("\"hello\" is a {s}\n", .{@typeName(@TypeOf(greeting))});
     try out.print("greeting.len       = {d}\n", .{greeting.len});
     try out.print("the array occupies = {d} bytes\n\n", .{@sizeOf(@TypeOf(greeting.*))});
@@ -20,7 +20,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("greeting[0] = {d}, which prints as '{c}'\n\n", .{ greeting[0], greeting[0] });
 
     // Two separate literals with the same contents. `==` on slices compares
-    // where they point, which is not the question you meant to ask.
+    // where they point. You usually want to compare the contents.
     const a: []const u8 = "cat";
     const b: []const u8 = "cat";
     try out.print("std.mem.eql(a, b) = {}\n\n", .{std.mem.eql(u8, a, b)});

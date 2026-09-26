@@ -16,8 +16,8 @@ const sim = @import("sim");
 
 const Rng = sim.Rng;
 
-/// Plenty for blips whose brightest content is a few kilohertz, and half the
-/// memory of 44.1k.
+/// Enough for short sounds whose highest frequencies are a few kilohertz, and
+/// half the memory of 44.1k.
 pub const sample_rate: u32 = 22_050;
 
 /// The longest clip is the crash, which runs on for most of a second because
@@ -49,8 +49,8 @@ pub const Layer = struct {
 
 /// Render `layers` into `out`, returning the number of samples written.
 ///
-/// The envelope reaches exactly zero at both ends of every layer. That is not
-/// tidiness: a clip that starts or stops partway up a waveform produces a
+/// The envelope reaches exactly zero at both ends of every layer. This prevents
+/// clicks. A clip that starts or stops partway up a waveform produces a
 /// discontinuity, and a discontinuity is a click that is far louder and more
 /// annoying than the sound it is attached to.
 pub fn render(layers: []const Layer, out: []i16, seed: u64) usize {
@@ -99,7 +99,7 @@ pub fn render(layers: []const Layer, out: []i16, seed: u64) usize {
     }
 
     // Soft clip rather than hard: stacked layers overshoot, and tanh bends the
-    // peaks instead of shearing them flat.
+    // peaks instead of cutting them flat.
     for (window, 0..) |value, i| {
         const shaped = std.math.tanh(value);
         out[i] = @intFromFloat(std.math.clamp(shaped, -1, 1) * 32_600);
@@ -116,7 +116,7 @@ fn envelope(t: f32, layer: Layer) f32 {
     return std.math.pow(f32, decayed, layer.curve);
 }
 
-/// The six sounds the game makes. Pitch for the combo ladder is applied at
+/// The six sounds the game makes. Pitch for the combo steps is applied at
 /// playback rather than baked in, so there is one coin sound and not eight.
 pub const coin: []const Layer = &.{
     .{ .shape = .triangle, .from = 900, .to = 1350, .duration = 0.085, .gain = 0.55 },
@@ -171,7 +171,7 @@ test "every sound fits its buffer and makes a sound" {
         const written = render(layers, &buffer, 1);
         try testing.expect(written > 0);
         try testing.expect(written <= max_samples);
-        // Audible, not a whisper.
+        // Loud enough to hear.
         try testing.expect(peak(buffer[0..written]) > 8_000);
     }
 }
@@ -195,8 +195,8 @@ test "no sound begins or ends with a click" {
 }
 
 test "nothing clips flat against the rail" {
-    // Soft clipping bends the peaks; hard clipping shears them, and a run of
-    // identical maximum samples is what that sounds like.
+    // Soft clipping bends the peaks. Hard clipping cuts them flat, which shows
+    // up as a run of identical maximum samples.
     var buffer: [max_samples]i16 = undefined;
     for (all, 0..) |layers, index| {
         const written = render(layers, &buffer, 3);
@@ -213,8 +213,8 @@ test "nothing clips flat against the rail" {
     }
 }
 
-/// Zero crossings per second: a crude pitch estimate, and a good enough
-/// brightness measure to tell a chime from a thud.
+/// Zero crossings per second: a rough pitch estimate. It is good enough to
+/// tell a high chime from a low thud.
 fn brightness(samples: []const i16, rate: u32) f32 {
     var crossings: usize = 0;
     for (samples[1..], 0..) |s, i| {
@@ -225,11 +225,10 @@ fn brightness(samples: []const i16, rate: u32) f32 {
 }
 
 test "the sounds sit in the right places against each other" {
-    // Absolute frequencies are a matter of taste and are allowed to move. What
-    // must not move is the arrangement: the crash is the low, long, loud one
-    // and the lane tick is the short quiet one. Getting that backwards is the
-    // kind of mistake that is obvious in a second of listening and invisible in
-    // a diff.
+    // The exact frequencies are a design choice and may change. The order must
+    // not change: the crash is the low, long, loud one and the lane tick is the
+    // short quiet one. If that order were reversed, one second of listening
+    // would show it, but a diff would not.
     var buffer: [max_samples]i16 = undefined;
 
     const written_coin = render(coin, &buffer, 7);
@@ -252,9 +251,9 @@ test "the sounds sit in the right places against each other" {
     try testing.expect(written_crash > written_coin * 4);
     try testing.expect(crash_peak >= coin_peak);
 
-    // The lane tick is the shortest, and must not shout over a pickup: it
-    // fires on every input, and an input sound as loud as a reward sound is
-    // how a game ends up muted.
+    // The lane tick is the shortest, and must be quieter than a pickup: it
+    // fires on every input, and if an input sound is as loud as a reward
+    // sound, players mute the game.
     try testing.expect(written_lane < written_coin);
     try testing.expect(lane_peak < coin_peak);
 }

@@ -17,7 +17,7 @@ const Handle = opaque {};
 
 test "opaque types are only usable behind a pointer" {
     // `var w: Window = ...` is impossible: the size is unknown. Only
-    // pointers to it exist, which is exactly how C handles are used.
+    // pointers to it exist. C handles are used the same way.
     var storage: u32 = 0;
     const handle: *Handle = @ptrCast(&storage);
     try expect(@TypeOf(handle) == *Handle);

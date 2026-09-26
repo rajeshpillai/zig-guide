@@ -17,7 +17,7 @@ const Flags = packed struct {
     rest: u6,
 };
 
-// A plain struct may be reordered and padded however the compiler likes.
+// A plain struct may be reordered and padded in any way the compiler chooses.
 const Loose = struct {
     small: u8,
     big: u64,

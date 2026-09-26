@@ -4,8 +4,8 @@
 const std = @import("std");
 
 // `extern` means C's layout: fields in the order written, padded so each one
-// starts at an address the machine likes. That is the layout to understand
-// first, because it is the one another language or a file format agrees to.
+// starts at an address the machine prefers for its type. Learn this layout
+// first, because it is the one other languages and file formats agree on.
 const Row = extern struct {
     flag: u8,
     count: u32,
@@ -35,8 +35,8 @@ pub fn main(init: std.process.Init) !void {
     // Nothing changed except the order they were written in.
     try out.print("same fields, largest first: {d} bytes\n", .{@sizeOf(Packed)});
 
-    // And what Zig does when you do not ask for C's layout: it is free to
-    // arrange the fields however it likes, which is usually the small one.
+    // Without `extern`, Zig may arrange the fields in any order it chooses.
+    // It usually chooses the smaller layout.
     const Auto = struct { flag: u8, count: u32, tag: u8 };
     try out.print("Zig's own layout for them:  {d} bytes\n", .{@sizeOf(Auto)});
 

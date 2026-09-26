@@ -34,16 +34,16 @@ const chapterCount = tracks.reduce(
   <p class="lede">
     A tutorial for the Zig programming language where <strong>every snippet is
     compiled and executed against current Zig master on every build</strong>. If
-    an example on this site were out of date, the build would be red.
+    an example on this site were out of date, the build would fail.
   </p>
   <p>
     Snippets run in your browser as WebAssembly: the very same artifact CI
     verified. No server, nothing to install.
   </p>
   <p>
-    Zig moves fast, and documentation that is merely proofread rots quietly.
-    This one is re-verified against a fresh compiler nightly, and republishes
-    itself only when every snippet still passes. The exact mechanism, including
+    Zig changes fast. Documentation that is only proofread goes out of date,
+    and nobody notices. This guide is re-verified against a fresh compiler
+    every night, and it republishes only when every snippet still passes. The exact mechanism, including
     what happens to the snippets a browser cannot run, is written up in{" "}
     <a href={`${base}verification/`}>how this guide is verified</a>. Already on
     a tagged release? See{" "}
@@ -58,8 +58,8 @@ const chapterCount = tracks.reduce(
   <h2>What is in it</h2>
   <p>
     {chapterCount} chapters in four tracks, in one reading order. The arrows at
-    the foot of every page follow that order, so the whole guide is one walk if
-    you want it to be.
+    the foot of every page follow that order, so you can read the guide from
+    start to end if you want to.
   </p>
   {/* A track has no page of its own, on purpose, so each one links to where it
       begins. That is the same place the sidebar and the pager would take you. */}
@@ -94,7 +94,7 @@ const chapterCount = tracks.reduce(
     </li>
     <li>
       The four chapters that teach vectors are compiled with WebAssembly SIMD,
-      because without it the vector code would quietly compile out. Firefox
+      because without it the compiler would leave the vector code out, with no warning. Firefox
       turns wasm SIMD off on x86 processors without SSE4.1, whatever its
       version, so those four can fail to load on a machine where every other
       snippet runs. The playground names the missing requirement instead of

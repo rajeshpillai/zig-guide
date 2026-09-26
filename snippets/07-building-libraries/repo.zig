@@ -22,8 +22,9 @@ const RecordingDriver = struct {
 };
 
 // Repo(Driver) is the library's composition root. The driver arrives as
-// a comptime parameter, exactly like the allocator arrives as a runtime
-// one: the caller owns the policy, the library owns the mechanism.
+// a comptime parameter, in the same way an allocator arrives as a runtime
+// parameter. The caller chooses the policy, and the library provides the
+// mechanism.
 fn Repo(comptime Driver: type) type {
     return struct {
         driver: *Driver,
@@ -34,15 +35,15 @@ fn Repo(comptime Driver: type) type {
 
         pub fn insert(r: @This(), comptime T: type, row: T.Row) !void {
             // A real repo renders values into the statement's parameter
-            // slots; recording the template keeps the fake honest about
-            // what would reach the wire.
+            // slots. Recording the template shows exactly what would be
+            // sent to the database.
             _ = row;
             try r.driver.exec(T.insert_sql);
         }
     };
 }
 
-// A minimal Table, just enough for the composition to be real.
+// A minimal Table, with just enough to show the composition working.
 fn Table(comptime T: type, comptime name: []const u8) type {
     return struct {
         pub const Row = T;

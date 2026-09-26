@@ -32,7 +32,7 @@ test "safety can be forced back on for a scope" {
 }
 
 test "branch hints and unreachable" {
-    // In safety builds `unreachable` panics; in ReleaseFast it is a promise
+    // In safety builds `unreachable` panics. In ReleaseFast it is a promise
     // to the optimiser, and reaching it is illegal behaviour.
     const value: u8 = 2;
     switch (value) {

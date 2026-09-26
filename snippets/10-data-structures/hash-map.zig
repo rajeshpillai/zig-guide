@@ -9,8 +9,8 @@ const Map = struct {
     entries: []Entry,
     count: usize = 0,
     /// Live entries plus tombstones. Probing cost depends on this, not on
-    /// `count`, which is why a map that is repeatedly filled and emptied still
-    /// needs to grow.
+    /// `count`. So a map that is repeatedly filled and emptied still needs
+    /// to grow.
     occupied: usize = 0,
     allocator: std.mem.Allocator,
 
@@ -21,7 +21,7 @@ const Map = struct {
     };
 
     /// Grow at 75%. Higher packs more into the same memory and lengthens every
-    /// probe; lower wastes memory. Three quarters is the usual compromise, and
+    /// probe. Lower wastes memory. Three quarters is the usual compromise, and
     /// the arithmetic below avoids floats by comparing `4 * occupied` to
     /// `3 * capacity`.
     const load_numerator = 3;
@@ -29,7 +29,7 @@ const Map = struct {
 
     fn init(allocator: std.mem.Allocator, capacity: usize) !Map {
         // A power of two so the modulo is a mask. With a prime capacity you
-        // would need a real division on every probe.
+        // would need a full division on every probe.
         std.debug.assert(std.math.isPowerOfTwo(capacity));
         const entries = try allocator.alloc(Entry, capacity);
         @memset(entries, .{});
@@ -48,9 +48,9 @@ const Map = struct {
     /// Where a key belongs, and how many steps it took to get there.
     ///
     /// Linear probing: on collision, try the next slot. It has the best cache
-    /// behaviour of any probe sequence because the next slot is usually the
-    /// same cache line, and the worst clustering, because runs of occupied
-    /// slots merge and grow.
+    /// behaviour of any probe sequence, because the next slot is usually in the
+    /// same cache line. It also has the worst clustering, because runs of
+    /// occupied slots merge and grow.
     fn probe(self: *const Map, key: []const u8) struct { index: usize, steps: usize } {
         const mask = self.entries.len - 1;
         var index: usize = @intCast(hash(key) & mask);
@@ -124,8 +124,8 @@ const Map = struct {
         return true;
     }
 
-    /// Rehash into a buffer twice the size. Tombstones are not carried over,
-    /// which is the other thing growth is for.
+    /// Rehash into a buffer twice the size. Tombstones are not carried over.
+    /// Removing them is the other purpose of growth.
     fn grow(self: *Map) !void {
         const old = self.entries;
         const bigger = try self.allocator.alloc(Entry, old.len * 2);
@@ -210,7 +210,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("survivors still reachable: {d} of {d}\n", .{ found, keys.len - removed });
 
     // The same experiment with the tombstone left out. Nothing errors and no
-    // memory is corrupted; keys simply stop being found, because a probe that
+    // memory is corrupted. Keys simply stop being found, because a probe that
     // used to walk past a filled slot now stops at an empty one.
     var naive = try Map.init(allocator, 8);
     defer naive.deinit();

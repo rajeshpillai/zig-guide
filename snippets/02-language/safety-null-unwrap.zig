@@ -12,7 +12,7 @@ pub fn main(init: std.process.Init) !void {
     _ = init;
 
     var maybe: ?u32 = null;
-    _ = &maybe; // defeat comptime evaluation
+    _ = &maybe; // stop comptime evaluation
 
     // `.?` is a claim: "this is not null, give me the payload". The claim is
     // false here, so the check stops the program rather than handing back

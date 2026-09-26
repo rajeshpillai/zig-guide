@@ -33,8 +33,8 @@ pub fn main(init: std.process.Init) !void {
 
     // `io.async` is allowed to run the task inline. `io.concurrent` is not: it
     // promises the caller can make progress meanwhile, and fails when the `Io`
-    // cannot deliver that. On this single-threaded wasm target it fails, and
-    // that is the whole point of the two spellings.
+    // cannot deliver that. On this single-threaded wasm target it fails. That
+    // difference is why there are two functions.
     var c: u32 = 0;
     if (io.concurrent(slowDouble, .{ &c, 30 })) |handle| {
         var pending = handle;

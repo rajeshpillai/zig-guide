@@ -35,8 +35,8 @@ const { zigVersion, snippetCount } = await buildInfo();
 
     <h2>Why it exists</h2>
     <p>
-      Zig has no stable release, and the language is still moving underneath
-      everything written about it. Between the last tagged releases and today,
+      Zig has no stable release, and the language still changes. Much of what
+      is written about it goes out of date. Between the last tagged releases and today,
       <code>pub fn main()</code> gained a parameter, writers became buffered and
       have to be flushed, <code>std.fs.File</code> became <code>std.Io.File</code>
       and started taking an <code>Io</code>, the <code>**</code> array-repeat
@@ -45,18 +45,18 @@ const { zigVersion, snippetCount } = await buildInfo();
       that exist.
     </p>
     <p>
-      The usual failure is quiet. A tutorial is written against whatever
+      Usually this failure is silent. A tutorial is written against whatever
       compiler its author had, it is correct for a few months, and then it is
       wrong with no visible sign that anything changed. A reader following it
       hits an error message that does not appear anywhere in the text, and has
       no way to tell whether they made a mistake or the page did.
     </p>
     <p>
-      This site is built so that failure is loud. There is no separate copy of
+      This site is built so that this failure is visible. There is no separate copy of
       the examples kept in prose: the pages embed the same files the build
       compiles, so a snippet that stopped working cannot be published at all.
-      When Zig master changes something, the build goes red, and the fix is to
-      teach the new shape and say what the old one was. That delta is usually
+      When Zig master changes something, the build fails. The fix is to teach
+      the new form and say what the old one was. That delta is usually
       the most useful thing on the page for anyone arriving from an older
       tutorial.
     </p>
@@ -73,7 +73,7 @@ const { zigVersion, snippetCount } = await buildInfo();
     </p>
     <p>
       The full mechanism, including what happens to snippets that cannot run in
-      a browser and the three that are required to fail, is written up in{" "}
+      a browser and the five that are required to fail, is written up in{" "}
       <a href={`${base}verification/`}>how this guide is verified</a>.
     </p>
 

@@ -19,7 +19,7 @@ pub fn main(init: std.process.Init) !void {
 
     // 300 does not fit in a u8. In this build the check runs and stops here.
     // In ReleaseFast or ReleaseSmall there is no check, and the value you
-    // would get is not defined. Not "wraps". Undefined.
+    // would get is undefined. It is not guaranteed to wrap.
     const sum = a + b;
 
     std.debug.print("sum: {d}\n", .{sum});

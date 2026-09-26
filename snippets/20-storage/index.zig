@@ -4,8 +4,8 @@
 const std = @import("std");
 const store = @import("flatdb.zig");
 
-/// Key to byte offset of the most recent record for that key. This is the
-/// whole idea of an index: not a copy of the data, a map to where it is.
+/// Key to byte offset of the most recent record for that key. An index does
+/// not copy the data. It maps each key to where the data is.
 pub const Index = struct {
     keys: [64][]const u8 = undefined,
     offsets: [64]usize = undefined,
@@ -32,10 +32,9 @@ pub const Index = struct {
     }
 };
 
-/// Rebuild from the log. The index is *derived*: the log is the truth, and
-/// this can always be reconstructed from it. That is why an index can be
-/// deleted to save space and why a corrupt one is an inconvenience rather
-/// than data loss.
+/// Rebuild from the log. The index is *derived*: the log holds the true data,
+/// and the index can always be rebuilt from it. So an index can be deleted to
+/// save space, and a corrupt index loses no data.
 pub fn build(log: []const u8) !Index {
     var ix: Index = .{};
     var offset: usize = 0;
@@ -78,7 +77,7 @@ pub fn main(init: std.process.Init) !void {
     var file: [4096]u8 = undefined;
     var log: std.Io.Writer = .fixed(&file);
 
-    // Enough records that the difference is visible rather than theoretical.
+    // Enough records to make the difference visible in the output.
     var name_buf: [16][8]u8 = undefined;
     var names: [16][]const u8 = undefined;
     for (0..16) |i| {

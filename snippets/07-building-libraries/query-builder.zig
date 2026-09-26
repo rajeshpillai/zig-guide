@@ -27,8 +27,8 @@ fn Query(comptime T: type) type {
 
         table: []const u8,
         // Bounded and by-value, so the builder can be chained without an
-        // allocator. Eight filters is a policy, not a law; it is the
-        // library's choice to make and document.
+        // allocator. The limit of eight filters is a choice. The library
+        // makes that choice and documents it.
         filters: [8]Filter = undefined,
         filter_count: usize = 0,
 
@@ -40,8 +40,8 @@ fn Query(comptime T: type) type {
         }
 
         // Values never enter the SQL text. The statement carries numbered
-        // placeholders; values travel separately to the driver. That single
-        // decision is what makes injection impossible by construction.
+        // placeholders, and values are sent to the driver separately.
+        // Keeping values out of the SQL text makes injection impossible.
         pub fn render(q: @This(), w: *std.Io.Writer) !void {
             try w.print("SELECT * FROM {s}", .{q.table});
             for (q.filters[0..q.filter_count], 1..) |f, n| {

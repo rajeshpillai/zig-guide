@@ -7,7 +7,8 @@
 const std = @import("std");
 
 /// Fills the queue and closes it. Capacity is two, so this blocks partway
-/// through and resumes as the consumer drains: back pressure, for free.
+/// through and resumes as the consumer drains. This is back pressure, and it
+/// needs no extra code.
 fn produce(io: std.Io, queue: *std.Io.Queue(u32)) void {
     for (1..6) |i| {
         queue.putOne(io, @intCast(i)) catch return;
@@ -29,7 +30,7 @@ pub fn main(init: std.process.Init) !void {
     defer producer.await(io);
 
     // The consumer never asks how many are coming. It reads until the sender
-    // closes, which is the whole reason `error.Closed` exists.
+    // closes. This is why `error.Closed` exists.
     while (queue.getOne(io)) |value| {
         try out.print("got {d}\n", .{value});
     } else |err| {

@@ -3,7 +3,7 @@
 
 const std = @import("std");
 
-// A function that returns a type. `capacity` is baked in at compile time,
+// A function that returns a type. `capacity` is fixed at compile time,
 // so the storage is a plain array and nothing here allocates.
 fn LastN(comptime T: type, comptime capacity: usize) type {
     return struct {
@@ -13,8 +13,8 @@ fn LastN(comptime T: type, comptime capacity: usize) type {
 
         const Self = @This();
 
-        // Full buffer? Overwrite the oldest. That policy is the whole
-        // point of a recent-history log.
+        // Full buffer? Overwrite the oldest. A recent-history log needs
+        // exactly this policy.
         fn push(self: *Self, item: T) void {
             self.items[self.head] = item;
             self.head = (self.head + 1) % capacity;

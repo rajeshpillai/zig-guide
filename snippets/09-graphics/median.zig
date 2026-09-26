@@ -18,8 +18,8 @@ fn sample(src: []const u32, x: i32, y: i32) u32 {
 }
 
 /// Salt and pepper: a fraction of pixels replaced outright by black or white.
-/// This is the noise a bad sensor or a lossy channel produces, and it is the
-/// case that separates the two filters here, because the corrupted values are
+/// This is the noise a bad sensor or a lossy channel produces. The two filters
+/// here give very different results on it, because the corrupted values are
 /// nothing like their neighbours.
 ///
 /// A fixed multiplier and seed, so the picture is the same on every run and the
@@ -35,9 +35,8 @@ fn addSaltAndPepper(buf: []u32, per_mille: u32) void {
     }
 }
 
-/// A 3x3 gaussian, for comparison. Every neighbour contributes something, which
-/// is exactly the problem: a single white pixel is not removed, it is spread
-/// over nine.
+/// A 3x3 gaussian, for comparison. Every neighbour contributes something, so a
+/// single white pixel is not removed. It is spread over nine pixels.
 fn blur(dst: []u32, src: []const u32) void {
     const weights = [9]i32{ 1, 2, 1, 2, 4, 2, 1, 2, 1 };
     for (0..canvas.height) |y| {
@@ -69,7 +68,7 @@ fn blur(dst: []u32, src: []const u32) void {
 
 /// Sort the nine neighbours by luma and take the one at `rank`.
 ///
-/// The whole family in one function. Rank 4 is the median, rank 0 the minimum
+/// One function for the whole family. Rank 4 is the median, rank 0 the minimum
 /// and rank 8 the maximum, and `rank` being `comptime` means each instantiation
 /// is a separate specialised function rather than a branch in a hot loop.
 ///
@@ -162,7 +161,7 @@ pub fn main(init: std.process.Init) !void {
     blur(&scratch, &pixels);
     const blurred = countExtremes(&scratch);
 
-    // Two measurements, because the first one lies. Counting pure black and
+    // Two measurements, because the first one misleads. Counting pure black and
     // pure white says the gaussian removed every noisy pixel, and it did: it
     // averaged each one into a grey smudge nine pixels wide. Mean error against
     // the clean picture is the measurement that says whether the noise is gone

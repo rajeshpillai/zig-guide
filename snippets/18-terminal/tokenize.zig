@@ -8,8 +8,8 @@ const std = @import("std");
 /// is.
 ///
 /// A run of spaces produces no empty argument, which is the opposite of the
-/// rule `cut` needs. A command line is not a delimited record: the delimiter
-/// is separation, not structure, so `ls   -la` is two arguments.
+/// rule `cut` needs. A command line is not a delimited record. The spaces
+/// only separate arguments, so `ls   -la` is two arguments.
 fn tokenize(line: []const u8, out: [][]const u8) ![][]const u8 {
     var n: usize = 0;
     var i: usize = 0;

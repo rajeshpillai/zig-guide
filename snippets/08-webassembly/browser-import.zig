@@ -15,7 +15,8 @@ fn hostPrint(msg: []const u8) void {
     log(msg.ptr, msg.len);
 }
 
-// The host calls this; it in turn calls back out through the import.
+// The host calls this function. It then calls back to the host through
+// the import.
 export fn greet() void {
     hostPrint("hello from wasm");
 }

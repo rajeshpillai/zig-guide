@@ -25,7 +25,7 @@ test "recursion" {
 }
 
 test "values must be used" {
-    // Zig has no unused-value warning because it is an error. `_ =` is the
+    // An unused value is a compile error in Zig, not a warning. `_ =` is the
     // explicit way to discard something.
     _ = addFive(1);
 }

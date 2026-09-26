@@ -11,8 +11,8 @@ test "a grid is an array of arrays" {
         .{ 7, 8, 9 },
     };
 
-    // Both lengths are part of the type, and the whole thing is one
-    // contiguous block: nine bytes, no pointers anywhere.
+    // Both lengths are part of the type. The grid is one contiguous block
+    // of nine bytes, with no pointers in it.
     try expect(grid.len == 3); // rows
     try expect(grid[0].len == 3); // columns
     try expect(@TypeOf(grid[0]) == [3]u8);
@@ -60,8 +60,9 @@ test "one flat array, computed indices" {
     const height = 3;
     var cells: [width * height]u8 = @splat(0);
 
-    // The type no longer carries the shape, so the stride is yours to keep
-    // right. Worth it when the dimensions are not both compile-time constants.
+    // The type no longer carries the shape, so you must get the stride right
+    // yourself. Use this when the dimensions are not both compile-time
+    // constants.
     cells[1 * width + 2] = 7;
 
     try expect(cells[6] == 7);
@@ -92,7 +93,7 @@ test "the table really is a compile-time constant" {
     };
 
     // An array length has to be known at compile time, so this only compiles
-    // if the value came out of comptime. That is the proof, not the claim.
+    // if the value came out of comptime. The compile itself proves it.
     const buf: [sizes[3]]u8 = @splat(0);
     try expect(buf.len == 6);
 }

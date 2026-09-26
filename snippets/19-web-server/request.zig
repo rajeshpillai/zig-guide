@@ -11,9 +11,9 @@ pub const Request = struct {
     headers: [][2][]const u8,
     body: []const u8,
 
-    /// Header names are case-insensitive, which is not a detail you can skip:
+    /// Header names are case-insensitive, and the parser must handle that:
     /// curl sends `Host`, some proxies send `HOST`, and a client written by
-    /// hand sends `host`. Comparing them exactly works until it does not.
+    /// hand sends `host`. An exact comparison fails when the case differs.
     pub fn header(r: Request, name: []const u8) ?[]const u8 {
         for (r.headers) |pair| {
             if (std.ascii.eqlIgnoreCase(pair[0], name)) return pair[1];
@@ -26,8 +26,8 @@ pub const Error = error{ Malformed, TooManyHeaders };
 
 pub fn parse(bytes: []const u8, storage: [][2][]const u8) Error!Request {
     // The header section ends at the first blank line. Everything after it is
-    // body, and finding that boundary is the whole framing problem: HTTP has
-    // no length up front, so the parser reads until it sees CRLF CRLF.
+    // body. Finding that boundary is the framing problem. HTTP has no length
+    // up front, so the parser reads until it sees CRLF CRLF.
     const split = std.mem.find(u8, bytes, "\r\n\r\n") orelse return error.Malformed;
     const head = bytes[0..split];
     const body = bytes[split + 4 ..];
@@ -49,8 +49,8 @@ pub fn parse(bytes: []const u8, storage: [][2][]const u8) Error!Request {
         storage[count] = .{
             line[0..colon],
             // Optional whitespace after the colon, and only after it. A space
-            // before the colon is malformed, and treating it as acceptable is
-            // how request smuggling gets started.
+            // before the colon is malformed. Accepting it can lead to request
+            // smuggling.
             std.mem.trimStart(u8, line[colon + 1 ..], " \t"),
         };
         count += 1;

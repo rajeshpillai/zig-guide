@@ -17,7 +17,7 @@ fn sendThenClose(address: std.Io.net.IpAddress, io: std.Io) void {
 }
 
 /// The truncated case: half a message, then close. The bytes sent are
-/// perfectly valid; there are just not enough of them to be a message.
+/// valid. There are just not enough of them to make a message.
 fn sendPartialThenClose(address: std.Io.net.IpAddress, io: std.Io) void {
     var stream = address.connect(io, .{ .mode = .stream }) catch return;
     defer stream.close(io);
@@ -39,9 +39,9 @@ pub fn main(init: std.process.Init) !void {
     var server = try any_port.listen(io, .{});
     const address = server.socket.address;
 
-    // 1. The peer finished and hung up. This is what every connection does
-    //    eventually, so treating it as a failure means logging an error on
-    //    every successful conversation you ever have.
+    // 1. The peer finished and hung up. Every connection does this in the
+    //    end, so treating it as a failure would log an error on every
+    //    successful conversation.
     {
         const thread = try std.Thread.spawn(.{}, sendThenClose, .{ address, io });
         defer thread.join();
@@ -63,11 +63,11 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // 2. The peer hung up mid-message, and this is the trap. Read the
-    //    doc comment on `takeDelimiterExclusive`: "End-of-stream is treated
-    //    equivalent to a delimiter." A client that dies halfway through a
-    //    line hands you a fragment that is indistinguishable from a message
-    //    the sender finished. No error, no flag, nothing to check.
+    // 2. The peer hung up mid-message. This case is easy to get wrong. Read
+    //    the doc comment on `takeDelimiterExclusive`: "End-of-stream is
+    //    treated equivalent to a delimiter." A client that dies halfway
+    //    through a line gives you a fragment that looks the same as a
+    //    message the sender finished. There is no error and no flag to check.
     {
         const thread = try std.Thread.spawn(.{}, sendPartialThenClose, .{ address, io });
         defer thread.join();
@@ -81,10 +81,10 @@ pub fn main(init: std.process.Init) !void {
         try out.print("truncated:    Exclusive returned \"{s}\" and no error\n", .{fragment});
     }
 
-    // 3. The same half-message, read by the call that insists on actually
-    //    seeing the delimiter. `takeDelimiterInclusive` returns the byte as
-    //    part of the slice, which is precisely why it cannot invent one:
-    //    end of stream without it is `EndOfStream`, and you drop the bytes.
+    // 3. The same half-message, read by the call that requires the
+    //    delimiter. `takeDelimiterInclusive` returns the byte as part of
+    //    the slice, so it cannot invent one. End of stream without the
+    //    delimiter is `EndOfStream`, and you drop the bytes.
     {
         const thread = try std.Thread.spawn(.{}, sendPartialThenClose, .{ address, io });
         defer thread.join();
@@ -103,8 +103,8 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // 4. Nobody listening. The listener is closed first, so the port is
-    //    real and unused: the kernel answers for the machine and the
-    //    connect fails immediately rather than hanging.
+    //    real and unused. The kernel replies for the machine, and the
+    //    connect fails at once instead of hanging.
     server.deinit(io);
     if (address.connect(io, .{ .mode = .stream })) |stream| {
         var s = stream;

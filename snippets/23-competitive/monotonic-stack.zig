@@ -29,9 +29,9 @@ const increasing = [_]i32{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
 /// Read one line of whitespace-separated integers into `out`.
 ///
-/// Taking a `*std.Io.Reader` rather than the string is the same discipline the
-/// networking chapters use for protocols. Point it at stdin on a judge and not
-/// a line of it changes.
+/// It takes a `*std.Io.Reader` instead of the string, as the networking
+/// chapters do for protocols. On a judge, pass a reader over stdin and the
+/// function stays the same.
 fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     const line = (try reader.takeDelimiter('\n')) orelse return error.MissingRow;
     var count: usize = 0;
@@ -46,8 +46,8 @@ fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
 
 /// The two counters the amortised argument rests on.
 ///
-/// Counting them costs two lines and settles a question that reasoning about
-/// the nested loop usually gets wrong.
+/// Counting them costs two lines and answers a question that is easy to get
+/// wrong by reasoning about the nested loop.
 const Work = struct {
     pushes: usize = 0,
     pops: usize = 0,
@@ -55,8 +55,8 @@ const Work = struct {
 
 /// For each index, the index of the first greater value to its right.
 ///
-/// The obvious solution. Fix an index, walk right until something beats it,
-/// give up at the end of the array. `comparisons` counts the values looked at,
+/// The direct solution. Fix an index, walk right to a greater value, or
+/// stop at the end of the array. `comparisons` counts the values looked at,
 /// which is the number that grows with the square of the input.
 fn scanRight(items: []const i32, out: []?usize, comparisons: *usize) void {
     for (items, 0..) |value, i| {
@@ -105,7 +105,7 @@ fn nextGreater(gpa: Allocator, items: []const i32, out: []?usize, work: *Work) !
     }
 }
 
-/// The first smaller value to the left, from the same machine.
+/// The first smaller value to the left, from the same method.
 ///
 /// Two changes. The comparison flips, so the stack rises from bottom to top
 /// instead of falling. And the answer is read off the survivor rather than
@@ -150,8 +150,7 @@ fn writeMaybe(out: *std.Io.Writer, value: ?i32, width: usize) !void {
 /// The stack, bottom to top, as `index:value` pairs.
 ///
 /// Printing the values beside the indices is what makes the ordering visible.
-/// A column of bare indices would hide the one property the whole method rests
-/// on.
+/// A column of bare indices would hide the property the method depends on.
 fn writeStack(out: *std.Io.Writer, items: []const i32, indices: []const usize) !void {
     for (indices, 0..) |idx, k| {
         if (k > 0) try out.writeByte(' ');
@@ -301,8 +300,8 @@ pub fn main(init: std.process.Init) !void {
         .{std.mem.eql(?usize, stack_answers[0..values.len], scan_answers[0..values.len])},
     );
 
-    // The rates, not the totals. Eleven values is too few for the scan to look
-    // bad, so the two arrays that bracket it are here too.
+    // The rates, not the totals. Eleven values is too few to show the scan's
+    // cost, so the two arrays that bracket it are here too.
     try out.writeAll("what each array costs\n");
     try out.writeAll("  array         n  scans  pushes  pops\n");
     try writeCostRow(out, gpa, "the input", values);

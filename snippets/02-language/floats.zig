@@ -25,11 +25,11 @@ test "int and float do not mix implicitly" {
 test "comptime_float is f128, not magic" {
     // Unlike comptime_int, which really is arbitrary precision,
     // comptime_float is backed by f128. Doing the arithmetic at compile
-    // time buys you more bits, not exactness:
+    // time gives you more bits, but the result is still not exact:
     const x = 0.1 + 0.2;
     try expect(x != 0.3);
 
-    // The same sum in f64 is famously not 0.3 either.
+    // The same sum in f64 is not 0.3 either.
     const y: f64 = 0.1;
     const z: f64 = 0.2;
     try expect(y + z != 0.3);

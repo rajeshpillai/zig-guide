@@ -58,8 +58,8 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("as written\n\n");
     try open(html, sheet, out);
 
-    // The same document with one declaration changed. Nothing else moves,
-    // which is the property that makes a stylesheet worth having.
+    // The same document with one declaration changed. Nothing else changes.
+    // This property is what makes a stylesheet useful.
     const restyled =
         \\#page { padding: 10; background: . }
         \\h1 { height: 60; background: # }

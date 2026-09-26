@@ -3,14 +3,14 @@
 
 const std = @import("std");
 
-/// The whole of `cat`. Fill a buffer, write exactly what was filled, repeat.
+/// All of `cat`. Fill a buffer, write exactly what was filled, repeat.
 /// Nothing here knows how big the input is, and nothing needs to.
 fn cat(in: *std.Io.Reader, out: *std.Io.Writer, buffer: []u8) !usize {
     var copied: usize = 0;
     while (true) {
         // A read returns what it has, not what you asked for. Treating the
-        // return value as "the buffer is full now" is the oldest bug here,
-        // and 0 is how the end announces itself rather than an error.
+        // return value as "the buffer is full now" is a common bug here.
+        // A return of 0 means the input has ended, and it is not an error.
         const n = try in.readSliceShort(buffer);
         if (n == 0) return copied;
         try out.writeAll(buffer[0..n]);
@@ -25,7 +25,7 @@ pub fn main(init: std.process.Init) !void {
 
     const input = "the quick brown fox\njumps over the lazy dog\n";
 
-    // Four bytes at a time, to prove the size is a memory decision and not a
+    // Four bytes at a time, to show the size is a memory decision and not a
     // correctness one. Real cat uses something like 64 KB for the syscall
     // count, not because a smaller buffer would be wrong.
     var small: [4]u8 = undefined;

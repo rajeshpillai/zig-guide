@@ -10,7 +10,7 @@ const dom = @import("html.zig");
 /// not imported here because each snippet on this site compiles on its own,
 /// and in a browser the two are separate libraries linked together anyway.
 ///
-/// What matters is the seam, and the seam is `Env`.
+/// The script and the page meet in one place: `Env`.
 const Env = struct {
     names: [8][]const u8 = undefined,
     values: [8]i64 = undefined,
@@ -32,7 +32,7 @@ const Env = struct {
 };
 
 /// `print <expr>;` where an expression is a chain of names and numbers joined
-/// by `+`. Enough to demonstrate that a script reads host-provided values and
+/// by `+`. Enough to show that a script reads host-provided values and
 /// nothing more.
 fn eval(env: Env, expr: []const u8) !i64 {
     var total: i64 = 0;
@@ -63,10 +63,11 @@ fn countTag(nodes: []const dom.Node, index: u32, tag: []const u8) u32 {
     return total;
 }
 
-/// The bridge. The evaluator has no idea what an element is; the host walks
-/// the document and defines ordinary variables. Everything the script can see
-/// about the page is what was put here, which is exactly what a "host object"
-/// means: not part of the language, installed by whatever is embedding it.
+/// The link between page and script. The evaluator does not know what an
+/// element is. The host walks the document and defines ordinary variables.
+/// The script can see only what was put here about the page. That is what a
+/// "host object" means: it is not part of the language, and it is installed
+/// by whatever program embeds the language.
 fn bind(env: *Env, nodes: []const dom.Node, root: u32) !void {
     try env.define("paragraphs", countTag(nodes, root, "p"));
     try env.define("headings", countTag(nodes, root, "h1"));

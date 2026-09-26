@@ -17,8 +17,8 @@ pub fn main(init: std.process.Init) !void {
     const slice: []const u32 = &row;
 
     // `index` is a `var` whose value the compiler cannot fold, so this is not
-    // rejected at compile time. The check that stops it runs while the program
-    // is running, which is the whole point: the compiler cannot know.
+    // rejected at compile time. The compiler cannot know the index, so the
+    // check that stops it runs while the program is running.
     var index: usize = 4;
     _ = &index;
 

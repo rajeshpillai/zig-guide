@@ -17,7 +17,8 @@ pub fn main(init: std.process.Init) !void {
 
     try out.writeAll("second line, still sitting in the buffer\n");
 
-    // The process stops here. Not a return: no defer runs, no buffer is
-    // drained, and the second line above is lost with the memory holding it.
+    // The process stops here. This is not a return. No defer runs and no
+    // buffer is drained, so the second line above is lost along with the
+    // memory that held it.
     std.process.exit(0);
 }

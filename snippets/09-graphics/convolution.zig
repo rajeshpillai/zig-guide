@@ -28,11 +28,11 @@ fn Kernel(comptime side: usize) type {
 
 /// Sample a pixel, clamping out-of-range coordinates to the edge.
 ///
-/// Something has to happen at the border, where part of the kernel hangs off
+/// Something has to happen at the border, where part of the kernel extends past
 /// the image. Returning black there draws a dark frame around every blurred
-/// image; wrapping to the far side bleeds the top into the bottom. Clamping
-/// repeats the edge pixel, which is invisible and is what most image libraries
-/// do by default.
+/// image. Wrapping to the far side mixes the top into the bottom. Clamping
+/// repeats the edge pixel, which is not visible and is what most image
+/// libraries do by default.
 fn sample(src: []const u32, x: i32, y: i32) u32 {
     const cx = std.math.clamp(x, 0, @as(i32, @intCast(canvas.width)) - 1);
     const cy = std.math.clamp(y, 0, @as(i32, @intCast(canvas.height)) - 1);
@@ -41,8 +41,8 @@ fn sample(src: []const u32, x: i32, y: i32) u32 {
 
 /// The loop. `dst` and `src` must not be the same buffer: a convolution reads
 /// neighbours, so writing an output pixel back over its input corrupts the
-/// input of every pixel still to come. That bug looks like a directional smear
-/// rather than a crash, which is why it survives so long in hand-written code.
+/// input of every pixel still to come. The bug shows as a smear in one
+/// direction, not a crash, so it can go unnoticed in hand-written code.
 fn convolve(comptime side: usize, dst: []u32, src: []const u32, k: Kernel(side)) void {
     const K = Kernel(side);
     for (0..canvas.height) |y| {
@@ -79,7 +79,7 @@ fn clamp8(v: i32) u8 {
 
 /// Weights sum to 16, so the divisor is 16 and the image keeps its brightness.
 /// A kernel whose weights do not sum to its divisor darkens or brightens the
-/// whole image, which is almost never what was intended.
+/// whole image, which is usually a mistake.
 const gaussian3 = Kernel(3){
     .weights = .{
         1, 2, 1,
@@ -117,8 +117,8 @@ const sobel_y = [9]i32{
 /// Edge strength: run both kernels on luma and combine them.
 ///
 /// The exact magnitude is `sqrt(gx*gx + gy*gy)`. `|gx| + |gy|` overestimates it
-/// by up to 41% on diagonals and needs no square root, which is the trade the
-/// original hardware implementations made and most still do.
+/// by up to 41% on diagonals and needs no square root. The original hardware
+/// implementations made that trade, and most still do.
 fn sobel(dst: []u32, src: []const u32) void {
     for (0..canvas.height) |y| {
         for (0..canvas.width) |x| {
@@ -188,16 +188,16 @@ pub fn main(init: std.process.Init) !void {
             }
         }
         // The sign of `gx` is the direction of the change: positive where the
-        // image gets brighter to the right. Zig prints it whenever a width is
-        // given, which here says something worth reading.
+        // image gets brighter to the right. Zig prints the sign whenever a
+        // width is given, and here the sign carries information.
         try out.print("{s:>16} | {d:>5} {d:>5} {d:>9}\n", .{ p.name, gx, gy, @abs(gx) + @abs(gy) });
     }
 
     // Sharpen across the block's left edge. A sharpen kernel does not add
     // detail: it exaggerates the difference it already found, which on a hard
     // edge means the dark side goes darker and the bright side brighter than
-    // either was. That overshoot is ringing, and it is the artifact every
-    // sharpen slider trades against.
+    // either was. That overshoot is called ringing, and every sharpen slider
+    // has to balance more sharpness against more ringing.
     canvas.scene(&pixels);
     convolve(3, &scratch, &pixels, sharpen3);
     try out.writeAll("\nluma along y=10, x=5..12\n     x |");

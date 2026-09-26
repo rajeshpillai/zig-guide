@@ -10,8 +10,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &stdout_writer.interface;
 
-    // A letter is not a different kind of thing from a number. 'A' is 65,
-    // written the way a person prefers to read it.
+    // A letter is a number. 'A' is 65, written in the form a person finds
+    // easier to read.
     const letter: u8 = 'A';
     try out.print("'A' is the number {d}\n\n", .{letter});
 
@@ -27,7 +27,7 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("\n\n");
 
     // Nothing here converts anything. The four bytes stay exactly as they
-    // were; only the agreement about how to read them changes.
+    // were. Only the rule for how to read them changes.
     const number: u32 = 0x41424344;
     const letters: [4]u8 = @bitCast(number);
     try out.print("read as a number: {d}\n", .{number});

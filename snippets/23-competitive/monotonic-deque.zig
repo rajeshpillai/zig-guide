@@ -23,7 +23,7 @@ const width = 4;
 /// Twelve values falling from left to right.
 ///
 /// The maximum sits at the left edge of every window, so it leaves on every
-/// slide and the repair-by-rescanning version pays full price each time. The
+/// slide and the repair-by-rescanning version rescans the window each time. The
 /// deque never evicts from the back on this array.
 const falling = [_]i32{ 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
 
@@ -53,9 +53,9 @@ fn fillPseudoRandom(buf: []i32) void {
 
 /// Read one line of whitespace-separated integers into `out`.
 ///
-/// Taking a `*std.Io.Reader` rather than the string is the same discipline the
-/// networking chapters use for protocols. Point it at stdin on a judge and not
-/// a line of it changes.
+/// It takes a `*std.Io.Reader` instead of the string, as the networking
+/// chapters do for protocols. On a judge, pass a reader over stdin and the
+/// function stays the same.
 fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     const line = (try reader.takeDelimiter('\n')) orelse return error.MissingRow;
     var count: usize = 0;
@@ -136,8 +136,7 @@ const Work = struct {
 /// The back evicts on value. An index already in the deque holding a value
 /// smaller than the arriving one is finished: the arriving value is larger and
 /// it stays in the window longer, so the smaller value can never be the answer
-/// again. Dropping it is not an optimisation, it is the removal of an index
-/// that no future window can want.
+/// again. Dropping it is safe, because no future window can need that index.
 ///
 /// The front expires on index. `start` is the leftmost index the window now
 /// covers, and anything below it is out of range whatever it holds. The
@@ -263,7 +262,7 @@ fn writeCell(out: *std.Io.Writer, value: i32, field: usize) !void {
 /// A list of indices as `index:value` pairs, padded out to `field`.
 ///
 /// Printing the value beside the index is what makes the ordering visible. A
-/// column of bare indices would hide the one property the method rests on.
+/// column of bare indices would hide the property the method depends on.
 fn writePairs(
     out: *std.Io.Writer,
     items: []const i32,
@@ -351,8 +350,8 @@ fn traceDequeMax(
 
 /// Every index that left, in the order it left, with the reason.
 ///
-/// The two reason columns are the point of the table. A back row quotes two
-/// values and no index; a front row quotes two indices and no value.
+/// The two reason columns show how the rules differ. A back row quotes two
+/// values and no index. A front row quotes two indices and no value.
 fn writeDepartures(
     out: *std.Io.Writer,
     items: []const i32,
@@ -473,7 +472,7 @@ pub fn main(init: std.process.Init) !void {
         .{ scanned, wrong, windows },
     );
 
-    // The repair. Correct everywhere, and priced by the data.
+    // The repair. Correct on every array, and its cost depends on the data.
     var repaired_answers: [64]i32 = undefined;
     var repaired: usize = 0;
     rescanOnLoss(values, k, &repaired_answers, &repaired);
@@ -514,8 +513,8 @@ pub fn main(init: std.process.Init) !void {
         .{ work.moves(), values.len, 2 * values.len },
     );
 
-    // Three shapes of data and one larger array. The repair column swings by a
-    // factor of three; the push column is the length of the array every time.
+    // Three shapes of data and one larger array. The repair column changes by
+    // a factor of three. The push column is the length of the array every time.
     fillPseudoRandom(&scale_values);
     try out.writeAll("what each array costs\n");
     try out.writeAll("  array         n   k  rescan  on loss  pushes  back  front\n");

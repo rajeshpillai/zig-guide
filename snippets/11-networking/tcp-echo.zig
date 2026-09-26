@@ -5,7 +5,7 @@
 const std = @import("std");
 
 // The server half: accept one client, read one line, echo it uppercased.
-// In a real server this loop would run per connection; the shape is the same.
+// In a real server this code would run once per connection, in this shape.
 fn serve(server: *std.Io.net.Server, io: std.Io) void {
     var conn = server.accept(io) catch return;
     defer conn.close(io);
@@ -30,7 +30,7 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // Port 0 asks the OS for any free port; the socket records which one
+    // Port 0 asks the OS for any free port. The socket records which one
     // it got, so nothing here hardcodes a port that might be taken.
     const any_port = try std.Io.net.IpAddress.parse("127.0.0.1", 0);
     var server = try any_port.listen(io, .{});
@@ -39,8 +39,8 @@ pub fn main(init: std.process.Init) !void {
 
     const thread = try std.Thread.spawn(.{}, serve, .{ &server, io });
 
-    // The client half. Everything is the reader/writer interface from
-    // here on; a socket stream and a file behave the same way.
+    // The client half. From here on everything uses the reader/writer
+    // interface. A socket stream and a file behave the same way.
     var stream = try addr.connect(io, .{ .mode = .stream });
     defer stream.close(io);
 

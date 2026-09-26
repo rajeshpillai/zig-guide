@@ -81,8 +81,8 @@ const GROUPS: Group[] = [
   {
     title: "Where the standard library stops",
     blurb:
-      "Two libraries the guide names because std deliberately does not cover " +
-      "the ground and says so. Both are dependencies rather than part of the " +
+      "Two libraries the guide names because std leaves these areas out on " +
+      "purpose and says so. Both are dependencies rather than part of the " +
       "language, so neither is verified by this site's nightly build: they " +
       "track the compiler on their own schedule.",
     sources: [
@@ -93,7 +93,7 @@ const GROUPS: Group[] = [
           "Unicode text processing by Sam Atman: grapheme clusters, display " +
           "width, case folding, normalization. std has none of these, and the " +
           "tables are large enough that it is right not to. Split into modules " +
-          "so a program only pays for the ones it uses.",
+          "so a program includes only the ones it uses.",
         cite: "standard-library/unicode-recipes",
       },
       {
@@ -118,7 +118,7 @@ const GROUPS: Group[] = [
   },
   {
     title: "Tools",
-    blurb: "Not required to follow the guide, worth having anyway.",
+    blurb: "You do not need these to follow the guide, but they help.",
     sources: [
       {
         name: "ZLS, the Zig Language Server",
@@ -133,9 +133,9 @@ const GROUPS: Group[] = [
   {
     title: "Prior art",
     blurb:
-      "Code by other people that a chapter arrives at the design of. Named " +
-      "because a reader who recognises the shape deserves to know where it " +
-      "came from, and one who does not deserves somewhere better to read it.",
+      "Code by other people whose design a chapter ends up rebuilding. Named " +
+      "so that a reader who recognises the design knows where it came from, " +
+      "and a reader who does not has a fuller version to read.",
     sources: [
       {
         name: "olive.c",
@@ -145,8 +145,8 @@ const GROUPS: Group[] = [
           "licensed, rendering into a plain pixel buffer with no display " +
           "server and no libc. Its Olivec_Canvas is the pixels, width, height " +
           "and stride struct the canvas chapter builds field for field, and " +
-          "olivec_subcanvas is the same constructor. Worth reading as a single " +
-          "header that stays legible while covering triangles, text and sprites.",
+          "olivec_subcanvas is the same constructor. It is a single header that " +
+          "stays readable while it covers triangles, text and sprites.",
         cite: "graphics/sub-canvas",
       },
     ],
@@ -160,7 +160,7 @@ const GROUPS: Group[] = [
         href: "https://mitchellh.com/writing/everyone-should-know-simd",
         note:
           "The argument for why vector code is worth learning at all, which the " +
-          "SIMD recipe leans on rather than repeating.",
+          "SIMD recipe relies on instead of repeating.",
         cite: "how-to/simd-scan",
       },
     ],
@@ -208,7 +208,7 @@ const schema = {
     <p class="section-intro">
       {count} sources outside this site, each one already linked from the chapter
       that needed it. Nothing here is a recommendation the guide has not made in
-      prose, which is what keeps the list from turning into a directory.
+      prose, so the list stays short and does not become a directory.
     </p>
 
     {

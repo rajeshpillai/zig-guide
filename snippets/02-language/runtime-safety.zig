@@ -16,10 +16,10 @@ pub fn main(init: std.process.Init) !void {
     // "index out of bounds" rather than reading whatever memory follows.
     const array = [_]u8{ 1, 2, 3 };
     var index: usize = 5;
-    _ = &index; // defeat comptime evaluation
+    _ = &index; // stop comptime evaluation
     const value = array[index];
     std.debug.print("never printed: {d}\n", .{value});
 }
 
-// Deliberately panics, which is the point: CI runs it and requires it to stop
-// with exactly the message this chapter quotes.
+// Panics on purpose. CI runs it and requires it to stop with exactly the
+// message this chapter quotes.

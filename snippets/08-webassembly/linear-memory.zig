@@ -6,8 +6,8 @@
 
 const std = @import("std");
 
-// A tiny arena the host can carve scratch space from. A real module would
-// export a general allocator; this keeps the moving parts on screen.
+// A small arena the host can take scratch space from. A real module would
+// export a general allocator. This one keeps every step visible in the code.
 var scratch: [4096]u8 = undefined;
 var used: usize = 0;
 
@@ -44,7 +44,7 @@ test "the round trip a JS host would drive" {
     // Host: call in with (offset, length).
     try std.testing.expectEqual(@as(u32, 'z' + 'i' + 'g'), sumBytes(dst, msg.len));
 
-    // Host: mutate in place, then read the bytes straight back.
+    // Host: change the bytes in place, then read them back.
     upperInPlace(dst, msg.len);
     try std.testing.expectEqualStrings("ZIG", dst[0..msg.len]);
 }

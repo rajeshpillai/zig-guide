@@ -8,9 +8,9 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // In a debug or safe build, plain `a + b` on these panics. That is the
-    // right default for bugs, and the wrong tool for untrusted input:
-    // input problems are expected conditions, not programming errors.
+    // In a debug or safe build, plain `a + b` on these panics. A panic is the
+    // right default for bugs. It is the wrong choice for untrusted input,
+    // because bad input is an expected condition, not a programming error.
     const a: u8 = 200;
     const b: u8 = 100;
 
@@ -22,15 +22,15 @@ pub fn main(init: std.process.Init) !void {
         try out.print("std.math.add: {t}\n", .{err});
     }
 
-    // Option 2: saturate. Clamps at the type's bounds. Right for gain
-    // knobs, progress counters, anything where "pin at max" is meaningful.
+    // Option 2: saturate. Clamps at the type's bounds. Use it for gain
+    // controls, progress counters, and anything where "stay at max" makes sense.
     try out.print("saturating +|: {d}\n", .{a +| b});
 
-    // Option 3: wrap. Modular arithmetic, stated in the operator. Right
-    // for hashes, checksums, ring buffer indices; wrong for quantities.
+    // Option 3: wrap. Modular arithmetic, stated in the operator. Use it for
+    // hashes, checksums and ring buffer indices. Do not use it for quantities.
     try out.print("wrapping   +%: {d}\n", .{a +% b});
 
-    // Option 4: the bit you can inspect. Returns the wrapped result and a
+    // Option 4: an overflow bit you can check. Returns the wrapped result and a
     // flag, so you can branch without losing the low bits.
     const pair = @addWithOverflow(a, b);
     try out.print("@addWithOverflow: result={d} overflowed={d}\n", .{

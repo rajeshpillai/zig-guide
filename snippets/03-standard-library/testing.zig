@@ -25,7 +25,8 @@ fn parseDigit(c: u8) !u4 {
 }
 
 test "expectError asserts the failure path" {
-    // Untested error paths rot. This makes them first-class assertions.
+    // Error paths that no test runs can break unnoticed. This makes them
+    // normal assertions.
     try std.testing.expectError(error.NotADigit, parseDigit('x'));
     try std.testing.expectEqual(7, try parseDigit('7'));
 }

@@ -21,9 +21,9 @@ const Cue = enum { coin, near_miss, lane, crash, start };
 /// One sound plus a few aliases of it, played round robin.
 ///
 /// raylib restarts a sound that is already playing, so a single handle can only
-/// ever make one note. Coins arrive in quick succession and a combo that
-/// silences itself is worse than no sound, hence the aliases: they share the
-/// sample data and have their own playback position.
+/// ever make one note. Coins arrive in quick succession, and with one handle
+/// each coin sound would cut off the one before. The aliases fix this: they
+/// share the sample data and have their own playback position.
 const Voice = struct {
     /// Four is enough for the fastest run of coins the spacing allows.
     const max_aliases = 4;
@@ -119,7 +119,8 @@ pub const Audio = struct {
     pub fn onEvent(self: *Audio, event: sim.Event) void {
         switch (event) {
             .coin => |c| {
-                // The combo ladder, as pitch rather than as eight recordings.
+                // Each combo step raises the pitch of one recording, so there
+                // are not eight recordings.
                 // A semitone is 2^(1/12); this is a little under one per step,
                 // so a full combo lands about a fifth above where it started.
                 const step = std.math.pow(f32, 2.0, @as(f32, @floatFromInt(c.combo - 1)) / 14.0);

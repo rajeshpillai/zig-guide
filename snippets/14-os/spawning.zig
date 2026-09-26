@@ -35,8 +35,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &stdout_writer.interface;
 
-    // `run` spawns, collects both streams to completion, and waits. It is the
-    // right call when the output is small and you want all of it.
+    // `run` spawns, collects both streams to completion, and waits. Use it
+    // when the output is small and you want all of it.
     const ok = try std.process.run(gpa, io, .{ .argv = &.{ self, "ok" } });
     defer gpa.free(ok.stdout);
     defer gpa.free(ok.stderr);
@@ -50,7 +50,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("succeeded:     {}\n", .{failed.term.success()});
 
     // A status is a `u8`, so there are only 256 of them and 0 is the only one
-    // that means success. Everything else is yours to define.
+    // that means success. The program decides what the others mean.
     switch (failed.term) {
         .exited => |code| try out.print("exit code:     {d}\n", .{code}),
         else => try out.print("killed or stopped rather than exited\n", .{}),

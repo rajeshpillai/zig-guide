@@ -5,9 +5,9 @@
 
 const std = @import("std");
 
-/// The list node lives *inside* the thing being listed. That is what intrusive
-/// means: the container does not wrap your value, your value contains the
-/// container's bookkeeping.
+/// The list node lives *inside* the thing being listed. This is what intrusive
+/// means: your value contains the container's bookkeeping, and the container
+/// does not wrap your value.
 const Task = struct {
     name: []const u8,
     priority: u8,
@@ -17,8 +17,8 @@ const Task = struct {
     ///
     /// `@fieldParentPtr` subtracts the field's offset from the pointer. It is
     /// checked at compile time: the field name must exist on the result type
-    /// and have the pointee's type, so the one dangerous-looking line in this
-    /// file cannot silently point at the wrong thing.
+    /// and have the pointee's type. So this line, which looks dangerous,
+    /// cannot silently point at the wrong thing.
     fn fromNode(node: *std.SinglyLinkedList.Node) *Task {
         return @fieldParentPtr("node", node);
     }
@@ -41,7 +41,7 @@ pub fn main(init: std.process.Init) !void {
 
     // The tasks live wherever you put them. Here that is the stack, and the
     // list allocates nothing at all: no allocator is passed, and `prepend`
-    // cannot fail. That is the whole reason the intrusive design exists.
+    // cannot fail. The intrusive design exists to make this possible.
     var deploy = Task{ .name = "deploy", .priority = 3 };
     var verify = Task{ .name = "verify", .priority = 1 };
     var build = Task{ .name = "build", .priority = 2 };
@@ -82,8 +82,8 @@ pub fn main(init: std.process.Init) !void {
     try out.writeByte('\n');
 
     // A node is two words at most and carries no payload, so the cost of being
-    // listable is fixed and visible in the struct that pays it. Counted in
-    // pointer widths, so the numbers are the same as wasm32 and as a 64-bit
+    // on a list is fixed and visible in the struct that holds the node. Counted
+    // in pointer widths, so the numbers are the same on wasm32 and on a 64-bit
     // native build.
     try out.print("\nsizes in pointer widths\n", .{});
     try out.print("  SinglyLinkedList.Node = {d}\n", .{@sizeOf(std.SinglyLinkedList.Node) / @sizeOf(usize)});

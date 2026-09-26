@@ -52,7 +52,7 @@ const Node = struct {
 test "dupe copies a slice into owned memory" {
     const allocator = std.testing.allocator;
 
-    // The classic use: keep a copy of a string whose original may go away.
+    // A common use: keep a copy of a string whose original may go away.
     const owned = try allocator.dupe(u8, "borrowed");
     defer allocator.free(owned);
     try expect(std.mem.eql(u8, owned, "borrowed"));

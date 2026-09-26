@@ -35,7 +35,7 @@ test "evaluate at compile time" {
 test "the branch quota is a real limit" {
     // Comptime evaluation is capped at 1000 backwards branches so a runaway
     // computation fails the build instead of hanging the compiler.
-    // fibonacci(20) blows past that; raise the ceiling deliberately.
+    // fibonacci(20) needs more than that, so raise the limit on purpose.
     @setEvalBranchQuota(100_000);
     const result = comptime fibonacci(20);
     try expect(result == 6765);
@@ -52,7 +52,7 @@ test "generic data structure" {
     const list = List(i32){ .items = &backing };
     try expect(list.first().? == 10);
 
-    // A different T produces a genuinely different type.
+    // A different T produces a different type.
     try expect(List(i32) != List(u8));
 }
 

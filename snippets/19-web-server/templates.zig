@@ -6,8 +6,7 @@ const std = @import("std");
 pub const Binding = struct { name: []const u8, value: []const u8 };
 
 /// The five characters that can end an HTML text node or an attribute value.
-/// Escaping is not about being tidy: it is the difference between a name being
-/// displayed and a name being executed.
+/// Escaping decides whether a name is displayed or executed.
 fn writeEscaped(out: *std.Io.Writer, text: []const u8) !void {
     for (text) |c| {
         switch (c) {
@@ -28,9 +27,9 @@ fn lookup(bindings: []const Binding, name: []const u8) ?[]const u8 {
     return null;
 }
 
-/// `{{name}}` is escaped. `{{{name}}}` is not, and needing three braces to
-/// turn escaping off is the entire design: the safe thing is what you get by
-/// typing less, and the dangerous thing is visible in a diff.
+/// `{{name}}` is escaped. `{{{name}}}` is not. Turning escaping off needs
+/// three braces, so the safe form is the shorter one to type, and the
+/// dangerous form is easy to see in a diff.
 pub fn render(template: []const u8, bindings: []const Binding, out: *std.Io.Writer) !void {
     var i: usize = 0;
     while (i < template.len) {
@@ -50,8 +49,9 @@ pub fn render(template: []const u8, bindings: []const Binding, out: *std.Io.Writ
             if (lookup(bindings, name)) |value| {
                 if (raw) try out.writeAll(value) else try writeEscaped(out, value);
             } else {
-                // A missing binding is not an empty string. Saying so beats a
-                // page that silently renders a blank where a price should be.
+                // A missing binding is not an empty string. Printing a marker
+                // is better than a page that silently shows a blank where a
+                // price should be.
                 try out.print("[missing:{s}]", .{name});
             }
             i = open + close + close_tag.len;

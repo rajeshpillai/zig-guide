@@ -25,7 +25,7 @@ test "rotate by n" {
 
 test "overlapping copies are @memmove, not @memcpy" {
     // @memcpy requires the two ranges not to overlap. Shifting within one slice
-    // always overlaps, and in a release build nothing tells you.
+    // always overlaps, and a release build does not report the mistake.
     var shift_left = [_]u8{ 'a', 'b', 'c', 'd' };
     @memmove(shift_left[0..3], shift_left[1..4]);
     try expectEqualStrings("bcdd", &shift_left);
@@ -96,8 +96,8 @@ test "indices belong to the slice they came from" {
     const all = "abcdefgh";
     const mid = all[2..6]; // "cdef"
 
-    // An offset found in one slice means nothing against another. This is what
-    // makes the whole find family dangerous across a sub-slice boundary.
+    // An offset found in one slice means nothing against another. So every
+    // find function is dangerous across a sub-slice boundary.
     try expect(std.mem.find(u8, all, "de").? == 3);
     try expect(std.mem.find(u8, mid, "de").? == 1);
 

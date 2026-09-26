@@ -12,11 +12,12 @@ pub fn main(init: std.process.Init) !void {
     _ = init;
 
     var x: u8 = 255;
-    _ = &x; // defeat comptime evaluation
+    _ = &x; // stop comptime evaluation
 
     // 256 does not fit in a u8. `+=` is the checked add: in this build the
     // check runs and the program stops here. In ReleaseFast or ReleaseSmall
-    // there is no check, and the value is not defined. Not "wraps". Undefined.
+    // there is no check, and the value is undefined. It is not guaranteed
+    // to wrap.
     x += 1;
 
     std.debug.print("never printed: {d}\n", .{x});

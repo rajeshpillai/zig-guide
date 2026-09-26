@@ -8,8 +8,8 @@ const height: usize = 12;
 var canvas: [width * height]u8 = @splat('.');
 
 /// A node's position is **local**: relative to its parent, not to the canvas.
-/// That is the whole idea. An arm is at "shoulder plus two", forever, and the
-/// shoulder is free to move.
+/// An arm is at "shoulder plus two", always, and the shoulder is free to
+/// move.
 const Node = struct {
     x: i32,
     y: i32,
@@ -80,8 +80,8 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("body at (4, 3)\n");
     try dump(out);
 
-    // One number changed. Every child follows, because no child knows where
-    // it is on the canvas and none of them had to be told.
+    // One number changed. Every child follows, because no child stores where
+    // it is on the canvas.
     nodes[0].x = 26;
     nodes[0].y = 5;
 

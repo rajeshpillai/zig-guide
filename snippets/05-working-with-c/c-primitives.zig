@@ -13,8 +13,8 @@ test "c types are separate from fixed-width ones" {
 }
 
 test "c_long varies by target" {
-    // 4 bytes on wasm32 and Windows, 8 on 64-bit Linux. This is exactly
-    // why the type exists rather than hardcoding i64.
+    // 4 bytes on wasm32 and Windows, 8 on 64-bit Linux. The type exists
+    // because of this difference, so do not hardcode i64.
     try expect(@sizeOf(c_long) == 4); // wasm32
 }
 

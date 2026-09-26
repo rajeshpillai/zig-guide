@@ -4,9 +4,9 @@
 const std = @import("std");
 
 /// The misbehaving network again, but scripted instead of random: it
-/// drops datagram 2 and duplicates datagram 4. Scripted, because this
-/// chapter is about the receiver's logic, and you should be able to
-/// check every line of its output against these two rules.
+/// drops datagram 2 and duplicates datagram 4. It is scripted because this
+/// chapter is about the receiver's logic. You should be able to check
+/// every line of its output against these two rules.
 fn transmit(seq: u8, out: *[2]u8) []const u8 {
     if (seq == 2) return out[0..0];
     out[0] = seq;
@@ -17,8 +17,8 @@ fn transmit(seq: u8, out: *[2]u8) []const u8 {
     return out[0..1];
 }
 
-/// One number is the receiver's whole defence: the sequence number it
-/// expects next. Below it: seen before. Equal: in order. Above it: the
+/// The receiver needs only one number to find problems: the sequence number
+/// it expects next. Below it: seen before. Equal: in order. Above it: the
 /// numbers in between never arrived.
 const Watcher = struct {
     next: u8 = 0,
@@ -37,7 +37,7 @@ const Watcher = struct {
 /// For acks the receiver tracks what it *has*, contiguously from the
 /// start. It only advances on the exact next number, and answers every
 /// arrival with that count. The answer is cumulative: "I have everything
-/// through N" repeats all earlier acks for free.
+/// through N" also confirms everything the earlier acks confirmed.
 const AckSender = struct {
     have: ?u8 = null,
 
@@ -99,8 +99,8 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // The sender's view is built from acks alone. It never saw the drop;
-    // it only sees which of its messages were never confirmed.
+    // The sender's view is built from acks alone. It never saw the drop.
+    // It only sees which of its messages were never confirmed.
     if (acked_through) |a| {
         try out.print("\nsender: confirmed through {d}, so {d} through 5 need resending\n", .{ a, a + 1 });
     }

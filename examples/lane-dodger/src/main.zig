@@ -23,8 +23,8 @@ const config = sim.config;
 const bot = sim.bot;
 
 /// Largest real-time step we will believe. Past this the game was paused, the
-/// laptop was asleep, or a breakpoint was hit; catching up on ten seconds of
-/// ticks would only bury the player.
+/// laptop was asleep, or a breakpoint was hit. Running ten seconds of ticks at
+/// once to catch up would kill the player before they could react.
 const max_frame_time: f32 = 0.25;
 
 const Shake = struct {
@@ -48,7 +48,7 @@ const Shake = struct {
 };
 
 /// Turn what the simulation reported into what the player sees and feels.
-/// Nothing here can change the outcome of the run, which is the point.
+/// Nothing here can change the outcome of the run.
 fn react(
     world: *const sim.World,
     system: *particles.System,
@@ -99,12 +99,12 @@ fn advance(
 
 /// Everything a frame needs, in one place.
 ///
-/// This is a struct rather than a pile of locals in `main` for one reason: on
-/// the web the browser owns the loop. Emscripten calls a function once per
-/// animation frame and never returns into our code, so there is nowhere for a
-/// `while` loop to live and nothing for locals to live in. Splitting "one
-/// frame" out from "keep doing frames" is what lets the same game run under a
-/// loop we drive and a loop we do not.
+/// This is a struct instead of local variables in `main` because on the web the
+/// browser owns the loop. Emscripten calls a function once per animation frame
+/// and never returns into our code, so there is nowhere for a `while` loop to
+/// live and nothing for locals to live in. Because "one frame" is separate
+/// from "keep doing frames", the same game runs under our own loop and under
+/// the browser's.
 const Game = struct {
     world: sim.World,
     /// The title screen plays itself. Same rules, same generator, driven by
@@ -157,13 +157,13 @@ const Game = struct {
         const attract = self.world.phase == .ready;
 
         if (attract) {
-            // Keep the demo alive so the title screen never sits on a wreck.
+            // Keep the demo alive so the title screen never stays on a crash.
             if (self.demo.phase == .dead and self.demo.death_time >= config.death_hold) {
                 self.demo.start();
             }
             var demo_accumulator = self.accumulator;
-            // The attract mode is silent. A title screen that pings every
-            // time the bot takes a coin is a title screen people mute.
+            // The attract mode is silent. If the title screen played a sound
+            // every time the bot took a coin, people would mute the game.
             advance(&self.demo, &self.system, &self.shake, null, &demo_accumulator, null);
             // The player's world still needs the confirm press.
             while (self.accumulator >= config.tick_dt) {
@@ -174,7 +174,7 @@ const Game = struct {
                 self.world.events.reset();
             }
             if (self.world.phase == .playing) {
-                // Starting for real: clear the demo's debris.
+                // The player's run starts: clear the demo's particles and shake.
                 self.system.clear();
                 self.shake.amount = 0;
             }
@@ -254,10 +254,10 @@ fn run() void {
     //
     // raylib's web resize callback sets the canvas backing store to
     // `window.innerWidth` by `window.innerHeight`: the whole browser window,
-    // not the element the canvas actually occupies. On a page where the canvas
+    // not the element the canvas occupies. On a page where the canvas
     // is one column of a chapter, the buffer ends up several times wider than
     // the box it is displayed in. The letterbox here then centres the field
-    // inside that buffer and CSS squashes the result, so the game renders as a
+    // inside that buffer and CSS shrinks the result, so the game renders as a
     // narrow strip down the middle. Leaving the flag off keeps the buffer the
     // size `InitWindow` asked for, and the page scales it with CSS.
     const resizable = if (web) 0 else rl.FLAG_WINDOW_RESIZABLE;
@@ -267,13 +267,13 @@ fn run() void {
     if (!web) rl.SetWindowMinSize(320, 480);
 
     // Entropy is the platform's job, not the simulation's. raylib seeds its
-    // own generator from the clock during InitWindow, and this is the one
-    // place a fresh run gets to be unpredictable; everything downstream of the
-    // seed is exactly reproducible.
+    // own generator from the clock during InitWindow. This is the only place
+    // where a new run gets randomness. Everything after the seed is exactly
+    // reproducible.
     //
     // Sixteen bits at a time: raylib computes its range as `max - min + 1` in
-    // an int, so asking for the whole of i32 overflows and the result is
-    // whatever the C library felt like.
+    // an int, so asking for the whole of i32 overflows, and signed overflow is
+    // undefined behaviour in C.
     var seed: u64 = 0;
     for (0..4) |_| seed = (seed << 16) | @as(u64, @intCast(rl.GetRandomValue(0, 0xFFFF)));
 

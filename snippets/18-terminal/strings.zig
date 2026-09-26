@@ -21,9 +21,9 @@ fn strEq(a: []const u8, b: []const u8) bool {
 }
 
 /// Copy `src` into `dest` and terminate it. Returns null when it will not fit,
-/// rather than writing what it can and hoping.
+/// instead of writing part of it.
 ///
-/// The `+ 1` is the whole lesson. A 5-byte string needs 6 bytes of room, and
+/// The `+ 1` is for the terminator. A 5-byte string needs 6 bytes of room, and
 /// the version of this that checks `src.len > dest.len` compiles, passes a
 /// casual test, and writes one byte past the end of the buffer.
 fn strCopy(dest: []u8, src: []const u8) ?[:0]u8 {
@@ -37,9 +37,8 @@ fn isSpace(c: u8) bool {
     return c == ' ' or c == '\t' or c == '\n' or c == '\r';
 }
 
-/// Both ends, without moving anything. Trimming by copying is the obvious
-/// implementation and the wrong one: the answer is a view of what you already
-/// have.
+/// Both ends, without moving anything. Trimming does not need a copy: the
+/// answer is a slice of the bytes you already have.
 fn strTrim(s: []const u8) []const u8 {
     var start: usize = 0;
     var end: usize = s.len;
@@ -72,8 +71,8 @@ pub fn main(init: std.process.Init) !void {
     });
 
     // Its own buffer. Passing `buf` here aliased the writer's own storage and
-    // the first line of output came out shredded, which is the kind of bug a
-    // slice makes visible only because both sides had a length.
+    // the first line of output came out garbled. Both slices carry a length,
+    // so the mistake garbled the output instead of writing past a buffer.
     var scratch: [64]u8 = undefined;
     for ([_][]const u8{ "  padded  ", "\tboth\n", "none", "   ", "" }) |sample| {
         try out.print("trim(\"{s}\") -> \"{s}\"\n", .{ escape(sample, &scratch), strTrim(sample) });

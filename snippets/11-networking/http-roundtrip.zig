@@ -38,7 +38,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // Same bootstrap as the TCP recipe: port 0, OS picks, socket records.
+    // Same setup as the TCP recipe: port 0, the OS picks a port, and the
+    // socket records it.
     const any_port = try std.Io.net.IpAddress.parse("127.0.0.1", 0);
     var listener = try any_port.listen(io, .{});
     defer listener.deinit(io);
@@ -51,8 +52,8 @@ pub fn main(init: std.process.Init) !void {
     defer client.deinit();
 
     // fetch() drives the whole request: connect, send, follow the
-    // response, decompress if needed. The body lands in any writer you
-    // hand it; Allocating collects it into memory.
+    // response, decompress if needed. The body goes to any writer you
+    // pass in. Allocating collects it into memory.
     var url_buf: [64]u8 = undefined;
     var body: std.Io.Writer.Allocating = .init(gpa);
     defer body.deinit();

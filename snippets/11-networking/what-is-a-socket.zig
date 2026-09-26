@@ -17,8 +17,8 @@ pub fn main(init: std.process.Init) !void {
     try out.print("asked for port:  {d}\n", .{wanted.getPort()});
 
     // Port 0 means "any free port, you pick". The kernel assigns one when
-    // the socket is bound, and the socket records it. Hardcoding a port is
-    // what makes a test suite fail when two of them run at once.
+    // the socket is bound, and the socket records it. A hardcoded port
+    // makes a test suite fail when two copies of it run at once.
     var server = try wanted.listen(io, .{});
     defer server.deinit(io);
 
@@ -36,9 +36,9 @@ pub fn main(init: std.process.Init) !void {
 
     try out.writeAll("connected. two handles now refer to one conversation.\n\n");
 
-    // From here nothing is socket-shaped. The same reader and writer
-    // interfaces a file uses carry the bytes, which is why the protocol
-    // chapters that follow can run without a network at all.
+    // From here on, the code does not deal with sockets. The same reader
+    // and writer interfaces a file uses carry the bytes. Because of this,
+    // the protocol chapters that follow can run without a network.
     var write_buf: [64]u8 = undefined;
     var writer = client.writer(io, &write_buf);
     try writer.interface.writeAll("ping\n");
@@ -49,9 +49,10 @@ pub fn main(init: std.process.Init) !void {
     const line = try reader.interface.takeDelimiterExclusive('\n');
     try out.print("server read:     \"{s}\"\n", .{line});
 
-    // Closing is not optional and not automatic. Every socket is a file
-    // descriptor, and a server that leaks them stops accepting connections
-    // once it hits the process limit, long before it runs out of memory.
+    // Nothing closes a socket for you, so you must close it. Every socket
+    // is a file descriptor. A server that leaks them stops accepting
+    // connections once it hits the process limit, long before it runs out
+    // of memory.
     try out.writeAll("closing: the defers above release three descriptors\n");
 
     try out.flush();

@@ -16,8 +16,8 @@ fn decimal(buf: []u8, value: i64) []const u8 {
 
     const negative = value < 0;
     // Negate in a wider type. On the most negative i64 there is no positive
-    // counterpart, so `-value` in the same type is an overflow, and this is
-    // the trap every hand-written printf has fallen into at least once.
+    // counterpart, so `-value` in the same type is an overflow. Hand-written
+    // printf code often gets this wrong.
     var n: u64 = if (negative) @as(u64, @intCast(-@as(i128, value))) else @intCast(value);
 
     var i = buf.len;

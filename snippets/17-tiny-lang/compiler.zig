@@ -23,9 +23,9 @@ pub const Op = enum {
 };
 
 /// One instruction. `arg` is a literal value, a slot number, or a jump target,
-/// depending on the opcode. A real VM packs this into bytes; keeping it a
-/// struct costs memory and saves a decoder, which is the right trade for
-/// something you are reading rather than shipping.
+/// depending on the opcode. A real VM packs this into bytes. Keeping it a
+/// struct costs memory and saves writing a decoder, which is a good trade for
+/// code meant to be read.
 pub const Instr = struct {
     op: Op,
     arg: i64 = 0,
@@ -72,8 +72,8 @@ pub const Compiler = struct {
         return @intCast(c.chunk.slot_count - 1);
     }
 
-    /// Post-order: emit the operands, then the operator. That ordering is the
-    /// whole translation from a tree to a stack machine, because by the time
+    /// Post-order: emit the operands, then the operator. This ordering is all
+    /// it takes to translate a tree for a stack machine, because by the time
     /// `add` runs its two inputs are already the top of the stack.
     pub fn compile(c: *Compiler, index: u32) Error!void {
         const node = c.nodes[index];
@@ -122,8 +122,8 @@ pub const Compiler = struct {
                 }
             },
             .@"while" => {
-                // The backward jump needs no patching: the loop's start is
-                // already behind us when the jump is emitted.
+                // The backward jump needs no patching: the loop's start has
+                // already been emitted when the jump is emitted.
                 const start = c.chunk.len;
                 try c.compile(node.a.?);
                 const exit = try c.emit(.jmp_if_false, 0);

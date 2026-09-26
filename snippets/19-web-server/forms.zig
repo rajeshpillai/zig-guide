@@ -6,9 +6,9 @@ const routes = @import("routes.zig");
 
 pub const Field = routes.Param;
 
-/// A urlencoded body is a query string without the `?`. That is not a
-/// coincidence: HTML forms were specified to produce one encoding, and where
-/// it travels is the method's business rather than the format's.
+/// A urlencoded body is a query string without the `?`. HTML forms were
+/// specified to produce one encoding, and the method decides where that
+/// encoding travels.
 pub fn parseForm(body: []const u8, dest: []u8, out: []Field) ![]Field {
     var joined: [1024]u8 = undefined;
     if (body.len + 1 > joined.len) return error.TooLong;
@@ -18,7 +18,7 @@ pub fn parseForm(body: []const u8, dest: []u8, out: []Field) ![]Field {
 }
 
 /// How many bytes of body to read. A server that trusts this number without a
-/// ceiling has handed the client control of its memory.
+/// limit lets the client decide how much memory the server uses.
 pub fn bodyLength(declared: ?[]const u8, limit: usize) !usize {
     const text = declared orelse return 0;
     const n = std.fmt.parseInt(usize, text, 10) catch return error.Malformed;

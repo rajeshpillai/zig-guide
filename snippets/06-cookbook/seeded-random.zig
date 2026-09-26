@@ -21,8 +21,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // The seed is the save file. Ship it in a bug report and the exact
-    // same cave comes back.
+    // The seed is all you need to save. Put it in a bug report and the
+    // program builds the exact same cave again.
     var prng = std.Random.DefaultPrng.init(42);
     var cave: [Side][Side]u8 = undefined;
     generateCave(prng.random(), &cave);

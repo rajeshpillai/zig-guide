@@ -159,7 +159,7 @@ test "a stale handle does not resolve to the slot's new occupant" {
     const old = pool.create(1).?;
     pool.destroy(old);
     const new = pool.create(2).?;
-    // The allocator reuses the slot, which is the point of the pool.
+    // The pool reuses the freed slot. This is what the pool is for.
     try std.testing.expectEqual(old.index, new.index);
     // The stale handle must not see the new value.
     try std.testing.expect(pool.get(old) == null);

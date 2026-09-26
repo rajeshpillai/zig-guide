@@ -18,15 +18,15 @@ test "convert to a slice by supplying the length" {
     var array = [_]u8{ 1, 2, 3, 4 };
     const many: [*]u8 = &array;
 
-    // The length is the piece of information `[*]T` is missing; adding it
-    // back yields a `[]T`, which is bounds-checked again.
+    // The length is the piece of information `[*]T` is missing. Adding it
+    // back gives a `[]T`, which is bounds-checked again.
     const slice: []u8 = many[0..3];
     try expect(slice.len == 3);
 }
 
 test "single-item pointers do not index" {
-    // A `*T` is one item. `ptr[1]` is a compile error, which is the whole
-    // reason Zig distinguishes `*T` from `[*]T` where C has only `T*`.
+    // A `*T` is one item. `ptr[1]` is a compile error. This is why Zig
+    // distinguishes `*T` from `[*]T`, where C has only `T*`.
     var x: u8 = 9;
     const single: *u8 = &x;
     try expect(single.* == 9);

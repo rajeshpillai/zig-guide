@@ -21,9 +21,9 @@ const FlakyChannel = struct {
         var n: usize = 0;
         const fate = self.prng.random().uintLessThan(u8, 10);
         switch (fate) {
-            // Dropped. The channel tells no one; that is the whole problem.
+            // Dropped. The channel does not report the drop to anyone.
             0, 1 => {},
-            // Duplicated: a retry somewhere below repeated it.
+            // Duplicated: a retry in a lower layer sent it again.
             2 => {
                 out[n] = datagram;
                 out[n + 1] = datagram;
@@ -74,7 +74,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // What the receiver can say after the fact. During the run it had no
-    // way to tell "lost" from "not sent yet": silence looks the same.
+    // way to tell "lost" from "not sent yet": in both cases nothing arrives.
     try out.writeAll("\n");
     for (seen, 0..) |count, seq| {
         if (count == 0) try out.print("never arrived: {d}\n", .{seq});

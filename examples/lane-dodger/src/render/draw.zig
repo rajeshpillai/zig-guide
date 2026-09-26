@@ -101,7 +101,7 @@ fn drawRoad(view: View, scroll: f32) void {
         );
     }
 
-    // Dashes scrolling down each separator, so speed is legible even when the
+    // Dashes scrolling down each separator, so speed is visible even when the
     // field happens to be empty.
     const period: f32 = 80;
     const offset = @mod(scroll, period);
@@ -146,8 +146,8 @@ fn drawEntities(world: *const sim.World, view: View, alpha: f32) void {
             .coin => {
                 // A slow spin, faked by squashing the width. The squash bottoms
                 // out at 55%: a coin that turns fully edge-on disappears for a
-                // few frames, and a pickup the player cannot see is a pickup
-                // they will not go for.
+                // few frames, and a player does not go for a coin they cannot
+                // see.
                 const spin = 0.55 + 0.45 * @abs(@cos(cy * 0.028));
                 const half_w = config.coin_half * spin;
                 rl.DrawEllipse(
@@ -173,8 +173,8 @@ fn drawPlayer(world: *const sim.World, view: View, alpha: f32) void {
     const cx = lerp(world.player.x_prev, world.player.x, alpha);
     const cy = config.player_y;
 
-    // Lean into the turn. Reads as intent, and makes the slide feel driven
-    // rather than dragged.
+    // Tilt into the turn. The tilt shows where the player means to go, and
+    // makes the slide look steered instead of pulled.
     const drift = (config.laneCenter(world.player.lane) - cx) / config.lane_w;
     const lean = std.math.clamp(drift, -1, 1) * config.player_half_w * 0.55;
 
@@ -206,7 +206,7 @@ fn drawParticles(system: *particles.System, view: View) void {
     }
 }
 
-/// raylib takes C strings, so formatting crosses that boundary exactly here.
+/// raylib takes C strings, so text is formatted into one here, at that boundary.
 pub fn fmtZ(buffer: []u8, comptime template: []const u8, args: anytype) [*:0]const u8 {
     const written = std.mem.printSentinel(buffer, template, args, 0) catch return "?";
     return written.ptr;
@@ -279,11 +279,10 @@ pub fn centred(text: [*:0]const u8, view: View, fy: f32, size: f32, c: palette.C
     );
 }
 
-/// A slab behind overlay text. The attract mode keeps playing underneath the
-/// title, which is the nicest thing about it and also means a block or a coin
-/// can drift straight through a line of copy. Dimming the whole field is not
-/// enough, because the thing that ruins legibility is a bright shape at full
-/// opacity, not the average brightness.
+/// A dark panel behind overlay text. The attract mode keeps playing under the
+/// title, so a block or a coin can move straight through a line of text.
+/// Dimming the whole field is not enough. Text becomes hard to read under a
+/// bright shape at full opacity, whatever the average brightness is.
 pub fn panel(view: View, top: f32, bottom: f32, amount: f32) void {
     const inset: f32 = 14;
     const box: rl.Rectangle = .{

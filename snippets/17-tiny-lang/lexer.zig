@@ -75,7 +75,7 @@ pub fn tokenize(source: []const u8, out: []Token) ![]Token {
         const c = source[i];
 
         // Whitespace carries no meaning beyond separating tokens, so it is
-        // dropped here and the parser never has to think about it again.
+        // dropped here and the parser never sees it.
         if (c == '\n') {
             line += 1;
             i += 1;

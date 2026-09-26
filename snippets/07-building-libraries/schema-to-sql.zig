@@ -35,8 +35,9 @@ fn Table(comptime T: type, comptime name: []const u8) type {
     };
 }
 
-// This is all a caller writes. No registration, no code generation step,
-// no runtime reflection: the struct is the schema.
+// This struct is all a caller writes. The caller does not register
+// anything, run a code generator or use runtime reflection. The struct is
+// the schema.
 const User = struct {
     id: i64,
     name: []const u8,
@@ -55,7 +56,8 @@ test "the schema compiles to exact SQL" {
 test "metadata is comptime-known" {
     try expect(Users.column_count == 3);
     try expect(std.mem.eql(u8, Users.table_name, "users"));
-    // Row is the caller's type, unchanged; the API is additive.
+    // Row is the caller's own type, unchanged. The library only adds
+    // new declarations beside it.
     const u = Users.Row{ .id = 1, .name = "ada", .active = true };
     try expect(u.id == 1);
 }

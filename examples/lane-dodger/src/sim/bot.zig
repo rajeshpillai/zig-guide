@@ -20,7 +20,8 @@ const config = @import("config.zig");
 
 /// Vertical half-span within which a block and the player overlap. A block is
 /// dangerous from `+reach` ahead of the player until `-reach` behind: using
-/// only the block's own half-height here is the classic off-by-one-body bug.
+/// only the block's own half-height here is the off-by-one-body bug that the
+/// fairness test found.
 const reach = config.player_half_h + config.block_half_h;
 
 /// Horizontal overlap between player and block, in lanes. A slide from lane 0
@@ -158,8 +159,8 @@ pub fn targetLane(w: *const sim.World) u8 {
             if (after.blocked[lane]) cost += 1.5;
         }
         // Take a coin when it is on the way and there is comfortable time.
-        // Greed is capped: a missed dodge costs the run, a missed coin costs a
-        // multiplier.
+        // The bot limits how hard it chases coins: a missed dodge ends the run,
+        // and a missed coin only costs a multiplier.
         if (view.next) |next| {
             if (next.coin_lane == lane and next.seconds > travel * 2) cost -= 0.5;
         }
@@ -170,8 +171,8 @@ pub fn targetLane(w: *const sim.World) u8 {
     }
 
     // Nothing safe is reachable. The spacing rule in config.zig is supposed to
-    // make this impossible and the tests assert as much, but a policy that
-    // panics here would be a policy that turns a tuning mistake into a crash.
+    // make this impossible and the tests check that. But if the policy
+    // panicked here, a tuning mistake would crash the program.
     return best orelse current;
 }
 
@@ -265,8 +266,8 @@ test "the bot will not cross a lane that is level with a block" {
     var w: sim.World = .init(1);
     w.start();
     w.entities.clear();
-    // Player in lane 0, middle lane occupied right now, far lane invitingly
-    // empty. Reaching it means sliding through the block.
+    // Player in lane 0, middle lane occupied right now, far lane empty.
+    // Reaching it means sliding through the block.
     w.player = .{ .lane = 0, .x = config.laneCenter(0), .x_prev = config.laneCenter(0) };
     _ = w.entities.create(.{
         .kind = .block,

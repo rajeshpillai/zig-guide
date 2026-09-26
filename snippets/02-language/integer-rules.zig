@@ -16,7 +16,7 @@ test "widening is implicit, narrowing is not" {
     const b: u16 = a; // always safe, so allowed
     try expect(b == 200);
 
-    // `const c: u8 = b;` would not compile. Say what you mean:
+    // `const c: u8 = b;` would not compile. Convert explicitly:
     const c: u8 = @intCast(b); // checked in safety builds
     try expect(c == 200);
 }

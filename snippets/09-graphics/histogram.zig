@@ -16,7 +16,8 @@ fn histogram(src: []const u32) [256]u32 {
     return hist;
 }
 
-/// Sixteen buckets, because 256 rows of text is a wall and 16 is a shape.
+/// Sixteen buckets, because 256 rows of text is too long to read, and 16 rows
+/// show the shape.
 fn printHistogram(out: *std.Io.Writer, hist: [256]u32, label: []const u8) !void {
     var buckets: [16]u32 = @splat(0);
     for (hist, 0..) |n, value| buckets[value / 16] += n;
@@ -66,8 +67,8 @@ fn levelsLut(black: u8, white: u8) Lut {
 /// Where many pixels share a value the CDF climbs steeply, so that range gets
 /// spread over more output values. Where the image has nothing, the CDF is flat
 /// and the range is compressed away. The result uses the whole range with
-/// roughly equal population per level, which is the most contrast the data
-/// supports and is often more than anyone wanted.
+/// roughly equal population per level. That is the most contrast the data
+/// supports, and it is often too much.
 fn equalizeLut(hist: [256]u32, total: u32) Lut {
     var lut: Lut = undefined;
     var cdf: u32 = 0;
@@ -130,8 +131,8 @@ pub fn main(init: std.process.Init) !void {
     try printHistogram(out, hist, "original");
 
     // Where the picture actually lives. Reading the extremes off the ends of
-    // the histogram would let a single stray pixel set the whole range, which
-    // is why every auto-levels implementation clips a fraction first.
+    // the histogram would let a single stray pixel set the whole range. To
+    // avoid that, auto-levels implementations clip a fraction first.
     const black = percentile(hist, total, 10); // 1%
     const white = percentile(hist, total, 990); // 99%
     try out.print("\n1st percentile: {d}   99th percentile: {d}\n", .{ black, white });

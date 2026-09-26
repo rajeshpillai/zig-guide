@@ -21,7 +21,7 @@ pub fn main(init: std.process.Init) !void {
     const out = &stdout_writer.interface;
 
     // Memory you can point at. It lives in this call's frame and is gone when
-    // main returns, which is exactly why the function above cannot return it.
+    // main returns, which is why the function above cannot return it.
     var scratch: [64]u8 = undefined;
     try out.print("{s}\n", .{writeGreeting(&scratch, "stack")});
 

@@ -38,9 +38,9 @@ const Canvas = struct {
 };
 
 /// A texture is only ever read, so it has no stride: nothing samples a
-/// rectangle out of the middle of one. Giving it its own type rather than
-/// reusing `Canvas` is a claim about direction, and the compiler enforces it,
-/// because a `Texture` has no `set`.
+/// rectangle out of the middle of one. Giving it its own type instead of
+/// reusing `Canvas` says that data only flows out of it. The compiler enforces
+/// that, because a `Texture` has no `set`.
 const Texture = struct {
     pixels: []const u32,
     width: usize,
@@ -50,8 +50,7 @@ const Texture = struct {
 var texels: [8 * 8]u32 = undefined;
 
 /// Two-texel checks, so the pattern survives being scaled down, and one amber
-/// corner, so a tile that has been flipped or wrapped is obvious rather than
-/// merely different.
+/// corner, so it is easy to see when a tile has been flipped or wrapped.
 fn buildTexture() Texture {
     for (0..8) |y| {
         for (0..8) |x| {
@@ -72,7 +71,7 @@ fn buildTexture() Texture {
 const Vertex = struct { x: f32, y: f32, u: f32, v: f32 };
 
 /// Twice the signed area of the triangle abp. Positive on one side of the line
-/// ab and negative on the other, which is the whole test.
+/// ab and negative on the other. The sign is the inside test.
 fn edge(ax: f32, ay: f32, bx: f32, by: f32, px: f32, py: f32) f32 {
     return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
 }

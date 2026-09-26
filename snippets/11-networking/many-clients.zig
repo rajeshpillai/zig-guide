@@ -4,9 +4,9 @@
 const std = @import("std");
 
 /// A connection, with the transport left out. The handler below reads bytes
-/// and writes bytes and never learns whether they came from a socket, which
-/// is what lets this page run in a browser with no sockets at all. Chapter
-/// two is the same handler with a `std.Io.net.Server` in front of it.
+/// and writes bytes. It never learns whether they came from a socket, so this
+/// page can run in a browser that has no sockets. Chapter two is the same
+/// handler with a `std.Io.net.Server` in front of it.
 const Connection = struct {
     request: []const u8,
     reply: [64]u8 = undefined,
@@ -30,9 +30,9 @@ fn handle(conn: *Connection, counter: *usize, mutex: *std.Io.Mutex, io: std.Io) 
         w.print("+{s}\r\n", .{it.rest()}) catch {};
     } else if (std.mem.eql(u8, verb, "COUNT")) {
         // Shared state, so it needs the lock. `io.async` may or may not be
-        // parallel depending on the implementation, and code that is only
-        // correct under the single-threaded one is a race waiting for a
-        // deployment.
+        // parallel, depending on the implementation. Code that is only
+        // correct under the single-threaded one will race when it is
+        // deployed on a threaded one.
         mutex.lock(io) catch return;
         defer mutex.unlock(io);
         counter.* += 1;
@@ -64,9 +64,9 @@ pub fn main(init: std.process.Init) !void {
     var mutex: std.Io.Mutex = .init;
 
     // A Group owns its tasks: awaiting it waits for every one, and nothing
-    // can outlive this scope. That is the property a bare `Thread.spawn`
-    // per connection does not give you, and it is why a server built this
-    // way can shut down rather than leaking connections it forgot about.
+    // can outlive this scope. A bare `Thread.spawn` per connection does not
+    // give you this. Because of it, a server built this way can shut down
+    // without leaking connections it forgot about.
     var group: std.Io.Group = .init;
     for (&conns) |*conn| {
         group.async(io, handle, .{ conn, &counter, &mutex, io });
@@ -74,7 +74,7 @@ pub fn main(init: std.process.Init) !void {
     try group.await(io);
 
     // Replies printed in connection order, not completion order. The tasks
-    // finished in whatever order the implementation chose; if this printed
+    // finished in whatever order the implementation chose. If this printed
     // as they completed, the output would differ between a threaded Io and
     // the single-threaded one this page runs on.
     for (&conns, 1..) |*conn, n| {

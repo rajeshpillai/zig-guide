@@ -15,7 +15,7 @@ fn hexValue(c: u8) ?u8 {
 }
 
 /// `%20` becomes a space, `+` stays a plus. (In a query string `+` means a
-/// space; in a path it does not, and conflating the two is its own small bug.)
+/// space; in a path it does not. Mixing up the two is a separate small bug.)
 pub fn percentDecode(dest: []u8, src: []const u8) Reject![]u8 {
     var n: usize = 0;
     var i: usize = 0;
@@ -38,11 +38,10 @@ pub fn percentDecode(dest: []u8, src: []const u8) Reject![]u8 {
 
 /// Turn a request target into a path under the document root, or refuse.
 ///
-/// The order is the entire point. Decoding happens first, because a check that
-/// runs before decoding is looking at `%2e%2e` and seeing something harmless,
-/// and the byte that reaches the filesystem is `..` regardless. Every scanner
-/// that has ever found a directory traversal has found it in code that checked
-/// the wrong string.
+/// The order matters. Decoding happens first. A check that runs before
+/// decoding sees `%2e%2e`, which looks harmless, but the filesystem still
+/// receives `..`. Directory traversal bugs are found in code that checked the
+/// wrong string.
 pub fn safePath(dest: []u8, target: []const u8) Reject![]const u8 {
     // A query string is not part of the path.
     const raw = if (std.mem.findScalar(u8, target, '?')) |q| target[0..q] else target;
@@ -54,9 +53,9 @@ pub fn safePath(dest: []u8, target: []const u8) Reject![]const u8 {
     // still open something else.
     if (std.mem.findScalar(u8, decoded, 0) != null) return error.Traversal;
 
-    // Reject rather than normalise. Collapsing `a/../b` into `b` is possible
-    // and is a second thing to get right; refusing any `..` component is one
-    // rule with no edge cases, and no legitimate URL needs one.
+    // Reject instead of normalising. Collapsing `a/../b` into `b` is possible,
+    // but it is a second thing to get right. Refusing any `..` component is
+    // one rule with no edge cases, and no legitimate URL needs one.
     var parts = std.mem.splitScalar(u8, decoded, '/');
     while (parts.next()) |part| {
         if (std.mem.eql(u8, part, "..")) return error.Traversal;
@@ -98,7 +97,7 @@ pub fn main(init: std.process.Init) !void {
         "/index.html",
         "/style.css?v=3",
         "/a%20file.txt",
-        // The three that matter.
+        // The three traversal attempts.
         "/../etc/passwd",
         "/static/../../etc/passwd",
         "/%2e%2e/%2e%2e/etc/passwd",

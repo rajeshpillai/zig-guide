@@ -24,8 +24,8 @@ fn drawScene() void {
 /// Write header then body, and return the slice actually used.
 ///
 /// The header is formatted from the same constants that size the buffer.
-/// Hardcoding "P6\n64 32\n255\n" works right up until someone changes one of
-/// them, at which point the header and the data disagree and the image tears
+/// Hardcoding "P6\n64 32\n255\n" works only until someone changes one of
+/// the constants. Then the header and the data disagree and the image tears
 /// diagonally, with no error reported anywhere.
 fn encodeP6(out: []u8) ![]const u8 {
     const header = try std.mem.print(out, "P6\n{d} {d}\n255\n", .{

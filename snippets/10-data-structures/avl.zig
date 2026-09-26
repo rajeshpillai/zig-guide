@@ -9,7 +9,7 @@ const Tree = struct {
     root: ?*Node = null,
     len: usize = 0,
     allocator: std.mem.Allocator,
-    /// Counted so the output can show that balancing is cheap: a handful of
+    /// Counted so the output can show that balancing is cheap: a few
     /// rotations for a whole tree, not one per node.
     rotations: usize = 0,
 
@@ -17,9 +17,9 @@ const Tree = struct {
         value: i32,
         left: ?*Node = null,
         right: ?*Node = null,
-        /// A leaf has height 1. Kept in the node rather than recomputed,
-        /// because recomputing it is the O(n) walk this structure exists to
-        /// avoid.
+        /// A leaf has height 1. Stored in the node instead of recomputed.
+        /// Recomputing it is an O(n) walk, and this structure exists to
+        /// avoid that walk.
         height: i32 = 1,
     };
 
@@ -50,7 +50,7 @@ const Tree = struct {
 
     /// Left height minus right height. The invariant is that this stays in
     /// -1..1 for every node in the tree. Two means one side is a full level
-    /// deeper than the other, which is the moment to rotate.
+    /// deeper than the other, and the node must be rotated.
     fn balance(maybe: ?*Node) i32 {
         const node = maybe orelse return 0;
         return heightOf(node.left) - heightOf(node.right);
@@ -64,9 +64,9 @@ const Tree = struct {
     ///    / \              / \
     ///   A   B            B   C
     ///
-    /// B changes parent and nothing else moves. In-order it is still A x B y C
-    /// both before and after, which is why a rotation preserves the search
-    /// property for free.
+    /// B changes parent and nothing else moves. The in-order sequence is
+    /// A x B y C both before and after. So a rotation keeps the search
+    /// property with no extra work.
     fn rotateRight(self: *Tree, y: *Node) *Node {
         const x = y.left.?;
         y.left = x.right;
@@ -91,10 +91,11 @@ const Tree = struct {
         self.root = try self.insertInto(self.root, value);
     }
 
-    /// Recursive, because rebalancing happens on the way back *up*: each node
+    /// Recursive, because rebalancing happens on the way back *up*. Each node
     /// on the path from the insertion point to the root gets its height
-    /// refreshed and its balance checked, and returning the (possibly new)
-    /// subtree root is what relinks a rotation into its parent.
+    /// updated and its balance checked. The function returns the subtree
+    /// root, which may be new, and that return links a rotation into its
+    /// parent.
     fn insertInto(self: *Tree, maybe: ?*Node, value: i32) !?*Node {
         const node = maybe orelse {
             const fresh = try self.allocator.create(Node);
@@ -113,7 +114,7 @@ const Tree = struct {
 
         refresh(node);
 
-        // Four cases. The outer test says which side is too deep; the inner
+        // Four cases. The outer test says which side is too deep. The inner
         // test says whether the new node went to the outside of that side (one
         // rotation) or the inside (rotate the child first, then this node).
         const bias = balance(node);
@@ -156,9 +157,9 @@ const Tree = struct {
         try walk(out, node.right);
     }
 
-    /// Check the invariant everywhere rather than trusting the insert code.
-    /// This is the assertion the whole chapter is about, so it is worth running
-    /// rather than claiming.
+    /// Check the invariant at every node instead of trusting the insert code.
+    /// The chapter is about this invariant, so the program checks it instead
+    /// of only claiming it.
     fn isBalanced(maybe: ?*Node) bool {
         const node = maybe orelse return true;
         if (@abs(balance(node)) > 1) return false;
@@ -187,7 +188,7 @@ pub fn main(init: std.process.Init) !void {
     defer std.debug.assert(safe.deinit() == 0);
     const allocator = safe.allocator();
 
-    // The exact input that ruined the plain tree: 1 through 15, in order.
+    // The input that made the plain tree one long chain: 1 through 15, in order.
     var tree = Tree.init(allocator);
     defer tree.deinit();
 
@@ -231,7 +232,7 @@ pub fn main(init: std.process.Init) !void {
         Tree.isBalanced(descending.root),
     });
 
-    // And the zig-zag input that needs the two-rotation cases.
+    // The zig-zag input, which needs the two-rotation cases.
     var zigzag = Tree.init(allocator);
     defer zigzag.deinit();
     for ([_]i32{ 1, 15, 2, 14, 3, 13, 4, 12, 5, 11, 6, 10, 7, 9, 8 }) |v| try zigzag.insert(v);

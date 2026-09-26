@@ -42,12 +42,12 @@ pub fn main(init: std.process.Init) !void {
     try out.print("main and outer used different addresses:  {}\n", .{main_local != outer_local});
     try out.print("outer and inner used different addresses: {}\n", .{inner_local != outer_local});
 
-    // Which direction the regions run is the target's business, not a rule of
-    // the language. Most machines you will meet count downward; this one does
-    // not, and nothing in the chapter depends on the answer.
+    // The direction the regions run depends on the target. The language has
+    // no rule for it. Most machines count downward. This one does not, and
+    // nothing in the chapter depends on the answer.
     try out.print("deeper calls got higher addresses here:   {}\n", .{inner_local > main_local});
 
-    // outer() has returned, so the region it was using is no longer spoken for.
+    // outer() has returned, so the region it was using is free again.
     outer(&outer_local_again);
     try out.print("\nthe second call to outer reused the same address: {}\n", .{outer_local == outer_local_again});
 

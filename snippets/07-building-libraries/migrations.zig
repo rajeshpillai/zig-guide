@@ -33,8 +33,8 @@ const history = [_]Migration{
 const Step = struct { version: u32, sql: []const u8 };
 
 // The planner is a pure function from (current, target) to steps. All
-// the subtle cases (no-op, partial upgrade, rollback ordering) are
-// testable without a database anywhere in sight.
+// the subtle cases (no-op, partial upgrade, rollback ordering) can be
+// tested without a database.
 fn plan(current: u32, target: u32, buf: []Step) []Step {
     var n: usize = 0;
     if (target > current) {

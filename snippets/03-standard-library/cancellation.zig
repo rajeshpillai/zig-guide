@@ -12,7 +12,7 @@ fn nap(io: std.Io) std.Io.Cancelable!void {
     try io.sleep(.fromSeconds(3600), .awake);
 }
 
-/// Same nap, but recording how it ended so the group below can be inspected
+/// The same sleep, but recording how it ended so the group below can be inspected
 /// after the fact.
 fn trackedNap(io: std.Io, status: *[]const u8) std.Io.Cancelable!void {
     io.sleep(.fromSeconds(3600), .awake) catch |err| {
@@ -71,8 +71,8 @@ pub fn main(init: std.process.Init) !void {
     //
     // `concurrent`, not `async`. `async` may run the task on this thread, and
     // the threaded `Io` does once it is out of spare capacity: `async_limit`
-    // defaults to one less than the core count. A nap run on this thread naps
-    // for an hour here, and `group.cancel` below is never reached. It hangs
+    // defaults to one less than the core count. A sleep run on this thread
+    // sleeps for an hour here, and `group.cancel` below is never reached. It hangs
     // whenever the group is at least as large as the core count, so it passes
     // on a development machine and deadlocks on a small one.
     var status: [3][]const u8 = @splat("still running");

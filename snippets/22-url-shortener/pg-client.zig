@@ -41,9 +41,9 @@ const Cursor = struct {
 const max_columns = 8;
 
 /// A Postgres connection: a reader, a writer, and enough state to know
-/// what the server last said. It never touches a socket. Whoever owns
-/// the connection hands in the two streams, which is why the demo below
-/// can hand it a script instead.
+/// what the server last said. It never touches a socket. The owner of
+/// the connection passes in the two streams, so the demo below can pass
+/// a script instead.
 const PgClient = struct {
     r: *std.Io.Reader,
     w: *std.Io.Writer,
@@ -71,7 +71,7 @@ const PgClient = struct {
     /// Startup and authentication, up to the first ReadyForQuery. The
     /// server chooses the auth method; this client speaks "none" and
     /// "cleartext password", which is what loopback setups use. SCRAM,
-    /// the production method, slots in as one more case here.
+    /// the production method, would be one more case here.
     fn connect(r: *std.Io.Reader, w: *std.Io.Writer, user: []const u8, database: []const u8, password: []const u8) !PgClient {
         var body_buf: [128]u8 = undefined;
         var body: std.Io.Writer = .fixed(&body_buf);
@@ -219,9 +219,10 @@ const Rows = struct {
 // ---------------------------------------------------- a scripted backend
 
 /// The server half of two conversations, written into a buffer in
-/// advance. The client cannot tell: it parses a `Reader`, and bytes from
-/// a script are bytes. This is the site's usual trick, and it is also
-/// how you get regression tests for a driver without a database in CI.
+/// advance. The client cannot tell the difference: it parses a `Reader`,
+/// and bytes from a script look the same as bytes from a socket. This site
+/// uses the same method often. It is also how you get regression tests for
+/// a driver without a database in CI.
 fn scriptBackend(w: *std.Io.Writer) !void {
     var pbuf: [256]u8 = undefined;
     var p: std.Io.Writer = .fixed(&pbuf);
@@ -274,7 +275,7 @@ pub fn main(init: std.process.Init) !void {
     var backend: std.Io.Writer = .fixed(&backend_bytes);
     try scriptBackend(&backend);
 
-    var sent: [512]u8 = undefined; // what the client says, unexamined here
+    var sent: [512]u8 = undefined; // what the client says, not checked here
     var to_server: std.Io.Writer = .fixed(&sent);
     var from_server: std.Io.Reader = .fixed(backend.buffered());
 

@@ -16,16 +16,16 @@ const Point = struct {
 
 // Generic over any struct type. The inline for unrolls at compile time, so
 // each field is printed with a format picked for its actual type. There is
-// no runtime reflection: by the time this runs, it is straight-line code.
+// no runtime reflection. By the time this runs, it is straight-line code.
 fn printStruct(out: *std.Io.Writer, value: anytype) !void {
     const T = @TypeOf(value);
     const info = @typeInfo(T).@"struct";
     try out.print("{s} {{\n", .{@typeName(T)});
     // Names and types are parallel arrays, guaranteed the same length.
-    // (They used to be one `fields` array of structs; that shape is gone.)
+    // (They used to be one `fields` array of structs. That shape is gone.)
     inline for (info.field_names, info.field_types) |name, Field| {
         const v = @field(value, name);
-        // Strings need {s}; everything else gets a reasonable default from
+        // Strings need {s}. Everything else gets a reasonable default from
         // {any}. The branch is comptime, so only one side is compiled per
         // field.
         if (comptime Field == []const u8) {

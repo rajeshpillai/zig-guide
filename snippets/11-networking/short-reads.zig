@@ -5,7 +5,7 @@ const std = @import("std");
 
 /// Everything received so far, and how much of it has been handed out.
 ///
-/// The two indices are the whole trick. `len` grows as the network delivers
+/// Two indices do all the work. `len` grows as the network delivers
 /// bytes; `at` grows as complete messages are taken off the front. Nothing is
 /// copied or shifted, so the slices `next` returns stay valid.
 const Incoming = struct {
@@ -21,7 +21,8 @@ const Incoming = struct {
     }
 
     /// `null` means "not yet, read more". A parser that cannot say that has
-    /// to assume the whole message arrived in one piece, which is the bug.
+    /// to assume the whole message arrived in one piece, and that
+    /// assumption is the bug.
     fn next(self: *Incoming) ?[]const u8 {
         const avail = self.buf[self.at..self.len];
         if (avail.len < 2) return null;
@@ -55,8 +56,9 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.print("{d} bytes on the wire for 3 messages\n\n", .{used});
 
-    // The worst case a real network can hand you, and a legal one: one
-    // byte per read. Anything that works here works for any chunking.
+    // One byte per read. This is the worst case a real network can
+    // produce, and it is allowed. A parser that works here works for any
+    // chunking.
     var incoming: Incoming = .{};
     for (wire[0..used], 1..) |byte, fed| {
         incoming.feed(&.{byte});
@@ -66,8 +68,8 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // The same bytes delivered in one read produce the same messages. The
-    // parser never learns which happened, which is the point of writing it
-    // this way: chunking is not part of the protocol.
+    // parser never learns which happened. It is written this way because
+    // chunking is not part of the protocol.
     var at_once: Incoming = .{};
     at_once.feed(wire[0..used]);
     var count: usize = 0;

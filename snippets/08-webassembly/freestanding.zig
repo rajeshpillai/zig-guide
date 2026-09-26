@@ -7,8 +7,8 @@
 
 const std = @import("std");
 
-// Freestanding has no OS heap to fall back on, so give the allocator a fixed
-// backing store carved from the module's own linear memory.
+// Freestanding has no OS heap, so give the allocator a fixed backing store
+// inside the module's own linear memory.
 var heap: [64 * 1024]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&heap);
 

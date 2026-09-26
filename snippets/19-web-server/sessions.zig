@@ -28,23 +28,22 @@ pub fn find(cookies: []const Cookie, name: []const u8) ?[]const u8 {
     return null;
 }
 
-/// Hex, because a cookie value cannot contain `;` or whitespace and hex avoids
-/// the question entirely. 16 bytes is 128 bits, which is the point at which
-/// guessing stops being a strategy.
+/// Hex, because a cookie value cannot contain `;` or whitespace, and hex never
+/// contains either. 16 bytes is 128 bits, which is too many to guess.
 pub fn sessionId(random: std.Random, dest: *[32]u8) []const u8 {
     var raw: [16]u8 = undefined;
     random.bytes(&raw);
     return std.mem.print(dest, "{x}", .{&raw}) catch unreachable;
 }
 
-/// The attributes are the security. Without them a session cookie is readable
-/// by any script on the page, sent on every cross-site request, and travels in
-/// clear text.
+/// The attributes provide the security. Without them a session cookie is
+/// readable by any script on the page, sent on every cross-site request, and
+/// travels in clear text.
 pub fn setCookie(out: *std.Io.Writer, name: []const u8, value: []const u8) !void {
     try out.print("Set-Cookie: {s}={s}", .{ name, value });
     try out.writeAll("; HttpOnly"); // no script can read it, so XSS cannot steal it
-    try out.writeAll("; Secure"); // HTTPS only, so a network observer cannot
-    try out.writeAll("; SameSite=Lax"); // not sent on cross-site POSTs, which is CSRF
+    try out.writeAll("; Secure"); // HTTPS only, so a network observer cannot read it
+    try out.writeAll("; SameSite=Lax"); // not sent on cross-site POSTs, which blocks CSRF
     try out.writeAll("; Path=/");
     try out.writeAll("; Max-Age=3600\r\n");
 }
@@ -76,9 +75,9 @@ pub fn main(init: std.process.Init) !void {
         if (find(cookies, "missing") == null) "absent" else "present",
     });
 
-    // A fixed seed, so this page prints the same thing every time. That is
-    // exactly what a real server must not do: a predictable session id is a
-    // session anyone can take. `std.crypto.random` is the one to use.
+    // A fixed seed, so this page prints the same thing every time. A real
+    // server must not do this: anyone can take a session whose id they can
+    // predict. `std.crypto.random` is the one to use.
     var prng: std.Random.DefaultPrng = .init(0x5eed);
     var hex: [32]u8 = undefined;
     try out.print("a session id (seeded, therefore insecure)\n  {s}\n\n", .{

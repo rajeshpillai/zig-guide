@@ -4,8 +4,8 @@
 const std = @import("std");
 const expect = std.testing.expect;
 
-// The driver-facing value type. SQL text and values travel separately;
-// this union is the shape of "separately".
+// The value type the driver sees. SQL text and values are sent to the
+// driver separately, and this union is the form the values take.
 const Value = union(enum) {
     int: i64,
     text: []const u8,
@@ -43,8 +43,8 @@ fn Table(comptime T: type, comptime name: []const u8) type {
         };
 
         // The runtime half: one Value per column, in placeholder order.
-        // The inline for resolves every @field while compiling, so this
-        // is a fixed sequence of stores at runtime.
+        // The inline for resolves every @field while compiling, so at
+        // runtime this loop is a fixed sequence of stores.
         pub fn bind(row: T) [info.field_names.len]Value {
             var values: [info.field_names.len]Value = undefined;
             inline for (info.field_names, 0..) |field, i| {

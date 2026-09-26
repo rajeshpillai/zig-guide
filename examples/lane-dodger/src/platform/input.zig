@@ -23,8 +23,8 @@ pub const Latch = struct {
         if (rl.IsKeyPressed(rl.KEY_SPACE) or
             rl.IsKeyPressed(rl.KEY_ENTER)) self.confirm = true;
 
-        // Touch and mouse: tap a side of the screen to steer, which is how the
-        // game is actually played on a phone.
+        // Touch and mouse: tap a side of the screen to steer. This is how the
+        // game is played on a phone.
         if (rl.IsMouseButtonPressed(rl.MOUSE_BUTTON_LEFT)) {
             const x = rl.GetMousePosition().x;
             if (x < @as(f32, @floatFromInt(rl.GetScreenWidth())) * 0.5) {
@@ -36,7 +36,7 @@ pub const Latch = struct {
         }
     }
 
-    /// Hand the latched presses to one tick and forget them.
+    /// Give the latched presses to one tick, then clear them.
     pub fn take(self: *Latch) sim.Input {
         const input: sim.Input = .{
             .left = self.left,

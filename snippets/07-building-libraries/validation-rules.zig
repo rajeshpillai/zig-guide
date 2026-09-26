@@ -10,8 +10,8 @@ const Violation = struct {
 };
 
 // The library-side half: walk the value's fields; when the schema declares
-// a rule for a field, apply it. Schemas without rules validate trivially,
-// and unknown rule names fail the build rather than being ignored.
+// a rule for a field, apply it. A schema without rules always passes.
+// An unknown rule name fails the build instead of being ignored.
 fn validate(value: anytype) ?Violation {
     const T = @TypeOf(value);
     if (!@hasDecl(T, "rules")) return null;

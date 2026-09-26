@@ -43,8 +43,8 @@ pub fn parseQuery(target: []const u8, dest: []u8, out: []Param) ![]Param {
 }
 
 pub fn find(params: []const Param, name: []const u8) ?[]const u8 {
-    // Last wins. Real servers disagree about this, and the disagreement is
-    // itself an attack: when a proxy takes the first `user` and the origin
+    // Last wins. Real servers disagree about this, and the disagreement can
+    // be used in an attack: when a proxy takes the first `user` and the origin
     // takes the last, one request means two different things.
     var result: ?[]const u8 = null;
     for (params) |p| {

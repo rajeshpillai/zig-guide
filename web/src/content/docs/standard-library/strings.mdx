@@ -1,7 +1,7 @@
 ---
 title: Strings
 seoTitle: "Zig Strings: []const u8, Compare, Split and Join"
-seoDescription: "Zig has no string type. A string is a slice of bytes, so == compares the pointer and length rather than the content. Search, trim, split and join in std.mem."
+seoDescription: "Zig has no string type. A string is a byte slice, so == does not compile; std.mem.eql compares content. Search, trim, split and join in std.mem."
 description: Search, trim, split, join. All of it lives in std.mem.
 section: Standard Library
 order: 30
@@ -17,9 +17,8 @@ joining are free functions in `std.mem`, such as `std.mem.find`,
 
 ## There is no string type
 
-A string is `[]const u8`: a slice of bytes. That means `==` compares the
-pointer and length, not the content, and the compiler will tell you so.
-Content comparison is `std.mem.eql(u8, a, b)`. To put two strings in order,
+A string is `[]const u8`: a slice of bytes. That means you cannot compare two
+strings with `==`. The compiler rejects `==` on slices. Content comparison is `std.mem.eql(u8, a, b)`. To put two strings in order,
 `std.mem.order(u8, a, b)` returns `.lt`, `.eq` or `.gt`. Everything else you would
 expect from a string class is a free function in `std.mem` that works on any
 slice type. Because they work on any slice, each call names the element type

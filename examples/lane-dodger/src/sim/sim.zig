@@ -17,8 +17,9 @@ pub const Rng = @import("rng.zig");
 pub const bot = @import("bot.zig");
 const pool = @import("pool.zig");
 
-/// Re-exported because it is genuinely general. The renderer keeps its
-/// particles in one of these, and particles are not part of the simulation.
+/// Re-exported because it is not specific to the simulation. The renderer
+/// keeps its particles in one of these, and particles are not part of the
+/// simulation.
 pub const Pool = pool.Pool;
 
 pub const Kind = enum { block, coin };
@@ -45,7 +46,7 @@ pub const Phase = enum {
     /// Title screen, waiting for the first input.
     ready,
     playing,
-    /// Crashed. The world keeps drifting so the crash reads as an event rather
+    /// Crashed. The world keeps drifting so the crash looks like an event rather
     /// than a freeze, but the player no longer steers.
     dead,
 };
@@ -378,10 +379,10 @@ pub const World = struct {
             });
         }
 
-        // The coin goes in a lane this row leaves open. That is not only
-        // fairness bookkeeping: when a row blocks two of three lanes, the coin
-        // is sitting in the one gap, so following the coins is the same thing
-        // as playing correctly. The game teaches itself.
+        // The coin goes in a lane this row leaves open. This keeps the row
+        // fair, and it also teaches the player: when a row blocks two of three
+        // lanes, the coin is sitting in the one gap, so following the coins is
+        // the same thing as playing correctly.
         const free = lanes[blocked..];
         if (free.len > 0 and w.rng.chance(config.coin_chance)) {
             const lane = free[w.rng.below(@intCast(free.len))];

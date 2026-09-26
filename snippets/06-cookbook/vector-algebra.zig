@@ -25,8 +25,8 @@ fn normalize(v: Vec3) Vec3 {
     return v / len_vec;
 }
 
-// Cross is the one operation that is genuinely 3D: it reads specific lanes,
-// so it cannot be written width-generic like dot.
+// Cross is the only operation here that works only in 3D. It reads specific
+// lanes, so it cannot be written for any width like dot.
 fn cross(a: Vec3, b: Vec3) Vec3 {
     return .{
         a[1] * b[2] - a[2] * b[1],

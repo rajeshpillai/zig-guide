@@ -75,8 +75,8 @@ const List = struct {
     ///
     /// The awkward part of a singly linked list: unlinking a node needs the
     /// node *before* it, which cannot be reached from the node itself. Tracking
-    /// `previous` through the walk is the usual answer, and the special case
-    /// for the head is the price.
+    /// `previous` through the walk is the usual solution. The cost is a
+    /// special case for the head.
     fn remove(self: *List, value: i32) bool {
         var previous: ?*Node = null;
         var current = self.head;
@@ -144,15 +144,15 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("after remove(30): ");
     try list.write(out);
 
-    // An optional pointer costs nothing. Zig knows a pointer can never validly
-    // be zero, so it uses zero as the null tag rather than adding a flag
-    // beside it. This is why `?*T` is the idiomatic way to express "maybe a
-    // node" and why a hand-rolled sentinel buys nothing.
+    // An optional pointer takes no extra space. Zig knows a pointer can never
+    // validly be zero, so it uses zero as the null tag instead of adding a
+    // flag beside it. So `?*T` is the idiomatic way to express "maybe a
+    // node", and a hand-written sentinel value saves nothing.
     //
     // Sizes are printed in pointer widths rather than bytes, so the answers are
     // the same whether this runs as wasm32 in your browser or natively on a
-    // 64-bit machine. The relationships are the point; the byte counts are the
-    // target's business.
+    // 64-bit machine. The relationships between the sizes are what matter
+    // here. The byte counts depend on the target.
     try out.print("\n@sizeOf(?*Node) == @sizeOf(*Node) -> {}\n", .{@sizeOf(?*Node) == @sizeOf(*Node)});
     try out.print("@sizeOf(?i32)    > @sizeOf(i32)    -> {} (an integer has no spare value to mean null)\n", .{@sizeOf(?i32) > @sizeOf(i32)});
     try out.print("@sizeOf(Node) in pointers = {d}\n", .{@sizeOf(Node) / @sizeOf(usize)});

@@ -240,8 +240,8 @@ pub const Vm = struct {
                 },
                 // The return: take the value, discard everything this call
                 // put on the stack including its arguments, put the value
-                // back, and jump home. Cleaning up the arguments is the
-                // callee's job here, which is a choice the convention makes.
+                // back, and jump back to the caller. Cleaning up the arguments
+                // is the callee's job here. The calling convention chose that.
                 .ret => {
                     const value = try vm.pop();
                     const frame = vm.frames[vm.depth - 1];

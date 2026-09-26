@@ -5,7 +5,7 @@ const std = @import("std");
 const expect = std.testing.expect;
 
 test "static bit set" {
-    // 64 bits, stored inline. No allocator anywhere.
+    // 64 bits, stored inline. No allocator is needed.
     var seen: std.bit_set.Static(64) = .empty;
 
     seen.set(3);

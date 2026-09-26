@@ -5,7 +5,7 @@
 const std = @import("std");
 
 // A RESP command is an array of bulk strings: `*<n>\r\n` then, per argument,
-// `$<len>\r\n<bytes>\r\n`. That is exactly what a real redis-server accepts.
+// `$<len>\r\n<bytes>\r\n`. A real redis-server accepts exactly this format.
 fn sendCommand(w: *std.Io.Writer, args: []const []const u8) !void {
     try w.print("*{d}\r\n", .{args.len});
     for (args) |a| {
@@ -17,7 +17,7 @@ fn sendCommand(w: *std.Io.Writer, args: []const []const u8) !void {
 }
 
 // takeDelimiterInclusive consumes the '\n' (the Exclusive form leaves it in the
-// stream); trimming drops the trailing "\r\n" a RESP line ends with.
+// stream). Trimming drops the trailing "\r\n" a RESP line ends with.
 fn line(r: *std.Io.Reader) ![]const u8 {
     return std.mem.trimEnd(u8, try r.takeDelimiterInclusive('\n'), "\r\n");
 }
@@ -117,7 +117,7 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // Stand up the toy server on an OS-chosen port, then talk to it.
+    // Start the small server on a port the OS chooses, then talk to it.
     const any_port = try std.Io.net.IpAddress.parse("127.0.0.1", 0);
     var server = try any_port.listen(io, .{});
     defer server.deinit(io);

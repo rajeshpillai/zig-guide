@@ -28,7 +28,7 @@ pub fn main(init: std.process.Init) !void {
         try out.print("255 + 1 = {t}\n\n", .{err});
     }
 
-    // Choosing a size is choosing how much memory a million of them cost.
+    // The size you choose decides how much memory a million of them take.
     try out.print("a million u8  = {d} bytes\n", .{1_000_000 * @sizeOf(u8)});
     try out.print("a million u32 = {d} bytes\n", .{1_000_000 * @sizeOf(u32)});
 

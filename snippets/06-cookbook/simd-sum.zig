@@ -26,7 +26,7 @@ fn dotSimd(xs: []const i32, ys: []const i32) i64 {
     // Horizontal step: collapse the lanes into one number.
     var total: i64 = @reduce(.Add, acc);
     // The tail. A length that is not a multiple of Lanes leaves up to
-    // Lanes - 1 elements; finish them the boring way.
+    // Lanes - 1 elements. Finish them with a scalar loop.
     while (i < xs.len) : (i += 1) total += @as(i64, xs[i]) * ys[i];
     return total;
 }

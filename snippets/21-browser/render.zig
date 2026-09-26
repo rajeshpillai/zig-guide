@@ -34,7 +34,7 @@ pub const Canvas = struct {
 
 /// Parents first, then children, in document order. That ordering is the
 /// painter's algorithm: everything is drawn, and something drawn later simply
-/// covers what was there. No depth test, no clipping, no cleverness.
+/// covers what was there. There is no depth test and no clipping.
 pub fn paint(
     engine: layout.Engine,
     rules: []const style.Rule,

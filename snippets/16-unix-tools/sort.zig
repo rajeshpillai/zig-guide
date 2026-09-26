@@ -31,8 +31,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &stdout_writer.interface;
 
-    // A fixed buffer, so this program never touches the heap. The arena the
-    // C version carves by hand is this, with the bookkeeping already written.
+    // A fixed buffer, so this program never uses the heap. The C version builds
+    // this arena by hand. Here the bookkeeping is already written.
     var storage: [4096]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&storage);
 

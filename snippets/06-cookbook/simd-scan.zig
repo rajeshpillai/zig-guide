@@ -4,7 +4,7 @@
 
 const std = @import("std");
 
-// The scalar baseline: the loop every parser has somewhere. Inside a JSON
+// The scalar baseline: a loop found in most parsers. Inside a JSON
 // string, the next byte that matters is the closing quote or the start of
 // an escape sequence.
 fn findSpecialScalar(bytes: []const u8, start: usize) ?usize {
@@ -18,8 +18,8 @@ fn findSpecialScalar(bytes: []const u8, start: usize) ?usize {
 // The same scan, one register at a time.
 fn findSpecialSimd(bytes: []const u8, start: usize) ?usize {
     // Ask the target how many u8 lanes fit its vector registers. Null means
-    // no SIMD at all; return the scalar version and everything below
-    // compiles away.
+    // the target has no SIMD. Then return the scalar version, and the code
+    // below is not compiled.
     const lanes = std.simd.suggestVectorLength(u8) orelse
         return findSpecialScalar(bytes, start);
     const V = @Vector(lanes, u8);
@@ -35,7 +35,7 @@ fn findSpecialSimd(bytes: []const u8, start: usize) ?usize {
         const chunk: V = bytes[i..][0..lanes].*;
 
         // Step 3: compare every lane at once. Each == yields a
-        // @Vector(lanes, bool); bitcasting packs that into an integer with
+        // @Vector(lanes, bool). Bitcasting packs that into an integer with
         // lane 0 in the lowest bit, and integer | merges the two predicates.
         const hits: Mask = @as(Mask, @bitCast(chunk == quote)) |
             @as(Mask, @bitCast(chunk == backslash));
@@ -45,7 +45,7 @@ fn findSpecialSimd(bytes: []const u8, start: usize) ?usize {
         if (hits != 0) return i + @ctz(hits);
     }
 
-    // Step 5: fewer than `lanes` bytes remain; finish the boring way.
+    // Step 5: fewer than `lanes` bytes remain. Finish with the scalar loop.
     return findSpecialScalar(bytes, i);
 }
 

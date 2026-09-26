@@ -4,9 +4,9 @@
 const std = @import("std");
 const dom = @import("html.zig");
 
-/// Three counts, compared left to right. Not one number: the familiar
-/// 100/10/1 weighting is a simplification that breaks, and the check-yourself
-/// on the chapter shows where.
+/// Three counts, compared left to right, never added into one number. The
+/// common 100/10/1 weighting is a simplification that gives wrong answers,
+/// and the "Check yourself" in the chapter shows where.
 pub const Specificity = struct {
     ids: u16 = 0,
     classes: u16 = 0,
@@ -63,7 +63,7 @@ pub const Rule = struct {
     decls: [8]Declaration = undefined,
     decl_count: u8 = 0,
     /// Position in the stylesheet. Ties in specificity are broken by this,
-    /// which is the entire reason "put your overrides last" works.
+    /// and this is why "put your overrides last" works.
     order: u16 = 0,
 };
 

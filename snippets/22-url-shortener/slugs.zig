@@ -3,13 +3,15 @@
 
 const std = @import("std");
 
-// 62 characters that survive a URL untouched: no escaping, no lookalike
-// punctuation, nothing a copy-paste can mangle.
+// 62 characters that pass through a URL unchanged. They need no escaping,
+// include no punctuation that looks like another character, and are not
+// changed by copy and paste.
 const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /// The row id, rewritten in base 62. The database already guarantees ids
-/// are unique, so the slugs are too: no random draw, no collision check,
-/// no retry loop. An id fits in 11 characters even at the u64 limit.
+/// are unique, so the slugs are too. The code needs no random draw,
+/// collision check or retry loop. An id fits in 11 characters even at the
+/// u64 limit.
 fn encode(id: u64, buf: *[11]u8) []const u8 {
     var rest = id;
     var i: usize = buf.len;
@@ -36,16 +38,17 @@ fn decode(slug: []const u8) !u64 {
     return id;
 }
 
-/// What the service will shorten. The scheme check is not pedantry: a
-/// redirect service that stores `javascript:` URLs hands every visitor
-/// to whoever submitted one.
+/// What the service will shorten. The scheme check is required: a
+/// redirect service that stores `javascript:` URLs sends every visitor
+/// to code written by whoever submitted one.
 fn checkTarget(url: []const u8) !void {
     const has_scheme = std.mem.startsWith(u8, url, "https://") or
         std.mem.startsWith(u8, url, "http://");
     if (!has_scheme) return error.SchemeNotAllowed;
     for (url) |ch| {
         // Control characters would let a stored URL smuggle bytes into
-        // the HTTP response that redirects to it; a space is just broken.
+        // the HTTP response that redirects to it. A space makes the URL
+        // invalid.
         if (ch <= ' ' or ch == 0x7f) return error.BadCharacter;
     }
 }
@@ -63,8 +66,8 @@ pub fn main(init: std.process.Init) !void {
         try out.print("id {d} -> \"{s}\"\n", .{ id, encode(id, &buf) });
     }
 
-    // Reversibility is the property the redirect route depends on, so
-    // check it rather than trust it.
+    // The redirect route depends on reversibility, so the test checks it
+    // instead of assuming it.
     for ([_]u64{ 0, 1, 61, 62, 3843, 1 << 20, 1 << 40, std.math.maxInt(u64) }) |sample| {
         if (try decode(encode(sample, &buf)) != sample) return error.RoundtripBroken;
     }

@@ -42,12 +42,12 @@ fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
 
 /// Indices of two values that add up to `target`, or null.
 ///
-/// `items` must be sorted, and the sorting is what leaves only one move. The
+/// `items` must be sorted. Because of the sorting, only one move is right. The
 /// value at `hi` is the largest partner `lo` has left, so a sum below the
 /// target says `lo` is in no pair at all and `lo` moves up. The value at `lo`
 /// is the smallest partner `hi` has left, so a sum above the target says the
 /// same about `hi` and `hi` moves down. Each step drops one index for good,
-/// which is what keeps the whole search to a single pass.
+/// so the search is a single pass.
 fn twoSum(items: []const i32, target: i32) ?[2]usize {
     if (items.len < 2) return null;
     var lo: usize = 0;
@@ -63,8 +63,8 @@ fn twoSum(items: []const i32, target: i32) ?[2]usize {
 /// Right-align a value in a cell of `width` characters.
 ///
 /// A width on a signed integer prints a sign with it, so `{d:>4}` renders 7 as
-/// `  +7`. Writing the digits first and padding them by hand keeps the columns
-/// free of plus signs nobody asked for.
+/// `  +7`. Writing the digits first and padding them by hand keeps the plus
+/// signs out of the columns.
 fn writeCell(out: *std.Io.Writer, value: i32, width: usize) !void {
     var digits: [12]u8 = undefined;
     const text = try std.mem.print(&digits, "{d}", .{value});
@@ -97,7 +97,7 @@ const Search = struct { pair: ?[2]usize, steps: usize };
 ///
 /// The printing lives here so `twoSum` stays the shape you would paste into a
 /// solution. The step count comes back with the answer, because the count is
-/// the claim worth checking: it never reaches the length of the array.
+/// the claim to check: it never reaches the length of the array.
 fn traceTwoSum(out: *std.Io.Writer, items: []const i32, target: i32) !Search {
     if (items.len < 2) return .{ .pair = null, .steps = 0 };
     var lo: usize = 0;
@@ -288,8 +288,8 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.writeAll("\n");
 
-    // Discarding a candidate needs an argument, not a hunch. Here it is the
-    // shorter wall that can be thrown away.
+    // Discarding a candidate needs a reason. Here the reason says the
+    // shorter wall can be thrown away.
     try out.writeAll("most water between two walls\n");
     try out.writeAll("  step   lo   hi  h[lo]  h[hi]  width  area  best  moved\n");
     const water = try maxArea(out, heights);

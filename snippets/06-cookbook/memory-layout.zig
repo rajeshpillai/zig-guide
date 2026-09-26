@@ -3,7 +3,7 @@
 
 const std = @import("std");
 
-// Default (auto) layout. The compiler picks offsets for this target; it is
+// Default (auto) layout. The compiler picks offsets for this target. It is
 // free to add padding so each field sits on its natural alignment.
 const Padded = struct {
     a: u8,

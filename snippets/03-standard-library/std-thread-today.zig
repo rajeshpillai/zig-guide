@@ -22,8 +22,8 @@ const moves = [_]Move{
     .{ .was = "Pool", .now = "Threaded" },
 };
 
-/// What `std.Thread` kept: the parts that are genuinely about an OS thread
-/// rather than about waiting for one.
+/// What `std.Thread` kept: the parts about an OS thread itself, not about
+/// waiting for one.
 const kept = [_][]const u8{ "spawn", "getCpuCount", "getCurrentId", "yield", "detach" };
 
 fn mark(present: bool) []const u8 {

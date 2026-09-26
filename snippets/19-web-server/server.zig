@@ -11,8 +11,8 @@ const std = @import("std");
 const http = @import("request.zig");
 
 /// Serve exactly one connection, then return. A real server wraps this in a
-/// loop and hands each connection to a thread or an event loop; the shape of
-/// what happens per connection is unchanged, which is the point.
+/// loop and hands each connection to a thread or an event loop. What happens
+/// per connection stays the same.
 fn serve(server: *std.Io.net.Server, io: std.Io) void {
     var conn = server.accept(io) catch return;
     defer conn.close(io);
@@ -46,8 +46,8 @@ fn serve(server: *std.Io.net.Server, io: std.Io) void {
 }
 
 /// A response is a status line, headers, a blank line, and the body. The
-/// Content-Length is not optional politeness: without it the client cannot
-/// know the body has ended, and waits.
+/// Content-Length is needed: without it the client cannot know the body has
+/// ended, and it waits.
 fn respond(conn: *std.Io.net.Stream, io: std.Io, status: u16, content_type: []const u8, body: []const u8) void {
     var buf: [1024]u8 = undefined;
     var writer = conn.writer(io, &buf);
@@ -100,7 +100,7 @@ pub fn main(init: std.process.Init) !void {
 
         // Read until the peer closes, rather than looping on lines. The server
         // said `Connection: close`, so end of stream is the end of the
-        // response, and this is the one framing rule that needs no header.
+        // response. This is the only framing rule that needs no header.
         var response: [2048]u8 = undefined;
         var got: usize = 0;
         while (true) {

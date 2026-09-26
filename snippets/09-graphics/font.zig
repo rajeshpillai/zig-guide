@@ -8,8 +8,8 @@ const height: usize = 16;
 var pixels: [width * height]u8 = @splat(' ');
 
 /// Each glyph is 7 rows of 5 bits, most significant bit on the left. This is
-/// the oldest way to store a font and still the right one for a fixed size:
-/// no curves, no hinting, no scaling, just bits you copy.
+/// the oldest way to store a font, and it is still the right one for a fixed
+/// size. It needs no curves, hinting or scaling. Drawing a glyph copies bits.
 const glyph_width = 5;
 const glyph_height = 7;
 

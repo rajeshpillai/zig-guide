@@ -13,8 +13,8 @@ pub const Part = struct {
 pub const Error = error{ NoBoundary, Malformed, TooManyParts };
 
 /// `multipart/form-data; boundary=----abc123`. The client chooses the
-/// boundary and announces it here, which is the opposite of every other format
-/// in this section: the delimiter is data, not a constant.
+/// boundary and announces it here. Every other format in this section uses a
+/// fixed delimiter. Here the delimiter is data.
 pub fn boundaryOf(content_type: []const u8) Error![]const u8 {
     const at = std.mem.find(u8, content_type, "boundary=") orelse return error.NoBoundary;
     const rest = content_type[at + "boundary=".len ..];
@@ -26,9 +26,9 @@ pub fn boundaryOf(content_type: []const u8) Error![]const u8 {
 
 /// Everything after the last slash or backslash, and never `..`.
 ///
-/// The filename comes from the client and is the single most dangerous string
-/// in an upload handler. Joining it to a directory without this is a write
-/// anywhere the process can write, which is worse than the read the
+/// The filename comes from the client and is a dangerous string in an upload
+/// handler. Joining it to a directory without this lets the client write
+/// anywhere the process can write. That is worse than the read the
 /// [path chapter](/learn/web-server/static/) was about.
 pub fn safeFilename(raw: []const u8) ?[]const u8 {
     var name = raw;
@@ -52,13 +52,13 @@ fn attribute(header: []const u8, key: []const u8) ?[]const u8 {
 
 pub fn parse(body: []const u8, boundary: []const u8, out: []Part, scratch: []u8) Error![]Part {
     // The delimiter is CRLF + "--" + boundary. The CRLF belongs to the
-    // delimiter, not to the data before it, and a parser that forgets this
-    // appends two bytes to every uploaded file. It is invisible in a text
-    // field and corrupts an image.
+    // delimiter, not to the data before it. A parser that forgets this
+    // appends two bytes to every uploaded file. The two bytes are invisible
+    // in a text field and corrupt an image.
     const delim = std.mem.print(scratch, "\r\n--{s}", .{boundary}) catch return error.Malformed;
 
-    // The first boundary has no leading CRLF, so the body is normalised by
-    // pretending one was there.
+    // The first boundary has no leading CRLF, so the parser treats the body
+    // as if one were there.
     var cursor: usize = if (std.mem.startsWith(u8, body, delim[2..])) delim.len - 2 else return error.Malformed;
 
     var n: usize = 0;

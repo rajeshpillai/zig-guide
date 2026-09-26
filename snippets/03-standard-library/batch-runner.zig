@@ -9,7 +9,7 @@ const std = @import("std");
 
 /// The batch. A `const` rather than stdin, so CI checks the same bytes the
 /// chapter shows. Three records are malformed on purpose, each in a different
-/// way, because a batch runner that assumes clean input is not one.
+/// way, because a batch runner has to handle bad input.
 const input =
     \\1001,3,450
     \\1002,1,300
@@ -37,15 +37,15 @@ const Result = struct {
 };
 
 /// The only state the workers really share: the biggest order in the batch and
-/// which record it came from. Two fields that have to agree with each other,
-/// which is exactly what an atomic cannot give you.
+/// which record it came from. The two fields have to agree with each other,
+/// and a single atomic cannot keep two fields in agreement.
 const Largest = struct {
     value: u64 = 0,
     index: usize = 0,
 };
 
-/// Turn one record into a `Result`. No `Io`, no allocator, no shared state, so
-/// it can be read and tested on its own.
+/// Turn one record into a `Result`. It uses no `Io`, allocator or shared
+/// state, so it can be read and tested on its own.
 fn parseOrder(line: []const u8) Result {
     var fields = std.mem.splitScalar(u8, line, ',');
     const id_text = fields.next() orelse return .{ .failure = "no id" };
@@ -89,7 +89,7 @@ fn worker(
         mutex.lock(io) catch return;
         defer mutex.unlock(io);
 
-        // The tie break on index is not decoration. Without it, two records of
+        // The tie break on index is needed. Without it, two records of
         // equal value would leave whichever worker got there first in the
         // answer, and the program would print a different line on a different
         // machine.
@@ -135,7 +135,8 @@ pub fn main(init: std.process.Init) !void {
     try group.await(io);
 
     // Printing happens after every worker is done, in record order rather than
-    // completion order. The run is concurrent; the report is not.
+    // completion order. The work runs concurrently, but the report is
+    // printed in a fixed order.
     var ok: usize = 0;
     var value: u64 = 0;
     try out.print("  id     total  status\n", .{});

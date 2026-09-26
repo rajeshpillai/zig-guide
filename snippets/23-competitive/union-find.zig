@@ -108,7 +108,7 @@ fn findRoot(parent: []const u32, x: u32) u32 {
 /// Merge two groups by hanging one root under the other.
 ///
 /// Only a root changes. No other node in either group is touched, which is
-/// the whole saving over relabelling. Nothing here decides which root goes
+/// why this is cheaper than relabelling. Nothing here decides which root goes
 /// underneath, and that is the problem the chain below shows.
 fn unitePlain(parent: []u32, a: u32, b: u32) bool {
     const ra = findRoot(parent, a);

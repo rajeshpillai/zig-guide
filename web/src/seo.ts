@@ -89,23 +89,23 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "errors as values, and the system call boundary. Every idea has one " +
       "complete program you can run in the page.",
     lede:
-      "Systems programming taught from zero, with Zig as the vehicle instead of " +
+      "Systems programming taught from zero, using Zig instead of " +
       "C. Each chapter asks one question, answers it in plain terms, and then " +
       "hands you a complete program that proves the answer. If you have written " +
       "C before, the last part of each page says how the same idea is spelled " +
       "there. If you have not, nothing here needs it. The order is the one a C " +
-      "course takes. Nothing earlier in the guide is a prerequisite, so read it " +
-      "whenever the machine underneath starts mattering, including first.",
+      "course takes. Nothing earlier in the guide is a prerequisite, so you can " +
+      "read it at any point, including first.",
     takeaways: [
       "A type is not a property of the bytes. It is an agreement about how to read them, and the same four bytes can be read two ways without converting anything.",
-      "`u8` and `u32` are not styles of writing a number. They are different amounts of memory, and the difference is a million bytes when you have a million of them.",
+      "`u8` and `u32` are not styles of writing a number. They are different amounts of memory, and the difference is three million bytes when you have a million of them.",
       "An address is an ordinary number. `@intFromPtr` does no work; it shows you the number the pointer was already holding.",
       "A call's locals are handed back when it returns, and the next call gets the same bytes. That reuse is the dangling pointer, and nothing about the pointer changed.",
       "Undefined behaviour is not a crash and not a garbage value. It is a promise you made to the compiler, which is why breaking it can change code somewhere else.",
     ],
   },
   terminal: {
-    seoTitle: "Survive the Terminal: String and Shell Primitives in Zig",
+    seoTitle: "Terminal Basics in Zig: String and Shell Primitives",
     description:
       "Build the primitives a shell needs before it can exist: string length, " +
       "comparison, copying and trimming written out by hand, a command-line " +
@@ -117,8 +117,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "primitive built rather than imported. The parts that need a real kernel, " +
       "fork, exec and pipes, are in the operating system section already.",
     takeaways: [
-      "`strlen` is a walk, every time you call it. That cost is the whole argument for a slice that already knows its length.",
-      "A buffer for a 5-byte string needs 6 bytes. The version of the bounds check that forgets the terminator passes a casual test and writes one byte past the end.",
+      "`strlen` is a walk, every time you call it. That cost is the reason for a slice that already knows its length.",
+      "A buffer for a 5-byte string needs 6 bytes. The version of the bounds check that forgets the terminator passes a quick test and writes one byte past the end.",
       "Trimming returns a view, not a copy. Moving bytes to remove spaces is work you never needed to do.",
       "A REPL has two exits, not one. A loop that only watches for `quit` spins forever the first time someone presses Ctrl-D.",
     ],
@@ -134,8 +134,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "complete program and one technique: streaming reads, a state machine, " +
       "searching, owning the lines you sorted, splitting on a delimiter, turning " +
       "a number into text, and deciding what needs rebuilding. The tools are " +
-      "small enough to hold in your head and old enough that their design is " +
-      "the lesson.",
+      "small enough to understand completely, and old enough that their design " +
+      "is the lesson.",
     takeaways: [
       "`cat` is a loop around a fixed buffer. The buffer size is a decision about memory, not about correctness, which is why it can copy a file larger than memory.",
       "`wc` counts words by counting transitions into a word, not words. That is a state machine, and it is why leading spaces and double spaces cost nothing.",
@@ -158,7 +158,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "server binds a port, so it runs on the build machine instead, and CI " +
       "checks what the client received.",
     takeaways: [
-      "HTTP declares no length up front, so a server reads until it sees a blank line. That single rule is the whole framing problem.",
+      "HTTP declares no length up front, so a server reads until it sees a blank line. That one rule is all of the framing.",
       "Header names are case-insensitive. Comparing them exactly works against your own client and fails against somebody else's proxy.",
       "A response without Content-Length leaves the client waiting, because nothing else tells it the body ended.",
       "The parser never needs a socket. Taking bytes and returning a request is what lets the same code be tested, fuzzed, and run on a page with no network at all.",
@@ -171,15 +171,15 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "update two writers cause, indexes that turn a scan into a lookup, and a " +
       "write-ahead log that survives a crash.",
     lede:
-      "Every database is a file, plus the rules that keep it honest when two " +
+      "Every database is a file, plus the rules that keep it correct when two " +
       "things touch it at once and when the power goes out. These chapters " +
       "build those rules from nothing: append-only records, a lock, an index, " +
       "and a log written before the change it describes.",
     takeaways: [
       "An append-only file cannot delete. Removal is a record you add, which is why every log-structured store has tombstones.",
       "Read, modify, write is three steps, and the gap between the first and the third is where the other writer gets in.",
-      "A race gives a different answer every run. That is what makes it expensive to find, not what makes it rare.",
-      "An index does not make the data smaller. It adds a second structure you now have to keep in step with the first.",
+      "A race can give a different answer on every run. That makes it expensive to find. It does not make it rare.",
+      "An index does not make the data smaller. It adds a second structure you now have to keep in sync with the first.",
     ],
   },
   browser: {
@@ -196,9 +196,9 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "earlier in this track, pointed at a document.",
     takeaways: [
       "HTML has no parse errors by design. Every malformed document has a defined tree, because the browsers that shipped first had to render the web that already existed.",
-      "A void element is complete on its own. Treating `<br>` as an unclosed tag swallows the rest of the page.",
+      "A void element is complete on its own. Treating `<br>` as an unclosed tag puts the rest of the page inside it.",
       "Layout is two passes, not one: widths flow down from the parent, heights add up from the children.",
-      "The cascade is a sort. Specificity, then order, and the last rule standing wins.",
+      "The cascade is a sort: by specificity, then by order, and the last rule wins.",
     ],
   },
   "tiny-lang": {
@@ -216,7 +216,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
     takeaways: [
       "A lexer is one pass with one character of lookahead. Whitespace disappears there, which is why no later stage has to think about it.",
       "Operator precedence is not a table the parser consults. It is the shape of the call chain: one function per level, each calling the tighter one.",
-      "A tree-walking interpreter is a switch on the node kind that calls itself. That is the entire idea, and everything else is bookkeeping about names.",
+      "A tree-walking interpreter is a switch on the node kind that calls itself. Everything else is bookkeeping about names.",
       "Compiling and interpreting differ in when the walk happens, not in what it computes. The same tree produces the same answer either way.",
     ],
   },
@@ -263,11 +263,11 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "how to catch a leak, ArrayList and the hash maps, JSON in both directions, " +
       "the Io interface with its readers and writers, crypto, time, " +
       "Unicode and the filesystem. std moves faster than the language, so these " +
-      "are the pages most worth re-reading against a fresh compiler.",
+      "are the pages to re-read first against a fresh compiler.",
     takeaways: [
-      "Nothing allocates behind your back. A function that needs memory takes an `Allocator`, so you can always see what will.",
-      "Nothing blocks behind your back either. A function that can block takes an `std.Io`, and the caller decides whether that means threads.",
-      "`std.testing.allocator` fails a test that leaks. A leak is a red build here, not something found in production later.",
+      "Nothing allocates without telling you. A function that needs memory takes an `Allocator`, so you can always see what will.",
+      "Nothing blocks without telling you either. A function that can block takes an `std.Io`, and the caller decides whether that means threads.",
+      "`std.testing.allocator` fails a test that leaks. A leak fails the build here, instead of being found in production later.",
       "std moves faster than the language does. When something stops compiling after an upgrade, look here first.",
     ],
   },
@@ -282,14 +282,14 @@ export const SECTIONS: Record<string, SectionMeta> = {
     lede:
       "The standard library hands you an ArrayList and a hash map. These chapters " +
       "build them. The growable array first, because a length, a capacity and a " +
-      "doubling rule are the whole of it, and every container after it assumes " +
+      "doubling rule are all it is, and every container after it assumes " +
       "one. Then a linked list, the smallest structure that forces you to answer " +
       "who allocates and who frees. Then the same list made " +
       "generic by a comptime type function, which is all Zig's generics are. Then " +
       "the intrusive lists std actually ships today, which look nothing like the " +
       "ones in older tutorials. Then a binary search tree, the sorted input that " +
-      "ruins it, and the rotations that fix it. Finally a hash map, where deleting " +
-      "without a tombstone quietly loses your keys.",
+      "unbalances it, and the rotations that fix it. Finally a hash map, where deleting " +
+      "without a tombstone loses keys and reports no error.",
     takeaways: [
       "Doubling the buffer on growth is what makes append amortised O(1). Growing by a fixed number of slots makes building n values cost O(n^2).",
       "Who allocates and who frees is decided once per container, and then it shows up in every signature that container has.",
@@ -303,7 +303,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
     description:
       "Concurrency in Zig through std.Io: async and Future, Group, " +
       "cancellation, Select, bounded queues, locks, atomics and memory ordering, " +
-      "OS threads, what happened to std.Thread, where the Io comes from, and a\n      " +
+      "OS threads, what happened to std.Thread, where the Io comes from, and a " +
       "complete batch job runner putting it together.",
     lede:
       "Concurrency in Zig runs through one interface. Anything that can block " +
@@ -313,20 +313,19 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "you choose an implementation: futures and groups, stopping a task that " +
       "is already running, waiting for whichever finishes first, a bounded " +
       "queue between two tasks, the locks under shared state, the atomics those " +
-      "locks are built from, and the real OS threads you drop to when the " +
-      "interface is not what you want, and it ends on a whole program rather " +
-      "than a primitive. Five of the ten run in your browser, " +
-      "on a target with no threads at all, " +
-      "which is the interface demonstrating its own point. The Io Interface " +
+      "locks are built from, and the OS threads you use when the interface is " +
+      "not what you want. The section ends on a whole program rather than a " +
+      "primitive. Five of the ten run in your browser, on a target with no " +
+      "threads at all, which shows the interface keeping its promise. The Io Interface " +
       "chapter, in the Standard Library section, is the one to read first.",
     takeaways: [
       "`std.Thread.spawn` still exists, but it is no longer the default. Structured concurrency goes through `std.Io` and compiles for targets that have no threads.",
       "`io.async` is allowed to run your function inline and hand back a `Future` that has already finished. Only `io.concurrent` promises the caller keeps going, and it may fail with `error.ConcurrencyUnavailable`.",
       "Cancellation is a request, not a kill. The task finds out at its next cancellation point, which is the reason anything that can block takes the `Io`.",
       "The implementation is chosen in `main` and nowhere else. Every function below it takes the interface and never learns whether it got threads.",
-      "A mutex is not a primitive. `std.atomic.Mutex` is one compare-and-swap to take the lock and one ordered store to drop it, and that is the whole type.",
+      "A mutex is not a primitive. `std.atomic.Mutex` is one compare-and-swap to take the lock and one ordered store to drop it, and that is all the type does.",
       "`std.Thread.Mutex`, `RwLock`, `Semaphore`, `Condition`, `ResetEvent`, `WaitGroup` and `Pool` no longer exist. Everything that waits moved to `std.Io`; `std.Thread` kept `spawn` and the four calls that are really about an OS thread.",
-      "A concurrent program whose output depends on the order its tasks ran is one nobody can test. Design the result to be scheduling-independent and the concurrency becomes something you can change your mind about.",
+      "A concurrent program whose output depends on the order its tasks ran is one nobody can test. Design the result to be scheduling-independent, and you can change the concurrency later without changing the result.",
     ],
   },
   os: {
@@ -338,7 +337,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
     lede:
       "The interface every program has whether it asked for one or not: three " +
       "descriptors it did not open, an environment it inherited, and a status " +
-      "code it owes its parent. Four of these chapters run in your browser, " +
+      "code it must return to its parent. Four of these chapters run in your browser, " +
       "because WASI kept the descriptor numbering even though there is no " +
       "operating system underneath.",
     takeaways: [
@@ -356,13 +355,13 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "reads, text and binary protocols, byte order, serving many clients " +
       "through std.Io, TCP, UDP and HTTP.",
     lede:
-      "Sockets from the beginning, then the part that actually decides whether " +
+      "Sockets from the beginning, then the part that decides whether " +
       "a server works: a stream has no message boundaries, so you put them back " +
-      "yourself. Framing three ways, a parser that survives a message split " +
+      "yourself. Framing three ways, a parser that handles a message split " +
       "across two reads, text and binary protocols in both directions, byte " +
       "order, and one handler per connection through the Io interface. The " +
-      "protocol chapters run in your browser, because none of them know what a " +
-      "socket is.",
+      "protocol chapters run in your browser, because none of them use a " +
+      "socket.",
     takeaways: [
       "TCP is a byte stream, not a message stream. A read returning 7 bytes says nothing about where a message ends, and code that assumes otherwise works until it meets a real network.",
       "Parse from a `Reader`, never from a socket. The same parser then works over a connection, over a test fixture and in a browser, and you write it once.",
@@ -433,8 +432,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
     lede:
       "A renderer built out of an array of bytes, with no graphics library " +
       "underneath. Start with a framebuffer, draw lines and circles, rasterize " +
-      "triangles with barycentric coordinates, composite with alpha, and kill the " +
-      "staircase with supersampling. Then read the buffer back: brightness and " +
+      "triangles with barycentric coordinates, composite with alpha, and smooth " +
+      "jagged edges with supersampling. Then read the buffer back: brightness and " +
       "contrast as lookup tables, blur and Sobel edges as convolution kernels, " +
       "grayscale and sepia as colour matrices, auto-levels from a histogram, " +
       "median filters for noise, and the half-pixel bug that shifts a resized " +
@@ -489,8 +488,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
     takeaways: [
       "The schema is a type. Every other part of the library is derived from it at compile time rather than declared twice.",
       "A query builder that checks field names during compilation turns a class of runtime SQL errors into build errors.",
-      "`errdefer` is what makes a transaction correct on the error paths you did not think about, which are the ones that matter.",
-      "Put the driver behind one seam and the same query code runs on two databases. Scatter it and it runs on whichever you wrote first.",
+      "`errdefer` makes a transaction correct on the error paths you did not think about.",
+      "Put the driver behind one seam and the same query code runs on two databases. Spread it through the code and it runs only on whichever you wrote first.",
     ],
   },
   "url-shortener": {
@@ -502,8 +501,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "against a real database.",
     lede:
       "A working URL shortener, built the way this guide builds everything: " +
-      "no framework, no driver, no dependency that hides the interesting " +
-      "part. The Postgres client is written here, speaking the wire protocol " +
+      "no framework, no driver, and no dependency that hides how it " +
+      "works. The Postgres client is written here, speaking the wire protocol " +
       "from the cookbook recipe. The slug logic and the HTTP routes are pure " +
       "functions over bytes, which is why most of these chapters run in your " +
       "browser. The last chapter assembles the pieces into one file you run " +
@@ -532,19 +531,19 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "window.",
     lede:
       "A three lane endless runner, built the way this guide builds " +
-      "everything: no engine, no assets, nothing hiding the interesting part. " +
+      "everything: no engine, no assets, and nothing that hides how it works. " +
       "The game is on this page and you can play it now. What the chapters " +
       "are actually about is how to write a game you can test, because the " +
       "usual answer is that you cannot, and the usual result is a game whose " +
       "difficulty nobody can reason about. The simulation here imports " +
       "nothing at all, so every rule is checked by a program that plays the " +
-      "game, and the graphics and the sound are both things that happen to " +
-      "it afterwards.",
+      "game. The graphics and the sound are added on top of it " +
+      "afterwards.",
     takeaways: [
-      "A game loop that takes a `dt` is a game that plays differently on every machine. A fixed timestep with an accumulator costs ten lines and buys reproducible runs.",
+      "A game loop that takes a `dt` is a game that plays differently on every machine. A fixed timestep with an accumulator takes ten lines and gives reproducible runs.",
       "Game logic that imports no graphics library can be tested by playing it. The rules here are exercised by a bot at every seed, in about a second, with no window open.",
       "A difficulty curve should be derived from what is physically possible, not tuned until it feels right. Tuned numbers stop agreeing with each other the first time one of them moves.",
-      "Handles beat pointers for anything spawned and destroyed constantly: a stale index silently reads its slot's next occupant, and a generation counter turns that into a null.",
+      "Handles work better than pointers for anything spawned and destroyed constantly: a stale index silently reads its slot's next occupant, and a generation counter turns that into a null.",
       "Sound effects can be a few hundred lines of arithmetic rather than a folder of files, and waveforms are as testable as anything else.",
     ],
     note:
@@ -566,8 +565,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "because a snippet here runs under WASI, so each chapter embeds its input " +
       "as text and parses it the way it would parse a file. The last chapter, " +
       "the contest template, is the one that reads real stdin, and it takes " +
-      "the same reader. The algorithm is unaffected. What the browser buys in exchange is " +
-      "that every program prints the steps it took, and the trace quoted in " +
+      "the same reader. The algorithm is unaffected. In exchange, " +
+      "every program prints the steps it took, and the trace quoted in " +
       "the chapter is the trace CI diffed against the compiler the footer " +
       "names.",
     takeaways: [
@@ -575,7 +574,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "The classic off-by-one does not return a wrong index. It stops returning, because a window of one has a middle equal to its own start.",
       "`(lo + hi) / 2` adds two indices that are each valid and whose sum need not be. `lo + (hi - lo) / 2` costs nothing and cannot overflow.",
       "Two bounds answer more than one search does. Where a value starts and where it ends is a count, and getting it needs no scan.",
-      "Two pointers converging on sorted data never get a choice about the next move. One index retires per step, so a walk that reads like a search costs one pass.",
+      "Two pointers converging on sorted data never get a choice about the next move. One index drops out per step, so a walk that reads like a search costs one pass.",
       "A sliding window adds the value entering and subtracts the value leaving. Every index enters once and leaves once, so a loop inside a loop is still linear, and the shrink rule stops holding the moment a value can be negative.",
       "`std.sort.lowerBound` passes the key first and the element second. A comparator written the other way round compiles and returns a plausible wrong index.",
     ],
@@ -611,7 +610,7 @@ export const GROUPS: Record<string, SectionMeta> = {
     lede:
       "Three ways into a database from Zig, at three different levels. SQLite " +
       "through its C API, which is the shortest path to durable storage and a " +
-      "good look at how Zig links C. The PostgreSQL wire protocol written out by " +
+      "clear example of how Zig links C. The PostgreSQL wire protocol written out by " +
       "hand, startup message through row description, because the protocol is " +
       "simpler than its client libraries suggest. And Redis RESP, which is small " +
       "enough to parse in one page. For a query layer on top of these, see the " +

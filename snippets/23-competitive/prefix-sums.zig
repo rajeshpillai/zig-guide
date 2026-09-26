@@ -20,9 +20,9 @@ const input =
 
 /// Read one line of whitespace-separated integers into `out`.
 ///
-/// Taking a `*std.Io.Reader` rather than the string is the same discipline the
-/// networking chapters use for protocols. Point it at stdin on a judge and not
-/// a line of it changes.
+/// It takes a `*std.Io.Reader` instead of the string, as the networking
+/// chapters do for protocols. On a judge, pass a reader over stdin and the
+/// function stays the same.
 fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     const line = (try reader.takeDelimiter('\n')) orelse return error.MissingRow;
     var count: usize = 0;
@@ -52,8 +52,8 @@ const Span = struct {
 ///
 /// `i64` and not `i32`. Eight small values fit either type, and a hundred
 /// thousand values near the top of `i32` do not, so the totals get the wider
-/// one. `adds` counts the additions, because the build cost is half the
-/// argument for using a prefix array at all.
+/// one. `adds` counts the additions, because the build cost is part of deciding
+/// whether a prefix array is cheaper than a loop.
 fn buildPrefix(items: []const i32, out: []i64, adds: *usize) []i64 {
     out[0] = 0;
     for (items, 0..) |value, i| {
@@ -75,8 +75,8 @@ fn rangeSum(pre: []const i64, span: Span) i64 {
 
 /// The same sum, by adding the values up.
 ///
-/// Kept so the two can be compared rather than trusted, and so the additions
-/// can be counted against the ones `buildPrefix` charged.
+/// Kept so the two results can be compared instead of trusted, and so the
+/// additions can be counted against the ones `buildPrefix` charged.
 fn rangeSumByLoop(items: []const i32, span: Span, adds: *usize) i64 {
     var sum: i64 = 0;
     for (items[span.lo..span.hi]) |value| {
@@ -99,7 +99,7 @@ fn applyRange(diff: []i64, span: Span, delta: i64) void {
     diff[span.hi] -= delta;
 }
 
-/// Running sum of `diff`, which is the values it was recording all along.
+/// Running sum of `diff`, which gives back the values it recorded.
 ///
 /// The last cell of `diff` never contributes a value. It exists to cancel the
 /// deltas that opened, so after the pass the running total is back at zero.
@@ -163,7 +163,7 @@ fn writeRange(out: *std.Io.Writer, items: []const i32, span: Span) !void {
         try writeCell(out, value, 2);
         const closing: u8 = if (inside and i + 1 == span.hi) ']' else ' ';
         // No trailing space at the end of a row: the expected output is diffed
-        // byte for byte, and an invisible column is a bad thing to depend on.
+        // byte for byte, and a space you cannot see is easy to get wrong.
         if (closing == ' ' and i + 1 == items.len) break;
         try out.writeByte(closing);
     }
@@ -268,8 +268,8 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.print("  every sum matches a loop over the same values -> {}\n\n", .{all_agree});
 
-    // The build is only free once. An array that changes between queries pays
-    // for it again every time, and then the loop is cheaper.
+    // The build is paid once. An array that changes between queries needs a
+    // new build every time, and then the loop is cheaper.
     try out.writeAll("what the build costs, against what it saves\n");
     var plan: [40]u8 = undefined;
     const built_once = try std.mem.print(&plan, "build once, then {d} lookups", .{queries.len});
@@ -277,7 +277,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("  {s: <28}{d:>4} adds\n", .{ "rebuild before each lookup", build_adds * queries.len });
     try out.print("  {s: <28}{d:>4} adds\n\n", .{ "no prefix array at all", loop_adds });
 
-    // The mirror image. Two writes record a change across a whole range.
+    // The opposite direction. Two writes record a change across a whole range.
     try out.print("{d} range updates on a difference array\n", .{update_spans.len});
     var diff_storage: [65]i64 = undefined;
     const diff = diff_storage[0 .. values.len + 1];

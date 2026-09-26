@@ -17,8 +17,8 @@ pub fn main(init: std.process.Init) !void {
 
     const row = [_]u32{ 10, 20, 30, 40 };
 
-    // A slice is a pointer and a length travelling together, so a function
-    // that receives one cannot be ignorant of where the data stops.
+    // A slice is a pointer and a length kept together, so a function that
+    // receives one always knows where the data stops.
     const slice: []const u32 = &row;
     try out.print("the slice has {d} elements\n", .{slice.len});
     try out.print("a slice is {d} bytes: a pointer and a length\n\n", .{@sizeOf([]const u32)});

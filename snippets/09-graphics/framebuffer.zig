@@ -10,9 +10,9 @@ const height: usize = 32;
 // Global rather than a local. At 64x32 it would fit anywhere, but the same
 // array at 640x480 is 1.2 MB, and the default thread stack is 8 MB on Linux,
 // 1 MB on Windows, and far less on some embedded targets. A picture on the
-// stack is a portability landmine; make it global or heap-allocate it.
+// stack can overflow it on another platform. Make it global or heap-allocate it.
 //
-// `undefined` is honest only because `drawGradient` below writes every cell.
+// `undefined` is safe only because `drawGradient` below writes every cell.
 // A partial scene must start from a known fill or it ships whatever was in
 // memory.
 var pixels: [width * height]u32 = undefined;

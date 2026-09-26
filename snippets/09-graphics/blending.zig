@@ -12,8 +12,8 @@ var pixels: [canvas.width * canvas.height]u32 = undefined;
 ///     out = (src * a + dst * (255 - a)) / 255
 ///
 /// The `+ 127` rounds to nearest instead of truncating. Dividing by 256 with a
-/// shift is the tempting shortcut, and it is why so much old blending code
-/// cannot reach pure white: at a = 255 it returns 254.
+/// shift looks like a faster choice, but at a = 255 it returns 254, so blending
+/// code that does it cannot reach pure white.
 fn blendChannel(src: u8, dst: u8, a: u8) u8 {
     const s = @as(u32, src) * @as(u32, a);
     const d = @as(u32, dst) * (255 - @as(u32, a));
@@ -30,9 +30,9 @@ fn blend(src: u32, dst: u32, a: u8) u32 {
     );
 }
 
-/// Read, blend, write back. This is the whole difference from `putPixel`: the
-/// destination is now an input, so draw order stops being destructive and
-/// starts being meaningful.
+/// Read, blend, write back. The difference from `putPixel` is that the
+/// destination is now an input. A later draw no longer erases an earlier one,
+/// and the order of the draws changes the result.
 fn blendPixel(x: i32, y: i32, color: u32, a: u8) void {
     if (x < 0 or y < 0) return;
     const ux: usize = @intCast(x);
@@ -87,7 +87,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // Blending is not commutative. Half of red on top of blue is not half of
-    // blue on top of red, which is the whole reason draw order still matters.
+    // blue on top of red. Because of this, draw order still matters.
     const red = canvas.rgb(255, 0, 0);
     const blue = canvas.rgb(0, 0, 255);
     const r_over_b = canvas.channels(blend(red, blue, 64));

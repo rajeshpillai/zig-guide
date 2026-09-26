@@ -45,7 +45,7 @@ pub fn fill(pixels: []u32, color: u32) void {
 
 /// A deterministic test picture for the image-processing chapters.
 ///
-/// Three things a filter needs something to bite on: a smooth ramp, so contrast
+/// Three things a filter needs to work on: a smooth ramp, so contrast
 /// and blur have a gradient to stretch or soften; a hard-edged block, so an edge
 /// detector has an edge to find; and two saturated discs, so a colour transform
 /// has some chroma to move. Drawing it here rather than in each chapter means

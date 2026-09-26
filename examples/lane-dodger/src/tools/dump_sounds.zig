@@ -26,8 +26,8 @@ pub fn main(init: std.process.Init) !void {
     const out = &stdout.interface;
 
     // The build passes the output directory, so the step is cache-correct:
-    // the files are an output of the run rather than something it scribbles
-    // into the source tree.
+    // the files are an output of the run, and nothing is written into the
+    // source tree.
     var args = init.minimal.args.iterate();
     _ = args.next();
     const target_dir = args.next() orelse return error.MissingOutputDirectory;

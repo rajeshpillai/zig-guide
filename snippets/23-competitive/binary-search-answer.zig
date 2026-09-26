@@ -63,7 +63,7 @@ const Ship = struct {
         return days <= self.limit;
     }
 
-    /// The same question with a second condition bolted on: no day may leave
+    /// The same question with a second condition added: no day may leave
     /// more than half the hold empty.
     ///
     /// It sounds like a tidier plan and it is not monotonic. A big ship
@@ -241,7 +241,7 @@ pub fn main(init: std.process.Init) !void {
         answer == firstFeasible(&ship, heaviest, total, Ship.feasible),
     });
 
-    // The two packings either side of the boundary are the whole claim.
+    // The two packings on either side of the boundary prove the answer.
     try out.writeAll("either side of the boundary\n");
     try writePacking(out, &ship, answer - 1);
     try writePacking(out, &ship, answer);
@@ -268,8 +268,8 @@ pub fn main(init: std.process.Init) !void {
     });
     try out.print("  {d} days needed there, limit {d}\n\n", .{ ship.daysNeeded(bad).?, ship.limit });
 
-    // A predicate that flickers. The loop terminates, returns a capacity, and
-    // that capacity is not the smallest one the predicate accepts.
+    // A predicate that flips more than once. The loop terminates, returns a
+    // capacity, and that capacity is not the smallest one the predicate accepts.
     ship.calls = 0;
     try out.writeAll("now require every day to fill at least half the hold\n");
     const flicker = try writeScan(out, &ship, heaviest, total, Ship.feasibleAndFull);

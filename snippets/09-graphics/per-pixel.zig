@@ -23,12 +23,12 @@ fn invert() Lut {
     return lut;
 }
 
-/// Brightness is an add, and the add is the interesting part.
+/// Brightness is an add, and the kind of add decides the result.
 ///
 /// `+|` and `-|` are saturating: they clamp at the type's bounds instead of
 /// wrapping. Plain `+` on a `u8` at 250 + 10 is illegal behaviour in Zig and
-/// traps in a safe build, and `+%` would wrap 250 + 10 round to 4, which is how
-/// a naive brightness filter puts black speckles in a white sky.
+/// traps in a safe build. `+%` would wrap 250 + 10 to 4, and a brightness
+/// filter that wraps puts black spots in a white sky.
 fn brightness(delta: i16) Lut {
     var lut: Lut = undefined;
     for (&lut, 0..) |*v, i| {
@@ -45,7 +45,7 @@ fn brightness(delta: i16) Lut {
 /// down, and 128 stays put. `factor` is scaled by 256, so 256 is no change and
 /// 512 is double contrast.
 ///
-/// This one genuinely can overflow in both directions, so it clamps in a wider
+/// This one can overflow in both directions, so it clamps in a wider
 /// type rather than saturating in `u8`. Saturating a `u8` cannot help when the
 /// intermediate is already negative.
 fn contrast(factor: i32) Lut {
@@ -101,14 +101,14 @@ pub fn main(init: std.process.Init) !void {
     try canvas.dump(out, &pixels);
 
     // Lift, then stretch around mid-grey. Built as one table, applied once.
-    // The background ramp is pushed to black and the block to white: contrast
-    // does not create detail, it spends the range it has on the middle.
+    // The background ramp is pushed to black and the block to white. Contrast
+    // adds no detail. It gives more of the output range to the middle values.
     const chain = compose(contrast(400), brightness(30));
     apply(&pixels, chain);
     try out.writeAll("\nbrightness(+30) then contrast(x1.56):\n");
     try canvas.dump(out, &pixels);
 
-    // A table is worth printing. These five columns are entire filters.
+    // Print the table. Each of these five columns is a complete filter.
     const tables = [_]struct { name: []const u8, lut: Lut }{
         .{ .name = "ident", .lut = identity() },
         .{ .name = "invert", .lut = invert() },

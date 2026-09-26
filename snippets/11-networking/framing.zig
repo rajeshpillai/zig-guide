@@ -22,8 +22,9 @@ fn readLengthPrefixed(r: *std.Io.Reader) ![]const u8 {
 
 // ------------------------------------------------------------- delimiter
 
-/// A byte that cannot appear in the payload ends the message. Cheap to
-/// write, cheap to read by hand, and it costs you that byte forever.
+/// A byte that cannot appear in the payload ends the message. It is cheap
+/// to write and easy to read by hand. The cost is that the payload can
+/// never contain that byte.
 fn writeDelimited(w: *std.Io.Writer, payload: []const u8) !void {
     try w.writeAll(payload);
     try w.writeByte('\n');
@@ -98,8 +99,8 @@ pub fn main(init: std.process.Init) !void {
         try out.print("           read back \"{s}\"\n\n", .{try r.takeDelimiterExclusive('\n')});
     }
 
-    // Self-describing. Costs a tag byte and buys you a payload whose type
-    // the receiver did not have to agree on in advance.
+    // Self-describing. It costs a tag byte. In return, the receiver does
+    // not have to agree on the payload's type in advance.
     {
         var w: std.Io.Writer = .fixed(&wire);
         try writeTagged(&w, .{ .int = 4096 });
@@ -115,8 +116,8 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // What the delimiter scheme cannot do. The payload contains the
-    // delimiter, so the reader stops early and silently: no error, just a
-    // truncated message and the rest treated as the next one.
+    // delimiter, so the reader stops early and reports no error. The
+    // message is cut short, and the rest is treated as the next message.
     {
         var w: std.Io.Writer = .fixed(&wire);
         try writeDelimited(&w, "two\nlines");

@@ -73,7 +73,7 @@ test "lock the buffer in place while holding a pointer into it" {
     try list.appendSlice(gpa, &.{ 1, 2, 3 });
 
     // Between these two calls the buffer may not move, so a pointer into
-    // it stays good. Anything that would reallocate panics in a safety
+    // it stays valid. Anything that would reallocate panics in a safety
     // build instead of quietly invalidating `first`.
     list.lockPointers();
     const first = &list.items[0];

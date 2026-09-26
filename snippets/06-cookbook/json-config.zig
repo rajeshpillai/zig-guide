@@ -11,7 +11,7 @@ const Config = struct {
     debug: bool = false,
 };
 
-// The parser checks shape (types, field names); values are your job.
+// The parser checks shape (types, field names). Checking values is up to you.
 fn validate(c: Config) error{ PrivilegedPort, TooManyWorkers }!void {
     if (c.port < 1024) return error.PrivilegedPort;
     if (c.workers == 0 or c.workers > 64) return error.TooManyWorkers;
@@ -57,8 +57,8 @@ pub fn main(init: std.process.Init) !void {
         \\{ "port": 80 }
     );
 
-    // A typo'd field name is an error by default. It catches the config
-    // the user *thought* they wrote.
+    // A misspelled field name is an error by default. It catches a config
+    // that is not what the user *thought* they wrote.
     try report(out, gpa,
         \\{ "prot": 9000 }
     );

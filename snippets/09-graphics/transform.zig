@@ -114,10 +114,10 @@ fn line(x0: i32, y0: i32, x1: i32, y1: i32, ink: u8) void {
 }
 
 /// A character cell is about twice as tall as it is wide, so the last thing
-/// done to every point is a non-uniform scale that undoes it. Composing it here
-/// rather than multiplying by two at the call site is the practical reason to
-/// have `then` at all: the transforms above stay in square units, where a
-/// rotation is a rotation, and the display's odd aspect is one matrix applied
+/// done to every point is a non-uniform scale that undoes it. It is composed
+/// here instead of multiplying by two at the call site, and that is the main
+/// reason `then` exists. The transforms above stay in square units, where a
+/// rotation keeps its shape. The display's uneven aspect is one matrix applied
 /// after everything else.
 const aspect = Transform.scale(2, 1);
 
@@ -174,7 +174,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Turning a shape about a point that is not the origin is three transforms:
     // bring the point to the origin, turn, put it back. There is no rotate
-    // that takes a centre, and this is the reason none is needed.
+    // that takes a centre, because these three steps do the same job.
     const pivot_x: f32 = 16;
     const pivot_y: f32 = 7;
     clear();

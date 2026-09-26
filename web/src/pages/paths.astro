@@ -36,8 +36,8 @@ const PATHS: Path[] = [
     who:
       "You have written software, but never in a language that made you say " +
       "where a value lives. Start in Groundwork, which teaches the machine " +
-      "rather than the language and assumes no C, then take the long way " +
-      "through the first two sections.",
+      "rather than the language and assumes no C. Then read the first two " +
+      "sections in full.",
     chapters: [
       "systems-from-scratch/everything-is-bytes",
       "systems-from-scratch/numbers-have-a-size",
@@ -76,8 +76,8 @@ const PATHS: Path[] = [
     title: "Coming from C",
     who:
       "You already know pointers, the stack and undefined behaviour. Skip the " +
-      "tour and read the places Zig disagrees with C, then go straight at the " +
-      "interop.",
+      "tour and read the places where Zig differs from C, then go straight to " +
+      "the C interop chapters.",
     chapters: [
       "getting-started/hello-world",
       "language-basics/integer-rules",
@@ -96,13 +96,13 @@ const PATHS: Path[] = [
       "working-with-c/cimport",
       "build-system/cross-compilation",
     ],
-    then: "Then the Cookbook, which is where the C you would have written shows up.",
+    then: "Then the Cookbook, which shows in Zig the programs you would have written in C.",
   },
   {
     title: "Coming from a garbage-collected language",
     who:
       "Go, Java, C#, Python, JavaScript. The syntax will not be the hard part. " +
-      "Memory and error handling will, so this path front-loads both.",
+      "Memory and error handling will, so this path puts both first.",
     chapters: [
       "getting-started/hello-world",
       "getting-started/running-tests",
@@ -128,7 +128,7 @@ const PATHS: Path[] = [
       "You learn a thing by writing it. This is the spine of the From Scratch " +
       "track: the primitives a shell needs, the tools you use every day, a " +
       "language, and a web server. Each one is a complete program, and the " +
-      "track has more of each if a stage grabs you.",
+      "track has more of each if one stage interests you.",
     chapters: [
       "terminal/strings",
       "terminal/tokenize",
@@ -172,8 +172,8 @@ const PATHS: Path[] = [
     title: "Writing a network service",
     who:
       "A server, a client, or anything that speaks a protocol. The framing " +
-      "chapters are the ones that decide whether it survives contact with a " +
-      "real network, so they come before the sockets do most of the work.",
+      "chapters decide whether it keeps working on a real network, so they " +
+      "come before the chapters where the sockets do most of the work.",
     chapters: [
       "standard-library/readers-and-writers",
       "standard-library/io-interface",

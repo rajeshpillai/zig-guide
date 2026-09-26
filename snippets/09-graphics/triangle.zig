@@ -10,7 +10,7 @@ var pixels: [canvas.width * canvas.height]u32 = undefined;
 const Point = struct { x: i32, y: i32 };
 
 /// Twice the signed area of triangle (a, b, p). Positive on one side of the
-/// line ab, negative on the other, zero exactly on it. That sign is the whole
+/// line ab, negative on the other, zero exactly on it. The sign alone is the
 /// inside test, and the magnitude is the barycentric weight.
 fn edge(a: Point, b: Point, p: Point) i32 {
     return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);

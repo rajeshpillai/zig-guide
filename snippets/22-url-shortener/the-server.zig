@@ -7,8 +7,8 @@ const std = @import("std");
 
 // ------------------------------------------------- wire framing, again
 // Identical to the client chapter. In a multi-file project this block
-// would be the module the chapters share; in a one-file server you can
-// read top to bottom, it is forty lines of tax.
+// would be the module the chapters share. In a one-file server that you
+// read top to bottom, it is forty lines of repeated code.
 
 fn putInt(comptime T: type, w: *std.Io.Writer, v: T) !void {
     var b: [@divExact(@typeInfo(T).int.bits, 8)]u8 = undefined;
@@ -219,10 +219,9 @@ fn checkTarget(url: []const u8) !void {
 // ------------------------------------------------------- the sql store
 // The same interface the routes chapter ran in memory, backed by SQL.
 // Values are quoted into the statement text: every ' in the value
-// becomes '', so the value cannot end its own quotes. This is the
-// simple-protocol tradeoff named in the intro; the extended protocol,
-// which ships values outside the SQL entirely, is what a production
-// driver uses instead.
+// becomes '', so the value cannot end its own quotes. This quoting is the
+// simple-protocol tradeoff named in the intro. A production driver uses
+// the extended protocol instead, which sends values outside the SQL.
 
 fn sqlQuote(w: *std.Io.Writer, s: []const u8) !void {
     try w.writeByte('\'');
@@ -248,8 +247,8 @@ const SqlStore = struct {
 
     /// The slug is derived from the id, and the id comes from the
     /// table's sequence, so ask the sequence first and insert a complete
-    /// row. Two statements; a production service would wrap them in a
-    /// transaction so a crash between them cannot leak an id.
+    /// row. That is two statements. A production service would wrap them
+    /// in a transaction so a crash between them cannot leak an id.
     fn create(self: *SqlStore, target: []const u8, slug_buf: *[11]u8) ![]const u8 {
         var rows = try self.client.query("SELECT nextval('links_id_seq')");
         const row = (try rows.next()) orelse return error.NoRow;
@@ -292,8 +291,8 @@ const SqlStore = struct {
         return info;
     }
 
-    /// The redirect's read and its hit count in one statement: no
-    /// second round trip, and no lost update when two requests race.
+    /// The redirect's read and its hit count in one statement. It needs
+    /// no second round trip, and no update is lost when two requests race.
     fn follow(self: *SqlStore, slug: []const u8, target_buf: *[256]u8) !?[]const u8 {
         var stmt_buf: [128]u8 = undefined;
         var stmt: std.Io.Writer = .fixed(&stmt_buf);
@@ -337,8 +336,8 @@ const SqlStore = struct {
 
 // ------------------------------------------------------------ the http
 // The routes chapter's handler with the SQL store behind the seam. The
-// shape is unchanged; only the store calls differ, and only because the
-// in-memory version handed out pointers where SQL hands out copies.
+// shape is unchanged. Only the store calls differ, because the in-memory
+// version returned pointers and SQL returns copies.
 
 fn respond(w: *std.Io.Writer, status: []const u8, extra_header: []const u8, body: []const u8) !void {
     try w.print("HTTP/1.1 {s}\r\n", .{status});
@@ -465,9 +464,9 @@ fn serveOne(io: std.Io, store: *SqlStore, conn: *std.Io.net.Stream) !void {
     var writer = conn.writer(io, &wbuf);
 
     // Read header lines to the blank line, then exactly Content-Length
-    // bytes of body. A request is bytes with edges only HTTP knows;
-    // reading "what is there" instead would work until the first client
-    // whose request arrives split, which the short-reads chapter covers.
+    // bytes of body. Only HTTP knows where a request starts and ends.
+    // Reading whatever bytes are there would fail on the first request
+    // that arrives split. The short-reads chapter covers this.
     var request_buf: [2048]u8 = undefined;
     var used: usize = 0;
     var content_length: usize = 0;

@@ -15,7 +15,7 @@ test "string literals are sentinel terminated" {
     const literal = "hi";
     try expect(@TypeOf(literal) == *const [2:0]u8);
     try expect(literal.len == 2);
-    try expect(literal[2] == 0); // free C compatibility
+    try expect(literal[2] == 0); // compatible with C at no extra cost
 }
 
 test "span recovers the length from a sentinel" {

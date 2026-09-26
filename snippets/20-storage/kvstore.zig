@@ -4,9 +4,9 @@
 const std = @import("std");
 
 /// Adler-style: two running sums, one of the bytes and one of the sums, so
-/// the order of the bytes matters. Hand-rolled because this track builds what
-/// it uses, and because the property that matters is easy to state: change any
-/// byte and the number changes.
+/// the order of the bytes matters. Written by hand because this track builds
+/// what it uses. The property it needs is easy to state: change any byte and
+/// the number changes.
 fn checksum(bytes: []const u8) u32 {
     var a: u32 = 1;
     var b: u32 = 0;
@@ -18,8 +18,8 @@ fn checksum(bytes: []const u8) u32 {
 }
 
 /// `<checksum>|<op>|<key>|<value>\n`. The checksum comes first so it can be
-/// read before the thing it describes, and the newline is the frame: a torn
-/// write leaves a last line without one.
+/// read before the data it describes. The newline marks the end of a record,
+/// so a write that was cut off part way leaves a last line without one.
 pub fn append(wal: *std.Io.Writer, op: []const u8, key: []const u8, value: []const u8) !void {
     var body: [256]u8 = undefined;
     const payload = try std.mem.print(&body, "{s}|{s}|{s}", .{ op, key, value });
@@ -66,8 +66,8 @@ pub const Store = struct {
 pub const Recovery = struct { store: Store, applied: usize, discarded: usize };
 
 /// Rebuild the store by replaying the log, and stop at the first record that
-/// does not verify. Stopping rather than skipping is the important half: a
-/// log is a sequence, and a record after a broken one may depend on it.
+/// does not verify. It stops instead of skipping, because a log is a
+/// sequence and a record after a broken one may depend on it.
 pub fn replay(wal: []const u8) Recovery {
     var store: Store = .{};
     var applied: usize = 0;
@@ -78,8 +78,8 @@ pub fn replay(wal: []const u8) Recovery {
     var good: usize = 0;
 
     while (offset < wal.len) {
-        // No newline means the process died mid-write. Everything before is
-        // intact, and this partial record never happened.
+        // No newline means the process died mid-write. Everything before it
+        // is intact. This partial record is treated as never written.
         const end = std.mem.findScalarPos(u8, wal, offset, '\n') orelse break;
         const line = wal[offset..end];
         offset = end + 1;
@@ -142,8 +142,8 @@ pub fn main(init: std.process.Init) !void {
     // this; the checksum can.
     var damaged: [1024]u8 = undefined;
     @memcpy(damaged[0..full.len], full);
-    // Inside the second record, so the third and fourth are still perfectly
-    // readable and are refused anyway.
+    // Inside the second record. The third and fourth are still readable,
+    // but they are refused anyway.
     damaged[30] = 'X';
     try report(out, "a byte corrupted in the second record", damaged[0..full.len]);
 

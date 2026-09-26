@@ -35,7 +35,7 @@ test "a width makes a signed integer carry its sign" {
     var buf: [64]u8 = undefined;
 
     // The same width against three types. A literal is `comptime_int` and
-    // prints bare, which is what the tests above are quietly relying on.
+    // prints bare. The tests above depend on that.
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{42}), "   42"));
 
     // A signed value prints a leading `+` once a width is given. The sign

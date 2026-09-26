@@ -17,9 +17,9 @@ fn put(x: usize, y: usize, ink: u8) void {
     canvas[y * width + x] = ink;
 }
 
-/// Map a value onto pixels. The denominator is the decision: dividing by the
-/// largest value makes the tallest bar fill the plot, which is what makes two
-/// charts side by side incomparable unless they share a scale.
+/// Map a value onto pixels. The denominator chooses the scale: dividing by the
+/// largest value makes the tallest bar fill the plot. Because of this, two
+/// charts side by side cannot be compared unless they share a scale.
 fn barHeight(value: u32, max: u32, rows: usize) usize {
     if (max == 0) return 0;
     return @intCast(@as(usize, value) * rows / max);
@@ -67,7 +67,8 @@ pub fn main(init: std.process.Init) !void {
         drawBar(i, v, max, '#');
         put(plot_left + i * 5 + 1, plot_bottom + 2, labels[i]);
     }
-    // The scale, written down. A chart without one is a picture of a shape.
+    // The scale, written down. Without it the reader cannot tell what the bar
+    // heights mean.
     put(0, plot_top, '4');
     put(1, plot_top, '0');
     put(0, plot_bottom, '0');

@@ -35,8 +35,8 @@ const Pos = struct { r: usize, c: usize };
 /// until the bounds check has passed.
 const Step = struct { dr: i8, dc: i8, name: []const u8 };
 
-/// Up, down, left, right. The order decides nothing for the distances and
-/// everything for the path a depth-first walk picks.
+/// Up, down, left, right. The order does not change the distances. It does
+/// decide which path a depth-first walk picks.
 const moves = [4]Step{
     .{ .dr = -1, .dc = 0, .name = "up" },
     .{ .dr = 1, .dc = 0, .name = "down" },
@@ -91,9 +91,9 @@ const Grid = struct {
 /// Read the grid out of a reader, one line per row.
 ///
 /// Taking a `*std.Io.Reader` rather than the string is the same discipline the
-/// networking chapters use for protocols. Point it at a file on a judge and
-/// not a line of it changes. Rows of different lengths are rejected here
-/// rather than at the first index that walks off the end of one.
+/// networking chapters use for protocols. On a judge, pass a reader over a
+/// file and the function stays the same. Rows of different lengths are
+/// rejected here rather than at the first index that walks off the end of one.
 fn readGrid(reader: *std.Io.Reader, out: []u8) !Grid {
     var rows: usize = 0;
     var cols: usize = 0;
@@ -243,8 +243,8 @@ fn bfsMarkOnPop(
 ///
 /// Sweep the whole grid, lower any cell that a neighbour can improve, and
 /// repeat until a sweep changes nothing. It shares no code with the searches
-/// above, so agreeing with it is worth something. It also costs a sweep per
-/// level, which is the price of not knowing what order to look in.
+/// above, so its agreement is an independent check. It also costs a sweep per
+/// level, because it does not know what order to look in.
 fn relaxDistances(g: Grid, start: usize, dist: []?u32, sweeps: *usize, looks: *usize) void {
     @memset(dist, null);
     dist[start] = 0;
@@ -344,7 +344,7 @@ fn writeGrid(out: *std.Io.Writer, g: Grid, overlay: []const u8) !void {
 /// The distance field, hiding anything further out than `limit`.
 ///
 /// A wall prints as `##` and a cell with no distance yet prints as a dot, so
-/// the reachable region grows out of the picture rather than being described.
+/// you can see the reachable region grow in the picture.
 fn writeField(out: *std.Io.Writer, g: Grid, dist: []const ?u32, limit: u32) !void {
     try writeHeader(out, g);
     for (0..g.rows) |r| {
@@ -536,7 +536,7 @@ pub fn main(init: std.process.Init) !void {
     try writeGrid(out, g, overlay[0..n]);
     try out.writeByte('\n');
 
-    // The queue bill, both ways round.
+    // What the queue costs, for each search.
     var pop_cost: Cost = .{};
     try bfsMarkOnPop(g, start, check[0..n], seen[0..n], &slots, &pop_cost);
 

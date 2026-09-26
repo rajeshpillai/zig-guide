@@ -17,10 +17,10 @@ const Header = struct {
     const magic_value: u16 = 0x5A47; // "ZG"
     const wire_size = 10;
 
-    /// Field by field, endianness stated at every call. This is more typing
-    /// than casting the struct's bytes and it is the only version that
-    /// survives a different compiler, a different target, or a peer written
-    /// in another language.
+    /// Field by field, endianness stated at every call. This needs more
+    /// typing than casting the struct's bytes. It is the only version that
+    /// still works with a different compiler, a different target, or a peer
+    /// written in another language.
     fn write(self: Header, w: *std.Io.Writer) !void {
         try w.writeInt(u16, self.magic, .big);
         try w.writeInt(u8, self.version, .big);
@@ -41,7 +41,7 @@ const Header = struct {
             // `std.enums.fromInt` returns null rather than an error, and it
             // replaced `std.meta.intToEnum`, which no longer exists. A tag
             // byte off the wire is attacker-controlled, so `@enumFromInt` on
-            // it is undefined behaviour, not a shortcut.
+            // it is undefined behaviour.
             .kind = std.enums.fromInt(Kind, kind) orelse return error.UnknownKind,
             .length = try r.takeInt(u32, .big),
             .checksum = try r.takeInt(u16, .big),
@@ -64,8 +64,8 @@ pub fn main(init: std.process.Init) !void {
     };
 
     // The struct in memory is larger than the message on the wire, because
-    // the compiler is free to pad and reorder. That gap is exactly why you
-    // cannot send a struct: the padding bytes are not yours to define.
+    // the compiler is free to pad and reorder. The padding is why you
+    // cannot send a struct as it is: you do not control the padding bytes.
     try out.print("@sizeOf(Header) = {d}, on the wire = {d}\n\n", .{
         @sizeOf(Header),
         Header.wire_size,
@@ -89,9 +89,9 @@ pub fn main(init: std.process.Init) !void {
         body,
     });
 
-    // Big-endian written, little-endian read. Nothing errors: the length
-    // is simply wrong, and it is wrong by a factor that makes the receiver
-    // try to allocate or wait for 83 million bytes.
+    // Big-endian written, little-endian read. Nothing returns an error. The
+    // length is just wrong, and so large that the receiver would try to
+    // allocate or wait for 83 million bytes.
     var swapped: std.Io.Reader = .fixed(w.buffered()[4..8]);
     try out.print("length read as big-endian:    {d}\n", .{
         std.mem.readInt(u32, w.buffered()[4..8], .big),

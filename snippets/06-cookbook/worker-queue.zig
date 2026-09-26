@@ -22,9 +22,9 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // The queue borrows its storage; eight slots of backpressure. A
-    // producer that runs ahead by more than eight items blocks, which is
-    // the mechanism that keeps a fast producer from drowning slow workers.
+    // The queue borrows its storage: eight slots. A producer that runs
+    // ahead by more than eight items blocks. This backpressure keeps a fast
+    // producer from overloading slow workers.
     var storage: [8]u64 = undefined;
     var queue: Queue = .init(&storage);
 
@@ -34,8 +34,9 @@ pub fn main(init: std.process.Init) !void {
         t.* = try std.Thread.spawn(.{}, consumer, .{ &queue, io, &total });
     }
 
-    // Produce twenty jobs, then close. Close is the shutdown protocol:
-    // no sentinel values, no stop flag, no leaked worker.
+    // Produce twenty jobs, then close. Closing the queue is how the workers
+    // are told to stop. It needs no sentinel values or stop flag, and no
+    // worker is leaked.
     for (1..21) |job| try queue.putAll(io, &.{job});
     queue.close(io);
 

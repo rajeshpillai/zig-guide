@@ -18,7 +18,7 @@ pub fn main(init: std.process.Init) !void {
     _ = &a;
     _ = &b;
 
-    // Three ways of saying what should happen when 300 does not fit in a u8.
+    // Four ways of saying what should happen when 300 does not fit in a u8.
     // None of them change with the build mode, because none of them are
     // relying on a check that a release build is allowed to remove.
 

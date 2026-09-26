@@ -5,8 +5,8 @@
 const std = @import("std");
 
 // An extern struct has a fixed, predictable layout, so every record is the same
-// number of bytes on disk. That is what makes record N reachable directly at
-// offset N * @sizeOf(Record), with no index and no scan.
+// number of bytes on disk. So record N can be read directly at offset
+// N * @sizeOf(Record), with no index and no scan.
 const Record = extern struct {
     id: u32,
     done: bool,
@@ -29,8 +29,8 @@ fn addTask(io: std.Io, file: std.Io.File, text: []const u8) !u32 {
 fn toggle(io: std.Io, file: std.Io.File, id: u32) !void {
     const offset = (id - 1) * @sizeOf(Record);
 
-    // Read one record straight from its slot, flip the flag, write it back to
-    // the same slot. No rewrite of the whole file.
+    // Read one record from its slot, toggle the flag, write it back to the
+    // same slot. The rest of the file is not rewritten.
     var rec: Record = undefined;
     _ = try file.readPositionalAll(io, std.mem.asBytes(&rec), offset);
     rec.done = !rec.done;

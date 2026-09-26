@@ -4,8 +4,8 @@
 
 const std = @import("std");
 
-// Each worker owns its chunk and its slot outright. Nothing is shared,
-// so there is nothing to synchronize until the join.
+// Each worker owns its chunk and its slot. Nothing is shared, so
+// nothing needs to be synchronized until the join.
 fn sumChunk(chunk: []const u64, slot: *u64) void {
     var sum: u64 = 0;
     for (chunk) |x| sum += x;
@@ -20,8 +20,8 @@ pub fn main(init: std.process.Init) !void {
     var numbers: [1000]u64 = undefined;
     for (&numbers, 1..) |*n, i| n.* = i;
 
-    // Fixed worker count keeps this demo deterministic to read; a real
-    // program would start from std.Thread.getCpuCount().
+    // A fixed worker count keeps the output of this demo the same on every
+    // machine. A real program would start from std.Thread.getCpuCount().
     const workers = 4;
     var slots: [workers]u64 = undefined;
     var threads: [workers]std.Thread = undefined;

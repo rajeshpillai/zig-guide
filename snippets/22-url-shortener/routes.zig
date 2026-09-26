@@ -30,10 +30,10 @@ fn checkTarget(url: []const u8) !void {
 // ---------------------------------------------------------------- store
 
 /// Everything the routes are allowed to ask of storage, and nothing
-/// else. The final chapter swaps this struct for one whose methods
-/// write SQL; the handler will not change by a line. Same seam, same
-/// reason as the ORM's recording driver: the interesting logic gets
-/// tested with no database in the room.
+/// else. The final chapter replaces this struct with one whose methods
+/// write SQL, and not one line of the handler changes. The ORM's
+/// recording driver uses the same split for the same reason: the route
+/// logic can be tested without a database.
 const Store = struct {
     const Link = struct {
         id: u64 = 0,
@@ -61,8 +61,8 @@ const Store = struct {
             const id = self.next_id;
             self.next_id += 1;
             link.* = .{ .id = id, .live = true };
-            // encode fills the tail of its buffer; the slug lives at the
-            // front. The ranges can overlap, which is what @memmove is for.
+            // encode fills the tail of its buffer, and the slug belongs at
+            // the front. The ranges can overlap, and @memmove handles that.
             const s = encode(id, &link.slug_buf);
             @memmove(link.slug_buf[0..s.len], s);
             link.slug_len = s.len;
@@ -90,8 +90,8 @@ fn respond(w: *std.Io.Writer, status: []const u8, extra_header: []const u8, body
 }
 
 /// One request in, one response out, nothing else touched. The request
-/// parsing here is the minimum that works; the web server track does it
-/// properly, headers and all.
+/// parsing here is the minimum that works. The web server track does it
+/// fully, including headers.
 fn handle(store: *Store, request: []const u8, w: *std.Io.Writer) !void {
     const line_end = std.mem.find(u8, request, "\r\n") orelse return error.BadRequest;
     var line = std.mem.tokenizeScalar(u8, request[0..line_end], ' ');
@@ -140,7 +140,7 @@ fn handle(store: *Store, request: []const u8, w: *std.Io.Writer) !void {
         return respond(w, "405 Method Not Allowed", "", "");
     }
 
-    // The route the service exists for: anything else is a slug.
+    // The main route of the service: anything else is a slug.
     if (std.mem.eql(u8, method, "GET")) {
         if (store.find(path[1..])) |link| {
             link.hits += 1;

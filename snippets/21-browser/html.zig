@@ -25,9 +25,9 @@ pub const Node = struct {
     }
 };
 
-/// Elements that can never have children. `<br>` is not an error waiting for
-/// `</br>`; it is complete on its own, and a parser that pushes it onto the
-/// open-element stack swallows the rest of the document.
+/// Elements that can never have children. `<br>` does not wait for a `</br>`.
+/// It is complete on its own. A parser that pushes it onto the open-element
+/// stack puts the rest of the document inside it.
 fn isVoid(name: []const u8) bool {
     inline for (.{ "br", "img", "hr", "input", "meta", "link" }) |v| {
         if (std.ascii.eqlIgnoreCase(name, v)) return true;
@@ -171,7 +171,7 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &stdout_writer.interface;
 
-    // Deliberately sloppy, and all of it is legal HTML.
+    // Written carelessly on purpose, and all of it is legal HTML.
     const source =
         \\<h1 class="title">Hello</h1>
         \\<p>First paragraph

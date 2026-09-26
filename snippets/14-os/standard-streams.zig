@@ -7,7 +7,7 @@ pub fn main(init: std.process.Init) !void {
     const io = init.io;
 
     // Two writers, both aimed at descriptor 1. One holds bytes back until it
-    // is told to drain; the other has nowhere to hold them.
+    // is told to drain. The other has no buffer, so it writes them at once.
     var buf: [1024]u8 = undefined;
     var buffered = std.Io.File.stdout().writerStreaming(io, &buf);
     var unbuffered = std.Io.File.stdout().writerStreaming(io, &.{});
