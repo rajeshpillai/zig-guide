@@ -76,6 +76,45 @@ have not, do not worry about it here.
 [Allocators](/learn/standard-library/allocators/) come later, and nothing on
 this page depends on them.
 
+## Why `!void`, and when you can drop the `!`
+
+`void` means `main` returns nothing. The `!` in front means it can also return
+an error instead.
+
+The greeting needs the `!` because of `try`. Writing to stdout can fail: the
+output may be a pipe that the other program closed, or a file on a full disk.
+`writeStreamingAll` returns an error in those cases. `try` passes that error
+up to the caller, and the caller of `main` is the program's startup code. So
+`main` must be allowed to return an error, and the `!` says that it is.
+
+When `main` returns an error, Zig prints its name, for example
+`error: FileNotFound`, and the program exits with status 1. A Debug build also
+prints where the error came from. For a small program that is a reasonable way
+to fail, which is why most examples use `!void`.
+
+Remove the `!` but keep the call, and the program no longer compiles. Zig does
+not let you ignore an error. The compiler names the error set the call can
+return and asks you to use `try`, `catch` or `if`.
+
+You can drop the `!` in two cases.
+
+The first is when nothing in `main` can fail. `std.debug.print` returns plain
+`void`, so the older program at the top of this page does not need `!void`.
+`pub fn main() void` compiles and prints the same thing. Older tutorials
+write `!void` there out of habit.
+
+The second is when `main` handles every error itself, with `catch`:
+
+<Playground name="01-getting-started.main-void" />
+
+The `catch` block receives the error, prints a message a person can read, and
+exits with status 1. Nothing is left for `main` to return, so its return type
+is `void`.
+
+This is more code than `!void`, and it is useful when you want to choose the
+message and the exit status yourself. For everything else, `!void` with `try`
+is shorter and loses no information.
+
 ## Buffering, and the `flush` you must not forget
 
 `writeStreamingAll` is fine for a single fixed string, but real programs
