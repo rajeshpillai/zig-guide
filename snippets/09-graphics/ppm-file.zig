@@ -1,5 +1,4 @@
 //! title: Writing the PPM to Disk
-//! native
 //! The same bytes, but through the filesystem API. Two calls: the header, then
 //! the pixels.
 
@@ -84,6 +83,6 @@ pub fn main(init: std.process.Init) !void {
     try out.flush();
 }
 
-// Marked `//! native`: CI builds this for the host and runs it against a real
-// filesystem, so the file really is written and read back. The browser cannot
-// run it, because the WASI sandbox has no preopened directories.
+// This runs in wasm. The working directory is an empty directory the runner
+// provides: a temp directory in CI, a directory in memory in your browser. The
+// file is really written and read back in both.

@@ -12,7 +12,6 @@ likely to make older filesystem examples fail to compile.
 
 <Playground
   name="03-standard-library.filesystem"
-  note="Built and run natively by CI against a real filesystem, so the round trip is checked. The browser WASI sandbox has no preopened directories."
   tryLocally="zig run filesystem.zig"
 />
 
@@ -50,16 +49,21 @@ defer gpa.free(contents);
 The limit is mandatory, not optional. There is no API that reads an unbounded
 amount of untrusted input into memory by accident.
 
-## Why this page does not run
+## Where the file goes
 
-Every other snippet on this site executes in your browser. This one cannot:
-WASI programs can only touch directories the host explicitly preopens, and the
-playground grants none. CI still compiles it, so if the filesystem API changes
-again this page turns the build red. It just cannot be executed here.
+A WASI program can only touch directories the host opens for it before it starts.
+These are called preopened directories.
 
-[A File Descriptor Is a Number](/learn/os/file-descriptors/) is that side of
-it, and it does run in the browser. The descriptors a WASI program starts with
-are handed to it rather than opened.
+The playground opens one empty directory for each run.
+
+In your browser it lives in memory. In CI it is a temp directory on disk.
+
+Zig treats the first preopened directory as the current directory. So `Dir.cwd()` works, and this snippet runs in both places.
+
+CI compares the output of both runs with the same `.expected` file.
+
+[A File Descriptor Is a Number](/learn/os/file-descriptors/) shows the other side.
+The descriptors a WASI program starts with are handed to it. The program does not open them.
 
 ## Directories are handles, not strings
 

@@ -19,7 +19,7 @@
 // surfaces any stderr from a step as an alarming "failed command:" line — so a
 // green run must produce no output at all.
 import { WASI } from "node:wasi";
-import { readFile, open, unlink } from "node:fs/promises";
+import { readFile, open, unlink, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -41,6 +41,14 @@ const errPath = `${stem}.err`;
 const outHandle = await open(outPath, "w+");
 const errHandle = await open(errPath, "w+");
 
+// Every run gets an empty directory, preopened as descriptor 3. Zig's std on
+// WASI takes the first preopen to be the current directory, so
+// `std.Io.Dir.cwd()` works unchanged and the Working with Files chapters run
+// here and in the browser alike. `wasi-runner.ts` hands the browser an empty
+// in-memory directory in the same slot. Nothing is copied in: a snippet that
+// reads a file writes it first, so the two runners start from the same state.
+const scratch = await mkdtemp(`${stem}-dir-`);
+
 let exitCode = 0;
 let trap = null;
 
@@ -52,6 +60,7 @@ try {
     returnOnExit: true,
     stdout: outHandle.fd,
     stderr: errHandle.fd,
+    preopens: { ".": scratch },
   });
 
   const module = await WebAssembly.compile(await readFile(modulePath));
@@ -65,7 +74,11 @@ try {
 const stdout = await readFile(outPath, "utf8");
 const stderr = await readFile(errPath, "utf8");
 await Promise.all([outHandle.close(), errHandle.close()]);
-await Promise.all([unlink(outPath), unlink(errPath)]).catch(() => {});
+await Promise.all([
+  unlink(outPath),
+  unlink(errPath),
+  rm(scratch, { recursive: true, force: true }),
+]).catch(() => {});
 
 if (expectFailure) {
   // The trap message is appended because a Zig panic reaches stderr through

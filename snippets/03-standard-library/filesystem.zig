@@ -1,5 +1,4 @@
 //! title: Filesystem
-//! native
 //! All filesystem APIs take an `Io` since 0.16.
 
 const std = @import("std");
@@ -48,6 +47,6 @@ pub fn main(init: std.process.Init) !void {
     try out.flush();
 }
 
-// Marked `//! native`: CI builds this for the host and runs it against a real
-// filesystem, so the round trip above is actually checked. It is the browser
-// that cannot run it, because the WASI sandbox has no preopened directories.
+// This runs in wasm. Both runners give the program an empty directory as its
+// working directory: a temp directory in CI, a directory in memory in your
+// browser. So `Dir.cwd()` holds only the file this program creates.

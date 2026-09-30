@@ -10,8 +10,22 @@ import {
   File,
   OpenFile,
   ConsoleStdout,
+  OpenDirectory,
+  PreopenDirectory,
   type Fd,
 } from "@bjorn3/browser_wasi_shim";
+
+// The shim creates a directory by opening it with CREAT|DIRECTORY and no EXCL,
+// so creating one that already exists succeeds. A real disk and Node's WASI
+// both return EEXIST, and `zig build verify` runs under Node, so without this
+// the Directories chapter would print one thing in CI and another here. Still
+// the case in 0.4.2, the latest release; drop this when upstream adds EXCL.
+const OFLAGS_CREAT = 1;
+const OFLAGS_DIRECTORY = 2;
+const OFLAGS_EXCL = 4;
+OpenDirectory.prototype.path_create_directory = function (path: string) {
+  return this.path_open(0, path, OFLAGS_CREAT | OFLAGS_DIRECTORY | OFLAGS_EXCL, 0n, 0n, 0).ret;
+};
 
 export interface RunResult {
   /** Interleaved stdout+stderr, in the order the program emitted it. */
@@ -101,6 +115,11 @@ export async function runWasm(
     new OpenFile(new File([])), // stdin: always empty
     new ConsoleStdout(sink), // stdout
     new ConsoleStdout(sink), // stderr — zig test reports here
+    // An empty in-memory directory at descriptor 3, which Zig's std takes to
+    // be the current directory. A new one per run, so pressing Run twice
+    // starts from the same empty state CI did. `tools/run-wasi.mjs` preopens
+    // an empty temp directory in the same slot.
+    new PreopenDirectory(".", new Map()),
   ];
 
   const wasi = new WASI(argv, env, fds, { debug: false });

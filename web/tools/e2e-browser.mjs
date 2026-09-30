@@ -17,6 +17,47 @@ import { fileURLToPath } from "node:url";
 import { legacyRedirects } from "../legacy-urls.mjs";
 
 const DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "dist");
+const SNIPPETS = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "snippets");
+
+/**
+ * Snippets whose browser output is known to differ from what CI pinned, and
+ * why. Keep this short: every entry is a page where the reader's Run button
+ * and the verified output disagree.
+ */
+const BROWSER_OUTPUT_DIFFERS = new Map([
+  // The shim reports its console streams as a character device, so isTty()
+  // says true in the browser and false under `zig build verify`, where stdout
+  // is a temp file. Found when this check was added on 2026-09-30.
+  ["14-os.standard-streams", "stdout and stderr report as a TTY in the browser"],
+]);
+
+/**
+ * The `.expected` lines for a snippet, or null when it pins no output. The
+ * playground shows stdout and stderr interleaved and `.expected` is stdout
+ * alone, so the browser output must contain these lines in order, with any
+ * stderr lines allowed in between.
+ */
+async function expectedLines(slug) {
+  const dot = slug.indexOf(".");
+  try {
+    const text = await readFile(join(SNIPPETS, slug.slice(0, dot), `${slug.slice(dot + 1)}.expected`), "utf8");
+    // An empty expectation renders as "(no output)", so there is no line to find.
+    return text.trim() === "" ? null : text.replace(/\n$/, "").split("\n");
+  } catch {
+    return null;
+  }
+}
+
+function containsInOrder(output, want) {
+  const lines = output.split("\n");
+  let at = 0;
+  for (const line of want) {
+    while (at < lines.length && lines[at].trimEnd() !== line.trimEnd()) at++;
+    if (at === lines.length) return line;
+    at++;
+  }
+  return null;
+}
 
 const TYPES = {
   ".html": "text/html",
@@ -118,6 +159,7 @@ const pagers = new Map();
 const markdownLinks = new Map();
 let playgrounds = 0;
 let expectedFailures = 0;
+let outputChecked = 0;
 let compileOnly = 0;
 let sourceQuotes = 0;
 
@@ -349,6 +391,21 @@ for (const href of chapters) {
       }
     } else if (!status.startsWith("exit 0")) {
       failures.push(`${href} [${name}] ${status}\n${output}`);
+    } else if (!BROWSER_OUTPUT_DIFFERS.has(name)) {
+      // Exit 0 is not the same output. CI ran this wasm under Node and diffed
+      // stdout; this is the same wasm under the browser shim, and the two
+      // runners implement WASI separately. The Working with Files chapters
+      // depend on their filesystems agreeing, so check the text, not the code.
+      // Untrimmed: `output` above is trimmed for the failure messages, which
+      // strips the leading spaces off the first line of every ASCII drawing.
+      const want = await expectedLines(name);
+      const raw = await block.locator(".pg-output").textContent();
+      const missing = want ? containsInOrder(raw, want) : null;
+      if (missing !== null) {
+        failures.push(`${href} [${name}] browser output differs from .expected; first missing line: ${JSON.stringify(missing)}\n${output}`);
+      } else if (want) {
+        outputChecked++;
+      }
     }
   }
 }
@@ -1506,6 +1563,7 @@ hosted?.server.close();
 console.log(
   `pages: ${chapters.length}  playgrounds: ${playgrounds}  ` +
     `compile-only: ${compileOnly}  expected failures: ${expectedFailures}  ` +
+    `output matched .expected: ${outputChecked}  ` +
     `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
     `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  ` +
