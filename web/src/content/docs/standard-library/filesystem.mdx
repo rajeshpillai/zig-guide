@@ -80,9 +80,9 @@ var dir = try std.Io.Dir.cwd().openDir(io, "data", .{ .iterate = true });
 defer dir.close(io);
 
 var it = dir.iterate();
-while (try it.next()) |entry| {
+while (try it.next(io)) |entry| {
     if (entry.kind != .file) continue;
-    // entry.name is valid until the next next()
+    // entry.name is valid until the next next(io)
 }
 ```
 

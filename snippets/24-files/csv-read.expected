@@ -1,0 +1,29 @@
+1. trace of: 7,"say ""hi""",x
+   '7'  field_start     -> unquoted        [7]
+   ','  unquoted        -> field_start     field done: [7]
+   '"'  field_start     -> quoted          []
+   's'  quoted          -> quoted          [s]
+   'a'  quoted          -> quoted          [sa]
+   'y'  quoted          -> quoted          [say]
+   ' '  quoted          -> quoted          [say ]
+   '"'  quoted          -> quote_in_quoted [say ]
+   '"'  quote_in_quoted -> quoted          [say "]
+   'h'  quoted          -> quoted          [say "h]
+   'i'  quoted          -> quoted          [say "hi]
+   '"'  quoted          -> quote_in_quoted [say "hi]
+   '"'  quote_in_quoted -> quoted          [say "hi"]
+   '"'  quoted          -> quote_in_quoted [say "hi"]
+   ','  quote_in_quoted -> field_start     field done: [say "hi"]
+   'x'  field_start     -> unquoted        [x]
+   '\n' unquoted        -> field_start     field done: [x]
+   3 fields: [7] [say "hi"] [x]
+2. products.csv
+   4 fields: [id] [name] [price] [note]
+   4 fields: [1] [Pencil] [0.50] []
+   4 fields: [2] [Widget, large] [12.00] [the "best" one]
+   4 fields: [3] [Lamp] [30.00] [two\nlines]
+   4 fields: [4] [Mug] [8.25] [no final newline]
+3. errors
+   "a,b\nc,d\"e\n": QuoteInUnquotedField on line 2
+   "a,\"b\"c\n": TextAfterClosingQuote on line 1
+   "a,b\nc,\"never closed\n": UnterminatedQuote on line 2

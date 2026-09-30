@@ -1,0 +1,18 @@
+1. stat
+   notes.txt  kind file, size 6
+   archive    kind directory
+2. six failures
+   open a file that is not there:     FileNotFound
+   create a file in a missing dir:    FileNotFound
+   open a directory as a file:        IsDir
+   use a file as a directory:         NotDir
+   deleteFile on a directory:         IsDir
+   deleteFile on a missing file:      FileNotFound
+3. messages
+   missing.txt  not found: check the name and the folder
+   archive      that is a folder, not a file
+   notes.txt/x  part of the path is a file, not a folder
+   notes.txt    loaded 6 bytes
+4. cleanup
+   cleanup=false: InvalidItem, report.txt left behind, 16 bytes
+   cleanup=true: InvalidItem, no report.txt

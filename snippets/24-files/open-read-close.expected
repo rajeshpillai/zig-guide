@@ -1,0 +1,13 @@
+1. readFileAlloc
+   read 18 bytes
+   limit 17: StreamTooLong
+   limit 18: StreamTooLong
+   limit 19: ok, 18 bytes
+2. readFile
+   8-byte buffer: 8 bytes "apples\nb"
+   64-byte buffer: 18 bytes
+3. openFile
+   length 18, read 18
+   first line: apples
+4. missing file
+   settings.txt: FileNotFound, using defaults

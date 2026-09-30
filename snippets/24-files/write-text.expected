@@ -1,0 +1,18 @@
+1. truncate
+   truncate = true:  "v2\n"
+   truncate = false: "v2\nst version\n"
+2. exclusive
+   attempt 1: created
+   attempt 2: PathAlreadyExists
+3. append
+   started
+   loaded 3 items
+   stopped
+4. flush
+   buffered 33 bytes, file length 0
+   after close: 0 bytes on disk
+5. atomic replace
+   while writing: "port = 8080\n"
+   after replace: "port = 9090\n"
+   after a failed write: "port = 9090\n"
+   files in the directory: 5

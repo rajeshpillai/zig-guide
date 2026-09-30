@@ -1,0 +1,193 @@
+---
+title: Random Access
+seoTitle: "Zig Random Access Files: readPositional, writePositional and Seek"
+description: A file of fixed-size records. Read record N without reading the ones before it, change one in place, and grow and shrink the file.
+seoDescription: Random access file I/O in Zig. Fixed-size records at index times size, readPositionalAll and writePositionalAll, seekTo on a File.Reader, writing past the end, setLength, and detecting a partial record left by a torn write.
+section: Working with Files
+order: 50
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+The chapters so far read a file from the start to the end.
+
+That works for text, where a line can be any length.
+
+To find line 500, we have to read the 499 lines before it.
+
+If every record in a file has the same size, we do not need to.
+
+Record 500 starts at byte `500 * size`.
+
+We can read it directly, or change it and leave the rest of the file alone.
+
+This is called random access.
+
+The program below keeps a small file of bank accounts, 16 bytes each.
+
+<Playground name="24-files.random-access" />
+
+## One record, 16 bytes
+
+<SnippetSource name="24-files.random-access" decl="Account" />
+
+The layout is written in a comment at the top of the snippet, like the format in [Binary Files](/learn/files/binary-files/).
+
+`encode` turns an `Account` into exactly 16 bytes.
+
+`decode` turns 16 bytes back into an `Account`.
+
+The balance is an `i64` count of cents, not a float. Money in a float gets rounding errors.
+
+Bytes 13 to 15 are not used, and `encode` always sets them to zero.
+
+Unused bytes give a later version of the format room for a new field without changing the record size.
+
+Starting from `@splat(0)` also means no leftover memory is written to the file.
+
+## Reading and writing at an offset
+
+<SnippetSource name="24-files.random-access" decl="writeRecord" />
+
+`writePositionalAll(io, bytes, offset)` writes the bytes at that offset.
+
+It does not use the file's current position, and it does not move it.
+
+So the offset of record `index` is `index * record_size`, and that is the whole calculation.
+
+<SnippetSource name="24-files.random-access" decl="readRecord" />
+
+`readPositionalAll` is the same for reading.
+
+It returns how many bytes it read.
+
+If the record is past the end of the file, that count is less than 16, and we return `error.NoSuchRecord`.
+
+```
+2. record 3 only
+   read 16 bytes at offset 48: id 103
+```
+
+Records 0, 1 and 2 were never read.
+
+For a file of five records that saves nothing. For a file of five million, it is the difference between one read and five million.
+
+## Changing one record
+
+```
+3. update record 1
+   record 1 is now id 101  balance 1250
+   80 bytes, 5 records
+```
+
+We read record 1, subtract 750 from the balance, and write the 16 bytes back to the same offset.
+
+The file is still 80 bytes.
+
+Nothing before or after record 1 was rewritten.
+
+Compare this with a text file.
+
+If a balance changes from `1000` to `999`, the line gets one character shorter, and every byte after it has to move.
+
+With fixed-size records, a new value always fits in the old space.
+
+## Writing past the end
+
+The file has five records, numbered 0 to 4. Now we write record 7.
+
+```
+4. write record 7
+   128 bytes, 8 records
+     [0] id 100  balance 1000
+     [1] id 101  balance 1250
+     [2] id 102  balance 3000
+     [3] id 103  balance 4000
+     [4] id 104  balance 5000
+     [5] empty
+     [6] empty
+     [7] id 107  balance 99
+```
+
+The write succeeds, and the file grows to 128 bytes.
+
+Records 5 and 6 were never written.
+
+They read back as 16 zero bytes each, so their id is 0.
+
+The program uses id 0 to mean an empty slot, which is why real ids start at 100.
+
+On most Linux and macOS filesystems, a gap like this takes no space on disk. The filesystem remembers that the range is zero and does not store it.
+
+A file with gaps like this is called a sparse file.
+
+## A reader that seeks
+
+`readPositionalAll` takes the offset on every call.
+
+A `File.Reader` can do the same thing with a position it remembers.
+
+```
+5. seek to the last record
+   size 128, seekTo(112), id 107
+```
+
+`reader.getSize()` asks for the file size.
+
+`reader.seekTo(size - record_size)` moves the reader to the start of the last record.
+
+Then `takeArray(record_size)` reads the 16 bytes from there.
+
+Use the reader when we read several records in a row after one seek. Use the positional calls when every read is at a different place.
+
+## Shrinking the file
+
+`file.setLength(io, 5 * record_size)` cuts the file to 80 bytes.
+
+```
+6. setLength to 5 records
+   80 bytes, 5 records
+```
+
+Records 5, 6 and 7 are gone.
+
+`setLength` can also make a file longer. The new bytes are zero, like the gap in section 4.
+
+## A record that was cut short
+
+Say the program crashes in the middle of writing a new record.
+
+Only part of the record reaches the disk.
+
+The last step simulates that by writing 6 bytes at the end.
+
+```
+7. a torn write
+   file length 86
+   PartialRecord
+```
+
+86 is not a multiple of 16.
+
+<SnippetSource name="24-files.random-access" decl="list" />
+
+`list` checks this first, with `size % record_size`, and returns `error.PartialRecord`.
+
+Without the check, it would compute 5 records, and the six extra bytes would be ignored.
+
+That hides the problem: the file is damaged, and the program never says so.
+
+A real program has to decide what to do next.
+
+It can cut the file back to the last whole record with `setLength`, or refuse to start until a person looks at it.
+
+Either way, it has to notice first.
+
+[An Append-Only Record Store](/learn/storage/flatdb/) recovers from exactly this case, and [A Write-Ahead Log](/learn/storage/kvstore/) handles a crash in the middle of a change.
+
+## The size of a length
+
+`file.length` returns a `u64`. `list` divides it by 16 and converts the result to a `usize` with `std.math.cast`.
+
+[Open, Read, Close](/learn/files/open-read-close/#opening-a-handle) explains why. On `wasm32` a `usize` is 32 bits, and a file can be bigger than that.

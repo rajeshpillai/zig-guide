@@ -1,0 +1,29 @@
+1. five records
+   80 bytes, 5 records
+     [0] id 100  balance 1000
+     [1] id 101  balance 2000
+     [2] id 102  balance 3000
+     [3] id 103  balance 4000
+     [4] id 104  balance 5000
+2. record 3 only
+   read 16 bytes at offset 48: id 103
+3. update record 1
+   record 1 is now id 101  balance 1250
+   80 bytes, 5 records
+4. write record 7
+   128 bytes, 8 records
+     [0] id 100  balance 1000
+     [1] id 101  balance 1250
+     [2] id 102  balance 3000
+     [3] id 103  balance 4000
+     [4] id 104  balance 5000
+     [5] empty
+     [6] empty
+     [7] id 107  balance 99
+5. seek to the last record
+   size 128, seekTo(112), id 107
+6. setLength to 5 records
+   80 bytes, 5 records
+7. a torn write
+   file length 86
+   PartialRecord

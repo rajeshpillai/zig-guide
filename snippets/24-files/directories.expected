@@ -1,0 +1,22 @@
+1. create
+   4 files written
+   createDir again: PathAlreadyExists
+   createDirPath again: ok
+2. list project/
+   file      README.md
+   directory docs
+   directory src
+3. walk project/
+   README.md
+   docs/
+     notes.txt
+   src/
+     main.zig
+     util/
+       math.zig
+   7 entries, 87 bytes in files
+4. rename project/docs -> project/doc
+   project/doc/notes.txt is 5 bytes
+5. delete
+   deleteDir: DirNotEmpty
+   deleteTree: done, stat now gives FileNotFound

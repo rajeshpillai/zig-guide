@@ -1,0 +1,158 @@
+---
+title: Directories
+seoTitle: "Zig Directories: createDirPath, iterate, walk and deleteTree"
+description: Create a tree of directories, list one level, walk every level, rename a directory and delete the whole tree.
+seoDescription: Working with directories in Zig with std.Io.Dir. createDir against createDirPath, why a listing must be sorted, iterate and walk, the size of a tree, renaming a directory, and deleteDir against deleteTree.
+section: Working with Files
+order: 80
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+A directory is a list of names.
+
+Each name points to a file or to another directory.
+
+The program below builds a small project tree, lists it two ways, renames part of it, and deletes all of it.
+
+<Playground name="24-files.directories" />
+
+## Creating a tree
+
+`createDirPath(io, "project/src/util")` creates `project`, then `project/src`, then `project/src/util`.
+
+It skips any that already exist.
+
+This is what `mkdir -p` does in a shell.
+
+`createDir` creates exactly one directory, and its parent must already exist.
+
+The two also differ when the directory is already there.
+
+```
+   createDir again: PathAlreadyExists
+   createDirPath again: ok
+```
+
+`createDir` reports an error.
+
+`createDirPath` succeeds, because the path it was asked for exists.
+
+Use `createDirPath` to make sure a directory is there before writing into it.
+
+Use `createDir` when the directory should be new, like `.exclusive = true` for a file.
+
+## Listing one level
+
+`Dir.cwd()` is not opened for listing.
+
+Its doc comment says that iterating over it is illegal behaviour.
+
+So we open the directory we want with `.iterate = true` first, and list that.
+
+<SnippetSource name="24-files.directories" decl="listSorted" />
+
+`dir.iterate()` returns an iterator, and `it.next(io)` returns one entry at a time, or `null` at the end.
+
+Each entry has a `name` and a `kind`.
+
+```
+   file      README.md
+   directory docs
+   directory src
+```
+
+The order the entries come back in is decided by the filesystem.
+
+It is not alphabetical, and it is not the order the files were created.
+
+It can differ between two machines, and between two runs on the same machine after files are added and deleted.
+
+This program runs on a real disk in CI and in memory in your browser, and the two give different orders.
+
+So we collect the names and sort them before printing.
+
+Any output that depends on a directory listing needs the same step, or a test of it will fail on some machines.
+
+`README.md` comes first because the sort compares bytes, and uppercase letters have smaller byte values than lowercase ones.
+
+The names are copied with `arena.dupe`.
+
+`entry.name` points into the iterator's buffer, and the next call to `next` can overwrite it. This is the same rule as for lines in [Reading Line by Line](/learn/files/read-lines/#keeping-a-line).
+
+## Walking every level
+
+<SnippetSource name="24-files.directories" decl="walkSorted" />
+
+`dir.walk(gpa)` visits every entry under the directory, at every depth.
+
+It needs an allocator, because it keeps a stack of the directories it has opened.
+
+Each entry has a `path` relative to the starting directory, like `src/util/math.zig`.
+
+It also has `basename`, the last part of that path, and `dir`, the open directory that holds the entry.
+
+```
+   README.md
+   docs/
+     notes.txt
+   src/
+     main.zig
+     util/
+       math.zig
+   7 entries, 87 bytes in files
+```
+
+The walk order also comes from the filesystem, so we sort by path here too.
+
+Sorting full paths puts each directory right before its contents.
+
+To add up file sizes, we call `entry.dir.statFile(io, entry.basename, .{})`.
+
+That asks the directory holding the file for its details, using only the file's own name.
+
+We could build the full path from the top instead, but that path gets longer with every level. Very deep trees can exceed the longest path the system accepts.
+
+## Renaming a directory
+
+`cwd.rename("project/docs", cwd, "project/doc", io)` renames the directory.
+
+```
+   project/doc/notes.txt is 5 bytes
+```
+
+The files inside move with it.
+
+Nothing is copied. Only the name in the parent directory changes, so renaming a directory with a million files is as fast as renaming an empty one.
+
+`rename` takes a directory for each side, so it can also move an entry into another directory.
+
+Both directories have to be on the same filesystem. Moving between two disks is a copy followed by a delete, and `rename` does not do that for us.
+
+## Deleting
+
+```
+   deleteDir: DirNotEmpty
+   deleteTree: done, stat now gives FileNotFound
+```
+
+`deleteDir` removes one empty directory.
+
+`project` still has files in it, so it fails with `DirNotEmpty`.
+
+`deleteTree` removes the directory and everything under it.
+
+It is the same as `rm -r` in a shell, and it has the same risk. A wrong path deletes the wrong tree, and there is no undo.
+
+It also succeeds when the path does not exist. So `deleteTree` is safe to call as a cleanup step, whether or not an earlier step created anything.
+
+## Directories are handles
+
+Every operation here goes through a `Dir` value.
+
+`cwd.openDir(io, "project", ...)` returns a new `Dir` for `project`, and `dir.close(io)` closes it.
+
+Paths are relative to the `Dir` they are given to.
+
+[Filesystem](/learn/standard-library/filesystem/#directories-are-handles-not-strings) explains why std works through open directories instead of path strings.

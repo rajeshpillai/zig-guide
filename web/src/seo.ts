@@ -271,6 +271,25 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "std moves faster than the language does. When something stops compiling after an upgrade, look here first.",
     ],
   },
+  files: {
+    seoTitle: "Zig File I/O: Text, Binary, Random Access and CSV",
+    description:
+      "Reading and writing files in Zig with std.Io: whole files and line by " +
+      "line, text and binary formats, seek and positional reads, CSV, " +
+      "directories, and what happens when the disk says no.",
+    lede:
+      "Every program in this section runs in your browser. The playground gives " +
+      "each run an empty directory, in memory here and on disk in CI, and both " +
+      "runs are checked against the same expected output. So a program first " +
+      "writes the file it then reads.",
+    takeaways: [
+      "`readFileAlloc` fails when the file size reaches the limit, not only when it passes it. A limit of 18 rejects an 18-byte file.",
+      "A missing `flush()` loses data without an error. `close` does not know about the writer's buffer.",
+      "There is no append flag. To append, open the file and move the writer to its length with `seekTo`.",
+      "The order of a directory listing is up to the filesystem. Sort it before any output or test depends on it.",
+      "Joining CSV fields with commas loses data without an error. A comma inside a field becomes an extra column.",
+    ],
+  },
   "data-structures": {
     seoTitle: "Zig Data Structures from Scratch",
     description:

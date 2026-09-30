@@ -1,0 +1,165 @@
+---
+title: Reading Line by Line
+seoTitle: "Zig Read File Line by Line: takeDelimiter, CRLF and Long Lines"
+description: A line loop over a file, the three line endings it meets, a line longer than the buffer, and a large file through a small buffer.
+seoDescription: Reading a file line by line in Zig with a File.Reader and takeDelimiter. What a missing final newline and Windows CRLF endings do, recovering from StreamTooLong, and why a 256-byte buffer can read a file of any size.
+section: Working with Files
+order: 20
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+Most text files are read one line at a time.
+
+We open the file, wrap it in a reader with a buffer, and ask the reader for the next line until there are none.
+
+The buffer can be small.
+
+The program below reads a file of almost 100 KB through a 256-byte buffer.
+
+It also shows the three things a line loop meets in real files: different line endings, a line longer than the buffer, and a line we want to keep.
+
+<Playground name="24-files.read-lines" />
+
+## The loop
+
+<SnippetSource name="24-files.read-lines" decl="printLines" />
+
+`file.reader(io, &buf)` gives us a `File.Reader`.
+
+The generic reading methods are on its `interface` field, which is a `std.Io.Reader`.
+
+`takeDelimiter('\n')` returns the next line without the `'\n'`.
+
+When the file has no more lines, it returns `null`, and the `while` loop ends.
+
+So the whole loop is one `while` with a capture.
+
+[Readers and Writers](/learn/standard-library/readers-and-writers/#reading-lines-mind-the-variant) compares `takeDelimiter` with the two methods that have similar names. For a line loop, `takeDelimiter` is the one we want.
+
+## Line endings
+
+The three files hold the same two lines.
+
+Only the bytes at the end of each line are different.
+
+```
+   unix.txt
+     line 1: "one" -> "one"
+     line 2: "two" -> "two"
+   no-final.txt
+     line 1: "one" -> "one"
+     line 2: "two" -> "two"
+```
+
+A file that ends with `'\n'` gives two lines, not three.
+
+There is no empty line after the last newline.
+
+A file with no newline at the end still gives its last line.
+
+So both files give the same result, which is what we want.
+
+Windows is different.
+
+A file written on Windows usually ends each line with two bytes, `"\r\n"`.
+
+```
+   windows.txt
+     line 1: "one\r" -> "one"
+     line 2: "two\r" -> "two"
+```
+
+We split on `'\n'`, so the `'\r'` stays on the end of the line.
+
+It is easy to miss, because a terminal does not show it.
+
+But `"one\r"` is not equal to `"one"`, and a number parser will reject `"42\r"`.
+
+`std.mem.trimEnd(u8, raw, "\r")` removes it.
+
+On a line without a `'\r'`, it returns the line unchanged. So the same loop reads both kinds of file.
+
+## A line longer than the buffer
+
+The reader can only return a line that fits in its buffer.
+
+In this example the buffer is 16 bytes, and one line is 40 characters long.
+
+```
+   line 1: short
+   line 2: StreamTooLong, skipped 41 bytes
+   line 3: after
+```
+
+`takeDelimiter` returns `error.StreamTooLong` for the long line.
+
+It does not return the first 16 bytes and pretend that was the line.
+
+It also does not consume anything. The reader is in the same state as before the call.
+
+So we have a choice.
+
+Here we skip the line with `discardDelimiterInclusive('\n')`.
+
+That reads and throws away bytes up to and including the next newline. It returns 41: forty `x` characters and the newline.
+
+Then the loop continues, and line 3 reads normally.
+
+<SnippetSource name="24-files.read-lines" decl="readSkippingLong" />
+
+Skipping is right for a log file where one bad line should not stop the program.
+
+For input from a user or another program, the error is often the right answer.
+
+The buffer size becomes the longest line we accept, and anything longer is rejected.
+
+If lines really can be any length, use a bigger buffer, or copy each line into an `ArrayList` as it streams.
+
+## A large file through a small buffer
+
+The third file has 10,000 lines.
+
+```
+   file size 98894 bytes, buffer 256 bytes
+   10000 lines, 98894 bytes, last line "line 10000"
+```
+
+The reader never holds more than 256 bytes of it.
+
+When the buffer runs out, the reader moves the unread bytes to the front and reads more from the file.
+
+So the memory this loop uses does not depend on the size of the file.
+
+The same loop reads a 10 GB log with the same 256 bytes.
+
+## Keeping a line
+
+<SnippetSource name="24-files.read-lines" decl="countLines" />
+
+`line` is a slice that points into `buf`.
+
+It is not a copy.
+
+The next call to `takeDelimiter` can refill `buf`, and then the old slice shows different bytes.
+
+So a line is only valid until the next read.
+
+To keep the last line after the loop, we copy it into `last` with `@memcpy`.
+
+To keep every line, we copy each one with `gpa.dupe(u8, line)` and store the copies.
+
+This is the reason a small buffer can read a large file. The reader does not keep old lines, so it only needs room for the current one.
+
+## Writing the test file
+
+`writeNumberedLines` writes the large file through a `File.Writer` with a 4 KB buffer.
+
+`print` writes into the buffer, and the writer sends it to the file each time the buffer fills.
+
+The last `flush()` sends whatever is left.
+
+Without it, the final part of the file is never written.
+
+The next chapter looks at writing more closely.

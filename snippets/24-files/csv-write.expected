@@ -1,0 +1,22 @@
+1. the file
+   id,name,note\r\n
+   1,Pencil,\r\n
+   2,"Widget, large",blue\r\n
+   3,Lamp,"two\n
+   lines"\r\n
+   4,Sign,"the ""best"" one"\r\n
+   5, padded ,"ends with a quote"""\r\n
+2. round trip
+   read 6 records, wrote 6
+3. naive join
+   id,name,note\r\n
+   1,Pencil,\r\n
+   2,Widget, large,blue\r\n
+   3,Lamp,two\n
+   lines\r\n
+   4,Sign,the "best" one\r\n
+   5, padded ,ends with a quote"\r\n
+   record 2: field count 4, wrote 3
+   record 3 field 2: read [two], wrote [two\nlines]
+   record 4: field count 1, wrote 3
+   record 5: QuoteInUnquotedField on line 6

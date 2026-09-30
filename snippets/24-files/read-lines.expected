@@ -1,0 +1,17 @@
+1. line endings
+   unix.txt
+     line 1: "one" -> "one"
+     line 2: "two" -> "two"
+   no-final.txt
+     line 1: "one" -> "one"
+     line 2: "two" -> "two"
+   windows.txt
+     line 1: "one\r" -> "one"
+     line 2: "two\r" -> "two"
+2. a long line
+   line 1: short
+   line 2: StreamTooLong, skipped 41 bytes
+   line 3: after
+3. a large file
+   file size 98894 bytes, buffer 256 bytes
+   10000 lines, 98894 bytes, last line "line 10000"

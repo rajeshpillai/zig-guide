@@ -1,0 +1,174 @@
+---
+title: Open, Read, Close
+seoTitle: "Zig Read File: readFileAlloc, readFile and openFile"
+description: Three ways to read a file, and what each one does when the file is bigger than you planned for.
+seoDescription: Reading a file in Zig with std.Io. readFileAlloc and why its limit fails at the file size, readFile and the full-buffer ambiguity, openFile with length and a positional read, and handling FileNotFound.
+section: Working with Files
+order: 10
+---
+
+import Playground from "../../../components/Playground.astro";
+
+Zig gives us three common ways to read a file.
+
+`readFileAlloc` reads the whole file into new memory.
+
+`readFile` reads into a buffer we already have.
+
+`openFile` gives us a handle, and we decide how to read from it.
+
+All three need a size limit of some kind.
+
+The difference is where that limit comes from, and what happens when the file is bigger.
+
+The program below uses all three on the same 18-byte file.
+
+<Playground name="24-files.open-read-close" />
+
+## The file comes first
+
+The playground gives every run an empty directory.
+
+In your browser that directory lives in memory. In CI it is a temp directory on disk.
+
+So the program writes `shopping.txt` before it reads it.
+
+`dir.writeFile` creates the file, writes the bytes and closes it in one call.
+
+The file holds three lines: `apples`, `bread` and `milk`, each followed by a newline.
+
+That is 6 + 1, 5 + 1 and 4 + 1 bytes, so 18 in total.
+
+## Reading the whole file
+
+`readFileAlloc` opens the file, reads all of it, closes it and returns the bytes.
+
+The memory comes from the allocator we pass in, so we free it with the same allocator.
+
+The last argument is a limit, and it is required.
+
+There is no version of this call that reads an unlimited amount.
+
+A file can be any size, and a program that trusts every file to be small will one day read a very large one into memory.
+
+The limit has one detail that is easy to get wrong.
+
+```
+   limit 17: StreamTooLong
+   limit 18: StreamTooLong
+   limit 19: ok, 18 bytes
+```
+
+A limit of 18 fails on an 18-byte file.
+
+The rule is "reached or exceeded", not only "exceeded".
+
+So if we know the largest file we accept is 1 MiB, the limit is 1 MiB plus one byte.
+
+In practice we pick a round number well above any file we expect, like `.limited(1 << 20)`.
+
+## Reading into a buffer we already have
+
+`readFile` needs no allocator.
+
+It reads into the buffer we pass in, and returns the part of the buffer it filled.
+
+```
+   8-byte buffer: 8 bytes "apples\nb"
+   64-byte buffer: 18 bytes
+```
+
+With 8 bytes of room, it read 8 bytes and stopped.
+
+It did not return an error.
+
+So when the result fills the whole buffer, we cannot tell which case we are in.
+
+Maybe the file was exactly 8 bytes long.
+
+Maybe it was longer, and the rest is still on disk.
+
+If that difference matters, we make the buffer one byte bigger than the largest file we accept.
+
+Then a full buffer always means "too big".
+
+The limit in `readFileAlloc` works the same way, which is why it fails at the file size.
+
+## Opening a handle
+
+`openFile` returns a `File`.
+
+We close it ourselves, so the next line is `defer file.close(io)`.
+
+The `defer` runs when the block ends, on every path, including an early `return` from a `try`.
+
+With the handle open, we ask for the length and allocate exactly that much.
+
+```
+   length 18, read 18
+   first line: apples
+```
+
+There is a small type conversion in the middle of this.
+
+`file.length` returns a `u64`, because a file on disk can be larger than 4 GiB.
+
+`gpa.alloc` takes a `usize`, which is the size of an address.
+
+On a 64-bit machine they are the same width.
+
+This program also runs as `wasm32`, where `usize` is 32 bits.
+
+So the compiler refuses to pass one as the other.
+
+`std.math.cast(usize, len)` returns `null` when the value does not fit. We turn that into `error.FileTooBig`.
+
+Then we read with `readPositionalAll`, which reads from a given offset until the buffer is full or the file ends.
+
+It returns how many bytes it read. Here that is 18, the same as the length.
+
+Those two numbers can differ.
+
+Another program can make the file shorter between our `length` call and our read.
+
+So we use the count the read returns, not the length we asked for earlier.
+
+## A file that is not there
+
+Opening a file that does not exist returns `error.FileNotFound`.
+
+```
+   settings.txt: FileNotFound, using defaults
+```
+
+We handle it with a `switch` on the error.
+
+`FileNotFound` has a sensible answer here: use the default settings.
+
+Every other error goes back to the caller with `return err`.
+
+A permission problem or a full disk is not something this code knows how to fix, so it should not hide it.
+
+A common mistake is to write `catch` with no error name, and treat every failure as "file missing".
+
+Then a settings file the program cannot read looks exactly like no settings file, and nobody is told.
+
+## Which one to use
+
+For a small file we read once, `readFileAlloc` is the shortest code.
+
+For a fixed-size record, or a file we know is small, `readFile` avoids the allocator.
+
+For anything else, we open a handle.
+
+A handle lets us read in pieces, seek, and read a file larger than memory.
+
+The next chapter reads a file one line at a time through a handle.
+
+## If you have used older Zig
+
+Before 0.16 these functions lived on `std.fs.Dir` and took no `io` argument.
+
+Now they live on `std.Io.Dir`, and `io` is the first argument after the directory.
+
+[Filesystem](/learn/standard-library/filesystem/) lists what moved.

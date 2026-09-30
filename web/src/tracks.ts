@@ -50,10 +50,15 @@ export const TRACKS: Track[] = [
     // explanation of what that parameter is into a later section would leave
     // the filesystem, JSON and readers/writers chapters using something
     // nothing had introduced. This section links back to it instead.
+    //
+    // Working with Files follows Standard Library because it uses the Io,
+    // Reader and Writer pages from it on every page. Its snippets run in the
+    // browser: both runners preopen an empty directory as the current one.
     sections: [
       "getting-started",
       "language-basics",
       "standard-library",
+      "files",
       "data-structures",
       "concurrency",
     ],

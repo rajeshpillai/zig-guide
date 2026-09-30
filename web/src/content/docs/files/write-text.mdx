@@ -1,0 +1,176 @@
+---
+title: Writing Text Files
+seoTitle: "Zig Write File: createFile, Append, Flush and Atomic Replace"
+description: Truncate or keep, create only if new, append, the flush that was forgotten, and replacing a file in one step.
+seoDescription: Writing files in Zig with std.Io. What truncate = false leaves behind, exclusive create, appending by seeking to the end, why a missing flush writes nothing, and createFileAtomic for replacing a file so no reader sees half of it.
+section: Working with Files
+order: 30
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+Writing a file looks simple.
+
+We create it, write some bytes and close it.
+
+But a few options change what ends up on disk, and the defaults are not always what we expect.
+
+The program below writes six small files and shows what each one holds afterwards.
+
+<Playground name="24-files.write-text" />
+
+## The helper
+
+<SnippetSource name="24-files.write-text" decl="writeText" />
+
+Every write in this chapter goes through the same three steps.
+
+`createFile` opens the file for writing, and creates it if it is not there.
+
+`file.writer(io, &buf)` gives us a `File.Writer` with a 64-byte buffer.
+
+We write through `writer.interface`, then call `flush()` to send what is left in the buffer to the file.
+
+The `options` argument decides what happens when the file already exists.
+
+## Truncate
+
+By default `createFile` truncates. The old content is removed before we write.
+
+```
+   truncate = true:  "v2\n"
+   truncate = false: "v2\nst version\n"
+```
+
+With `.truncate = false`, the file keeps its old bytes.
+
+The writer starts at offset 0, so `"v2\n"` is written over the first three bytes of `"first version\n"`.
+
+The remaining bytes, `"st version\n"`, are still there.
+
+This is almost never what we want for a text file.
+
+It is useful for a file of fixed-size records, where we change one record and keep the others. The [Random Access](/learn/files/random-access/) chapter does that.
+
+## Create only if new
+
+`.exclusive = true` creates the file, or fails if it already exists.
+
+```
+   attempt 1: created
+   attempt 2: PathAlreadyExists
+```
+
+The check and the create happen in one step.
+
+That matters when two programs run at the same time.
+
+If we check first with `statFile` and then create, the other program can create the file between our two calls.
+
+With `.exclusive = true`, only one of them succeeds.
+
+## Append
+
+Neither `createFile` nor `openFile` has an append option.
+
+So we open the file, and start the writer at the end.
+
+```
+   started
+   loaded 3 items
+   stopped
+```
+
+`writer.seekTo(try file.length(io))` moves the writer to the current end of the file.
+
+Then each new line goes after the old ones.
+
+We open the file with `.mode = .read_write`, not `.write_only`.
+
+The reason is WASI, where this program runs.
+
+On WASI, Zig asks for the right to read a file's size only when the file is opened for reading.
+
+So `file.length` on a write-only file fails with `AccessDenied` there. On Linux and macOS, `.write_only` works.
+
+There is one more limit.
+
+Seeking to the end and writing are two separate steps.
+
+If two programs append to the same file at the same time, both can seek to the same end and write over each other.
+
+[Two Writers, One File](/learn/storage/filelock/) shows that happening, and the lock that prevents it.
+
+## The forgotten flush
+
+This part of the program writes a line and then closes the file without calling `flush()`.
+
+```
+   buffered 33 bytes, file length 0
+   after close: 0 bytes on disk
+```
+
+`writeAll` copied the 33 bytes into the writer's buffer.
+
+Nothing reached the file, because the buffer was not full.
+
+`close` closes the file. It does not know about our buffer.
+
+So the bytes are lost, and there is no error.
+
+The fix is to call `flush()` before closing.
+
+In a function that returns early on errors, we put it right after the last write, and let `try` report a failed flush.
+
+## Replacing a file in one step
+
+Say a program rewrites `config.txt` while another program reads it.
+
+If the reader opens the file halfway through the write, it gets half a config.
+
+If the writer crashes halfway, the file stays half written.
+
+`createFileAtomic` avoids both problems.
+
+It writes to a new temporary file in the same directory.
+
+When we call `replace`, it renames the temporary file to `config.txt`.
+
+On Linux and macOS, a rename inside one directory happens in one step. A reader sees the old file or the new file, never a mix.
+
+```
+   while writing: "port = 8080\n"
+   after replace: "port = 9090\n"
+```
+
+While we were writing, `config.txt` still held the old content.
+
+The second block fails on purpose. It writes half a line and returns before `replace`.
+
+```
+   after a failed write: "port = 9090\n"
+   files in the directory: 5
+```
+
+`deinit` runs from the `defer` and deletes the temporary file.
+
+The old content is untouched, and no temporary file is left behind.
+
+We always call `deinit`, even after a successful `replace`. It is safe to call in both cases.
+
+The option `.replace = true` must match the call we make at the end.
+
+`replace` overwrites an existing file.
+
+`link` is the other choice. It fails with `PathAlreadyExists` if the file is already there, like `.exclusive = true`.
+
+## Which one to use
+
+For a new file we write once, `createFile` with the defaults.
+
+For a log, open and seek to the end.
+
+For a file another program reads, or one that must never be half written, `createFileAtomic`.
+
+In every case, flush before close.
