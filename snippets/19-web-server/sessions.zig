@@ -77,7 +77,8 @@ pub fn main(init: std.process.Init) !void {
 
     // A fixed seed, so this page prints the same thing every time. A real
     // server must not do this: anyone can take a session whose id they can
-    // predict. `std.crypto.random` is the one to use.
+    // predict. Use `std.Random.IoSource` over the `Io` you already have.
+    // (Older code uses `std.crypto.random`, which has been removed.)
     var prng: std.Random.DefaultPrng = .init(0x5eed);
     var hex: [32]u8 = undefined;
     try out.print("a session id (seeded, therefore insecure)\n  {s}\n\n", .{
