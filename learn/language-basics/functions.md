@@ -1,0 +1,143 @@
+# Functions
+
+> Immutable parameters and explicit discards.
+
+Zig function parameters are constant, and ignoring a function's non-`void`
+return value is a compile error, so a deliberate discard is written
+`_ = addFive(1);`.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+fn addFive(x: u32) u32 {
+    // Parameters are const. `x += 5` here would not compile.
+    return x + 5;
+}
+
+fn fibonacci(n: u16) u16 {
+    if (n == 0 or n == 1) return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+test "calling a function" {
+    const y = addFive(0);
+    try expect(@TypeOf(y) == u32);
+    try expect(y == 5);
+}
+
+test "recursion" {
+    try expect(fibonacci(10) == 55);
+}
+
+test "values must be used" {
+    // An unused value is a compile error in Zig, not a warning. `_ =` is the
+    // explicit way to discard something.
+    _ = addFive(1);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.functions`)*
+
+## Parameters are constant
+
+For example, this does not compile:
+
+```zig
+fn addFive(x: u32) u32 {
+    x += 5;      // error: cannot assign to constant
+    return x;
+}
+```
+
+If you want a mutable local, make one. The benefit is that a parameter always
+means what it meant at the call site, all the way down the function body. In a
+long function, `x` on line 60 is the `x` that was passed in, and you do not
+have to read the 59 lines above to be sure.
+
+To let a caller's value change, take a pointer and say so in the type:
+
+```zig
+fn addFiveInPlace(x: *u32) void {
+    x.* += 5;
+}
+```
+
+The mutation is now visible at the call site as `addFiveInPlace(&n)`. Zig has no reference parameters that write through invisibly.
+
+## How arguments are passed is not your problem
+
+A parameter is a value, but whether the compiler copies it or passes a pointer
+to it is the compiler's choice, made from the type and the target's calling
+convention. Passing a large struct does not necessarily copy it. Because
+parameters are immutable, code inside the function cannot tell which choice
+was made. So the compiler is free to choose.
+
+## Unused values are errors
+
+Zig has no "unused variable" *warning*, because it is an error:
+
+```
+error: value of type 'u32' ignored
+note: all non-void values must be used
+```
+
+Discarding is explicit:
+
+```zig
+_ = addFive(1);
+```
+
+This rule catches the case where you called a function for its result and
+then forgot to use it. It applies to unused locals and parameters too, so
+`_ = name;` shows up in half-written code. The compiler will not let a
+variable you stopped using survive a refactor unnoticed.
+
+A function returning `void` is the exception. There is nothing to use, so a
+bare call is fine.
+
+## Generic functions are ordinary functions
+
+A parameter typed `anytype` is filled in from the call site, and the function
+is compiled once for each set of types it is called with:
+
+```zig
+fn maxOf(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
+    return if (a > b) a else b;
+}
+```
+
+`maxOf(@as(u8, 3), 5)` and `maxOf(@as(f32, 1.5), 0.5)` both work, and each
+gets its own machine code. Zig has no separate syntax for generics, such as
+a type parameter list or a constraint language. A type is a value at compile
+time, so a function that takes types is just a function. The standard library
+uses this idea everywhere. [comptime](https://www.ziglang.in/learn/language-basics/comptime/)
+explains it in detail.
+
+The cost is that errors appear when the function is called with concrete
+types, not when it is defined. A function that calls `a.len` on its `anytype` parameter compiles
+fine until someone passes an integer, and then the message points inside your
+function rather than at their call.
+
+## Function pointers
+
+A function is not a pointer, but you can take one:
+
+```zig
+const p: *const fn (u8) u8 = &addOne;
+```
+
+It is `*const fn` rather than `fn` because the pointer varies, not the code.
+A callback field in a struct holds this kind of pointer. It is also how the interfaces
+in the standard library are built: a pointer to some state, plus a table of
+function pointers that know what to do with it.
+
+## Recursion and the stack
+
+`fibonacci` above is recursive, but Zig cannot always prove a bound on stack
+usage. For deep or input-driven recursion, an explicit stack or a loop is the
+safer choice. Zig gives no automatic tail-call guarantee.
+
+You cannot catch this failure. A stack overflow is a crash, not a Zig error
+value, and how loudly it fails depends on the platform. When input decides how
+deep the recursion goes, that depth needs checking like any other input.

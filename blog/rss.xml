@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Zig Guide Live blog</title>
+    <link>https://www.ziglang.in/blog/</link>
+    <description>Posts about Zig, each written against a named compiler.</description>
+    <language>en</language>
+    <atom:link href="https://www.ziglang.in/blog/rss.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sat, 03 Oct 2026 16:15:00 GMT</lastBuildDate>
+    <item>
+      <title>The File That Was Not There</title>
+      <link>https://www.ziglang.in/blog/the-file-that-was-not-there/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/blog/the-file-that-was-not-there/</guid>
+      <pubDate>Sat, 03 Oct 2026 16:15:00 GMT</pubDate>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <description>A short story about a passphrase tool that worked on one laptop and failed on every other. The fix is @embedFile, and a word list the compiler checks line by line. Written against Zig 0.17.0-dev.2056+79a9897cd.</description>
+    </item>
+    <item>
+      <title>The 2 GB Log File at 11 PM</title>
+      <link>https://www.ziglang.in/blog/the-2gb-log-file-at-11pm/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/blog/the-2gb-log-file-at-11pm/</guid>
+      <pubDate>Sat, 03 Oct 2026 15:50:00 GMT</pubDate>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <description>A short story about an on-call engineer, a 2 GB log file, a server where nothing can be installed, and a 274 KB Zig program. Every program in it runs in your browser. Written against Zig 0.17.0-dev.2056+79a9897cd.</description>
+    </item>
+    <item>
+      <title>builtin.mode is deprecated: read builtin.optimize</title>
+      <link>https://www.ziglang.in/blog/builtin-mode-is-deprecated/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/blog/builtin-mode-is-deprecated/</guid>
+      <pubDate>Sat, 03 Oct 2026 15:11:00 GMT</pubDate>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <description>Zig master deprecated builtin.mode, builtin.cpu and builtin.os. Here is what replaces each one, and how to check your own compiler. Written against Zig 0.17.0-dev.2056+79a9897cd.</description>
+    </item>
+  </channel>
+</rss>
