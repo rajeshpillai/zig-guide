@@ -1,0 +1,309 @@
+---
+title: "The 2 GB Log File at 11 PM"
+seoTitle: "Read a 2 GB Log File in Zig with 652 KB of Memory"
+description: "A short story about an on-call engineer, a 2 GB log file, a server where nothing can be installed, and a 274 KB Zig program. Every program in it runs in your browser."
+date: "2026-10-03T21:20+05:30"
+zig: "0.17.0-dev.2056+79a9897cd"
+---
+
+import SnippetSource from "../../components/SnippetSource.astro";
+
+## 10:52 PM
+
+Arjun's phone buzzed on the kitchen table.
+
+It was the alert he did not want: **Checkout error rate above 5%.**
+
+He was on call this week.
+
+That means when production breaks at night, he is the one who fixes it.
+
+He opened his laptop.
+
+A message from Sara in support was already waiting.
+
+> Customers say payment hangs and then fails. Started maybe 20 minutes ago?
+
+"Maybe" was not good enough.
+
+Arjun needed to know which part of the site was slow, and when it started.
+
+## 10:58 PM
+
+He logged in to the web server, `web-03`, and looked at the access log.
+
+```sh
+$ ls -lh /var/log/shop/access.log
+-rw-r----- 1 shop shop 2.0G Oct  3 22:58 /var/log/shop/access.log
+```
+
+Two gigabytes.
+
+Fifty million lines, one line for each request.
+
+Each line looked like this:
+
+```txt
+2026-10-03T22:41:07Z POST /api/checkout 504 5000
+```
+
+The time, the method, the path, the status code, and how many milliseconds the request took.
+
+Arjun knew what he wanted from the file:
+
+- how many requests got each status code,
+- which endpoint was slow,
+- and the time of the first `504`, which means the request timed out.
+
+The server had `awk`.
+
+It did not have Python.
+
+And this week, nobody was allowed to install software on production servers.
+
+He could write the report in `awk`.
+
+But a per-endpoint average, a maximum, and "the first 504" is a long `awk` line.
+
+He wanted something he could test on his laptop first, and trust on the server.
+
+So he opened a new file: `logscan.zig`.
+
+## 11:04 PM: one line at a time
+
+He started with the smallest piece: turning one line of text into fields.
+
+<SnippetSource name="blog.logscan" decl="parseLine" />
+
+The function returns `?Line`.
+
+The `?` means "a `Line`, or `null`".
+
+Arjun knew the log had bad lines in it.
+
+When a customer closes the tab in the middle of a request, the server writes `-` instead of the milliseconds.
+
+`parseInt` fails on `-`.
+
+So `parseLine` returns `null`, and the caller counts the line as skipped.
+
+The caller adds one to `skipped` and moves on to the next line.
+
+## 11:10 PM: reading 2 GB with 64 KiB
+
+The server had less than 1 GB of free memory.
+
+So reading the whole file into memory first was not an option.
+
+Arjun gave the reader a buffer of 64 KiB instead:
+
+```zig
+var buf: [64 * 1024]u8 = undefined;
+var reader = file.reader(io, &buf);
+```
+
+The reader fills the buffer from the file.
+
+`takeDelimiter('\n')` returns the next line as a slice of that buffer.
+
+When the buffer is used up, the reader refills it.
+
+The file can be any size.
+
+The memory used for reading stays at 64 KiB.
+
+<SnippetSource name="blog.logscan" decl="scan" />
+
+There is one more case here.
+
+A line longer than the whole buffer gives `error.StreamTooLong`.
+
+The loop skips that line and goes on.
+
+## 11:17 PM: the bug he almost wrote
+
+For each endpoint, Arjun kept a running total in a hash map.
+
+His first version stored `line.path` as the key.
+
+Then he stopped.
+
+`line.path` is a slice of the reader's buffer.
+
+On the next refill, those bytes are overwritten.
+
+Every key in the map would change to some other text, and nothing would report an error.
+
+So he copied each key the first time it was seen:
+
+<SnippetSource name="blog.logscan" decl="add" />
+
+In many languages, reading a line gives you a new string that you own.
+
+In Zig, the line is a view into the reader's buffer.
+
+That is why reading a line allocates nothing.
+
+It is also why a line you want to keep must be copied.
+
+## 11:24 PM: test it on the laptop
+
+Arjun did not have the real log on his laptop.
+
+So he gave the program a second mode.
+
+With no file name, it writes a sample log of 50,000 lines, then scans that.
+
+The sample is one hour of made-up traffic.
+
+From 22:40, the checkout endpoint gets slow and starts timing out, like the real one.
+
+Press **Run** to see the report.
+
+<Playground name="blog.logscan" />
+
+The program ran in your browser.
+
+It wrote a 2 MB file, then read it back through the 64 KiB buffer.
+
+Look at the checkout row.
+
+The average is 699 ms.
+
+That number looks bad, but not terrible.
+
+It mixes forty calm minutes with twenty slow ones.
+
+The last line is the useful one: the first `504` was at 22:40:00.
+
+## 11:31 PM: one file, no install
+
+Now the program had to run on `web-03`.
+
+The server runs Linux on x86-64.
+
+Arjun's laptop could build for it directly:
+
+```sh
+$ zig build-exe -O ReleaseFast -fstrip -target x86_64-linux-musl logscan.zig
+$ ls -l logscan
+-rwxr-xr-x 1 arjun arjun 273624 Oct  3 23:31 logscan
+$ file logscan
+logscan: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped
+```
+
+`-target` names the machine to build for: x86-64, Linux.
+
+This program does not use a C library at all.
+
+Zig's standard library talks to the Linux kernel directly.
+
+So the result is "statically linked": the file needs nothing else on the server.
+
+No runtime, no shared libraries, no package to install.
+
+It was 274 KB.
+
+He copied it over.
+
+```sh
+$ scp logscan web-03:/tmp/
+```
+
+## 11:33 PM: the real file
+
+```sh
+$ /usr/bin/time -f "%e s, %M KB" /tmp/logscan /var/log/shop/access.log
+read 50000000 lines, 2075125000 bytes, through a 65536-byte buffer
+skipped 51000 lines we could not parse
+
+status  requests
+  200  48471000
+  404    934000
+  504    544000
+
+endpoint         requests  avg ms  max ms
+  /api/checkout   9996000     699    5000
+  /api/search     9970000      89     119
+  /api/cart       9912000      59      79
+  /login         10115000      37      49
+  /               9956000      17      23
+
+first 504 at 2026-10-03T22:40:00Z
+6.45 s, 652 KB
+```
+
+Fifty million lines in about seven seconds.
+
+The whole process used 652 KB of memory.
+
+Out of curiosity, he also ran `awk` on the same file, counting only the status codes.
+
+That took about 13 seconds.
+
+## 11:36 PM
+
+Arjun posted the report in the incident channel.
+
+> Only checkout is slow. Everything else is normal. First timeout at 22:40:00. What shipped around 22:40?
+
+Two minutes later, Sara replied.
+
+> Payments team changed the timeout config for the card provider at 22:39.
+
+They rolled the change back at 11:41 PM.
+
+At 11:52 PM, the checkout error rate was back to zero.
+
+## The next morning
+
+Arjun added `logscan.zig` to the team's tools repository.
+
+It is about 220 lines.
+
+Anyone on the team can build it for any server with one command, including the ARM machines:
+
+```sh
+$ zig build-exe -O ReleaseFast -fstrip -target aarch64-linux-musl logscan.zig
+```
+
+## Try it yourself
+
+The full program is above the Run button.
+
+Press **Copy** and save it as `logscan.zig`.
+
+Then, with [Zig installed](/learn/getting-started/installation/):
+
+```sh
+$ zig run logscan.zig                     # writes access.log and scans it
+$ zig run logscan.zig -- /path/to/your.log
+```
+
+Your own log will have a different format.
+
+Change `parseLine` to match it.
+
+Everything else stays the same.
+
+These chapters explain each part in more detail:
+
+- [Reading line by line](/learn/files/read-lines/), including lines longer than the buffer.
+- [Hash maps](/learn/standard-library/hash-maps/), including who owns the keys.
+- [Cross-compilation](/learn/build-system/cross-compilation/), for building for another machine.
+
+## About the numbers
+
+Arjun, Sara and `web-03` are made up.
+
+The numbers are not.
+
+The 2 GB file is the sample log repeated 1,000 times.
+
+Every time and size above was measured on a laptop with an Intel Core i5-1235U, using the Zig version shown at the top of this post.
+
+Over three runs, `logscan` took between 6.4 and 8.2 seconds, and its memory stayed at 652 KB every time.
+
+The output above is from the fastest run.
+
+The `awk` command was `awk '{c[$4]++} END{for(k in c) print k, c[k]}'`, which counts status codes and does nothing else.

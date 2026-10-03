@@ -1,0 +1,16 @@
+read 50000 lines, 2075125 bytes, through a 65536-byte buffer
+skipped 51 lines we could not parse
+
+status  requests
+  200     48471
+  404       934
+  504       544
+
+endpoint         requests  avg ms  max ms
+  /api/checkout      9996     699    5000
+  /api/search        9970      89     119
+  /api/cart          9912      59      79
+  /login            10115      37      49
+  /                  9956      17      23
+
+first 504 at 2026-10-03T22:40:00Z

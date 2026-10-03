@@ -327,31 +327,13 @@ async function checkSidebarSync(href) {
   }
 }
 
-for (const href of chapters) {
-  const response = await page.goto(BASE + href, { waitUntil: "networkidle" });
-  if (!response || !response.ok()) {
-    failures.push(`${href} -> HTTP ${response?.status() ?? "no response"}`);
-    continue;
-  }
-  await checkHead(href);
-  await checkSidebarSync(href);
-  await checkSourceQuotes(href);
-  compileOnly += await page.locator(".pg-static").count();
-
-  pagers.set(
-    href,
-    await page.evaluate(() => ({
-      prev: document.querySelector(".pager-prev")?.getAttribute("href") ?? null,
-      next: document.querySelector(".pager-next")?.getAttribute("href") ?? null,
-    })),
-  );
-
-  for (const link of await page.$$eval("main a[href^='/']", (as) =>
-    as.map((a) => a.getAttribute("href")),
-  )) {
-    internalLinks.add(link);
-  }
-
+/**
+ * Press Run on every playground on the current page, and hold its output to
+ * the snippet's `.expected` file. Chapters and blog posts both call it: a post
+ * embeds the same snippets a chapter does, so its Run button is held to the
+ * same contract.
+ */
+async function runPlaygrounds(href) {
   const blocks = page.locator("zig-playground");
   const count = await blocks.count();
 
@@ -410,6 +392,34 @@ for (const href of chapters) {
   }
 }
 
+for (const href of chapters) {
+  const response = await page.goto(BASE + href, { waitUntil: "networkidle" });
+  if (!response || !response.ok()) {
+    failures.push(`${href} -> HTTP ${response?.status() ?? "no response"}`);
+    continue;
+  }
+  await checkHead(href);
+  await checkSidebarSync(href);
+  await checkSourceQuotes(href);
+  compileOnly += await page.locator(".pg-static").count();
+
+  pagers.set(
+    href,
+    await page.evaluate(() => ({
+      prev: document.querySelector(".pager-prev")?.getAttribute("href") ?? null,
+      next: document.querySelector(".pager-next")?.getAttribute("href") ?? null,
+    })),
+  );
+
+  for (const link of await page.$$eval("main a[href^='/']", (as) =>
+    as.map((a) => a.getAttribute("href")),
+  )) {
+    internalLinks.add(link);
+  }
+
+  await runPlaygrounds(href);
+}
+
 // The pages outside the chapter list still have to carry correct metadata.
 // `/learn/` is one of them: it is the chapter list rather than a chapter, so
 // like `/paths/` it is a view of the guide and not a stop in the pager.
@@ -457,12 +467,14 @@ let blogPosts = 0;
   const hrefs = await page.$$eval(".post-list h2 a", (as) => as.map((a) => a.getAttribute("href")));
   if (hrefs.length === 0) failures.push("/blog/ lists no posts");
   for (const href of hrefs) {
-    const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
+    const res = await page.goto(BASE + href, { waitUntil: "networkidle" });
     if (!res?.ok()) {
       failures.push(`${href} -> HTTP ${res?.status() ?? "no response"}`);
       continue;
     }
     await checkHead(href);
+    await checkSourceQuotes(href);
+    await runPlaygrounds(href);
     blogPosts++;
     const meta = await page.$eval("main .chapter-meta", (p) => p.textContent).catch(() => "");
     if (!/Written against Zig \d+\.\d+\.\d+/.test(meta ?? "")) {

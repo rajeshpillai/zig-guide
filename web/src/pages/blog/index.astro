@@ -7,7 +7,7 @@
  * it is not rewritten when Zig master moves. See `content.config.ts`.
  */
 import Base from "../../layouts/Base.astro";
-import { blogHref, postHref, posts, readableDate } from "../../blog";
+import { blogHref, postDay, postHref, posts, readableDate } from "../../blog";
 
 const list = await posts();
 
@@ -48,7 +48,7 @@ const description =
         list.map((post) => (
           <li>
             <p class="post-list-meta">
-              <time datetime={post.data.date}>{readableDate(post.data.date)}</time>
+              <time datetime={post.data.date}>{readableDate(postDay(post))}</time>
               {" · "}Zig {post.data.zig}
             </p>
             <h2>

@@ -68,12 +68,23 @@ const blog = defineCollection({
     /** One line under the title on `/blog/`, and the meta description. */
     description: z.string(),
     /**
-     * The day the post went out, as `YYYY-MM-DD`. Written by hand rather than
-     * taken from git: a post drafted on `dev` for a week is published on the
-     * day it ships, not on the day its first commit was made. Kept a string so
-     * no time zone can move it by a day.
+     * When the post went out: `YYYY-MM-DD`, or `YYYY-MM-DDTHH:MM` with an
+     * explicit offset (`Z` or `+05:30`) when two posts share a day and the
+     * order between them matters. Written by hand rather than taken from git:
+     * a post drafted on `dev` for a week is published on the day it ships, not
+     * on the day its first commit was made.
+     *
+     * The offset is required with a time because without one the build
+     * machine's time zone would decide the instant, and CI runs in UTC. The
+     * day shown is the day as written, in the author's offset, for the same
+     * reason.
      */
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
+    date: z
+      .string()
+      .regex(
+        /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2}))?$/,
+        "date must be YYYY-MM-DD, or YYYY-MM-DDTHH:MM with an offset such as +05:30",
+      ),
     /**
      * The compiler the post was written against, exactly as `zig version`
      * prints it. Required, because a post with no version is the stale

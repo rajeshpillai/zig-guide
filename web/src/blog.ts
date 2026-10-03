@@ -14,11 +14,24 @@ export const postHref = (post: Post) => `${blogHref}${post.id}/`;
 
 export async function posts(): Promise<Post[]> {
   const all = await getCollection("blog");
-  // Same day: title order, so two posts published together do not swap places
-  // from one build to the next.
+  // By instant, newest first. Same instant (two posts dated by day only): title
+  // order, so they do not swap places from one build to the next.
   return all.sort(
-    (a, b) => b.data.date.localeCompare(a.data.date) || a.data.title.localeCompare(b.data.title),
+    (a, b) => instant(b) - instant(a) || a.data.title.localeCompare(b.data.title),
   );
+}
+
+/** The day the post went out, as written: `YYYY-MM-DD`. */
+export const postDay = (post: Post) => post.data.date.slice(0, 10);
+
+/**
+ * The moment the post went out, in milliseconds. A post dated by day alone
+ * counts as noon UTC on that day, which keeps it on the same calendar day for
+ * every reader and sorts it into the middle of the day rather than either end.
+ */
+export function instant(post: Post): number {
+  const { date } = post.data;
+  return Date.parse(date.length === 10 ? `${date}T12:00:00Z` : date);
 }
 
 /**

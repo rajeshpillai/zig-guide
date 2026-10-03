@@ -11,7 +11,7 @@
 import { render } from "astro:content";
 import Base from "../../layouts/Base.astro";
 import Playground from "../../components/Playground.astro";
-import { blogHref, posts, readableDate, hasCheckedCode, hasPlainCode, type Post } from "../../blog";
+import { blogHref, posts, postDay, readableDate, hasCheckedCode, hasPlainCode, type Post } from "../../blog";
 import { datesFor } from "../../git-dates";
 import { buildInfo } from "../../build-info";
 import { AUTHOR, SITE_NAME } from "../../seo";
@@ -28,7 +28,7 @@ const { zigVersion } = await buildInfo();
 // counts when it is later than that day: a post committed on `dev` before it
 // shipped has an older commit, which is not an edit.
 const dates = await datesFor(post.filePath ?? "");
-const modified = dates && dates.modified.slice(0, 10) > post.data.date ? dates.modified : undefined;
+const modified = dates && dates.modified.slice(0, 10) > postDay(post) ? dates.modified : undefined;
 
 const checked = hasCheckedCode(post);
 const plain = hasPlainCode(post);
@@ -54,7 +54,7 @@ const moved = post.data.zig !== zigVersion;
   <article>
     <h1>{post.data.title}</h1>
     <p class="chapter-meta">
-      <time datetime={post.data.date}>{readableDate(post.data.date)}</time>
+      <time datetime={post.data.date}>{readableDate(postDay(post))}</time>
       {" · "}Written against Zig {post.data.zig}
     </p>
     {
