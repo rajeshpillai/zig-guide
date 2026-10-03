@@ -1,0 +1,267 @@
+---
+title: "The File That Was Not There"
+seoTitle: "Zig @embedFile: Put a Data File Inside Your Program, and Check It at Compile Time"
+description: "A short story about a passphrase tool that worked on one laptop and failed on every other. The fix is @embedFile, and a word list the compiler checks line by line."
+date: "2026-10-03T21:45+05:30"
+zig: "0.17.0-dev.2056+79a9897cd"
+---
+
+import SnippetSource from "../../components/SnippetSource.astro";
+
+## Monday, 9:12 AM
+
+Vishaka had written a small tool for the team.
+
+It was called `phrase`.
+
+It made passphrases out of random words, like `grape-habit-buddy-hammer-diner-river`.
+
+The team used it for shared test accounts, so nobody had to invent a password.
+
+On Monday morning, a message came from Tejas.
+
+```txt
+~/Downloads $ ./phrase
+error: FileNotFound
+```
+
+It worked on Vishaka's laptop.
+
+It had worked on Vishaka's laptop all of last week.
+
+## 9:20 AM: what the program was looking for
+
+The words came from a file called `words.txt`.
+
+It has 256 words, one per line.
+
+The first version read it like this:
+
+```zig
+const text = try std.Io.Dir.cwd().readFileAlloc(io, "words.txt", init.gpa, .limited(1 << 20));
+```
+
+`cwd()` is the current directory.
+
+That is the directory you are in when you run the program, not the directory where the program is.
+
+Vishaka always ran `phrase` from the project folder, and `words.txt` was in it.
+
+Tejas ran it from `~/Downloads`.
+
+There was no `words.txt` there.
+
+So the program was correct, and it still failed on every machine except Vishaka's.
+
+## 9:31 AM: three ways to fix it
+
+Vishaka thought of three fixes.
+
+The first was to send two files and tell people to keep them together.
+
+People would not keep them together.
+
+The second was to look for `words.txt` next to the program instead of in the current directory.
+
+That is better, but it is still two files.
+
+Somebody would copy one and forget the other.
+
+The third was to put the words inside the program.
+
+Zig can do this with one line:
+
+```zig
+const words_txt = @embedFile("words.txt");
+```
+
+`@embedFile` runs when the program is compiled, not when it runs.
+
+The compiler reads `words.txt` from beside the source file, and stores its bytes in the program.
+
+`words_txt` is a pointer to those bytes.
+
+Its length is known at compile time: 1,582 bytes.
+
+At run time, there is no file to open, and nothing that can fail to open.
+
+## 9:48 AM: let the compiler do the parsing
+
+Vishaka could have split `words_txt` into lines every time the program started.
+
+But the words never change while the program runs.
+
+So Vishaka asked the compiler to split them instead, once, while it builds the program.
+
+<SnippetSource name="blog.phrase" decl="words" />
+
+That line is outside any function.
+
+In Zig, a `const` outside a function is computed while compiling.
+
+So `parseWords` runs inside the compiler.
+
+<SnippetSource name="blog.phrase" decl="parseWords" />
+
+The result is a table of 256 words, already split, stored in the program.
+
+When `phrase` starts, the work is already done.
+
+The checks in `parseWords` also run inside the compiler.
+
+`@compileError` stops the build with a message.
+
+`std.fmt.comptimePrint` builds that message, with the line number in it.
+
+`@setEvalBranchQuota` is there because the duplicate check makes about 32,000 comparisons.
+
+The compiler stops long computations unless you tell it to expect one.
+
+## Wednesday, 2:05 PM: Tejas edits the list
+
+Tejas wanted a home city in the word list.
+
+Tejas replaced line 87, `crate`, with `navi mumbai`.
+
+Then Tejas rebuilt the program.
+
+```txt
+phrase.zig:35:37: error: words.txt line 87: "navi mumbai" must be one word in lowercase a to z
+            if (c < 'a' or c > 'z') @compileError(std.fmt.comptimePrint(
+                                    ^~~~~~~~~~~~~
+phrase.zig:15:25: note: called at comptime here
+const words = parseWords(words_txt);
+              ~~~~~~~~~~^~~~~~~~~~~
+```
+
+A word with a space in it would put a space inside some passphrases, between two dashes.
+
+The compiler refused to build it.
+
+Next, Tejas tried `maple`.
+
+```txt
+phrase.zig:41:46: error: words.txt line 200: "maple" is already in the list
+```
+
+Line 200 was `mosaic`, and `maple` was already on line 194.
+
+A duplicate word makes some passphrases more likely than others, which makes them easier to guess.
+
+Then a line was deleted by mistake.
+
+```txt
+phrase.zig:54:26: error: words.txt has 255 words, and it needs exactly 256
+```
+
+Each mistake stopped on Tejas's machine, at build time, with the line number.
+
+A program with a broken word list was never built.
+
+## Why exactly 256
+
+One byte holds a number from 0 to 255.
+
+So with 256 words, one random byte picks one word, with no bias and no extra arithmetic:
+
+<SnippetSource name="blog.phrase" decl="writePhrase" />
+
+`words[b]` is the whole lookup.
+
+Each word adds 8 bits, so six words make a 48-bit passphrase.
+
+## Press Run
+
+<Playground name="blog.phrase" />
+
+The program ran in your browser.
+
+There was no `words.txt` to download.
+
+The words came inside the 51 KB of WebAssembly that the page fetched.
+
+The three passphrases under "6 words, 48 bits" are the same every time.
+
+They come from a generator with a fixed seed, so this page can check them every night.
+
+The last one, under "yours", is different every time you press Run.
+
+It comes from `io.random`, which reads from the operating system's secure random source.
+
+Never use a seeded generator for a real passphrase.
+
+Anyone who knows the seed gets the same words.
+
+## Friday: one file for everyone
+
+Vishaka built `phrase` for the three systems the team used.
+
+```sh
+$ zig build-exe -O ReleaseSmall -fstrip -target x86_64-linux-musl phrase.zig
+$ zig build-exe -O ReleaseSmall -fstrip -target x86_64-windows phrase.zig
+$ zig build-exe -O ReleaseSmall -fstrip -target aarch64-macos phrase.zig
+```
+
+| Target | Size |
+| --- | --- |
+| Linux, x86-64 | 153 KB |
+| Windows, x86-64 | 442 KB |
+| macOS, Apple silicon | 166 KB |
+
+Each one is a single file.
+
+Each one has the word list inside it.
+
+Tejas ran the new one from `~/Downloads`.
+
+```txt
+~/Downloads $ ./phrase
+256 words, 1582 bytes of words.txt, inside the program
+```
+
+## Check it yourself
+
+You can see the words inside the program with `strings`, which prints the readable text in a binary:
+
+```sh
+$ strings -n 3 phrase | grep -c -x -F -f words.txt
+256
+```
+
+All 256 words are in the file.
+
+`-n 3` matters here, because `strings` skips anything shorter than four characters by default, and `fig` has three.
+
+## What else to embed
+
+`@embedFile` suits any small file that the program cannot work without, such as:
+
+- a SQL schema or a list of migrations,
+- an HTML template,
+- a default config file,
+- the text for `--help`,
+- a test fixture.
+
+It is the wrong tool for a large file, because every byte ends up in the program.
+
+These chapters explain the parts in more detail:
+
+- [Imports](/learn/language-basics/imports/), including `@embedFile` and what type it returns.
+- [Comptime](/learn/language-basics/comptime/), for running code inside the compiler.
+- [Cross-compilation](/learn/build-system/cross-compilation/), for the Friday builds.
+
+## About the numbers
+
+Vishaka and Tejas are made up.
+
+The error messages, the sizes and the 256-word list are real.
+
+Every one was produced with the Zig version shown at the top of this post.
+
+The 256-word list is short on purpose, so the byte-to-word step is easy to see.
+
+Six words from it give 48 bits.
+
+That is fine for a test account.
+
+For a password that guards something important, use more words, or a longer list: with the 7,776-word list that diceware uses, six words give about 77 bits.

@@ -10,27 +10,27 @@ import SnippetSource from "../../components/SnippetSource.astro";
 
 ## 10:52 PM
 
-Arjun's phone buzzed on the kitchen table.
+Shivam's phone buzzed on the kitchen table.
 
-It was the alert he did not want: **Checkout error rate above 5%.**
+It was the alert nobody wants: **Checkout error rate above 5%.**
 
-He was on call this week.
+Shivam was on call this week.
 
-That means when production breaks at night, he is the one who fixes it.
+That means when production breaks at night, Shivam is the one who fixes it.
 
-He opened his laptop.
+Shivam opened the laptop.
 
-A message from Sara in support was already waiting.
+A message from Urvashi in support was already waiting.
 
 > Customers say payment hangs and then fails. Started maybe 20 minutes ago?
 
 "Maybe" was not good enough.
 
-Arjun needed to know which part of the site was slow, and when it started.
+Shivam needed to know which part of the site was slow, and when it started.
 
 ## 10:58 PM
 
-He logged in to the web server, `web-03`, and looked at the access log.
+Shivam logged in to the web server, `web-03`, and looked at the access log.
 
 ```sh
 $ ls -lh /var/log/shop/access.log
@@ -49,7 +49,7 @@ Each line looked like this:
 
 The time, the method, the path, the status code, and how many milliseconds the request took.
 
-Arjun knew what he wanted from the file:
+Shivam knew what the report had to show:
 
 - how many requests got each status code,
 - which endpoint was slow,
@@ -61,17 +61,17 @@ It did not have Python.
 
 And this week, nobody was allowed to install software on production servers.
 
-He could write the report in `awk`.
+The report could be written in `awk`.
 
 But a per-endpoint average, a maximum, and "the first 504" is a long `awk` line.
 
-He wanted something he could test on his laptop first, and trust on the server.
+Shivam wanted something to test on the laptop first, and trust on the server.
 
-So he opened a new file: `logscan.zig`.
+So Shivam opened a new file: `logscan.zig`.
 
 ## 11:04 PM: one line at a time
 
-He started with the smallest piece: turning one line of text into fields.
+The smallest piece came first: turning one line of text into fields.
 
 <SnippetSource name="blog.logscan" decl="parseLine" />
 
@@ -79,7 +79,7 @@ The function returns `?Line`.
 
 The `?` means "a `Line`, or `null`".
 
-Arjun knew the log had bad lines in it.
+Shivam knew the log had bad lines in it.
 
 When a customer closes the tab in the middle of a request, the server writes `-` instead of the milliseconds.
 
@@ -95,7 +95,7 @@ The server had less than 1 GB of free memory.
 
 So reading the whole file into memory first was not an option.
 
-Arjun gave the reader a buffer of 64 KiB instead:
+Shivam gave the reader a buffer of 64 KiB instead:
 
 ```zig
 var buf: [64 * 1024]u8 = undefined;
@@ -120,13 +120,13 @@ A line longer than the whole buffer gives `error.StreamTooLong`.
 
 The loop skips that line and goes on.
 
-## 11:17 PM: the bug he almost wrote
+## 11:17 PM: the bug that almost happened
 
-For each endpoint, Arjun kept a running total in a hash map.
+For each endpoint, Shivam kept a running total in a hash map.
 
-His first version stored `line.path` as the key.
+The first version stored `line.path` as the key.
 
-Then he stopped.
+Then Shivam stopped.
 
 `line.path` is a slice of the reader's buffer.
 
@@ -134,7 +134,7 @@ On the next refill, those bytes are overwritten.
 
 Every key in the map would change to some other text, and nothing would report an error.
 
-So he copied each key the first time it was seen:
+So the program copies each key the first time it is seen:
 
 <SnippetSource name="blog.logscan" decl="add" />
 
@@ -148,9 +148,9 @@ It is also why a line you want to keep must be copied.
 
 ## 11:24 PM: test it on the laptop
 
-Arjun did not have the real log on his laptop.
+The real log was not on the laptop.
 
-So he gave the program a second mode.
+So Shivam gave the program a second mode.
 
 With no file name, it writes a sample log of 50,000 lines, then scans that.
 
@@ -182,12 +182,12 @@ Now the program had to run on `web-03`.
 
 The server runs Linux on x86-64.
 
-Arjun's laptop could build for it directly:
+Shivam's laptop could build for it directly:
 
 ```sh
 $ zig build-exe -O ReleaseFast -fstrip -target x86_64-linux-musl logscan.zig
 $ ls -l logscan
--rwxr-xr-x 1 arjun arjun 273624 Oct  3 23:31 logscan
+-rwxr-xr-x 1 shivam shivam 273624 Oct  3 23:31 logscan
 $ file logscan
 logscan: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped
 ```
@@ -204,7 +204,7 @@ No runtime, no shared libraries, no package to install.
 
 It was 274 KB.
 
-He copied it over.
+Shivam copied it over.
 
 ```sh
 $ scp logscan web-03:/tmp/
@@ -237,17 +237,17 @@ Fifty million lines in about seven seconds.
 
 The whole process used 652 KB of memory.
 
-Out of curiosity, he also ran `awk` on the same file, counting only the status codes.
+Out of curiosity, Shivam also ran `awk` on the same file, counting only the status codes.
 
 That took about 13 seconds.
 
 ## 11:36 PM
 
-Arjun posted the report in the incident channel.
+Shivam posted the report in the incident channel.
 
 > Only checkout is slow. Everything else is normal. First timeout at 22:40:00. What shipped around 22:40?
 
-Two minutes later, Sara replied.
+Two minutes later, Urvashi replied.
 
 > Payments team changed the timeout config for the card provider at 22:39.
 
@@ -257,7 +257,7 @@ At 11:52 PM, the checkout error rate was back to zero.
 
 ## The next morning
 
-Arjun added `logscan.zig` to the team's tools repository.
+Shivam added `logscan.zig` to the team's tools repository.
 
 It is about 220 lines.
 
@@ -294,7 +294,7 @@ These chapters explain each part in more detail:
 
 ## About the numbers
 
-Arjun, Sara and `web-03` are made up.
+Shivam, Urvashi and `web-03` are made up.
 
 The numbers are not.
 
