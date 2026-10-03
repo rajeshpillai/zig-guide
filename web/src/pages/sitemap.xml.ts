@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { getCollection } from "astro:content";
 import { datesFor, newest, type PageDates } from "../git-dates";
 import { guideHref, pageHref } from "../nav";
+import { blogHref, postHref, posts } from "../blog";
 
 /**
  * The sitemap, built from the same collection that builds the pages, so a new
@@ -67,6 +68,13 @@ export const GET: APIRoute = async ({ site }) => {
   for (const doc of docs.sort((a, b) => a.data.order - b.data.order)) {
     add(pageHref(doc.id), dated.get(doc.id)?.modified);
   }
+
+  // The blog index is as new as its newest post. A post's lastmod is its last
+  // commit, the same rule a chapter follows.
+  const blog = await posts();
+  const postDates = await Promise.all(blog.map((post) => datesFor(post.filePath ?? "")));
+  add(blogHref, newest(postDates));
+  blog.forEach((post, i) => add(postHref(post), postDates[i]?.modified));
 
   // The pages about the guide rather than in it. `/verification/` reports
   // counts derived from the snippet manifest, so it is as new as the newest

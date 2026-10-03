@@ -128,7 +128,10 @@ const openSlug =
 
     {/* Link previews. og:image is absolute because Slack, X and iMessage
         resolve it against nothing. */}
-    <meta property="og:type" content={schema?.["@type"] === "TechArticle" ? "article" : "website"} />
+    <meta
+      property="og:type"
+      content={schema?.["@type"] === "TechArticle" || schema?.["@type"] === "BlogPosting" ? "article" : "website"}
+    />
     <meta property="og:site_name" content={SITE_NAME} />
     <meta property="og:title" content={headTitle} />
     <meta property="og:description" content={metaDescription} />
@@ -207,6 +210,12 @@ const openSlug =
       type="application/rss+xml"
       title={`${SITE_NAME} chapters`}
       href={`${base}rss.xml`}
+    />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={`${SITE_NAME} blog`}
+      href={`${base}blog/rss.xml`}
     />
     {
       /* The same chapter without the page around it: no sidebar, no pager, no
@@ -394,6 +403,7 @@ const openSlug =
       <a class="topbar-link" href={pageHref("getting-started/coming-from-older-zig")}>
         On an older Zig?
       </a>
+      <a class="topbar-link" href={`${base}blog/`}>Blog</a>
 
       {/* Hidden until the script wires it up, the same contract the search box
           keeps: an inert control that does nothing is worse than no control.
@@ -548,6 +558,7 @@ const openSlug =
 
         <p class="nav-aside">
           <a href={pageHref("getting-started/coming-from-older-zig")}>On an older Zig?</a>
+          <a class="nav-extra" href={`${base}blog/`}>Blog</a>
         </p>
       </nav>
 
@@ -677,6 +688,7 @@ const openSlug =
             of it rather than a stop in it. Here it is on every page instead. */}
         <a href={`${base}paths/`}>Reading paths</a>
         <a href={`${base}whats-new/`}>What's new</a>
+        <a href={`${base}blog/`}>Blog</a>
         <a href={`${base}verification/`}>How it's verified</a>
         <a href={`${base}about/`}>About</a>
         <a href={`${base}contact/`}>Contact</a>

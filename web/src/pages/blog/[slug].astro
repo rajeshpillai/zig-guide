@@ -1,0 +1,89 @@
+---
+/**
+ * One blog post.
+ *
+ * The line under the title is the point of the page design. It names the
+ * compiler the post was written against, and when that is not the compiler
+ * this build verified, it says which code on the page is still checked and
+ * which is not. A post's plain code blocks are never re-checked, and a reader
+ * deserves to know that before they paste one.
+ */
+import { render } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import Playground from "../../components/Playground.astro";
+import { blogHref, posts, readableDate, hasCheckedCode, hasPlainCode, type Post } from "../../blog";
+import { datesFor } from "../../git-dates";
+import { buildInfo } from "../../build-info";
+import { AUTHOR, SITE_NAME } from "../../seo";
+
+export async function getStaticPaths() {
+  return (await posts()).map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props as { post: Post };
+const { Content } = await render(post);
+const { zigVersion } = await buildInfo();
+
+// Published is the date in the frontmatter. Modified comes from git, and only
+// counts when it is later than that day: a post committed on `dev` before it
+// shipped has an older commit, which is not an edit.
+const dates = await datesFor(post.filePath ?? "");
+const modified = dates && dates.modified.slice(0, 10) > post.data.date ? dates.modified : undefined;
+
+const checked = hasCheckedCode(post);
+const plain = hasPlainCode(post);
+const moved = post.data.zig !== zigVersion;
+---
+
+<Base
+  title={post.data.title}
+  seoTitle={post.data.seoTitle}
+  description={post.data.description}
+  crumbs={[{ label: "Blog", href: blogHref }, { label: post.data.title }]}
+  schema={{
+    "@type": "BlogPosting",
+    headline: post.data.seoTitle ?? post.data.title,
+    description: post.data.description,
+    inLanguage: "en",
+    author: { "@type": "Person", name: AUTHOR },
+    publisher: { "@type": "Organization", name: SITE_NAME },
+    datePublished: post.data.date,
+    ...(modified ? { dateModified: modified } : {}),
+  }}
+>
+  <article>
+    <h1>{post.data.title}</h1>
+    <p class="chapter-meta">
+      <time datetime={post.data.date}>{readableDate(post.data.date)}</time>
+      {" · "}Written against Zig {post.data.zig}
+    </p>
+    {
+      moved && (checked || plain) && (
+        <p class="post-age">
+          {checked && plain && (
+            <>
+              The runnable examples on this page are checked every night and
+              currently run on Zig {zigVersion}. The plain code blocks are not
+              checked, and may no longer compile.
+            </>
+          )}
+          {checked && !plain && (
+            <>The runnable examples on this page are checked every night and currently run on Zig {zigVersion}.</>
+          )}
+          {!checked && plain && (
+            <>
+              The code on this page is not checked against newer compilers.
+              The guide is currently verified against Zig {zigVersion}, and
+              this code may no longer compile on it.
+            </>
+          )}
+        </p>
+      )
+    }
+    <Content components={{ Playground }} />
+  </article>
+
+  <p class="post-back">
+    <a href={blogHref}>← All posts</a>
+  </p>
+</Base>

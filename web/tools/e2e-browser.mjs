@@ -419,6 +419,7 @@ for (const href of [
   `${PREFIX}/paths/`,
   `${PREFIX}/references/`,
   `${PREFIX}/whats-new/`,
+  `${PREFIX}/blog/`,
   `${PREFIX}/about/`,
   `${PREFIX}/verification/`,
   `${PREFIX}/contact/`,
@@ -438,6 +439,54 @@ for (const href of [
     as.map((a) => a.getAttribute("href")),
   )) {
     internalLinks.add(link);
+  }
+}
+
+/**
+ * Every blog post, found the way a reader finds them: from `/blog/`. A post is
+ * outside the sidebar and the pager, so nothing above would reach one, and a
+ * post that rendered without a title or a canonical would ship unnoticed.
+ *
+ * The line under the title is checked too. It names the compiler the post was
+ * written against, which is the one thing that makes a dated page with
+ * unchecked code honest, so a post without it is a failure, not a style nit.
+ */
+let blogPosts = 0;
+{
+  await page.goto(`${BASE}${PREFIX}/blog/`, { waitUntil: "domcontentloaded" });
+  const hrefs = await page.$$eval(".post-list h2 a", (as) => as.map((a) => a.getAttribute("href")));
+  if (hrefs.length === 0) failures.push("/blog/ lists no posts");
+  for (const href of hrefs) {
+    const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
+    if (!res?.ok()) {
+      failures.push(`${href} -> HTTP ${res?.status() ?? "no response"}`);
+      continue;
+    }
+    await checkHead(href);
+    blogPosts++;
+    const meta = await page.$eval("main .chapter-meta", (p) => p.textContent).catch(() => "");
+    if (!/Written against Zig \d+\.\d+\.\d+/.test(meta ?? "")) {
+      failures.push(`${href} does not say which Zig it was written against`);
+    }
+    for (const link of await page.$$eval("main a[href^='/']", (as) =>
+      as.map((a) => a.getAttribute("href")),
+    )) {
+      internalLinks.add(link);
+    }
+  }
+
+  // The feed has to list exactly the posts the index does, or one of the two
+  // is lying about what has been published.
+  const feed = await page.request.get(`${BASE}${PREFIX}/blog/rss.xml`);
+  if (!feed.ok()) {
+    failures.push(`blog/rss.xml -> HTTP ${feed.status()}`);
+  } else {
+    const links = [...(await feed.text()).matchAll(/<link>([^<]+)<\/link>/g)]
+      .map((m) => new URL(m[1]).pathname)
+      .filter((path) => path !== `${PREFIX}/blog/`);
+    if (links.join(" ") !== hrefs.join(" ")) {
+      failures.push(`blog/rss.xml lists ${links.length} posts in a different order or set from /blog/ (${hrefs.length})`);
+    }
   }
 }
 
@@ -735,6 +784,9 @@ for (const spacing of HEADER_SPACINGS) {
         // invisible in a screenshot because the body clips it.
         spill: Math.round(last.right - bar.getBoundingClientRect().right),
         migrationReachable: shown(".topbar-link") || shown(".nav-aside"),
+        // The footer carries it at every width, but the footer is the bottom
+        // of a long chapter. The topbar or the nav panel has to have it too.
+        blogReachable: shown('.topbar a[href$="/blog/"]') || shown(".nav-aside"),
       };
     });
 
@@ -751,6 +803,9 @@ for (const spacing of HEADER_SPACINGS) {
     }
     if (!seen.migrationReachable) {
       failures.push(`${at}: "On an older Zig?" is on no surface`);
+    }
+    if (!seen.blogReachable) {
+      failures.push(`${at}: "Blog" is in neither the topbar nor the nav panel`);
     }
     await page2.close();
   }
@@ -1568,7 +1623,7 @@ console.log(
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
     `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  ` +
     `editor: ${editorLooks}  code tokens: ${codeTokens}  ` +
-    `header widths: ${headerWidths}  ` +
+    `header widths: ${headerWidths}  blog posts: ${blogPosts}  ` +
     `source quotes: ${sourceQuotes}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +

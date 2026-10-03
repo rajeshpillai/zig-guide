@@ -46,4 +46,44 @@ const docs = defineCollection({
   }),
 });
 
-export const collections = { docs };
+/**
+ * Dated posts at `/blog/<id>/`, outside the guide.
+ *
+ * A chapter is kept true: its code is gated every night against Zig master,
+ * and it is rewritten when master moves. A post is the opposite kind of page.
+ * It says what was true on the day it was written, and it is not rewritten
+ * later. Both rules cannot apply to one page, so the post states which compiler
+ * it was written against and the reader can judge its age.
+ *
+ * - `<Playground>` in a post is still gated, because the snippet lives in
+ *   `snippets/` like any other. That code stays current.
+ * - A plain fenced block is not gated, and neither `zig build verify` nor the
+ *   deprecation check reads this directory. The post page says so next to
+ *   the pinned version whenever the two compilers differ.
+ */
+const blog = defineCollection({
+  loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/blog" }),
+  schema: z.object({
+    title: z.string(),
+    /** One line under the title on `/blog/`, and the meta description. */
+    description: z.string(),
+    /**
+     * The day the post went out, as `YYYY-MM-DD`. Written by hand rather than
+     * taken from git: a post drafted on `dev` for a week is published on the
+     * day it ships, not on the day its first commit was made. Kept a string so
+     * no time zone can move it by a day.
+     */
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
+    /**
+     * The compiler the post was written against, exactly as `zig version`
+     * prints it. Required, because a post with no version is the stale
+     * tutorial this site exists to replace.
+     */
+    zig: z
+      .string()
+      .regex(/^\d+\.\d+\.\d+(-dev\.\d+\+[0-9a-f]+)?$/, "zig must be what `zig version` prints"),
+    seoTitle: z.string().optional(),
+  }),
+});
+
+export const collections = { docs, blog };
