@@ -8,7 +8,9 @@
     "check": "astro check",
     "e2e": "node tools/e2e-browser.mjs",
     "og": "node tools/make-og-image.mjs",
-    "indexnow": "node tools/indexnow.mjs"
+    "indexnow": "node tools/indexnow.mjs",
+    "shorts": "node tools/update-shorts.mjs",
+    "favicon": "node tools/make-favicon.mjs"
   },
   "type": "module",
   "dependencies": {

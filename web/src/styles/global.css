@@ -1458,6 +1458,107 @@ main th {
   border-top: 1px solid var(--border);
 }
 
+/* ---------- riddle break ----------
+   A short from the YouTube channel, after the page and before the pager, and
+   in a strip on the home page (src/channels.ts). Text and a link until the
+   reader presses Play; src/scripts/riddle.ts then swaps in the player. */
+
+.riddle-break {
+  margin-top: 3rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* --surface, not --raised: --muted on --raised is 4.32:1 in nord dark. */
+  background: var(--surface);
+  max-width: 62ch;
+}
+
+.riddle-break p {
+  margin: 0;
+}
+
+.riddle-kicker {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.riddle-question {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.riddle-break .riddle-question {
+  margin: 0.25rem 0 0.75rem;
+}
+
+.riddle-play {
+  display: inline-block;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+main a.riddle-play {
+  color: var(--on-accent);
+}
+
+.riddle-play:hover {
+  text-decoration: underline;
+}
+
+/* A short is 9:16. Capped so a playing video never takes the whole screen. */
+.riddle-player {
+  display: block;
+  width: min(100%, 20rem);
+  aspect-ratio: 9 / 16;
+  max-height: 80vh;
+  border: 0;
+  border-radius: var(--radius);
+  background: #000;
+}
+
+.riddle-from {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.riddle-break .riddle-from {
+  margin-top: 0.75rem;
+}
+
+.riddle-strip {
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: 0.6rem;
+}
+
+.riddle-strip li {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.riddle-strip .riddle-question {
+  font-size: 1rem;
+}
+
 /* ---------- previous / next ---------- */
 
 .pager {

@@ -11,6 +11,7 @@
 import Base from "../layouts/Base.astro";
 import { navTracks, guideHref, pageHref } from "../nav";
 import { SITE_DESCRIPTION } from "../seo";
+import { CHANNELS, LABELS, channelUrl, shorts } from "../channels";
 
 const base = import.meta.env.BASE_URL;
 const tracks = await navTracks();
@@ -23,6 +24,10 @@ const chapterCount = tracks.reduce(
     ),
   0,
 );
+
+// The newest few. Text and a link until the reader presses Play, so the home
+// page loads nothing from YouTube on its own (src/scripts/riddle.ts).
+const riddles = (await shorts()).slice(0, 4);
 ---
 
 <Base
@@ -75,6 +80,46 @@ const chapterCount = tracks.reduce(
   </ul>
   <p><a href={guideHref}>Every section, in order →</a></p>
 
+  {
+    riddles.length > 0 && (
+      <>
+        <h2>Riddle breaks</h2>
+        <p>
+          Short videos from the author of this guide: riddles that ask the
+          question first and show the answer at the end, and the odd joke.
+          They play here, on this page.
+        </p>
+        <ul class="riddle-strip">
+          {riddles.map((short) => (
+            <li data-short-card>
+              <p class="riddle-question">{short.title}</p>
+              <a
+                class="riddle-play"
+                href={short.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-short={short.id}
+                data-title={short.title}
+              >
+                {LABELS[short.kind].play}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p>
+          {CHANNELS.map((channel, i) => (
+            <>
+              {i > 0 && " · "}
+              <a href={channelUrl(channel)} target="_blank" rel="noopener noreferrer">
+                More from {channel.name} on YouTube →
+              </a>
+            </>
+          ))}
+        </p>
+      </>
+    )
+  }
+
   {/* The Run button is the promise this site makes, so the floor it needs is
       worth stating once, on the page a reader lands on. The browser versions
       are the build target the scripts are compiled to, not a guess. */}
@@ -123,3 +168,7 @@ const chapterCount = tracks.reduce(
     chapter</a>.
   </p>
 </Base>
+
+<script>
+  import "../scripts/riddle.ts";
+</script>

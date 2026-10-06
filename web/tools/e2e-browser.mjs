@@ -1160,6 +1160,61 @@ let jsOffChecks = 0;
 }
 
 /*
+ * Riddle shorts (src/channels.ts, src/scripts/riddle.ts).
+ *
+ * The privacy page promises that nothing from YouTube loads until the reader
+ * presses Play, so that is checked by watching every request, not assumed.
+ * Then Play has to put the player in the card rather than leave the page. The
+ * player is stubbed with an empty page, so no gate run reaches YouTube.
+ */
+let riddleChecks = 0;
+{
+  const context = await browser.newContext();
+  const youtube = [];
+  context.on("request", (r) => {
+    if (/youtube(-nocookie)?\.com|ytimg\.com/.test(r.url())) youtube.push(r.url());
+  });
+  await context.route(/youtube-nocookie\.com/, (route) =>
+    route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>stub</title>" }),
+  );
+  await context.route(
+    /(googlesyndication|googletagservices|googleadservices|doubleclick|googletagmanager|google-analytics)\.(com|net)/,
+    (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
+  );
+  const tab = await context.newPage();
+  for (const path of [`${PREFIX}/`, `${PREFIX}/learn/language-basics/optionals/`]) {
+    await tab.goto(BASE + path, { waitUntil: "networkidle" });
+    const play = tab.locator("a[data-short]").first();
+    riddleChecks++;
+    if ((await play.count()) === 0) {
+      failures.push(`riddle: ${path} has no riddle card`);
+      continue;
+    }
+    const href = await play.getAttribute("href");
+    riddleChecks++;
+    if (!/^https:\/\/www\.youtube\.com\/shorts\/[\w-]{11}$/.test(href ?? "")) {
+      failures.push(`riddle: ${path} Play link is not a YouTube short: ${href}`);
+    }
+    riddleChecks++;
+    if (youtube.length) failures.push(`riddle: ${path} contacted YouTube before Play: ${youtube[0]}`);
+    await play.click();
+    const src = await tab
+      .locator("[data-short-card] iframe.riddle-player")
+      .first()
+      .getAttribute("src", { timeout: 5000 })
+      .catch(() => null);
+    riddleChecks++;
+    if (!src?.startsWith("https://www.youtube-nocookie.com/embed/")) {
+      failures.push(`riddle: ${path} Play did not embed the player in the card (src ${src})`);
+    }
+    riddleChecks++;
+    if (tab.url() !== BASE + path) failures.push(`riddle: ${path} Play navigated away to ${tab.url()}`);
+    youtube.length = 0;
+  }
+  await context.close();
+}
+
+/*
  * Festive decorations, against a faked clock.
  *
  * The build decides whether a festival is carried at all, and the page says
@@ -1633,7 +1688,7 @@ console.log(
     `output matched .expected: ${outputChecked}  ` +
     `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
-    `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  ` +
+    `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  riddle: ${riddleChecks}  ` +
     `editor: ${editorLooks}  code tokens: ${codeTokens}  ` +
     `header widths: ${headerWidths}  blog posts: ${blogPosts}  ` +
     `source quotes: ${sourceQuotes}  ` +

@@ -3,6 +3,7 @@ import { buildInfo } from "../build-info";
 import { ADSENSE_CLIENT } from "../adsense";
 import { ANALYTICS_ID } from "../analytics";
 import { festivalForBuild } from "../festivals";
+import { CHANNELS, channelUrl } from "../channels";
 import { navTracks, pageHref } from "../nav";
 import { SITE_NAME, SITE_DESCRIPTION, AUTHOR, OG_IMAGE, REPO_URL } from "../seo";
 import "../styles/global.css";
@@ -204,6 +205,11 @@ const openSlug =
       )
     }
 
+    {/* The .ico is listed too because browsers that ignore SVG icons, and
+        crawlers that skip <link> entirely, ask for /favicon.ico regardless. */}
+    <link rel="icon" href={`${base}favicon.ico`} sizes="48x48" />
+    <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={`${base}apple-touch-icon.png`} />
     <link rel="sitemap" type="application/xml" href={`${base}sitemap.xml`} />
     <link
       rel="alternate"
@@ -684,6 +690,16 @@ const openSlug =
           </svg>
           @rajeshpillai
         </a>
+        {
+          CHANNELS.map((channel) => (
+            <a href={channelUrl(channel)} target="_blank" rel="noopener noreferrer">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="currentColor">
+                <path d="M15.67 4.15a2 2 0 0 0-1.41-1.42C13.02 2.4 8 2.4 8 2.4s-5.02 0-6.26.33A2 2 0 0 0 .33 4.15C0 5.4 0 8 0 8s0 2.6.33 3.85a2 2 0 0 0 1.41 1.42c1.24.33 6.26.33 6.26.33s5.02 0 6.26-.33a2 2 0 0 0 1.41-1.42C16 10.6 16 8 16 8s0-2.6-.33-3.85ZM6.4 10.4V5.6L10.56 8 6.4 10.4Z"></path>
+              </svg>
+              {channel.name}
+            </a>
+          ))
+        }
         {/* Not in the sidebar: that is the list of chapters, and this is a view
             of it rather than a stop in it. Here it is on every page instead. */}
         <a href={`${base}paths/`}>Reading paths</a>

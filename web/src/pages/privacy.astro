@@ -92,6 +92,26 @@ const base = import.meta.env.BASE_URL;
       links: following one is a visit to that site under its own policy.
     </p>
 
+    <h2>YouTube</h2>
+    <p>
+      The short video card at the end of a chapter, and the ones on the home
+      page, are riddles and jokes from YouTube. Until you press Play, each one is
+      plain text and a link: no video player, thumbnail or script from YouTube
+      loads, and YouTube learns nothing about your visit. The list of videos is
+      read from the channel's public feed when the site is built, not when you
+      visit.
+    </p>
+    <p>
+      Pressing Play loads YouTube's player into the page from{" "}
+      <code>youtube-nocookie.com</code>, YouTube's privacy-enhanced mode. From
+      that point YouTube receives your IP address and browser details, as any
+      video site would, and may store data in your browser once the video
+      plays.{" "}
+      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer"
+        >Google's privacy policy</a> applies to the player. With JavaScript off,
+      Play is a link that opens the video on YouTube instead.
+    </p>
+
     <h2>Contact</h2>
     <p>
       This guide is maintained by {AUTHOR}. Questions about this page can go to{" "}

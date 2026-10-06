@@ -166,6 +166,17 @@ Dated posts in `web/src/content/blog/*.mdx`, at `/blog/<file>/`, with their own 
 - **A post's own snippets live in `snippets/blog/`**, slug `blog.<file>`, with a `.expected` like any other. Draw random numbers at a fixed width (`u32`, never `usize`): `usize` is 64 bits natively and 32 in wasm, so the same seed gives different data and the `.expected` matches only one of them. `logscan` hit exactly this.
 - Posts follow the writing rules above. Do not write a post that teaches what a chapter already teaches: two pages on one query is what the `/learn/` move exists to prevent. Link to the chapter instead.
 
+## Riddle shorts (YouTube)
+
+The owner's YouTube riddle channel appears in four places: a **riddle break** card after every chapter and blog post (before the pager, never inside the prose), a strip of the four newest on the home page, a footer link, and a line on `/about/`. All of them read [web/src/channels.ts](web/src/channels.ts), so a second channel is one row in `CHANNELS`.
+
+- **New shorts appear by themselves.** `astro build` reads each channel's public RSS feed, so the nightly picks up a new upload. The feed holds only the newest 15, so it is merged with the committed snapshot `web/src/data/shorts.json`. `npm run shorts --prefix web` folds the current feed into that snapshot; run it now and then, or a short drops out of both once 15 newer ones exist. A feed that cannot be reached is a warning and the build ships the snapshot: a nightly must never fail because YouTube was slow. `SHORTS_FEED=off` builds offline.
+- **Every upload is featured, riddle or not.** The channel mixes riddles and jokes. A channel's `riddle` regex decides the label: a match is a "Riddle break" with "Play the riddle", anything else is a "Quick break" with "Play" (`LABELS` in `channels.ts`). `cleanTitle` strips the emoji, hashtags and the "| Riddle Masti #17" suffix, because the card shows the title as prose. A title that is only the channel name ("Riddle Masti - Nature") cleans to nothing and that short is skipped.
+- **Nothing from YouTube loads until the reader presses Play.** The card is text and a link to `youtube.com/shorts/<id>`. [riddle.ts](web/src/scripts/riddle.ts) turns a plain click into a `youtube-nocookie.com` player inside the card. With JS off it stays a link. `/privacy/` states exactly this, and `npm run e2e` checks it: no YouTube request before the click, an embedded player after it, and no navigation away.
+- **The card sits on `--surface`, not `--raised`.** `--muted` on `--raised` is 4.32:1 in nord dark, which the contrast pass caught.
+
+**The favicon** is `web/public/favicon.svg` (the ⚡ from the wordmark on the dark code background). `npm run favicon --prefix web` renders `favicon.ico` and `apple-touch-icon.png` from it, and both are committed like `og.png`. The `.ico` exists because browsers and crawlers ask for `/favicon.ico` without reading any `<link>`. Before it existed, each of those requests got the 404 page.
+
 ## The game (`examples/lane-dodger/`)
 
 A raylib game with its own build, its own tests and its own toolchain, written up as the **Lane Dodger** section of the Projects track. It is the only thing in the repo that is not a snippet, and the only one that links a large third-party C library.

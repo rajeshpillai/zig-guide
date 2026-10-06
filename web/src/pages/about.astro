@@ -10,6 +10,7 @@
 import Base from "../layouts/Base.astro";
 import { buildInfo } from "../build-info";
 import { guideHref, pageHref } from "../nav";
+import { CHANNELS, channelUrl } from "../channels";
 
 const base = import.meta.env.BASE_URL;
 const { zigVersion, snippetCount } = await buildInfo();
@@ -100,6 +101,16 @@ const { zigVersion, snippetCount } = await buildInfo();
         rel="noopener noreferrer">github.com/rajeshpillai/zig-guide</a>. If
       something here is wrong, it can be checked and corrected in the open;
       see <a href={`${base}contact/`}>contact</a>.
+    </p>
+    <p>
+      Away from Zig, the same author makes short riddle and joke videos on YouTube:{" "}
+      {CHANNELS.map((channel, i) => (
+        <>
+          {i > 0 && ", "}
+          <a href={channelUrl(channel)} target="_blank" rel="noopener noreferrer"
+            >{channel.name}</a>
+        </>
+      ))}. Each chapter ends with one of them, and it plays on the page.
     </p>
 
     <h2>What it is not</h2>

@@ -11,6 +11,7 @@
 import { render } from "astro:content";
 import Base from "../../layouts/Base.astro";
 import Playground from "../../components/Playground.astro";
+import RiddleBreak from "../../components/RiddleBreak.astro";
 import { blogHref, posts, postDay, readableDate, hasCheckedCode, hasPlainCode, type Post } from "../../blog";
 import { datesFor } from "../../git-dates";
 import { buildInfo } from "../../build-info";
@@ -82,6 +83,8 @@ const moved = post.data.zig !== zigVersion;
     }
     <Content components={{ Playground }} />
   </article>
+
+  <RiddleBreak path={`blog/${post.id}`} />
 
   <p class="post-back">
     <a href={blogHref}>← All posts</a>
