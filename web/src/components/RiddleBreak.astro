@@ -3,10 +3,12 @@
  * One riddle from the YouTube channel, at the foot of a chapter or a post.
  *
  * It sits after the content and before the pager, so it is seen once the page
- * has been read and never in the middle of it. Until the reader presses Play
- * it is text and a link, and nothing from YouTube loads; the click swaps in
- * the player (src/scripts/riddle.ts). With no shorts available it renders
- * nothing.
+ * has been read and never in the middle of it. It is text and a link until it
+ * is half on screen, when src/scripts/riddle.ts swaps in a muted player that
+ * starts by itself (or until the reader presses Play, where autoplay is off).
+ * `.riddle-stage` holds the player's 9:16 space from the first paint, so the
+ * pager below does not jump when the video arrives. With no shorts available
+ * it renders nothing.
  */
 import { LABELS, channelUrl, shortFor } from "../channels";
 
@@ -20,19 +22,21 @@ const short = await shortFor(Astro.props.path);
 
 {
   short && (
-    <aside class="riddle-break" aria-label={LABELS[short.kind].kicker} data-short-card>
+    <aside class="riddle-break" aria-label={LABELS[short.kind].kicker} data-short-card data-autoplay>
       <p class="riddle-kicker">{LABELS[short.kind].kicker}</p>
       <p class="riddle-question">{short.title}</p>
-      <a
-        class="riddle-play"
-        href={short.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        data-short={short.id}
-        data-title={short.title}
-      >
-        {LABELS[short.kind].play}
-      </a>
+      <div class="riddle-stage">
+        <a
+          class="riddle-play"
+          href={short.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-short={short.id}
+          data-title={short.title}
+        >
+          {LABELS[short.kind].play}
+        </a>
+      </div>
       <p class="riddle-from">
         From{" "}
         <a href={channelUrl(short.channel)} target="_blank" rel="noopener noreferrer">

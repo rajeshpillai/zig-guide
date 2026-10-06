@@ -1515,14 +1515,39 @@ main a.riddle-play {
 }
 
 /* A short is 9:16. Capped so a playing video never takes the whole screen. */
-.riddle-player {
+.riddle-player,
+.riddle-stage {
   display: block;
   width: min(100%, 20rem);
   aspect-ratio: 9 / 16;
   max-height: 80vh;
   border: 0;
   border-radius: var(--radius);
+}
+
+.riddle-player {
   background: #000;
+}
+
+/* Only where the video will play by itself is the stage held open before it
+   loads. With scripts off, or with reduced motion, there is no video until a
+   click, so the button sits in the card on its own. Data saver cannot be read
+   from CSS: those readers get the held space with the button in it. */
+.riddle-stage {
+  display: contents;
+}
+
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .riddle-stage {
+    display: grid;
+    place-items: center;
+    background: var(--sunken);
+  }
+
+  .riddle-stage > .riddle-player {
+    width: 100%;
+    height: 100%;
+  }
 }
 
 .riddle-from {

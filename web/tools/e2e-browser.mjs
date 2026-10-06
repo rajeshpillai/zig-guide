@@ -109,6 +109,22 @@ const hosted = given ? null : await serve(DIST);
 const BASE = (given ?? hosted.url).replace(/\/$/, "");
 
 const browser = await chromium.launch();
+/**
+ * The YouTube riddle player (src/scripts/riddle.ts) starts by itself once its
+ * card is half on screen, which on a short chapter is at load. Stubbed with an
+ * empty page for the same reasons as the ads: no gate run reaches YouTube or
+ * waits on it.
+ */
+async function stubThirdParty(target) {
+  await target.route(
+    /(googlesyndication|googletagservices|googleadservices|doubleclick|googletagmanager|google-analytics)\.(com|net)/,
+    (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
+  );
+  await target.route(/youtube(-nocookie)?\.com|ytimg\.com/, (route) =>
+    route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>stub</title>" }),
+  );
+}
+
 const page = await browser.newPage();
 // Festive decorations off for the main walk, whatever day the gate runs on.
 // Petals falling over a page being screenshotted, clicked and measured would
@@ -126,10 +142,7 @@ await page.addInitScript(() => {
 // exists to test the snippets, and every gate run would report itself as
 // traffic. An empty 200 rather than an abort, because a blocked request is
 // itself logged as a console error.
-await page.route(
-  /(googlesyndication|googletagservices|googleadservices|doubleclick|googletagmanager|google-analytics)\.(com|net)/,
-  (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
-);
+await stubThirdParty(page);
 
 const consoleErrors = new Set();
 page.on("pageerror", (e) => consoleErrors.add(`pageerror: ${e.message}`));
@@ -1162,56 +1175,100 @@ let jsOffChecks = 0;
 /*
  * Riddle shorts (src/channels.ts, src/scripts/riddle.ts).
  *
- * The privacy page promises that nothing from YouTube loads until the reader
- * presses Play, so that is checked by watching every request, not assumed.
- * Then Play has to put the player in the card rather than leave the page. The
- * player is stubbed with an empty page, so no gate run reaches YouTube.
+ * The privacy page makes a promise this checks by watching every request:
+ * nothing from YouTube loads until a chapter's card is half on screen, or a
+ * card's Play is pressed. Then:
+ *
+ * - On a chapter, scrolling to the card starts a muted player inside it, and
+ *   the card does not change height, so the pager below does not jump.
+ * - With reduced motion it does not start; Play does, with sound.
+ * - The home page cards never start by themselves; Play embeds the player.
+ *
+ * The chapter has to be long enough that its card starts below the fold, or
+ * "nothing before the scroll" would be checking nothing, so that is asserted.
  */
 let riddleChecks = 0;
 {
-  const context = await browser.newContext();
-  const youtube = [];
-  context.on("request", (r) => {
-    if (/youtube(-nocookie)?\.com|ytimg\.com/.test(r.url())) youtube.push(r.url());
-  });
-  await context.route(/youtube-nocookie\.com/, (route) =>
-    route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>stub</title>" }),
-  );
-  await context.route(
-    /(googlesyndication|googletagservices|googleadservices|doubleclick|googletagmanager|google-analytics)\.(com|net)/,
-    (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
-  );
-  const tab = await context.newPage();
-  for (const path of [`${PREFIX}/`, `${PREFIX}/learn/language-basics/optionals/`]) {
-    await tab.goto(BASE + path, { waitUntil: "networkidle" });
-    const play = tab.locator("a[data-short]").first();
+  const chapter = `${PREFIX}/learn/language-basics/optionals/`;
+  const open = async (options = {}) => {
+    const context = await browser.newContext(options);
+    const youtube = [];
+    context.on("request", (r) => {
+      if (/youtube(-nocookie)?\.com|ytimg\.com/.test(r.url())) youtube.push(r.url());
+    });
+    await stubThirdParty(context);
+    return { context, tab: await context.newPage(), youtube };
+  };
+  const check = (ok, message) => {
     riddleChecks++;
-    if ((await play.count()) === 0) {
-      failures.push(`riddle: ${path} has no riddle card`);
-      continue;
-    }
-    const href = await play.getAttribute("href");
-    riddleChecks++;
-    if (!/^https:\/\/www\.youtube\.com\/shorts\/[\w-]{11}$/.test(href ?? "")) {
-      failures.push(`riddle: ${path} Play link is not a YouTube short: ${href}`);
-    }
-    riddleChecks++;
-    if (youtube.length) failures.push(`riddle: ${path} contacted YouTube before Play: ${youtube[0]}`);
-    await play.click();
-    const src = await tab
+    if (!ok) failures.push(`riddle: ${message}`);
+  };
+  const playerSrc = (tab) =>
+    tab
       .locator("[data-short-card] iframe.riddle-player")
       .first()
       .getAttribute("src", { timeout: 5000 })
       .catch(() => null);
-    riddleChecks++;
-    if (!src?.startsWith("https://www.youtube-nocookie.com/embed/")) {
-      failures.push(`riddle: ${path} Play did not embed the player in the card (src ${src})`);
-    }
-    riddleChecks++;
-    if (tab.url() !== BASE + path) failures.push(`riddle: ${path} Play navigated away to ${tab.url()}`);
-    youtube.length = 0;
+
+  // Autoplay on a chapter.
+  {
+    const { context, tab, youtube } = await open();
+    await tab.goto(BASE + chapter, { waitUntil: "networkidle" });
+    const card = tab.locator(".riddle-break");
+    check((await card.count()) === 1, `${chapter} has no riddle card`);
+    const below = await card.evaluate((n) => n.getBoundingClientRect().top > innerHeight);
+    check(below, `${chapter} card is on screen at load; pick a longer chapter for this check`);
+    check(youtube.length === 0, `${chapter} contacted YouTube before the card was on screen: ${youtube[0]}`);
+    const before = await card.evaluate((n) => n.getBoundingClientRect().height);
+    await card.scrollIntoViewIfNeeded();
+    const src = await playerSrc(tab);
+    check(
+      !!src?.startsWith("https://www.youtube-nocookie.com/embed/") && /[?&]mute=1\b/.test(src),
+      `${chapter} scrolling to the card did not start a muted player (src ${src})`,
+    );
+    const after = await card.evaluate((n) => n.getBoundingClientRect().height);
+    check(Math.abs(after - before) < 1, `${chapter} card changed height when the video loaded: ${before} -> ${after}`);
+    await context.close();
   }
-  await context.close();
+
+  // Reduced motion: a button, and nothing moves until it is pressed.
+  {
+    const { context, tab, youtube } = await open({ reducedMotion: "reduce" });
+    await tab.goto(BASE + chapter, { waitUntil: "networkidle" });
+    await tab.locator(".riddle-break").scrollIntoViewIfNeeded();
+    await tab.waitForTimeout(500);
+    check(youtube.length === 0, `reduced motion: ${chapter} loaded YouTube without a click: ${youtube[0]}`);
+    await tab.locator("a[data-short]").first().click();
+    const src = await playerSrc(tab);
+    check(
+      !!src?.startsWith("https://www.youtube-nocookie.com/embed/") && !/[?&]mute=1\b/.test(src),
+      `reduced motion: Play did not embed an unmuted player (src ${src})`,
+    );
+    check(tab.url() === BASE + chapter, `reduced motion: Play navigated away to ${tab.url()}`);
+    await context.close();
+  }
+
+  // The home page strip never starts by itself.
+  {
+    const home = `${PREFIX}/`;
+    const { context, tab, youtube } = await open();
+    await tab.goto(BASE + home, { waitUntil: "networkidle" });
+    const play = tab.locator(".riddle-strip a[data-short]").first();
+    check((await play.count()) === 1, "the home page has no riddle strip");
+    const href = await play.getAttribute("href");
+    check(
+      /^https:\/\/www\.youtube\.com\/shorts\/[\w-]{11}$/.test(href ?? ""),
+      `home Play link is not a YouTube short: ${href}`,
+    );
+    await play.scrollIntoViewIfNeeded();
+    await tab.waitForTimeout(500);
+    check(youtube.length === 0, `home loaded YouTube without a click: ${youtube[0]}`);
+    await play.click();
+    const src = await playerSrc(tab);
+    check(!!src?.startsWith("https://www.youtube-nocookie.com/embed/"), `home Play did not embed the player (src ${src})`);
+    check(tab.url() === BASE + home, `home Play navigated away to ${tab.url()}`);
+    await context.close();
+  }
 }
 
 /*
@@ -1241,10 +1298,7 @@ let festiveChecks = 0;
 
     const open = async (time, options = {}) => {
       const context = await browser.newContext(options);
-      await context.route(
-        /(googlesyndication|googletagservices|googleadservices|doubleclick|googletagmanager|google-analytics)\.(com|net)/,
-        (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
-      );
+      await stubThirdParty(context);
       await context.clock.install({ time });
       const p = await context.newPage();
       const tinyfly = [];
