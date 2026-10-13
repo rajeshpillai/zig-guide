@@ -14,7 +14,7 @@ const Point = @import("geometry.zig").Point;
 /// The display hash after `draw` on a fresh 640 by 400, two-layer document.
 /// If a change to the engine changes the picture on purpose, run the tests,
 /// look at the new picture, and update this.
-pub const hash: u32 = 0x126900eb;
+pub const hash: u32 = 0x3870db57;
 
 /// Draw the demo. The points are computed with integer arithmetic only, so the
 /// script itself cannot differ between machines.
@@ -61,6 +61,18 @@ pub fn draw(d: *Document) !void {
     while (i <= 30) : (i += 1) {
         const t: f32 = @floatFromInt(i);
         d.moveStroke(.{ .x = 40 + t * 10, .y = 380 - t * t / 30 });
+    }
+    d.endStroke();
+
+    // Bottom layer: an oil brush dragged up through the wash and the nib's
+    // stroke. It picks up their colours as it goes and runs dry towards the
+    // end.
+    const oil: Brush = .{ .radius = 18, .hardness = 0.7, .flow = 1, .spacing = 0.05, .follow = 0.5, .pickup = 0.12, .drain = 0.2, .color = .{ 200, 50, 40 } };
+    d.beginStroke(oil, .brush, .{ .x = 170, .y = 340 });
+    i = 0;
+    while (i <= 28) : (i += 1) {
+        const t: f32 = @floatFromInt(i);
+        d.moveStroke(.{ .x = 170 + t * 2, .y = 340 - t * 10 });
     }
     d.endStroke();
 

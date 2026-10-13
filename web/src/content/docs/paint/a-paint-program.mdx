@@ -24,7 +24,7 @@ Draw on the bottom layer, switch to the top layer, draw again, and erase there. 
 
 The program is in two parts.
 
-The **engine** decides what every pixel becomes. It is about 1,450 lines of Zig, and 700 more of tests.
+The **engine** decides what every pixel becomes. It is about 1,600 lines of Zig, and about 750 more of tests.
 
 The **front end** turns mouse and pen events into calls to the engine, and copies the engine's pixels onto the canvas.
 
@@ -54,7 +54,7 @@ This one checks that a stroke looks the same while you draw it as it does after 
 
 <PaintSource file="src/engine/document.zig" decl="a stroke shows while drawing, and looks the same after it is committed" />
 
-There are 54 tests like this, and none of them opens a window.
+There are 60 tests like this, and none of them opens a window.
 
 ## The same pixels everywhere
 
@@ -62,7 +62,7 @@ The engine runs in three places: in your browser, in a native window, and in the
 
 A test only proves something about the browser if the browser build draws the same pixels as the test build.
 
-So the engine carries a fixed drawing. It uses every tool: a soft wash, a calligraphy nib, a ribbon, a dry bristle brush, spray, a fill, an eraser, and an undo and redo.
+So the engine carries a fixed drawing. It uses every tool: a soft wash, a calligraphy nib, a ribbon, a dry bristle brush, an oil brush, spray, a fill, an eraser, and an undo and redo.
 
 <PaintSource file="src/engine/demo.zig" decl="hash" />
 
@@ -92,12 +92,13 @@ The chapters follow the engine from the pointer to the PNG file.
 2. **Smoothing, pressure and scatter**: making a stroke look drawn by hand, and repeatable.
 3. **The tip**: soft edges, flat tips, and tips that turn.
 4. **Bristles and paper**: separate hair tracks, and a dry brush on paper grain.
-5. **Flow and opacity**: why a stroke is built in its own buffer first.
-6. **Layers and the eraser**: premultiplied alpha, and why the eraser needs it.
-7. **Undo**: keeping only what changed, inside a memory budget.
-8. **Fill**: a flood fill with a queue instead of recursion.
-9. **Saving**: the picture as a PNG.
-10. **A native window**: the same engine with raylib, and cross-compiling it for Windows.
+5. **Oil**: a brush that picks up the paint it is dragged through, and runs dry.
+6. **Flow and opacity**: why a stroke is built in its own buffer first.
+7. **Layers and the eraser**: premultiplied alpha, and why the eraser needs it.
+8. **Undo**: keeping only what changed, inside a memory budget.
+9. **Fill**: a flood fill with a queue instead of recursion.
+10. **Saving**: the picture as a PNG.
+11. **A native window**: the same engine with raylib, and cross-compiling it for Windows.
 
 Each chapter shows the tests that check it.
 

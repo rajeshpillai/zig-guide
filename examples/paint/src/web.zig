@@ -54,6 +54,8 @@ export fn paint_set_brush(
     seed: u32,
     contact: f32,
     bristles: u32,
+    pickup: f32,
+    drain: f32,
 ) void {
     brush = .{
         .radius = radius,
@@ -72,6 +74,8 @@ export fn paint_set_brush(
         .seed = seed,
         .contact = contact,
         .bristles = bristles,
+        .pickup = pickup,
+        .drain = drain,
     };
 }
 

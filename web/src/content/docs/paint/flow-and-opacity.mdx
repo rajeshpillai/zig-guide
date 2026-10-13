@@ -46,7 +46,8 @@ Overlapping dabs only raise the coverage towards 1. The opacity is applied once 
 Each dab adds `flow` times what is still uncovered. In the stamp loop:
 
 ```zig
-m.coverage[i] = @intCast(old + ((full - old) * add + full - 1) / full);
+const new = old + ((full - old) * add + full - 1) / full;
+m.coverage[i] = @intCast(new);
 ```
 
 `full - old` is what is still uncovered. `add` is the dab's coverage at this pixel times the flow.

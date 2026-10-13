@@ -28,6 +28,7 @@ const presets = [_]Preset{
     .{ .name = "Ribbon", .brush = .{ .hardness = 0.8, .flow = 1, .spacing = 0.08, .follow = 0.4, .pressure = 0.5, .aspect = 0.25, .angle = 90, .follow_direction = true } },
     .{ .name = "Spray", .brush = .{ .hardness = 0.6, .flow = 0.7, .spacing = 1.2, .jitter = 0.6, .scatter = 2.5 } },
     .{ .name = "Dry brush", .brush = .{ .hardness = 0.8, .flow = 0.9, .spacing = 0.04, .follow = 0.5, .pressure = 0.4, .bristles = 9, .contact = 0.55 } },
+    .{ .name = "Oil", .brush = .{ .hardness = 0.7, .flow = 1, .spacing = 0.05, .follow = 0.5, .pressure = 0.4, .pickup = 0.12, .drain = 0.2 } },
 };
 
 const colors = [_][3]u8{
@@ -157,7 +158,7 @@ pub fn main(init: std.process.Init) !void {
         rl.ClearBackground(.{ .r = 40, .g = 42, .b = 54, .a = 255 });
         rl.DrawTexture(texture, 0, 0, rl.WHITE);
         var status_buf: [160]u8 = undefined;
-        const status = std.mem.printSentinel(&status_buf, "{s}  {s}  size {d}  {s} layer   1-8 brush  P/E/F  [ ]  C colour  L layer  Ctrl+Z/Y  Ctrl+S   {s}", .{
+        const status = std.mem.printSentinel(&status_buf, "{s}  {s}  size {d}  {s} layer   1-9 brush  P/E/F  [ ]  C colour  L layer  Ctrl+Z/Y  Ctrl+S   {s}", .{
             presets[preset].name,
             @tagName(tool),
             @as(u32, @intFromFloat(size)),

@@ -16,6 +16,7 @@ const Rgba = pixel.Rgba;
 const Brush = @import("brush.zig").Brush;
 const Stroke = @import("stroke.zig").Stroke;
 const Dab = @import("stroke.zig").Dab;
+const Sample = @import("stroke.zig").Sample;
 const Mask = @import("mask.zig").Mask;
 const Paper = @import("paper.zig").Paper;
 const Random = @import("random.zig").Random;
@@ -128,6 +129,31 @@ pub const Document = struct {
             return .{ .doc = doc, .brush = brush, .hairs = .layOut(brush) };
         }
 
+        /// The paint already on the active layer at (`x`, `y`): its colour,
+        /// and how much of the pixel it covers. Read from the layer, not from
+        /// the stroke buffer, so a brush picks up the paint it is dragged
+        /// through and never the stroke it is in the middle of laying down.
+        /// Bare paper is not paint, so it gives nothing.
+        pub fn sample(p: Painter, x: f32, y: f32) ?Sample {
+            const doc = p.doc;
+            if (!(x >= 0 and y >= 0)) return null;
+            const ux: u32 = @intFromFloat(@min(x, @as(f32, @floatFromInt(doc.width - 1))));
+            const uy: u32 = @intFromFloat(@min(y, @as(f32, @floatFromInt(doc.height - 1))));
+            const px = doc.layers[doc.active_layer][@as(usize, uy) * doc.width + ux];
+            if (px.a == 0) return null;
+            // Layers are premultiplied, so the colour of the paint itself is
+            // each channel divided by the alpha.
+            const a: u32 = px.a;
+            return .{
+                .color = .{
+                    @intCast((@as(u32, px.r) * 255 + a / 2) / a),
+                    @intCast((@as(u32, px.g) * 255 + a / 2) / a),
+                    @intCast((@as(u32, px.b) * 255 + a / 2) / a),
+                },
+                .cover = @as(f32, @floatFromInt(a)) / 255.0,
+            };
+        }
+
         pub fn dab(p: Painter, d: Dab) void {
             const b = p.brush;
             const doc = p.doc;
@@ -216,7 +242,7 @@ pub const Document = struct {
             var x = r.x0;
             while (x < r.x1) : (x += 1) {
                 const i = @as(usize, y) * d.width + x;
-                layer[i] = applyStroke(active, layer[i], d.mask.coverage[i]);
+                layer[i] = applyStroke(active, layer[i], d.mask.coverage[i], d.mask.color[i]);
             }
         }
         d.mask.clear();
@@ -236,10 +262,10 @@ pub const Document = struct {
     /// One pixel of a layer with the stroke applied. The preview on screen
     /// and the commit both call this, so what you see while drawing is
     /// exactly what you get when you let go.
-    fn applyStroke(active: Active, below: Rgba, coverage: u16) Rgba {
+    fn applyStroke(active: Active, below: Rgba, coverage: u16, color: [3]u8) Rgba {
         const amount = (@as(u32, coverage) * active.opacity + 32767) / 65535;
         return switch (active.tool) {
-            .brush => pixel.paint(below, active.stroke.brush.color, amount),
+            .brush => pixel.paint(below, color, amount),
             .eraser => pixel.erase(below, amount),
         };
     }
@@ -319,7 +345,7 @@ pub const Document = struct {
             if (!visible) continue;
             var p = layer[i];
             if (d.stroke) |active| {
-                if (active.layer == li) p = applyStroke(active, p, d.mask.coverage[i]);
+                if (active.layer == li) p = applyStroke(active, p, d.mask.coverage[i], d.mask.color[i]);
             }
             out = pixel.over(p, out);
         }

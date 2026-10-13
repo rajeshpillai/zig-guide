@@ -235,7 +235,7 @@ A paint engine with brushes, two layers, undo, flood fill and PNG export, writte
 
 ```bash
 cd examples/paint
-zig build test     # 54 tests, no window
+zig build test     # 60 tests, no window
 zig build demo     # zig-out/demo.png: look at the demo picture, do not only hash it
 zig build web      # zig-out/web/paint.wasm
 ./fetch-raylib.sh  # once, for the native window

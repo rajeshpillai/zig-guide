@@ -15,6 +15,13 @@ const Point = geometry.Point;
 const Brush = @import("brush.zig").Brush;
 const Random = @import("random.zig").Random;
 
+/// What a brush finds under it: the colour of the paint there, and how much
+/// of the pixel that paint covers, from 0 (bare paper) to 1.
+pub const Sample = struct {
+    color: [3]u8,
+    cover: f32 = 1,
+};
+
 /// One mark of the tip, ready to draw.
 pub const Dab = struct {
     x: f32,
@@ -25,6 +32,12 @@ pub const Dab = struct {
     /// The direction the stroke was travelling, in the same units. Bristles
     /// spread across it.
     direction: f32,
+    /// The colour this dab puts down. The brush colour, unless the brush
+    /// has picked up paint on the way.
+    color: [3]u8,
+    /// How much paint is left on the brush, from 1 (full) to 0 (dry). The
+    /// dab's flow is multiplied by it.
+    load: f32,
 };
 
 pub const Stroke = struct {
@@ -38,6 +51,11 @@ pub const Stroke = struct {
     carry: f32,
     /// Direction of travel, in radians. 0 (to the right) until the first move.
     direction: f32,
+    /// The colour on the brush, kept in `f32` so that small pickups add up
+    /// instead of rounding away. Starts as the brush colour.
+    loaded: [3]f32,
+    /// The paint left on the brush. Every stroke starts with a full brush.
+    load: f32,
 
     /// Start a stroke at `p` and put the first dab there, so a click with no
     /// movement still leaves a mark.
@@ -50,6 +68,8 @@ pub const Stroke = struct {
             .last = p,
             .carry = 0,
             .direction = 0,
+            .loaded = .{ @floatFromInt(b.color[0]), @floatFromInt(b.color[1]), @floatFromInt(b.color[2]) },
+            .load = 1,
         };
         s.emit(p, sink);
         return s;
@@ -73,6 +93,9 @@ pub const Stroke = struct {
         // the last one.
         var at = step - s.carry;
         while (at <= d) : (at += step) {
+            // The load drains by distance, not by dab or by sample: one gap
+            // further along the path uses `drain * step / 100` of a load.
+            s.load = @max(s.load - s.brush.drain * step / 100.0, 0);
             s.emit(geometry.lerpPoint(a, b, at / d), sink);
         }
         s.carry = d - (at - step);
@@ -105,15 +128,34 @@ pub const Stroke = struct {
         // offsets evenly over the area instead of bunching them at the centre.
         const theta = 2.0 * std.math.pi * u_angle;
         const reach = b.scatter * b.radius * @sqrt(u_reach);
+        const x = p.x + @cos(theta) * reach;
+        const y = p.y + @sin(theta) * reach;
+
+        // Pickup: before the dab goes down, the brush takes on part of the
+        // paint already under it. The colour is carried to the next dab, so
+        // paint gets dragged along the stroke. Thin paint gives less, and
+        // bare paper gives nothing: a brush cannot pick up the paper.
+        if (b.pickup > 0) {
+            if (sink.sample(x, y)) |under| {
+                const t = b.pickup * under.cover;
+                for (&s.loaded, under.color) |*c, u| c.* = geometry.lerp(c.*, @floatFromInt(u), t);
+            }
+        }
 
         sink.dab(.{
-            .x = p.x + @cos(theta) * reach,
-            .y = p.y + @sin(theta) * reach,
+            .x = x,
+            .y = y,
             .radius = radius,
             // Following the direction, the brush angle is an offset from it:
             // 0 lays the tip along the stroke, 90 lays it across.
             .angle = (if (b.follow_direction) s.direction else 0) + b.angle * std.math.pi / 180.0,
             .direction = s.direction,
+            .color = .{
+                @intFromFloat(@round(s.loaded[0])),
+                @intFromFloat(@round(s.loaded[1])),
+                @intFromFloat(@round(s.loaded[2])),
+            },
+            .load = s.load,
         });
     }
 };
@@ -122,10 +164,18 @@ pub const Stroke = struct {
 const Recorder = struct {
     dabs: [256]Dab = undefined,
     len: usize = 0,
+    /// What `sample` reports as the paint under every dab.
+    under: ?Sample = null,
 
     fn dab(r: *Recorder, d: Dab) void {
         r.dabs[r.len] = d;
         r.len += 1;
+    }
+
+    fn sample(r: *Recorder, x: f32, y: f32) ?Sample {
+        _ = x;
+        _ = y;
+        return r.under;
     }
 };
 
@@ -216,4 +266,45 @@ test "a tip that follows direction points down for a downward move" {
     var s = Stroke.begin(.{ .follow_direction = true, .radius = 4 }, .{ .x = 0, .y = 0 }, &rec);
     s.move(.{ .x = 0, .y = 10 }, &rec);
     try std.testing.expectApproxEqAbs(std.math.pi / 2.0, rec.dabs[rec.len - 1].angle, 1e-6);
+}
+
+test "pickup: the loaded red goes 200, 180, 164 over a red of 100 at 0.2" {
+    var rec: Recorder = .{ .under = .{ .color = .{ 100, 0, 0 } } };
+    var s = Stroke.begin(.{ .radius = 40, .spacing = 0.25, .pickup = 0.2, .color = .{ 200, 0, 0 } }, .{ .x = 0, .y = 0 }, &rec);
+    try std.testing.expectEqual(@as(u8, 180), rec.dabs[0].color[0]);
+    s.move(.{ .x = 10, .y = 0 }, &rec);
+    try std.testing.expectEqual(@as(u8, 164), rec.dabs[1].color[0]);
+}
+
+test "pickup 0 keeps the brush colour for the whole stroke" {
+    var rec: Recorder = .{ .under = .{ .color = .{ 0, 255, 0 } } };
+    var s = Stroke.begin(.{ .color = .{ 9, 8, 7 } }, .{ .x = 0, .y = 0 }, &rec);
+    s.move(.{ .x = 100, .y = 0 }, &rec);
+    for (rec.dabs[0..rec.len]) |d| try std.testing.expectEqual([3]u8{ 9, 8, 7 }, d.color);
+}
+
+test "drain 0.2 over 150 pixels uses 0.3 of a load, whatever the samples" {
+    // A gap of 10 pixels. 150 pixels of stroke is 15 gaps.
+    const brush: Brush = .{ .radius = 40, .spacing = 0.25, .drain = 0.2 };
+    var one: Recorder = .{};
+    var s1 = Stroke.begin(brush, .{ .x = 0, .y = 0 }, &one);
+    s1.move(.{ .x = 150, .y = 0 }, &one);
+    var many: Recorder = .{};
+    var s2 = Stroke.begin(brush, .{ .x = 0, .y = 0 }, &many);
+    var x: f32 = 0;
+    while (x < 150) {
+        x = @min(x + 7, 150);
+        s2.move(.{ .x = x, .y = 0 }, &many);
+    }
+    try std.testing.expectApproxEqAbs(@as(f32, 0.7), s1.load, 1e-5);
+    try std.testing.expectApproxEqAbs(s1.load, s2.load, 1e-5);
+    // The load never goes below empty.
+    s1.move(.{ .x = 2000, .y = 0 }, &one);
+    try std.testing.expectEqual(@as(f32, 0), s1.load);
+}
+
+test "pickup from paint that half covers the paper is half as strong" {
+    var rec: Recorder = .{ .under = .{ .color = .{ 100, 0, 0 }, .cover = 0.5 } };
+    _ = Stroke.begin(.{ .pickup = 0.2, .color = .{ 200, 0, 0 } }, .{ .x = 0, .y = 0 }, &rec);
+    try std.testing.expectEqual(@as(u8, 190), rec.dabs[0].color[0]);
 }

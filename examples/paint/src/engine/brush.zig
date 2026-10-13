@@ -46,6 +46,12 @@ pub const Brush = struct {
     /// Separate hairs across the tip, each leaving its own track. 0 means a
     /// solid tip.
     bristles: u32 = 0,
+    /// How much of the paint under the brush it picks up at each dab, 0 to
+    /// 1. At 0 the colour never changes. Higher values smear what is there.
+    pickup: f32 = 0,
+    /// How fast the brush runs dry: the share of a full load used up per
+    /// 100 pixels of stroke. At 0 it never runs dry.
+    drain: f32 = 0,
     /// The paint colour, as stored sRGB bytes.
     color: [3]u8 = .{ 0x26, 0x33, 0x4d },
     /// Seed for jitter and scatter. The same seed repeats the same marks.
@@ -70,6 +76,8 @@ pub const Brush = struct {
             .follow_direction = b.follow_direction,
             .contact = fix(b.contact, d.contact, 0, 1),
             .bristles = @min(b.bristles, max_bristles),
+            .pickup = fix(b.pickup, d.pickup, 0, 1),
+            .drain = fix(b.drain, d.drain, 0, 10),
             .color = b.color,
             .seed = b.seed,
         };

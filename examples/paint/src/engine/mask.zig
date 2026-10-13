@@ -25,6 +25,11 @@ pub const Mask = struct {
     width: u32,
     height: u32,
     coverage: []u16,
+    /// The colour the stroke puts down at each pixel. For most brushes it is
+    /// the brush colour everywhere. A brush that picks up paint changes
+    /// colour along the stroke, so the buffer has to remember it per pixel.
+    /// Only meaningful where `coverage` is above 0, so it is never cleared.
+    color: [][3]u8,
     /// Every pixel outside this rectangle is 0. Keeping it means committing,
     /// clearing and redrawing touch only the part of the image the stroke
     /// reached.
@@ -32,11 +37,14 @@ pub const Mask = struct {
 
     pub fn init(gpa: std.mem.Allocator, width: u32, height: u32) !Mask {
         const coverage = try gpa.alloc(u16, @as(usize, width) * height);
+        errdefer gpa.free(coverage);
         @memset(coverage, 0);
-        return .{ .width = width, .height = height, .coverage = coverage };
+        const color = try gpa.alloc([3]u8, @as(usize, width) * height);
+        return .{ .width = width, .height = height, .coverage = coverage, .color = color };
     }
 
     pub fn deinit(m: *Mask, gpa: std.mem.Allocator) void {
+        gpa.free(m.color);
         gpa.free(m.coverage);
     }
 
@@ -75,7 +83,8 @@ pub const Mask = struct {
         const fade = @max((1.0 - hardness) * r, 1.0);
         const cos_a = @cos(dab.angle);
         const sin_a = @sin(dab.angle);
-        const flow16: u32 = @intFromFloat(@round(flow * @as(f32, full)));
+        // A brush running dry puts down less with every dab.
+        const flow16: u32 = @intFromFloat(@round(flow * dab.load * @as(f32, full)));
 
         var y = box.y0;
         while (y < box.y1) : (y += 1) {
@@ -107,7 +116,19 @@ pub const Mask = struct {
                 // still never goes over full.
                 const i = @as(usize, y) * m.width + x;
                 const old: u32 = m.coverage[i];
-                m.coverage[i] = @intCast(old + ((full - old) * add + full - 1) / full);
+                const new = old + ((full - old) * add + full - 1) / full;
+                m.coverage[i] = @intCast(new);
+
+                // The colour is the average of the old colour and the dab's,
+                // weighted by how much coverage each one supplied. That is
+                // what painting the dab over the old colour gives. When both
+                // colours are the same, the average is that colour exactly.
+                const added = new - old;
+                if (added > 0) {
+                    for (&m.color[i], dab.color) |*c, fresh| {
+                        c.* = @intCast((@as(u32, c.*) * old + @as(u32, fresh) * added + new / 2) / new);
+                    }
+                }
             }
         }
         m.dirty = m.dirty.join(box);
@@ -117,7 +138,7 @@ pub const Mask = struct {
 test "two dabs at 20% flow give 36%, not 40%" {
     var m = try Mask.init(std.testing.allocator, 32, 32);
     defer m.deinit(std.testing.allocator);
-    const dab: Dab = .{ .x = 16, .y = 16, .radius = 10, .angle = 0, .direction = 0 };
+    const dab: Dab = .{ .x = 16, .y = 16, .radius = 10, .angle = 0, .direction = 0, .color = .{ 0, 0, 0 }, .load = 1 };
     m.stamp(dab, 1, 1, 0.2);
     m.stamp(dab, 1, 1, 0.2);
     const centre = @as(f32, @floatFromInt(m.at(16, 16))) / full;
@@ -127,7 +148,7 @@ test "two dabs at 20% flow give 36%, not 40%" {
 test "many dabs approach full coverage and never pass it" {
     var m = try Mask.init(std.testing.allocator, 16, 16);
     defer m.deinit(std.testing.allocator);
-    for (0..200) |_| m.stamp(.{ .x = 8, .y = 8, .radius = 6, .angle = 0, .direction = 0 }, 1, 1, 0.3);
+    for (0..200) |_| m.stamp(.{ .x = 8, .y = 8, .radius = 6, .angle = 0, .direction = 0, .color = .{ 0, 0, 0 }, .load = 1 }, 1, 1, 0.3);
     try std.testing.expectEqual(@as(u16, 65535), m.at(8, 8));
 }
 
@@ -136,7 +157,7 @@ test "radius 20, hardness 0.6 is solid to 12 and half at 16" {
     defer m.deinit(std.testing.allocator);
     // Centre on a pixel corner, so the pixel at (32 + k, 32) has its centre
     // k + 0.5 pixels from the dab.
-    m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0, .direction = 0 }, 0.6, 1, 1);
+    m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0, .direction = 0, .color = .{ 0, 0, 0 }, .load = 1 }, 0.6, 1, 1);
     const at = struct {
         fn f(mm: Mask, k: u32) f32 {
             return @as(f32, @floatFromInt(mm.at(32 + k, 32))) / full;
@@ -150,14 +171,14 @@ test "radius 20, hardness 0.6 is solid to 12 and half at 16" {
 test "aspect 0.25 makes a tip 40 wide and 10 high" {
     var m = try Mask.init(std.testing.allocator, 64, 64);
     defer m.deinit(std.testing.allocator);
-    m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0, .direction = 0 }, 1, 0.25, 1);
+    m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0, .direction = 0, .color = .{ 0, 0, 0 }, .load = 1 }, 1, 0.25, 1);
     try std.testing.expect(m.at(32 + 18, 32) > 0);
     try std.testing.expect(m.at(32, 32 + 6) == 0);
     try std.testing.expect(m.at(32, 32 + 3) > 0);
     // Turned a quarter turn, the same tip is tall instead of wide.
     var t = try Mask.init(std.testing.allocator, 64, 64);
     defer t.deinit(std.testing.allocator);
-    t.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = std.math.pi / 2.0, .direction = 0 }, 1, 0.25, 1);
+    t.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = std.math.pi / 2.0, .direction = 0, .color = .{ 0, 0, 0 }, .load = 1 }, 1, 0.25, 1);
     try std.testing.expect(t.at(32, 32 + 18) > 0);
     try std.testing.expect(t.at(32 + 6, 32) == 0);
 }
@@ -165,8 +186,29 @@ test "aspect 0.25 makes a tip 40 wide and 10 high" {
 test "a dab past the edge touches nothing outside the image" {
     var m = try Mask.init(std.testing.allocator, 8, 8);
     defer m.deinit(std.testing.allocator);
-    m.stamp(.{ .x = -3, .y = 4, .radius = 5, .angle = 0, .direction = 0 }, 1, 1, 1);
+    m.stamp(.{ .x = -3, .y = 4, .radius = 5, .angle = 0, .direction = 0, .color = .{ 0, 0, 0 }, .load = 1 }, 1, 1, 1);
     try std.testing.expectEqual(Rect{ .x0 = 0, .y0 = 0, .x1 = 2, .y1 = 8 }, m.dirty);
     m.clear();
     for (m.coverage) |c| try std.testing.expectEqual(@as(u16, 0), c);
+}
+
+test "two colours mix by the coverage each one added" {
+    var m = try Mask.init(std.testing.allocator, 16, 16);
+    defer m.deinit(std.testing.allocator);
+    const at: Dab = .{ .x = 8, .y = 8, .radius = 6, .angle = 0, .direction = 0, .color = .{ 200, 0, 0 }, .load = 1 };
+    m.stamp(at, 1, 1, 0.5);
+    var blue = at;
+    blue.color = .{ 0, 0, 200 };
+    m.stamp(blue, 1, 1, 0.5);
+    // Red covered half, then blue covered half of the rest: red supplied
+    // twice as much as blue.
+    const c = m.color[8 * 16 + 8];
+    try std.testing.expectEqual([3]u8{ 133, 0, 67 }, c);
+}
+
+test "a dry brush adds nothing" {
+    var m = try Mask.init(std.testing.allocator, 16, 16);
+    defer m.deinit(std.testing.allocator);
+    m.stamp(.{ .x = 8, .y = 8, .radius = 6, .angle = 0, .direction = 0, .color = .{ 1, 2, 3 }, .load = 0 }, 1, 1, 1);
+    try std.testing.expectEqual(@as(u16, 0), m.at(8, 8));
 }
