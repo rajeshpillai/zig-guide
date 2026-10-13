@@ -146,7 +146,6 @@ export const TRACKS: Track[] = [
  */
 export const SECTION_TAGS: Record<string, string> = {
   "lane-dodger": "raylib game",
-  paint: "paint program",
 };
 
 /** Section directory to track title, for the lookup `navTracks` does. */
