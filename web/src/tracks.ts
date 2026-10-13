@@ -120,7 +120,7 @@ export const TRACKS: Track[] = [
     // frame budget, and the only one whose output you judge by playing rather
     // than by reading. It earns its place because the discipline it needs is
     // the same one the other two teach, applied where it is least expected.
-    sections: ["orm", "url-shortener", "lane-dodger"],
+    sections: ["orm", "url-shortener", "lane-dodger", "paint"],
   },
   {
     title: "Practice",
@@ -146,6 +146,7 @@ export const TRACKS: Track[] = [
  */
 export const SECTION_TAGS: Record<string, string> = {
   "lane-dodger": "raylib game",
+  paint: "paint program",
 };
 
 /** Section directory to track title, for the lookup `navTracks` does. */

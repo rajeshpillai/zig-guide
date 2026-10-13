@@ -7,7 +7,7 @@
 //! The engine is plain Zig with no dependencies, so the browser build needs no
 //! Emscripten and no SDK: it is `wasm32-freestanding`, built by the same
 //! compiler as everything else. The guide's own build.zig builds it too, into
-//! web/public/paint/, so the page runs exactly what CI built.
+//! web/public/apps/paint/, so the page runs exactly what CI built.
 
 const std = @import("std");
 

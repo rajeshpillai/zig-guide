@@ -1,5 +1,5 @@
 /**
- * Source quoted from `examples/lane-dodger/`, read at build time.
+ * Source quoted from the projects under `examples/`, read at build time.
  *
  * The guide's rule is that the code on a page is the code CI compiled. For a
  * `<Playground>` that is enforced by the manifest `zig build` writes. The game
@@ -19,24 +19,33 @@ import { extractDecl } from "./source-quote";
 // Anchored to the Astro project root (`web/`) for the same reason
 // `snippets.ts` is: `import.meta.url` points into the bundle once a component
 // importing this has been compiled.
-const projectRoot = resolve(process.cwd(), "../examples/lane-dodger");
+const examplesRoot = resolve(process.cwd(), "../examples");
 
-/** A whole file, or one declaration out of it. */
-export async function gameSource(
+/** The projects under `examples/` that chapters quote from. */
+export type Example = "lane-dodger" | "paint";
+
+/** A whole file, or one declaration out of it, from one of the examples. */
+export async function exampleSource(
+  example: Example,
   file: string,
   decl?: string,
   fieldsOnly = false,
 ): Promise<string> {
-  if (file.includes("..")) throw new Error(`gameSource: refusing path "${file}"`);
+  if (file.includes("..")) throw new Error(`exampleSource: refusing path "${file}"`);
 
-  const path = resolve(projectRoot, file);
+  const where = `examples/${example}/${file}`;
   let text: string;
   try {
-    text = await readFile(path, "utf8");
+    text = await readFile(resolve(examplesRoot, example, file), "utf8");
   } catch {
-    throw new Error(`gameSource: no such file examples/lane-dodger/${file}`);
+    throw new Error(`exampleSource: no such file ${where}`);
   }
 
   if (!decl) return text.trimEnd();
-  return extractDecl(text, decl, `examples/lane-dodger/${file}`, fieldsOnly, "gameSource");
+  return extractDecl(text, decl, where, fieldsOnly, "exampleSource");
+}
+
+/** A whole file, or one declaration out of it, from the game. */
+export function gameSource(file: string, decl?: string, fieldsOnly = false): Promise<string> {
+  return exampleSource("lane-dodger", file, decl, fieldsOnly);
 }

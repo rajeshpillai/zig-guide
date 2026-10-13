@@ -61,7 +61,7 @@ pub fn paint(dst: Rgba, color: [3]u8, amount: u32) Rgba {
 
 /// Remove `amount` (0 to 65535) of `dst`. White paint and the eraser look
 /// the same on white paper. Over another layer, white covers it and the
-/// eraser reveals it (lesson 58).
+/// eraser reveals it.
 pub fn erase(dst: Rgba, amount: u32) Rgba {
     const keep = full - amount;
     return .{

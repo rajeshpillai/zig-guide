@@ -2,7 +2,7 @@
 //!
 //! Dabs are not drawn straight onto the layer. They build up coverage here,
 //! one number per pixel, and the whole stroke is put onto the layer once, at
-//! the end, with the stroke's opacity (lesson 40).
+//! the end, with the stroke's opacity.
 //!
 //! That split is what lets a stroke at 50% opacity stay at 50% where it crosses
 //! itself. Drawn straight onto the layer, every overlap of two dabs would
@@ -26,7 +26,7 @@ pub const Mask = struct {
     coverage: []u16,
     /// Every pixel outside this rectangle is 0. Keeping it means committing,
     /// clearing and redrawing touch only the part of the image the stroke
-    /// reached (lesson 65).
+    /// reached.
     dirty: Rect = .empty,
 
     pub fn init(gpa: std.mem.Allocator, width: u32, height: u32) !Mask {
@@ -78,18 +78,18 @@ pub const Mask = struct {
                 const dx = @as(f32, @floatFromInt(x)) + 0.5 - dab.x;
                 const dy = @as(f32, @floatFromInt(y)) + 0.5 - dab.y;
                 // Turn the offset into the tip's own frame, then undo the
-                // squash on the short axis (lessons 35 and 36).
+                // squash on the short axis.
                 const u = dx * cos_a + dy * sin_a;
                 const v = (dy * cos_a - dx * sin_a) / aspect;
                 const d = @sqrt(u * u + v * v);
                 if (d >= r) continue;
 
-                // Lesson 34: 1 inside the solid part, falling to 0 at the
+                // Coverage is 1 inside the solid part, and falls to 0 at the
                 // edge in a straight line.
                 const cov = std.math.clamp((r - d) / fade, 0, 1);
                 const add = (@as(u32, @intFromFloat(@round(cov * @as(f32, full)))) * flow16 + full / 2) / full;
 
-                // Lesson 40: each dab covers part of what is still uncovered.
+                // Each dab covers part of what is still uncovered.
                 // After n dabs of flow f the coverage is 1 - (1 - f)^n, which
                 // approaches 1 and never passes it.
                 //
@@ -106,7 +106,7 @@ pub const Mask = struct {
     }
 };
 
-test "lesson 40: two dabs at 20% flow give 36%, not 40%" {
+test "two dabs at 20% flow give 36%, not 40%" {
     var m = try Mask.init(std.testing.allocator, 32, 32);
     defer m.deinit(std.testing.allocator);
     const dab: Dab = .{ .x = 16, .y = 16, .radius = 10, .angle = 0 };
@@ -123,7 +123,7 @@ test "many dabs approach full coverage and never pass it" {
     try std.testing.expectEqual(@as(u16, 65535), m.at(8, 8));
 }
 
-test "lesson 34: radius 20, hardness 0.6 is solid to 12 and half at 16" {
+test "radius 20, hardness 0.6 is solid to 12 and half at 16" {
     var m = try Mask.init(std.testing.allocator, 64, 64);
     defer m.deinit(std.testing.allocator);
     // Centre on a pixel corner, so the pixel at (32 + k, 32) has its centre
@@ -139,7 +139,7 @@ test "lesson 34: radius 20, hardness 0.6 is solid to 12 and half at 16" {
     try std.testing.expectEqual(@as(f32, 0), at(m, 20)); // 20.5, outside
 }
 
-test "lesson 35: aspect 0.25 makes a tip 40 wide and 10 high" {
+test "aspect 0.25 makes a tip 40 wide and 10 high" {
     var m = try Mask.init(std.testing.allocator, 64, 64);
     defer m.deinit(std.testing.allocator);
     m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0 }, 1, 0.25, 1);

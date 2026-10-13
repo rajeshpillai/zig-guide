@@ -1,0 +1,272 @@
+---
+/**
+ * The paint program from the Paint section, running in the page.
+ *
+ * Nothing loads until the reader presses Start. The engine is about 41 KB of
+ * WebAssembly, built by `zig build` from `examples/paint/` for
+ * `wasm32-freestanding`, so unlike the Lane Dodger game it needs no Emscripten
+ * and nothing is committed: CI builds the file this page fetches, and
+ * `zig build verify` has already checked that it draws the demo picture with
+ * the pixels the native tests pinned.
+ */
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+interface Props {
+  caption?: string;
+}
+const { caption } = Astro.props;
+
+// A missing build is a failed build, not a dead button.
+const wasm = resolve(process.cwd(), "public/apps/paint/paint.wasm");
+if (!existsSync(wasm)) {
+  throw new Error("web/public/apps/paint/paint.wasm is missing. Run `zig build` at the repository root first.");
+}
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<figure class="paint" data-wasm={`${base}/apps/paint/paint.wasm`}>
+  <div class="paint-bar" hidden>
+    <fieldset class="paint-tools">
+      <legend class="paint-sr">Tool</legend>
+      <label><input type="radio" name="paint-tool" value="brush" checked /> Paint</label>
+      <label><input type="radio" name="paint-tool" value="eraser" /> Erase</label>
+      <label><input type="radio" name="paint-tool" value="fill" /> Fill</label>
+    </fieldset>
+    <label class="paint-field">
+      Brush
+      <select data-control="preset">
+        <option value="pencil">Pencil</option>
+        <option value="ink">Ink</option>
+        <option value="soft">Soft</option>
+        <option value="airbrush">Airbrush</option>
+        <option value="calligraphy">Calligraphy</option>
+        <option value="ribbon">Ribbon</option>
+        <option value="spray">Spray</option>
+      </select>
+    </label>
+    <label class="paint-field">
+      Size
+      <input type="range" data-control="size" min="1" max="80" value="8" />
+    </label>
+    <label class="paint-field">
+      Opacity
+      <input type="range" data-control="opacity" min="0" max="100" value="100" />
+    </label>
+    <label class="paint-field">
+      Colour
+      <input type="color" data-control="color" value="#26334d" />
+    </label>
+    <label class="paint-field">
+      Layer
+      <select data-control="layer">
+        <option value="0">Bottom</option>
+        <option value="1">Top</option>
+      </select>
+    </label>
+    <div class="paint-actions">
+      <button type="button" data-control="undo" disabled>Undo</button>
+      <button type="button" data-control="redo" disabled>Redo</button>
+      <button type="button" data-control="save">Save PNG</button>
+    </div>
+  </div>
+
+  <div class="paint-frame">
+    <canvas class="paint-canvas" width="640" height="400" tabindex="0" role="img" aria-label="Painting canvas. Ctrl+Z undoes, Ctrl+Shift+Z redoes." hidden></canvas>
+    <div class="paint-poster">
+      <button class="paint-start" type="button" hidden>Start painting</button>
+      <p class="paint-hint">
+        The engine this section builds, about 41 KB of WebAssembly. It loads when you press the button.
+      </p>
+      <noscript>
+        <p class="paint-hint">The paint program needs JavaScript. The rest of the chapter does not.</p>
+      </noscript>
+    </div>
+  </div>
+  <p class="paint-status" aria-live="polite"></p>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  /*
+   * The controls follow the site's tokens. The canvas does not: it shows the
+   * document, which is white paper on every theme, for the same reason a code
+   * block keeps its own colours.
+   */
+  .paint {
+    margin: 1.75rem 0;
+  }
+
+  .paint-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.6rem 1rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: var(--raised);
+    color: var(--text);
+    font-size: 0.85rem;
+    /* Sliders, radios and the colour well take the palette's accent instead
+       of the browser's default blue. */
+    accent-color: var(--accent);
+  }
+
+  .paint-tools {
+    display: flex;
+    gap: 0.7rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .paint-tools label,
+  .paint-field {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .paint-field input[type="range"] {
+    width: 6.5rem;
+  }
+
+  .paint-field select,
+  .paint-actions button {
+    font: inherit;
+    min-height: 2rem;
+    padding: 0.15rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  .paint-actions {
+    display: flex;
+    gap: 0.4rem;
+    margin-left: auto;
+  }
+
+  .paint-actions button {
+    cursor: pointer;
+  }
+
+  .paint-actions button:disabled {
+    cursor: default;
+    color: var(--muted);
+  }
+
+  .paint-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .paint-frame {
+    position: relative;
+    aspect-ratio: 640 / 400;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #ffffff;
+    overflow: hidden;
+  }
+
+  .paint-bar:not([hidden]) + .paint-frame {
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  .paint-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* A finger on the canvas draws instead of scrolling the page. */
+    touch-action: none;
+    cursor: crosshair;
+    outline: none;
+  }
+
+  .paint-canvas:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  .paint-poster {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 0.8rem;
+    padding: 1rem;
+    text-align: center;
+    background: var(--sunken);
+  }
+
+  .paint-hint {
+    margin: 0;
+    max-width: 24rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .paint-start {
+    font: inherit;
+    font-weight: 600;
+    padding: 0.55rem 1.4rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent);
+    cursor: pointer;
+  }
+
+  .paint-status {
+    min-height: 1.2em;
+    margin: 0.4rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .paint figcaption {
+    margin-top: 0.3rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+</style>
+
+<script>
+  /*
+   * Revealed by script, like every other control on the site: with
+   * JavaScript off nothing here can work, so nothing here is offered.
+   */
+  for (const root of document.querySelectorAll<HTMLElement>(".paint")) {
+    const start = root.querySelector<HTMLButtonElement>(".paint-start")!;
+    const canvas = root.querySelector<HTMLCanvasElement>(".paint-canvas")!;
+    const poster = root.querySelector<HTMLElement>(".paint-poster")!;
+    const bar = root.querySelector<HTMLElement>(".paint-bar")!;
+    const hint = root.querySelector<HTMLElement>(".paint-hint")!;
+    start.hidden = false;
+
+    start.addEventListener("click", async () => {
+      start.disabled = true;
+      start.textContent = "Loading…";
+      try {
+        const { startPaint } = await import("../scripts/paint.ts");
+        await startPaint(root, root.dataset.wasm!);
+        canvas.hidden = false;
+        bar.hidden = false;
+        poster.hidden = true;
+      } catch (error) {
+        start.hidden = true;
+        hint.textContent = `The paint program could not start: ${error instanceof Error ? error.message : error}`;
+      }
+    });
+  }
+</script>

@@ -58,7 +58,7 @@ pub fn write(
         var best_score: u64 = std.math.maxInt(u64);
         inline for (all_filters, 0..) |filter, k| {
             const candidate = rows[stride * 2 + k * (stride + 1) ..][0 .. stride + 1];
-            candidate[0] = @intFromEnum(filter);
+            candidate[0] = @backingInt(filter);
             var score: u64 = 0;
             for (0..stride) |i| {
                 const left: u8 = if (i >= 3) current[i - 3] else 0;
@@ -155,8 +155,8 @@ fn decodeForTest(gpa: std.mem.Allocator, png: []const u8, width: u32, height: u3
     const out = try gpa.alloc(u8, stride * height);
     var used: [5]bool = @splat(false);
     for (0..height) |y| {
-        const filter: Filter = @enumFromInt(raw[y * (stride + 1)]);
-        used[@intFromEnum(filter)] = true;
+        const filter: Filter = @fromBackingInt(@intCast(raw[y * (stride + 1)]));
+        used[@backingInt(filter)] = true;
         for (0..stride) |i| {
             const left: u8 = if (i >= 3) out[y * stride + i - 3] else 0;
             const up: u8 = if (y > 0) out[(y - 1) * stride + i] else 0;

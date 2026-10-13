@@ -8,12 +8,12 @@
 //! holds the newer pixels, so redo is the same swap again. One operation does
 //! both jobs.
 //!
-//! Lesson 60 keeps two stacks, past and future. Here they are one array and an
-//! index: entries before `cursor` can be undone, entries from `cursor` on can
+//! The usual design keeps two stacks, past and future. Here they are one
+//! array and an index: entries before `cursor` can be undone, entries from `cursor` on can
 //! be redone. Moving between them is moving the index, so undo and redo never
 //! allocate and cannot fail.
 //!
-//! The history has a memory budget in bytes (lesson 61). When a new entry
+//! The history has a memory budget in bytes. When a new entry
 //! would go over it, the oldest entries are dropped. When memory runs out,
 //! the action still happens. Only the undo for it is lost, and `record` says
 //! so.
@@ -70,7 +70,7 @@ pub const History = struct {
         if (rect.isEmpty()) return true;
 
         // A new action starts a new branch. What could have been redone no
-        // longer follows from the picture, so it goes (lesson 60).
+        // longer follows from the picture, so it goes.
         h.dropFrom(gpa, h.cursor);
 
         const need = rect.area() * @sizeOf(Rgba);
@@ -190,7 +190,7 @@ test "undo restores, redo repeats, and both can go back and forth" {
     try testing.expect(h.redo(&layers, 8) == null);
 }
 
-test "lesson 60: drawing after an undo drops the redo branch" {
+test "drawing after an undo drops the redo branch" {
     const gpa = testing.allocator;
     var layer: [8 * 8]Rgba = @splat(.transparent);
     const layers = [_][]Rgba{&layer};
@@ -212,7 +212,7 @@ test "lesson 60: drawing after an undo drops the redo branch" {
     try testing.expectEqual(@as(usize, 2), h.entries.items.len);
 }
 
-test "lesson 61: the budget drops the oldest entries" {
+test "the budget drops the oldest entries" {
     const gpa = testing.allocator;
     var layer: [8 * 8]Rgba = @splat(.transparent);
     const layers = [_][]Rgba{&layer};

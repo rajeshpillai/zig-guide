@@ -17,4 +17,4 @@ web/public/compiler/
 todo-demo.db
 
 # The paint program's browser build — reproduce with `zig build`
-web/public/paint/
+web/public/apps/paint/

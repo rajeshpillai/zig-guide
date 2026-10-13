@@ -1,0 +1,107 @@
+---
+title: Layers and the Eraser
+seoTitle: "Zig Paint Program: Layers, Premultiplied Alpha and an Eraser"
+description: Layers are transparent pixel arrays drawn over white paper. Store them premultiplied, and the eraser becomes one multiply.
+section: Paint
+order: 60
+---
+
+import PaintSource from "../../../components/PaintSource.astro";
+
+A **layer** is a sheet of clear plastic you can paint on.
+
+Stack two of them over white paper. Paint on the top sheet and the bottom one is untouched. Wipe the top sheet clean, and the bottom one shows through again.
+
+The engine has two of these layers, over white paper.
+
+## A layer is an array
+
+A layer is one pixel per position, row by row, `width * height` of them.
+
+Each pixel has four bytes: red, green, blue, and alpha. Alpha is how much of the pixel is covered. 0 is clear plastic and 255 is solid paint.
+
+<PaintSource file="src/engine/pixel.zig" decl="Rgba" />
+
+`extern` fixes the order of the fields in memory: R, G, B, A, one byte each. That is the order a browser canvas expects, so the screen buffer can be copied to a canvas without converting anything. A plain Zig `struct` would let the compiler reorder the fields.
+
+Two layers at 640 by 400 hold 2 × 640 × 400 × 4 = 2,048,000 bytes. The white paper is not stored anywhere. It is where the drawing starts.
+
+## Drawing the stack
+
+To find what one screen pixel shows, start with white paper and lay each visible layer over it, from the bottom up:
+
+<PaintSource file="src/engine/document.zig" decl="composite" />
+
+The order matters. A solid pixel on the top layer hides the bottom layer. Swap the layers and it is the other way round.
+
+The engine does this only for the rectangle that changed. A dab touches a few hundred pixels, so a few hundred pixels are recomposed.
+
+## Premultiplied alpha
+
+There are two ways to store a half-covered red pixel.
+
+**Straight** alpha stores the colour and the coverage separately: (255, 0, 0, 128). Full red, half covered.
+
+**Premultiplied** alpha stores the colour already multiplied by the coverage: (128, 0, 0, 128).
+
+The layers here are premultiplied, and the reason is the eraser.
+
+## The eraser
+
+Painting white and erasing look the same on white paper.
+
+They are different over another layer. White paint covers what is below it. The eraser removes paint from its own layer, so what is below shows through.
+
+Erasing means "keep less of this pixel". With premultiplied values that is the same multiply on all four channels:
+
+<PaintSource file="src/engine/pixel.zig" decl="erase" />
+
+Erase a pixel completely and every channel becomes 0. No colour is left behind.
+
+With straight alpha, a fully erased red pixel would be (255, 0, 0, 0): invisible, but still red. That hidden red is a known source of bugs. Scale or blur the layer, and the invisible red gets averaged with its neighbours and comes back as a red fringe along every erased edge.
+
+## Painting and combining
+
+Painting lays a colour over a pixel with a given coverage:
+
+<PaintSource file="src/engine/pixel.zig" decl="paint" />
+
+Combining two layers is the "over" operator from the [Alpha Blending](/learn/graphics/blending/) chapter, without its first multiply. The colour in `top` is already multiplied by its alpha:
+
+<PaintSource file="src/engine/pixel.zig" decl="over" />
+
+All of this is integer arithmetic, rounded to the nearest whole number. Rounding twice in one sum can go wrong: two halves that both round up make the total one too big. In a `u8` that is 256, which does not fit, and `@intCast` would stop a safe build.
+
+That cannot happen here, but the reason is not obvious. So a test checks every one of the 65,536 coverage values:
+
+<PaintSource file="src/engine/pixel.zig" decl="paint never overflows a byte, at any coverage" />
+
+## Blending in bytes, not light
+
+The [Linear Light](/learn/graphics/linear-light/) chapter shows that mixing stored bytes is not the same as mixing light.
+
+This engine mixes bytes, the way a browser canvas does, and the way most 8-bit paint programs do.
+
+That is a choice. It keeps every layer at 4 bytes a pixel, and the colours behave the way people who have used other paint programs expect. A program that mixed in linear light would need 8 bytes a pixel to keep the dark tones, which doubles every number in this chapter.
+
+## Checks
+
+A half-covered red pixel, stored premultiplied:
+
+<PaintSource file="src/engine/pixel.zig" decl="half red on an empty layer is stored premultiplied" />
+
+The eraser and white paint, on the top layer over a red bottom layer:
+
+<PaintSource file="src/engine/document.zig" decl="the eraser reveals the layer below, white paint covers it" />
+
+## Explain before reading the answer
+
+The top layer has a solid blue pixel, (0, 0, 220, 255). You erase it at 50%.
+
+What does the pixel store, and what does the screen show over a red bottom layer?
+
+It stores (0, 0, 110, 127): half of each channel of (0, 0, 220, 255), rounded.
+
+On screen that is half the blue over the red: (110, 0, 110), a purple.
+
+Painting red at 50% over the blue would show the same purple. The difference comes later. Change the bottom layer to green, and the erased pixel shows blue over green, while the painted one still shows the red you painted.

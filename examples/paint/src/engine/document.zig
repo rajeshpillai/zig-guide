@@ -23,7 +23,7 @@ const png = @import("png.zig");
 
 /// A brush and an eraser are one stroke engine with two ways of finishing.
 /// One enum rather than two flags, so "fill and erase at the same time" is a
-/// state the program cannot be in (the case lesson 64 has to check for).
+/// state the program cannot be in.
 pub const Tool = enum { brush, eraser };
 
 const Active = struct {
@@ -119,8 +119,8 @@ pub const Document = struct {
     };
 
     /// Start a stroke. The brush is copied, so changing a slider halfway
-    /// through a stroke cannot change the stroke (the reason lesson 40 locks
-    /// the controls). A stroke already in progress is cancelled first.
+    /// through a stroke cannot change the stroke. A stroke already in progress
+    /// is cancelled first.
     pub fn beginStroke(d: *Document, brush: Brush, tool: Tool, p: Point) void {
         if (d.stroke != null) d.cancelStroke();
         const b = brush.sanitized();
@@ -161,7 +161,7 @@ pub const Document = struct {
     }
 
     /// Drop the stroke in progress without changing any layer. Used when the
-    /// pointer is lost halfway through a stroke (lesson 40's last check).
+    /// pointer is lost halfway through a stroke.
     pub fn cancelStroke(d: *Document) void {
         if (d.stroke == null) return;
         d.stale = d.stale.join(d.mask.dirty);
@@ -189,7 +189,7 @@ pub const Document = struct {
         const layer = d.layers[d.active_layer];
         const new: Rgba = .opaqueRgb(color);
         // Filling a region with the colour it already has would find the
-        // whole region and change nothing (lesson 64's second check).
+        // whole region and change nothing.
         if (std.meta.eql(layer[@as(usize, y) * d.width + x], new)) return false;
 
         var region = try fill.find(d.gpa, layer, d.width, d.height, x, y);
@@ -247,7 +247,7 @@ pub const Document = struct {
     }
 
     /// One screen pixel: white paper, then each visible layer from the
-    /// bottom up (lesson 57).
+    /// bottom up.
     fn composite(d: *const Document, x: u32, y: u32) Rgba {
         const i = @as(usize, y) * d.width + x;
         var out: Rgba = .white;
@@ -301,7 +301,7 @@ test "a stroke shows while drawing, and looks the same after it is committed" {
     try testing.expectEqual(preview, d.displayHash());
 }
 
-test "lesson 40: opacity 0 leaves the layer unchanged" {
+test "opacity 0 leaves the layer unchanged" {
     var d = try newDoc();
     defer d.deinit();
     d.beginStroke(.{ .opacity = 0 }, .brush, .{ .x = 10, .y = 10 });
@@ -310,7 +310,7 @@ test "lesson 40: opacity 0 leaves the layer unchanged" {
     for (d.layers[0]) |p| try testing.expectEqual(Rgba.transparent, p);
 }
 
-test "lesson 40: a stroke crossing itself does not get darker" {
+test "a stroke crossing itself does not get darker" {
     var d = try newDoc();
     defer d.deinit();
     // Half opacity, full flow: the stroke itself becomes fully covered, and
@@ -377,7 +377,7 @@ test "the line divides the fill: only the top half turns yellow" {
     try testing.expectEqual(Rgba.transparent, d.layers[0][40 * 64 + 5]);
 }
 
-test "lesson 58: the eraser reveals the layer below, white paint covers it" {
+test "the eraser reveals the layer below, white paint covers it" {
     var d = try newDoc();
     defer d.deinit();
     const red: [3]u8 = .{ 220, 0, 0 };

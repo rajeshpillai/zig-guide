@@ -87,7 +87,7 @@ pub const Rect = struct {
     }
 };
 
-test "distance: the 3-4-5 triangle from lesson 25" {
+test "distance: the 3-4-5 triangle" {
     const a: Point = .{ .x = 10, .y = 20 };
     const b: Point = .{ .x = 40, .y = 60 };
     try std.testing.expectEqual(@as(f32, 50), distance(a, b));

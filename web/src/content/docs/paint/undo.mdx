@@ -1,0 +1,137 @@
+---
+title: Undo
+seoTitle: "Zig Paint Program: Undo and Redo with a Memory Budget"
+description: Keep only the rectangle an action changed. Undo and redo are the same swap, two stacks are one array and an index, and running out of memory costs an undo step, not the stroke.
+section: Paint
+order: 70
+---
+
+import PaintSource from "../../../components/PaintSource.astro";
+
+People expect one Undo to remove one action.
+
+One action is one stroke, one fill. Not one dab, and not one pointer sample.
+
+So the history saves something once per action, just before the action changes a layer. The question is what to save.
+
+## Saving the whole picture is expensive
+
+The simplest answer is a copy of every layer.
+
+At 640 by 400 with two layers, one copy is 2 × 640 × 400 × 4 = 2,048,000 bytes. Eight undo steps would take 16,384,000 bytes, about 15.6 MiB.
+
+That is a lot for a short line in one corner. Most of each copy is pixels the action never touched.
+
+## Saving what changed
+
+Every action here already knows which rectangle it touches.
+
+A stroke knows it from the stroke buffer's `dirty` rectangle. A fill knows the bounds of the region it found.
+
+So the history copies that rectangle, from that one layer, just before the action changes it.
+
+A stroke 100 pixels wide and 60 high saves 100 × 60 × 4 = 24,000 bytes, about 1% of a full copy.
+
+<PaintSource file="src/engine/history.zig" decl="Entry" />
+
+## Undo and redo are one swap
+
+To undo, put the saved pixels back.
+
+But redo needs the pixels the action made, and putting the old ones back would overwrite them.
+
+So undo does not copy. It **swaps**: the saved pixels go into the layer, and the layer's current pixels go into the entry.
+
+Now the entry holds the newer pixels. Redo is the same swap again.
+
+<PaintSource file="src/engine/history.zig" decl="swap" />
+
+One function does both jobs, so undo and redo cannot drift apart.
+
+## Two stacks, one array
+
+The usual design keeps two stacks.
+
+Undo pops an entry off the **past** stack and pushes it onto the **future** stack. Redo does the opposite.
+
+Here the two stacks are one array and an index called `cursor`. Entries before the cursor can be undone. Entries from the cursor on can be redone.
+
+```
+entries   [ A ][ B ][ C ][ D ]
+                         ^
+                       cursor
+```
+
+Here A, B and C can be undone and D can be redone.
+
+<PaintSource file="src/engine/history.zig" decl="History" fields />
+
+Undo moves the cursor back one and swaps. Redo swaps and moves it forward:
+
+<PaintSource file="src/engine/history.zig" decl="undo" />
+
+Moving an entry from one stack to the other would need room in the other stack, and getting room can fail. Moving an index cannot fail. So undo and redo never allocate, and never fail.
+
+## A new action drops the future
+
+Draw A, then B. Undo B. Then draw C.
+
+Can Redo bring B back now?
+
+It must not. B was drawn on top of A, before C existed. Putting it back over C would make a picture that never existed.
+
+So recording a new action first deletes everything from the cursor on. That is the first thing `record` does.
+
+## A memory budget
+
+The history has a limit in bytes. When a new entry would go over it, the oldest entries are dropped until it fits.
+
+Dropping the oldest entry means the earliest actions can no longer be undone. That is the price of a limit.
+
+One entry can also be bigger than the whole budget, for example a fill of the whole page with a small budget. Then the history clears itself completely.
+
+Keeping the older entries would be worse. Undo would skip over the action that could not be saved. The older entries would then put back pixels from before that action, in some places and not others, and the result would be a picture that never existed.
+
+## When memory runs out
+
+Here is the whole of `record`:
+
+<PaintSource file="src/engine/history.zig" decl="record" />
+
+It returns `bool`, not an error.
+
+In Zig, running out of memory is an ordinary error value, `error.OutOfMemory`. The program decides what to do with it.
+
+The decision here is that the stroke matters more than its undo. If the copy cannot be made, the stroke still goes onto the layer. Only the undo step is lost, and `record` returns `false`. The studio then shows a line under the canvas saying the last action cannot be undone.
+
+Before giving up, `record` drops the oldest entries one at a time and tries again. Old undo steps are worth less than the new one.
+
+The order of the two allocations matters too. Room in the list is made first, and the copy second. If the copy were made first and the list then failed to grow, the copy would have no owner and would leak.
+
+## Checks
+
+Undo, redo, and back again:
+
+<PaintSource file="src/engine/history.zig" decl="undo restores, redo repeats, and both can go back and forth" />
+
+The A, B, C example:
+
+<PaintSource file="src/engine/history.zig" decl="drawing after an undo drops the redo branch" />
+
+The budget, with room for exactly three entries and five actions:
+
+<PaintSource file="src/engine/history.zig" decl="the budget drops the oldest entries" />
+
+And running out of memory. Zig's testing allocator can fail on purpose. This test runs the same four actions again and again, failing a different allocation each time, until every allocation has failed once:
+
+<PaintSource file="src/engine/history.zig" decl="running out of memory loses undo steps, never pixels, and leaks nothing" />
+
+Each run checks three things: every action still changed the layer, every undo that was kept restores the right pixels, and every byte allocated was freed.
+
+## Explain before reading the answer
+
+The budget is 16 MiB. You fill the whole 640 by 400 top layer, then draw 20 small strokes.
+
+How many undo steps are there?
+
+All 21. The fill saved one full layer, 1,024,000 bytes, and the strokes saved only their rectangles. Together they are far under 16 MiB, so nothing was dropped.

@@ -15,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import { join, extname, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { legacyRedirects } from "../legacy-urls.mjs";
+import { parsePng, fnv1a32 } from "../../tools/picture.mjs";
 
 const DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "dist");
 const SNIPPETS = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "snippets");
@@ -1173,6 +1174,119 @@ let pickerChecks = 0;
   await page.evaluate(() => localStorage.removeItem("palette"));
 }
 
+/*
+ * The paint studio (src/components/PaintStudio.astro, src/scripts/paint.ts).
+ *
+ * `zig build verify` already checked that the wasm draws the engine's demo
+ * picture with the pixels the native tests pinned. What only a browser can
+ * check is the front end: that pointer events reach the engine, and that the
+ * canvas shows exactly what the engine holds. So after every action the
+ * canvas is hashed and compared with the engine's own hash of its display.
+ * A saved PNG is decoded by tools/picture.mjs, which shares no code with the
+ * engine's encoder, and must hold the same pixels.
+ */
+let paintChecks = 0;
+{
+  const chapter = `${PREFIX}/learn/paint/a-paint-program/`;
+  const check = (ok, message) => {
+    paintChecks++;
+    if (!ok) failures.push(`paint: ${message}`);
+  };
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
+  await stubThirdParty(context);
+  const tab = await context.newPage();
+  await tab.goto(BASE + chapter + "?festive=off", { waitUntil: "networkidle" });
+
+  await tab.locator(".paint-start").click();
+  await tab
+    .waitForFunction(() => document.querySelector(".paint")?.dataset.ready === "true", null, { timeout: 15000 })
+    .catch(() => {});
+  const ready = await tab.evaluate(() => document.querySelector(".paint")?.dataset.ready === "true");
+  check(ready, "the studio did not start");
+
+  if (ready) {
+    const settle = () => tab.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const canvasHash = () =>
+      tab.evaluate(() => {
+        const c = document.querySelector(".paint-canvas");
+        const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+        let h = 0x811c9dc5;
+        for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) h = Math.imul(h ^ d[i + k], 0x01000193) >>> 0;
+        return h;
+      });
+    const engineHash = () => tab.evaluate(() => document.querySelector(".paint").engineHash());
+    const agrees = async (when) => {
+      await settle();
+      const c = await canvasHash();
+      check(c === (await engineHash()), `the canvas differs from the engine's display ${when}`);
+      return c;
+    };
+
+    check(await tab.evaluate(() => document.querySelector(".paint").engineSelfTest()), "the browser build drew the demo picture differently from the native tests");
+    const blank = await agrees("on a new document");
+
+    const box = await tab.locator(".paint-canvas").boundingBox();
+    const at = (x, y) => [box.x + (x * box.width) / 640, box.y + (y * box.height) / 400];
+    const drag = async (points) => {
+      await tab.mouse.move(...at(...points[0]));
+      await tab.mouse.down();
+      for (const p of points.slice(1)) await tab.mouse.move(...at(...p));
+      await tab.mouse.up();
+    };
+
+    await drag(Array.from({ length: 25 }, (_, i) => [60 + i * 20, 100 + (i % 5) * 12]));
+    const stroked = await agrees("after a stroke");
+    check(stroked !== blank, "a stroke did not change the canvas");
+
+    await tab.keyboard.press("Control+z");
+    check((await agrees("after Ctrl+Z")) === blank, "Ctrl+Z did not return to the blank page");
+    await tab.locator('[data-control="redo"]').click();
+    check((await agrees("after Redo")) === stroked, "Redo did not bring the stroke back");
+
+    // A fill and an erase on the top layer.
+    await tab.selectOption('[data-control="layer"]', "1");
+    await tab.locator('input[name="paint-tool"][value="fill"]').check();
+    await tab.mouse.click(...at(600, 380));
+    await agrees("after a fill");
+    await tab.locator('input[name="paint-tool"][value="eraser"]').check();
+    await drag([[20, 250], [320, 250], [620, 250]]);
+    const erased = await agrees("after erasing");
+
+    // A stroke interrupted by losing focus is dropped, not committed.
+    await tab.locator('input[name="paint-tool"][value="brush"]').check();
+    await tab.mouse.move(...at(300, 40));
+    await tab.mouse.down();
+    await tab.mouse.move(...at(420, 60));
+    await tab.evaluate(() => window.dispatchEvent(new Event("blur")));
+    await tab.mouse.up();
+    check((await agrees("after an interrupted stroke")) === erased, "an interrupted stroke was committed");
+
+    const [download] = await Promise.all([
+      tab.waitForEvent("download"),
+      tab.locator('[data-control="save"]').click(),
+    ]);
+    const bytes = await readFile(await download.path());
+    try {
+      const png = parsePng(new Uint8Array(bytes));
+      check(png.width === 640 && png.height === 400, `saved PNG is ${png.width}x${png.height}`);
+      check(parseInt(fnv1a32(png.pixels), 16) === erased, "the saved PNG does not hold the pixels on the canvas");
+    } catch (err) {
+      check(false, `the saved PNG does not decode: ${err.message}`);
+    }
+  }
+  await context.close();
+
+  // With scripting off, nothing in the studio may be offered.
+  const bare = await browser.newContext({ javaScriptEnabled: false });
+  const off = await bare.newPage();
+  await off.goto(BASE + chapter, { waitUntil: "domcontentloaded" });
+  const shown = await off.$$eval(".paint-start, .paint-bar, .paint-canvas", (nodes) =>
+    nodes.filter((n) => getComputedStyle(n).display !== "none").map((n) => n.className),
+  );
+  check(shown.length === 0, `JS off: studio control(s) rendered anyway: ${shown.join(", ")}`);
+  await bare.close();
+}
+
 /* Every script-revealed control, with scripting off. */
 let jsOffChecks = 0;
 {
@@ -1769,7 +1883,7 @@ console.log(
     `output matched .expected: ${outputChecked}  pictures: ${pictures}  ` +
     `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
-    `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  riddle: ${riddleChecks}  ` +
+    `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  riddle: ${riddleChecks}  paint: ${paintChecks}  ` +
     `editor: ${editorLooks}  code tokens: ${codeTokens}  ` +
     `header widths: ${headerWidths}  blog posts: ${blogPosts}  ` +
     `source quotes: ${sourceQuotes}  ` +

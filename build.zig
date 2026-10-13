@@ -256,7 +256,7 @@ pub fn build(b: *std.Build) void {
         const paint_wasm = @import("examples/paint/build.zig").addWeb(b, b.path("examples/paint/src"), .small);
         const install_paint = b.addInstallFileWithDir(
             paint_wasm.getEmittedBin(),
-            .{ .custom = "../web/public/paint" },
+            .{ .custom = "../web/public/apps/paint" },
             "paint.wasm",
         );
         b.getInstallStep().dependOn(&install_paint.step);

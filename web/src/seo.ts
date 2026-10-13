@@ -572,6 +572,33 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "needs the Emscripten SDK, which CI does not carry, so the playable " +
       "artefacts on this page are built by hand and committed.",
   },
+  paint: {
+    seoTitle: "Build a Paint Program in Zig: Brushes, Layers, Undo and PNG",
+    description:
+      "A paint program in Zig that runs in the page, with no graphics library. " +
+      "Evenly spaced dabs from uneven pointer samples, soft and calligraphy " +
+      "tips, a 16-bit stroke buffer that keeps opacity honest, premultiplied " +
+      "layers and an eraser, undo that stores only what changed, flood fill " +
+      "with a queue, and PNG export.",
+    lede:
+      "A paint program you can use on this page, built from an engine that " +
+      "never sees a mouse. Points go in and pixels come out, so every brush, " +
+      "every layer and every undo is checked by tests that draw with no " +
+      "window. The browser build is about 41 KB of WebAssembly, and before " +
+      "the site ships it, it must draw a test picture with exactly the pixels " +
+      "the native tests pinned.",
+    takeaways: [
+      "One mark per pointer event makes a stroke that depends on hand speed. Walk the path and carry the leftover distance into the next segment, and the spacing stays even.",
+      "A stroke at 50% opacity must stay at 50% where it crosses itself. Build its coverage in a separate buffer and apply the opacity once, at the end.",
+      "Undo does not need a copy of the picture. Keep the rectangle an action changed, and undo and redo become the same swap.",
+      "Running out of memory should cost an undo step, not the stroke. In Zig that is an ordinary error you can decide what to do with.",
+    ],
+    note:
+      "The engine is plain Zig built for wasm32-freestanding, so CI builds the " +
+      "file this page runs and nothing is committed. It is a teaching program: " +
+      "one brush engine, two layers, and 8-bit colour blended the way a browser " +
+      "canvas blends it.",
+  },
   "competitive-programming": {
     seoTitle: "Zig for Competitive Programming: Algorithms That Print Their Working",
     description:

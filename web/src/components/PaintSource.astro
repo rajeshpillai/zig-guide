@@ -1,0 +1,34 @@
+---
+/**
+ * A block of the paint program's real source, read off disk at build time.
+ *
+ * The paint twin of `GameSource.astro`: same rule, same frame. A chapter names
+ * a file and a declaration, and a name that no longer exists fails the build.
+ */
+import SourceQuote from "./SourceQuote.astro";
+import { exampleSource } from "../game-source";
+import { REPO_URL } from "../seo";
+
+interface Props {
+  /** Path under `examples/paint/`, e.g. `src/engine/stroke.zig`. */
+  file: string;
+  /** One declaration out of it. Omit for the whole file. */
+  decl?: string;
+  /** For a struct that carries methods: show the fields and stop. */
+  fields?: boolean;
+  lang?: "zig" | "bash";
+}
+
+const { file, decl, fields = false, lang = "zig" } = Astro.props;
+const code = await exampleSource("paint", file, decl, fields);
+const path = `examples/paint/${file}`;
+const href = `${REPO_URL}/blob/main/${path}`;
+---
+
+<SourceQuote
+  code={code}
+  path={path}
+  href={href}
+  label={decl && `${decl}${fields ? " fields" : ""}`}
+  lang={lang}
+/>

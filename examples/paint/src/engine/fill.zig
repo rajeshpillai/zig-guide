@@ -2,7 +2,7 @@
 //!
 //! The region is found a little at a time. Each pixel we accept can reveal
 //! more neighbours, so we keep a queue of pixels still to look at and a map of
-//! pixels already seen (lesson 64).
+//! pixels already seen.
 //!
 //! A recursive version, "fill this pixel, then fill its four neighbours", is
 //! shorter and wrong for a paint program. A 640 by 400 region would nest

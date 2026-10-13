@@ -1,0 +1,125 @@
+---
+title: Smoothing, Pressure and Scatter
+seoTitle: "Zig Paint Program: Stroke Smoothing, Pen Pressure and a Seeded Random Generator"
+description: Steady a shaky hand with a moving average, size each dab from pen pressure, and scatter dabs with a random generator that repeats exactly.
+section: Paint
+order: 30
+---
+
+import PaintSource from "../../../components/PaintSource.astro";
+
+The last chapter turned samples into evenly spaced dabs.
+
+This one changes the dabs themselves. Three changes, each a few lines:
+
+- **Smoothing** moves the path, to steady a shaky hand.
+- **Pressure** changes the size of each dab.
+- **Jitter and scatter** change the size and position of each dab at random, for brushes like a spray can.
+
+The third one has a condition. The randomness must repeat exactly, or no test could ever compare two pictures.
+
+## Smoothing
+
+A hand is not steady. A mouse is worse.
+
+Smoothing keeps a second position, the **filtered** position, and moves it only part of the way towards each new sample:
+
+<PaintSource file="src/engine/stroke.zig" decl="move" />
+
+The first line of `move` is all of it. `follow` is the fraction of the way to move.
+
+## A worked example
+
+The filtered x is 100. A sample arrives at x = 120. `follow` is 0.25.
+
+The filtered x moves a quarter of the way: 100 + (120 − 100) × 0.25 = 105.
+
+Another sample arrives at 120 again. It moves a quarter of the remaining way: 105 + 15 × 0.25 = 108.75.
+
+A wobble of a few pixels gets the same treatment, so it shrinks to a quarter of its size.
+
+At `follow = 1` the filtered point jumps straight to the sample, so there is no smoothing.
+
+The cost is a lag. The stroke trails behind the pointer, and when you let go it ends short of where the pointer was. A lower `follow` means a steadier line and a longer lag. That is why the Ink brush in the studio uses 0.35 and the Spray brush uses 1.
+
+## Pressure
+
+A pen reports how hard it presses, from 0 to 1. A mouse has no pressure, and browsers report 0.5 while the button is down.
+
+The brush's `pressure` setting says how much the pen should matter, from 0 (not at all) to 1 (fully). Here is where each dab gets its size:
+
+<PaintSource file="src/engine/stroke.zig" decl="emit" />
+
+The size at full effect is `0.25 + 0.75 × p²`, where `p` is the pen's pressure.
+
+At full pressure that is 1, the whole radius. At no pressure it is 0.25, a quarter of it. The square makes light pressure count for less, which feels closer to a real pen than a straight line does.
+
+The brush setting then chooses between that and full size with a `lerp`. At setting 0, the dab is always full size, so the pen is ignored.
+
+A radius of 20, at setting 1:
+
+- pressure 1 gives 20 × (0.25 + 0.75) = 20 pixels
+- pressure 0.5 gives 20 × (0.25 + 0.1875) = 8.75 pixels
+- pressure 0 gives 20 × 0.25 = 5 pixels
+
+## Random numbers that repeat
+
+The Spray brush changes each dab's size and position at random.
+
+"At random" usually means asking the operating system, and getting different numbers every time the program runs.
+
+That would break two things. A test could not draw the spray brush and compare the result with a number. And a recorded stroke would draw differently each time it was replayed.
+
+So the engine makes its own random numbers, starting from a **seed**. The same seed gives the same numbers in the same order, on every machine:
+
+<PaintSource file="src/engine/random.zig" decl="Random" />
+
+This is Park and Miller's "minimal standard" generator from 1988. Each step multiplies the state by 16807 and keeps the remainder after dividing by 2³¹ − 1.
+
+The product can need 46 bits, so it is computed in a `u64`. In a `u32` it would overflow. Zig checks integer overflow in safe builds, so that mistake would stop the program with a message rather than produce wrong numbers quietly.
+
+Each brush carries a seed. The studio adds one to it after every stroke, so two spray strokes look different, but a replayed stroke looks the same.
+
+## Jitter and scatter
+
+Back in `emit`, three random numbers are drawn for every dab.
+
+**Jitter** shrinks the dab by a random amount. At jitter 0.6, a dab is between 40% and 100% of its size.
+
+**Scatter** moves the dab to a random point in a disc around its place on the path. The disc's radius is `scatter` times the brush radius.
+
+The random point is an angle and a distance. The angle is `2π × u`. The distance is `R × √v`.
+
+The square root matters. Without it, half of all dabs would land within half the radius, but that inner circle is only a quarter of the disc's area. The dabs would bunch at the centre.
+
+With the square root, half the dabs land within `R × √0.5`, about 71% of the radius, which is exactly half the area. The dabs spread evenly.
+
+The three numbers are drawn whether jitter and scatter are on or not. If they were drawn only when used, turning scatter on would shift the sequence, and every later dab's jitter would change as well.
+
+## Checks
+
+The smoothing example from above:
+
+<PaintSource file="src/engine/stroke.zig" decl="smoothing moves a quarter of the way" />
+
+Pressure at its two settings:
+
+<PaintSource file="src/engine/stroke.zig" decl="pressure: ignored at 0, a quarter size at full effect and no pressure" />
+
+The published values of the generator. Park and Miller list the states that follow seed 1, so a wrong multiplier or a wrong modulus shows up here:
+
+<PaintSource file="src/engine/random.zig" decl="the first values from seed 1 are the published ones" />
+
+And scatter: every dab within the disc, and the same seed giving the same dabs:
+
+<PaintSource file="src/engine/stroke.zig" decl="scatter stays inside the disc, and the same seed repeats it" />
+
+## Explain before reading the answer
+
+A random number `u` is 0.25 and another `v` is 0.25. The scatter radius `R` is 20 pixels.
+
+Where does the dab move?
+
+The angle is 2π × 0.25 = π/2, a quarter turn. The distance is 20 × √0.25 = 10 pixels.
+
+A quarter turn from the x axis points along the y axis, and on a screen y grows downwards. So the dab moves 10 pixels straight down.

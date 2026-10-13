@@ -54,7 +54,7 @@ pub const Stroke = struct {
 
     /// The pointer moved to `p`. Place every dab that falls on the way.
     pub fn move(s: *Stroke, p: Point, sink: anytype) void {
-        // Smoothing (lesson 29): move part of the way towards the real point.
+        // Smoothing: move part of the way towards the real point.
         s.filtered = geometry.lerpPoint(s.filtered, p, s.brush.follow);
 
         const a = s.last;
@@ -67,7 +67,7 @@ pub const Stroke = struct {
 
         const step = s.gap();
         // The first dab on this segment completes the interval left over from
-        // the last one (lesson 27).
+        // the last one.
         var at = step - s.carry;
         while (at <= d) : (at += step) {
             s.emit(geometry.lerpPoint(a, b, at / d), sink);
@@ -85,7 +85,7 @@ pub const Stroke = struct {
     fn emit(s: *Stroke, p: Point, sink: anytype) void {
         const b = s.brush;
 
-        // Pressure (lesson 30): at `pressure = 0` the size ignores the pen.
+        // Pressure: at `pressure = 0` the size ignores the pen.
         // At 1, a light touch draws at a quarter of the size.
         const p2 = p.pressure * p.pressure;
         var radius = b.radius * geometry.lerp(1.0, 0.25 + 0.75 * p2, b.pressure);
@@ -98,7 +98,7 @@ pub const Stroke = struct {
 
         radius *= 1.0 - b.jitter * u_size;
 
-        // Scatter across a disc (lesson 32). The square root spreads the
+        // Scatter across a disc. The square root spreads the
         // offsets evenly over the area instead of bunching them at the centre.
         const theta = 2.0 * std.math.pi * u_angle;
         const reach = b.scatter * b.radius * @sqrt(u_reach);
@@ -125,7 +125,7 @@ const Recorder = struct {
     }
 };
 
-test "lesson 27: carry after three moves of 6 pixels with a gap of 10 is 8" {
+test "carry after three moves of 6 pixels with a gap of 10 is 8" {
     // Radius 40 at spacing 0.25 is a gap of 10 pixels.
     const brush: Brush = .{ .radius = 40, .spacing = 0.25 };
     var rec: Recorder = .{};
@@ -170,7 +170,7 @@ test "a repeated sample adds no dab and does not divide by zero" {
     try std.testing.expect(!std.math.isNan(s.carry));
 }
 
-test "lesson 29: smoothing moves a quarter of the way" {
+test "smoothing moves a quarter of the way" {
     var rec: Recorder = .{};
     var s = Stroke.begin(.{ .follow = 0.25 }, .{ .x = 100, .y = 0 }, &rec);
     s.move(.{ .x = 120, .y = 0 }, &rec);
@@ -207,7 +207,7 @@ test "scatter stays inside the disc, and the same seed repeats it" {
     }
 }
 
-test "lesson 36: a tip that follows direction points down for a downward move" {
+test "a tip that follows direction points down for a downward move" {
     var rec: Recorder = .{};
     var s = Stroke.begin(.{ .follow_direction = true, .radius = 4 }, .{ .x = 0, .y = 0 }, &rec);
     s.move(.{ .x = 0, .y = 10 }, &rec);
