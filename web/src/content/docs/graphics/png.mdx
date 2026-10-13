@@ -1,0 +1,184 @@
+---
+title: Writing a PNG
+seoTitle: "Zig PNG Writer: Chunks, CRC-32, Filters and zlib with std.compress.flate"
+description: A signature, three chunks and a CRC on each. The pixels are filtered, then compressed with the zlib in the standard library.
+seoDescription: Writing a PNG file in Zig with no image library. The signature, IHDR, IDAT and IEND chunks, CRC-32 with std.hash.Crc32, scanline filters and why Sub shrinks a gradient from 3801 bytes to 133, and zlib compression with std.compress.flate.
+section: Graphics
+order: 121.5
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+A PPM file is easy to write, but it is big.
+
+Our 64 by 32 test picture is 6157 bytes as a PPM.
+
+As a PNG it is 680 bytes, and every image viewer and browser opens it.
+
+A PNG needs two things beyond the pixels: zlib compression and a CRC-32 checksum.
+
+Zig's standard library has both, so a PNG writer is about a hundred lines.
+
+<Playground name="09-graphics.png-write" />
+
+The two pictures under the output are the two PNG files the program wrote.
+
+Your browser decoded them with its own PNG decoder. No code from this site decoded those files.
+
+## The shape of the file
+
+A PNG is an 8-byte signature followed by a list of chunks.
+
+```
+signature   89 50 4E 47 0D 0A 1A 0A
+IHDR        width, height, and what kind of pixels
+IDAT        the pixels, compressed
+IEND        nothing, it marks the end
+```
+
+The signature is the same in every PNG.
+
+<SnippetSource name="09-graphics.png-write" decl="signature" />
+
+`50 4E 47` is the text `PNG`.
+
+The other bytes catch a file that was damaged by being copied as text.
+
+A tool that converts line endings changes `0D 0A`. A tool that strips the top bit changes `89`. A reader then refuses the file at the first eight bytes.
+
+## A chunk
+
+Every chunk has the same four parts:
+
+```
+length   4 bytes, big-endian, the size of the data only
+type     4 letters, like IHDR
+data     length bytes
+crc      4 bytes, CRC-32 of the type and the data
+```
+
+<SnippetSource name="09-graphics.png-write" decl="writeChunk" />
+
+The CRC covers the type and the data. It does not cover the length.
+
+All numbers in a PNG are big-endian, so `writeInt` is told `.big` every time.
+
+`std.hash.Crc32` is the same CRC-32 that zip and Ethernet use. `init`, `update` as many times as you need, then `final`.
+
+## The header chunk
+
+<SnippetSource name="09-graphics.png-write" decl="writePng" />
+
+`IHDR` is always 13 bytes, and it must come first.
+
+Colour type 2 means three bytes per pixel, R then G then B, with no alpha.
+
+The two fields that are always 0 name the compression and filter methods. The format defines only one of each, so 0 is the only legal value.
+
+## Scanlines and the filter byte
+
+The pixels are not compressed as they are.
+
+They are cut into rows, and each row starts with one extra byte, the **filter byte**.
+
+So one row here is 1 + 64 × 3 = 193 bytes, and the 32 rows are 6176 bytes before compression.
+
+The filter byte says how the row's bytes were changed before compression.
+
+Filter 0, None, leaves them as they are.
+
+Filter 1, Sub, stores each byte minus the same channel of the pixel to its left.
+
+<SnippetSource name="09-graphics.png-write" decl="filterRows" />
+
+## The worked example
+
+The red channel of the gradient picture rises by 4 every pixel.
+
+```
+red bytes, filter none:  0  4  8 12 16 20 ...
+red bytes, filter sub:   0  4  4  4  4  4 ...
+```
+
+After Sub, the row is the same few bytes over and over.
+
+Repeated bytes are what zlib compresses well.
+
+The output shows the result. The gradient is 3801 bytes compressed with no filter and 133 bytes with Sub.
+
+## A filter can also hurt
+
+The scene picture goes the other way: 623 bytes with no filter and 709 with Sub.
+
+The scene has large flat areas and hard edges. Its rows already repeat, and Sub breaks some of those repeats.
+
+So `save` tries both filters and keeps the smaller result.
+
+Real encoders choose a filter for every row, from five: None, Sub, Up, Average and Paeth. Up subtracts the byte above. Average subtracts the average of the left and above bytes. Paeth subtracts whichever of the left, above and above-left bytes is the best guess.
+
+## Wrapping subtraction
+
+Sub can give a negative number.
+
+A pixel with red 10 to the right of a pixel with red 200 stores 10 − 200.
+
+The format says this wraps around 256: 10 − 200 + 256 = 66.
+
+The decoder adds back with the same wrap: 66 + 200 − 256 = 10.
+
+Zig makes us say this on purpose.
+
+A plain `-` on two `u8` values that goes below zero is integer overflow, which Zig checks in safe builds. The wrapping operators `-%` and `+%` say that wrapping is what we want.
+
+## Compressing
+
+`std.compress.flate.Compress` writes deflate, and the `.zlib` container adds the 2-byte header and the Adler-32 checksum a PNG expects.
+
+<SnippetSource name="09-graphics.png-write" decl="deflate" />
+
+The compressor keeps about 224 KB of state and needs a 64 KB window buffer.
+
+That is a lot to put on the stack, so both are global variables.
+
+`finish` writes the end of the stream. Without it the data stops partway and a reader reports a truncated file.
+
+## Reading it back
+
+The program reads its own file back from disk and checks it the way a viewer would.
+
+<SnippetSource name="09-graphics.png-write" decl="check" />
+
+It walks the chunks, checks each CRC, inflates the pixels, undoes the filter and compares with what it drew.
+
+Undoing Sub runs forwards. Each byte adds back the byte to its left, which is already decoded.
+
+This check proves only that our writer and our reader agree.
+
+They could share the same mistake.
+
+So the page checks the files twice more, with decoders that share no code with this one.
+
+CI decodes each file with zlib from Node and the five filters written from the specification. Your browser decodes it with its own PNG decoder.
+
+Both must give pixels whose hash matches the `wrote` line the program printed.
+
+## What this writer leaves out
+
+This writer handles one kind of PNG: 8 bits per channel, RGB, no interlacing.
+
+It leaves out alpha (colour type 6), 16-bit channels, palettes, and the chunks for colour space and text.
+
+A PNG with no colour space chunk is shown as sRGB.
+
+So the bytes you write are the encoded bytes from [Linear Light](/learn/graphics/linear-light/), not linear values.
+
+## Explain before reading the answer
+
+A row of 64 pixels, all the same colour `(30, 60, 90)`, is filtered with Sub.
+
+What bytes come out after the filter byte?
+
+`30 60 90` for the first pixel, then 189 zeros.
+
+The first pixel has no left neighbour, so it stays as it is. Every other byte is equal to the byte three places to its left, so the difference is zero.

@@ -95,6 +95,7 @@ linear light: sRGB applies a transfer curve of roughly `x^2.2`, so a value of
 50% composite of black and white come out visibly darker than the eye expects.
 
 Doing it correctly means converting to linear, blending, and converting back,
-or working in 16-bit linear throughout. Nearly all 8-bit graphics code,
+or working in 16-bit linear throughout. [Linear Light](/learn/graphics/linear-light/)
+builds both conversions as lookup tables. Nearly all 8-bit graphics code,
 including this page, blends in sRGB anyway and accepts the error. That is a
 deliberate tradeoff. Make sure it is a choice in your code, and not a mistake.

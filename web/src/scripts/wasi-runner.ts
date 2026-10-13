@@ -35,8 +35,8 @@ export interface RunResult {
   /** Wall-clock duration of `wasi.start`, in milliseconds. */
   durationMs: number;
   /**
-   * The `.ppm` files the program left in its working directory, sorted by
-   * name. A graphics snippet writes one so the playground can paint it;
+   * The `.ppm` and `.png` files the program left in its working directory,
+   * sorted by name. A graphics snippet writes one so the playground can paint it;
    * `tools/run-wasi.mjs` checks the same files against the hash line the
    * snippet printed.
    */
@@ -150,7 +150,7 @@ export async function runWasm(
 
   const durationMs = performance.now() - started;
   const pictures = [...cwd]
-    .filter(([name, entry]) => name.endsWith(".ppm") && entry instanceof File)
+    .filter(([name, entry]) => /\.(ppm|png)$/.test(name) && entry instanceof File)
     .map(([name, entry]) => ({ name, bytes: (entry as File).data }))
     .sort((a, b) => (a.name < b.name ? -1 : 1));
 

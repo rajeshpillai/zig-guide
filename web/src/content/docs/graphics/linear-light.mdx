@@ -1,0 +1,165 @@
+---
+title: Linear Light
+seoTitle: "Zig sRGB to Linear: Mixing Colours in Linear Light with comptime Tables"
+description: A stored byte is not an amount of light. Decode, mix, encode, with both tables built by the compiler.
+seoDescription: Converting sRGB to linear light in Zig. Why byte 128 is only 22% of white, why blending and blurring need linear values, why 8 bits cannot hold them, and lookup tables built at comptime.
+section: Graphics
+order: 124.5
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+Halfway between black and white, most code writes 128.
+
+That is half of 255.
+
+But a screen showing 128 gives out about 22% of the light it gives for 255.
+
+The bytes in an image are not amounts of light. They are encoded.
+
+So we decode the bytes to light, mix the light, and encode the result again.
+
+<Playground name="09-graphics.linear-light" />
+
+## The worked example
+
+Halfway from black to white, done two ways:
+
+- Mixing the bytes: (0 + 255) / 2 is 128, rounded.
+- Mixing the light: 0% light and 100% light average to 50%. Encoded again, 50% light is byte 188.
+
+The output prints both, and 128 and 188 are far apart.
+
+Red to green shows the same thing in colour.
+
+Mixing the bytes gives `128 128 0`, a dark olive.
+
+Mixing the light gives `188 188 0`, a yellow.
+
+The third and fourth bands of the picture are those two ramps.
+
+## Why images store encoded bytes
+
+Our eyes do not see light linearly.
+
+We notice a small change in a dark area much more than the same change in a bright area.
+
+The sRGB encoding gives more of its 256 values to dark tones for that reason. The steps between bytes look roughly even to a person.
+
+That is why the first band in the picture looks even, and the second band looks mostly pale.
+
+The second band has even steps of light, and most of those steps look bright to us.
+
+So there are two different jobs:
+
+- Storing and showing a colour: use the encoded bytes.
+- Adding or averaging light: use linear values.
+
+Blending, blurring, scaling an image and antialiasing all add or average light. They belong in linear.
+
+## The conversion
+
+The sRGB standard defines the curve in two pieces: a short straight line near black, and a power curve for the rest.
+
+<SnippetSource name="09-graphics.linear-light" decl="decode" />
+
+The numbers 0.04045, 12.92, 0.055 and 2.4 come from the standard.
+
+Copy them as they are.
+
+A plain `x^2.2` curve is close, but it is not the same near black.
+
+`encode` is the same curve run backwards.
+
+## Tables built by the compiler
+
+`pow` is slow, and a byte has only 256 possible values.
+
+So we compute all 256 answers once and keep them in a table.
+
+<SnippetSource name="09-graphics.linear-light" decl="to_light" />
+
+This is an ordinary loop inside a block.
+
+But the block initialises a top-level `const`, so Zig runs it at compile time.
+
+The finished program contains the 256 numbers and never calls `pow` for them.
+
+`@setEvalBranchQuota` raises the compiler's limit on how much work a compile-time block may do.
+
+`pow` loops inside, so the default limit is too low. Without the call, the build fails with an error that names `@setEvalBranchQuota`.
+
+## Why light needs 16 bits
+
+The table stores light as a `u16`, not a `u8`.
+
+The output shows what happens with 8 bits.
+
+Only 183 of the 256 bytes come back as different values. The bytes 0 to 6 all become 0, so seven dark greys turn into black.
+
+The dark tones need fine steps in linear, because the encoding gave so many bytes to them.
+
+With 16 bits, every byte survives the trip and comes back as itself.
+
+The output checks all 256.
+
+## The way back
+
+Encoding needs a second table.
+
+A table indexed by the full 16-bit value would need 65536 entries.
+
+So this table is indexed by the top 12 bits. Each entry covers 16 light values and holds the byte for the middle of them.
+
+<SnippetSource name="09-graphics.linear-light" decl="to_byte" />
+
+Sixteen light values per entry is fine enough, even near black.
+
+Near black, one byte is about 20 light values wide.
+
+The middle of an entry is never more than 8 light values from any value it covers.
+
+That is less than half a byte, so rounding still lands on the right byte.
+
+The round-trip line in the output is the proof. If the table were too coarse, the dark bytes would fail first.
+
+## Mixing
+
+With the two tables, mixing in light is two lookups, the same arithmetic, and one more lookup.
+
+<SnippetSource name="09-graphics.linear-light" decl="mixLight" />
+
+Compare it with `mixBytes` in the snippet above.
+
+The arithmetic is identical. Only the kind of number it works on changes.
+
+The [Alpha Blending](/learn/graphics/blending/) chapter blends bytes directly, and says so.
+
+To blend in linear, decode both colours with `toLight`, run the same blend in 16 bits, and encode the result with `toByte`.
+
+## What linear light does not fix
+
+Linear light describes light adding up, like two torches pointed at one wall.
+
+Paint does not work this way. Pigments absorb light.
+
+Yellow paint mixed with blue paint makes green.
+
+Yellow light mixed with blue light makes grey, in linear or in bytes.
+
+So linear mixing is correct for a screen and for a camera. It is not a model of paint.
+
+## Explain before reading the answer
+
+Draw a checkerboard of single black and white pixels.
+
+Look at it from across the room, so the squares blur together.
+
+Which grey matches it: byte 128 or byte 188?
+
+The answer is 188.
+
+Half the pixels give full light and half give none. Your eye averages the light, so it sees 50% light.
+
+50% light is byte 188, not 128.

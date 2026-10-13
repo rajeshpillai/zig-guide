@@ -445,14 +445,14 @@ export const SECTIONS: Record<string, SectionMeta> = {
     seoTitle: "Zig Graphics: Software Rendering and Image Processing",
     description:
       "Software rendering and image processing in Zig with no graphics library: " +
-      "framebuffers, rasterizing lines, circles and triangles, alpha blending, " +
-      "antialiasing, brightness and contrast, gaussian blur, Sobel edges, colour " +
+      "framebuffers, writing PNG files, rasterizing lines, circles and triangles, " +
+      "alpha blending, sRGB and linear light, antialiasing, brightness and contrast, gaussian blur, Sobel edges, colour " +
       "matrices, histogram equalization, median filters, and image scaling.",
     lede:
       "A renderer built out of an array of bytes, with no graphics library " +
-      "underneath. Start with a framebuffer, draw lines and circles, rasterize " +
-      "triangles with barycentric coordinates, composite with alpha, and smooth " +
-      "jagged edges with supersampling. Then read the buffer back: brightness and " +
+      "underneath. Start with a framebuffer and save it as a PNG, draw lines and " +
+      "circles, rasterize triangles with barycentric coordinates, composite with " +
+      "alpha, mix colours in linear light, and smooth jagged edges with supersampling. Then read the buffer back: brightness and " +
       "contrast as lookup tables, blur and Sobel edges as convolution kernels, " +
       "grayscale and sepia as colour matrices, auto-levels from a histogram, " +
       "median filters for noise, and the half-pixel bug that shifts a resized " +
@@ -463,7 +463,8 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "Every program in this section is cut down to the smallest thing that " +
       "makes one idea visible. They fix their own buffer sizes, leave out the " +
       "error handling and the fast paths a real renderer needs, and print ASCII " +
-      "rather than pixels so the result can be checked by eye. Read them for the " +
+      "so the result can be checked by eye. Where colour matters they also paint " +
+      "the picture, and CI checks the pixels by their hash. Read them for the " +
       "arithmetic and the reasoning behind it, not as code to lift into a project.",
     takeaways: [
       "A framebuffer is an array of bytes. Every chapter here is arithmetic on that array, with no library underneath.",

@@ -22,7 +22,7 @@ import { WASI } from "node:wasi";
 import { readFile, readdir, open, unlink, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parsePpm, pictureLine } from "./ppm.mjs";
+import { isPicture, parsePicture, pictureLine } from "./picture.mjs";
 
 const argv = process.argv.slice(2);
 const expectFailure = argv[0] === "--expect-failure";
@@ -81,9 +81,9 @@ const stderr = await readFile(errPath, "utf8");
 // snippet printed, and that line is in turn pinned by `.expected`.
 const pictureProblems = [];
 for (const name of (await readdir(scratch)).sort()) {
-  if (!name.endsWith(".ppm")) continue;
+  if (!isPicture(name)) continue;
   try {
-    const line = pictureLine(name, parsePpm(await readFile(join(scratch, name))));
+    const line = pictureLine(name, parsePicture(name, await readFile(join(scratch, name))));
     if (!stdout.split("\n").includes(line)) {
       pictureProblems.push(`${name} does not match any printed line; expected: ${line}`);
     }

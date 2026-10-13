@@ -7,7 +7,7 @@
  * edited source in-browser.
  */
 import { runWasm } from "./wasi-runner";
-import { pictureFigure } from "./ppm";
+import { pictureFigure } from "./picture";
 import type { ZigCompiler } from "./zig-compiler";
 
 /** The in-browser compiler is multi-megabyte, so it loads only on demand. */
@@ -130,8 +130,11 @@ class ZigPlayground extends HTMLElement {
 
       const { output, exitCode, durationMs, pictures } = await runWasm(url);
       this.#show(output || "(no output)", exitCode === 0);
-      this.#pictures.replaceChildren(...pictures.map((p) => pictureFigure(p.name, p.bytes)));
-      this.#pictures.hidden = pictures.length === 0;
+      // Painted before the status changes, so anything waiting for the run to
+      // settle (a reader, or the browser gate) finds the pictures in place.
+      const figures = await Promise.all(pictures.map((p) => pictureFigure(p.name, p.bytes)));
+      this.#pictures.replaceChildren(...figures);
+      this.#pictures.hidden = figures.length === 0;
       this.#status.textContent = `exit ${exitCode} · ${durationMs.toFixed(0)}ms`;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

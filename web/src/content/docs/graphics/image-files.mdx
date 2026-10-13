@@ -118,7 +118,9 @@ mandatory whitespace byte.
 PPM is uncompressed. A 4K frame is 24 MB and a sequence of them fills a disk
 quickly. It is the right tool for getting pixels out of a program you are
 writing, and the wrong tool for storing or sharing them. Once the image is
-correct, convert it.
+correct, convert it, or write a PNG directly:
+[Writing a PNG](/learn/graphics/png/) does that with the zlib in Zig's
+standard library.
 
 The exception is video. `ffmpeg` reads a stream of concatenated PPMs, which
 makes it a good pipe format for a software renderer producing frames:

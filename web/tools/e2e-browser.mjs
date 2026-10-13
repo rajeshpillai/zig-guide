@@ -425,7 +425,7 @@ async function runPlaygrounds(href) {
     }
     // The reverse: a printed picture line with nothing painted means the
     // playground dropped a file the program wrote.
-    const announced = printed.filter((l) => /^wrote \S+\.ppm: /.test(l)).length;
+    const announced = printed.filter((l) => /^wrote \S+\.(ppm|png): /.test(l)).length;
     if (announced !== painted.length) {
       failures.push(`${href} [${name}] printed ${announced} picture line(s) but painted ${painted.length}`);
     }

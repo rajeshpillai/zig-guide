@@ -1,0 +1,11 @@
+halfway from black to white
+  mixing bytes: 128
+  mixing light: 188
+halfway from red to green
+  mixing bytes: 128 128 0
+  mixing light: 188 188 0
+light in byte 128: 22%
+bytes that survive byte -> light -> byte: 256 of 256
+distinct bytes left after 8-bit light: 183 of 256
+tables: 4608 bytes, built by the compiler
+wrote linear-light.ppm: 64x32, fnv1a 6e6f7045

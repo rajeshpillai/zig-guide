@@ -126,8 +126,20 @@ pub fn writePicture(
     try file.writeStreamingAll(io, header);
     try file.writeStreamingAll(io, &rgb_bytes);
 
-    const hash = std.hash.Fnv1a_32.hash(&rgb_bytes);
-    try out.print("wrote {s}: {d}x{d}, fnv1a {x:0>8}\n", .{ name, width, height, hash });
+    try announce(out, name, pixels);
+}
+
+/// Print the line that pairs a picture file with its pixels. Any snippet that
+/// leaves a `.ppm` or `.png` behind must print this for it, whatever wrote the
+/// file. The hash covers the R, G and B bytes of each pixel in order, and none
+/// of the file's header or compression.
+pub fn announce(out: *std.Io.Writer, name: []const u8, pixels: []const u32) !void {
+    var hash = std.hash.Fnv1a_32.init();
+    for (pixels) |color| {
+        const c = channels(color);
+        hash.update(&.{ c.r, c.g, c.b });
+    }
+    try out.print("wrote {s}: {d}x{d}, fnv1a {x:0>8}\n", .{ name, width, height, hash.final() });
 }
 
 /// Print the buffer, one character per pixel.

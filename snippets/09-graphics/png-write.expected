@@ -1,0 +1,19 @@
+scanlines: 32 rows of 193 bytes = 6176 bytes
+scene.png
+  compressed, filter none: 623 bytes
+  compressed, filter sub:  709 bytes
+  wrote it with filter none: 680 bytes on disk
+    IHDR    13 bytes  crc ok
+    IDAT   623 bytes  crc ok
+    IEND     0 bytes  crc ok
+  decoded pixels match the drawing: true
+gradient.png
+  compressed, filter none: 3801 bytes
+  compressed, filter sub:  133 bytes
+  wrote it with filter sub: 190 bytes on disk
+    IHDR    13 bytes  crc ok
+    IDAT   133 bytes  crc ok
+    IEND     0 bytes  crc ok
+  decoded pixels match the drawing: true
+wrote gradient.png: 64x32, fnv1a c5b1adc5
+wrote scene.png: 64x32, fnv1a 87f11dd8
