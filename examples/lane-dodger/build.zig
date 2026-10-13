@@ -15,7 +15,8 @@ const Platform = enum { desktop, web };
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+    // Master returns null when no mode is given, meaning "the default".
+    const optimize = b.standardOptimizeOption(.{}) orelse .debug;
 
     // A headless smoke run, for CI and for checking the game still draws after
     // a change without watching it. `-Dframes=N` plays N frames with
