@@ -13,6 +13,7 @@ import {
   OpenDirectory,
   PreopenDirectory,
   type Fd,
+  type Inode,
 } from "@bjorn3/browser_wasi_shim";
 
 // The shim creates a directory by opening it with CREAT|DIRECTORY and no EXCL,
@@ -33,6 +34,13 @@ export interface RunResult {
   exitCode: number;
   /** Wall-clock duration of `wasi.start`, in milliseconds. */
   durationMs: number;
+  /**
+   * The `.ppm` files the program left in its working directory, sorted by
+   * name. A graphics snippet writes one so the playground can paint it;
+   * `tools/run-wasi.mjs` checks the same files against the hash line the
+   * snippet printed.
+   */
+  pictures: { name: string; bytes: Uint8Array }[];
 }
 
 /** Cache compiled modules so re-running a snippet skips recompilation. */
@@ -111,6 +119,7 @@ export async function runWasm(
   const sink = (bytes: Uint8Array) =>
     chunks.push(decoder.decode(bytes, { stream: true }));
 
+  const cwd = new Map<string, Inode>();
   const fds: Fd[] = [
     new OpenFile(new File([])), // stdin: always empty
     new ConsoleStdout(sink), // stdout
@@ -119,7 +128,7 @@ export async function runWasm(
     // be the current directory. A new one per run, so pressing Run twice
     // starts from the same empty state CI did. `tools/run-wasi.mjs` preopens
     // an empty temp directory in the same slot.
-    new PreopenDirectory(".", new Map()),
+    new PreopenDirectory(".", cwd),
   ];
 
   const wasi = new WASI(argv, env, fds, { debug: false });
@@ -139,9 +148,11 @@ export async function runWasm(
     exitCode = 134;
   }
 
-  return {
-    output: chunks.join(""),
-    exitCode,
-    durationMs: performance.now() - started,
-  };
+  const durationMs = performance.now() - started;
+  const pictures = [...cwd]
+    .filter(([name, entry]) => name.endsWith(".ppm") && entry instanceof File)
+    .map(([name, entry]) => ({ name, bytes: (entry as File).data }))
+    .sort((a, b) => (a.name < b.name ? -1 : 1));
+
+  return { output: chunks.join(""), exitCode, durationMs, pictures };
 }

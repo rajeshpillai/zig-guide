@@ -173,6 +173,7 @@ const markdownLinks = new Map();
 let playgrounds = 0;
 let expectedFailures = 0;
 let outputChecked = 0;
+let pictures = 0;
 let compileOnly = 0;
 let sourceQuotes = 0;
 
@@ -401,6 +402,32 @@ async function runPlaygrounds(href) {
       } else if (want) {
         outputChecked++;
       }
+    }
+
+    // A painted picture is output too, and it is the one the reader looks at
+    // first. Hash what is actually on each canvas and require the line the
+    // snippet printed for that file. CI already held the file to the same line,
+    // so a match here means the browser's parser and painter agree with it.
+    const painted = await block.locator(".pg-picture canvas").evaluateAll((canvases) =>
+      canvases.map((c) => {
+        const { data } = c.getContext("2d").getImageData(0, 0, c.width, c.height);
+        let h = 0x811c9dc5;
+        for (let i = 0; i < data.length; i += 4) {
+          for (let k = 0; k < 3; k++) h = Math.imul(h ^ data[i + k], 0x01000193) >>> 0;
+        }
+        return `wrote ${c.dataset.name}: ${c.width}x${c.height}, fnv1a ${h.toString(16).padStart(8, "0")}`;
+      }),
+    );
+    const printed = (await block.locator(".pg-output").textContent()).split("\n");
+    for (const line of painted) {
+      if (printed.includes(line)) pictures++;
+      else failures.push(`${href} [${name}] painted picture does not match its printed hash; canvas gives: ${line}`);
+    }
+    // The reverse: a printed picture line with nothing painted means the
+    // playground dropped a file the program wrote.
+    const announced = printed.filter((l) => /^wrote \S+\.ppm: /.test(l)).length;
+    if (announced !== painted.length) {
+      failures.push(`${href} [${name}] printed ${announced} picture line(s) but painted ${painted.length}`);
     }
   }
 }
@@ -1739,7 +1766,7 @@ hosted?.server.close();
 console.log(
   `pages: ${chapters.length}  playgrounds: ${playgrounds}  ` +
     `compile-only: ${compileOnly}  expected failures: ${expectedFailures}  ` +
-    `output matched .expected: ${outputChecked}  ` +
+    `output matched .expected: ${outputChecked}  pictures: ${pictures}  ` +
     `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
     `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  riddle: ${riddleChecks}  ` +
@@ -1761,6 +1788,13 @@ if (playgrounds === 0) {
       `the site is probably not being served at the expected path ` +
       `(BASE_PATH=${JSON.stringify(PREFIX)})`,
   );
+}
+
+// The triangle chapter paints a picture. If none was checked, the picture path
+// broke somewhere between the runner and the canvas, and every check above
+// would pass by having nothing to look at.
+if (playgrounds > 0 && pictures === 0) {
+  failures.push("no painted pictures were checked; 09-graphics.triangle writes one");
 }
 
 if (failures.length || consoleErrors.size) {

@@ -19,9 +19,10 @@
 // surfaces any stderr from a step as an alarming "failed command:" line — so a
 // green run must produce no output at all.
 import { WASI } from "node:wasi";
-import { readFile, open, unlink, mkdtemp, rm } from "node:fs/promises";
+import { readFile, readdir, open, unlink, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parsePpm, pictureLine } from "./ppm.mjs";
 
 const argv = process.argv.slice(2);
 const expectFailure = argv[0] === "--expect-failure";
@@ -73,6 +74,23 @@ try {
 
 const stdout = await readFile(outPath, "utf8");
 const stderr = await readFile(errPath, "utf8");
+
+// Any picture left in the working directory is shown by the browser
+// playground, so it has to be checked here or it would be the one output on
+// the page CI never looked at. Each one must parse and must match a line the
+// snippet printed, and that line is in turn pinned by `.expected`.
+const pictureProblems = [];
+for (const name of (await readdir(scratch)).sort()) {
+  if (!name.endsWith(".ppm")) continue;
+  try {
+    const line = pictureLine(name, parsePpm(await readFile(join(scratch, name))));
+    if (!stdout.split("\n").includes(line)) {
+      pictureProblems.push(`${name} does not match any printed line; expected: ${line}`);
+    }
+  } catch (err) {
+    pictureProblems.push(`${name}: ${err instanceof Error ? err.message : err}`);
+  }
+}
 await Promise.all([outHandle.close(), errHandle.close()]);
 await Promise.all([
   unlink(outPath),
@@ -110,12 +128,13 @@ if (expectedPath) {
   }
 }
 
-const failed = exitCode !== 0 || mismatch !== null;
+const failed = exitCode !== 0 || mismatch !== null || pictureProblems.length > 0;
 if (failed) {
   if (stdout) process.stderr.write(stdout);
   if (stderr) process.stderr.write(stderr);
   if (trap) process.stderr.write(`trapped: ${trap}\n`);
   if (mismatch) process.stderr.write(mismatch + "\n");
+  for (const p of pictureProblems) process.stderr.write(`picture: ${p}\n`);
 }
 
 process.exitCode = failed ? (exitCode === 0 ? 1 : exitCode) : 0;

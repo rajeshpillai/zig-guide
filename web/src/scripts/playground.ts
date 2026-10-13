@@ -7,6 +7,7 @@
  * edited source in-browser.
  */
 import { runWasm } from "./wasi-runner";
+import { pictureFigure } from "./ppm";
 import type { ZigCompiler } from "./zig-compiler";
 
 /** The in-browser compiler is multi-megabyte, so it loads only on demand. */
@@ -18,6 +19,8 @@ function loadCompiler(): Promise<ZigCompiler> {
 
 class ZigPlayground extends HTMLElement {
   #output!: HTMLPreElement;
+  /** Pictures the last run wrote, painted under its text output. */
+  #pictures!: HTMLDivElement;
   #status!: HTMLSpanElement;
   #runButton!: HTMLButtonElement;
   #editButton!: HTMLButtonElement;
@@ -91,8 +94,12 @@ class ZigPlayground extends HTMLElement {
     this.#output.className = "pg-output";
     this.#output.hidden = true;
 
+    this.#pictures = document.createElement("div");
+    this.#pictures.className = "pg-pictures";
+    this.#pictures.hidden = true;
+
     this.prepend(toolbar);
-    this.append(this.#output);
+    this.append(this.#output, this.#pictures);
   }
 
   async #run() {
@@ -121,8 +128,10 @@ class ZigPlayground extends HTMLElement {
         ? await (await loadCompiler()).compile(this.#source, this.#kind())
         : this.#wasmUrl;
 
-      const { output, exitCode, durationMs } = await runWasm(url);
+      const { output, exitCode, durationMs, pictures } = await runWasm(url);
       this.#show(output || "(no output)", exitCode === 0);
+      this.#pictures.replaceChildren(...pictures.map((p) => pictureFigure(p.name, p.bytes)));
+      this.#pictures.hidden = pictures.length === 0;
       this.#status.textContent = `exit ${exitCode} · ${durationMs.toFixed(0)}ms`;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -209,6 +218,7 @@ class ZigPlayground extends HTMLElement {
     if (!this.#editor) return;
     this.#editor.setSource(this.#original);
     this.#output.hidden = true;
+    this.#pictures.hidden = true;
     this.#status.textContent = "reverted to the verified original";
   }
 
@@ -218,6 +228,9 @@ class ZigPlayground extends HTMLElement {
   }
 
   #show(text: string, ok: boolean) {
+    // Every path that shows text replaces the last run, so a stale picture
+    // must not survive under a new message. #run repaints after this.
+    this.#pictures.hidden = true;
     this.#output.hidden = false;
     this.#output.textContent = text;
     this.#output.dataset.ok = String(ok);

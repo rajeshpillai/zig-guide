@@ -2075,6 +2075,38 @@ zig-playground pre.astro-code,
   color: var(--err);
 }
 
+/* Pictures a graphics snippet wrote, painted at their real resolution and
+   scaled up with no smoothing, so one square on screen is one pixel the
+   program set. The pixels are the program's own colours, not the palette's. */
+.pg-pictures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.85rem var(--gutter);
+  border-top: 1px solid var(--border);
+  background: var(--sunken);
+}
+
+.pg-picture {
+  margin: 0;
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.pg-picture canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+}
+
+.pg-picture figcaption {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 .pg-editor .cm-editor {
   max-height: 60dvh;
 }

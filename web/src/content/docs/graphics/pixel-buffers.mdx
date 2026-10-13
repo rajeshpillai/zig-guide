@@ -75,9 +75,20 @@ dominate the cost. It is fine for learning, but too slow for a hot loop.
 ## Why the output is text
 
 The pages here run in your browser through the same WASI shim as every other
-snippet in this guide, and that gives them stdout and nothing else. So the
-buffer is printed: one character per pixel, picked from a ten-step ramp by
-luminance.
+snippet in this guide. That gives a program stdout and an empty working
+directory, and no window. So the buffer is printed: one character per pixel,
+picked from a ten-step ramp by luminance.
+
+A chapter that needs real colour also writes the buffer to a PPM file in that
+directory. The page paints any `.ppm` file the program leaves behind, under the
+text. The program prints one line for each file, with a hash of its pixels:
+
+```
+wrote triangle.ppm: 64x32, fnv1a d62c1083
+```
+
+CI checks the file against that line, and checks the line against the
+expected output. So the picture you see is checked like the text is.
 
 Nothing is resampled. The canvas is 64x32 and the dump is 64 characters wide,
 so what you count on screen is what the code wrote. The chapters after this

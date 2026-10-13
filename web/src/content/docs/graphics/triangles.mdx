@@ -60,8 +60,8 @@ const sum = w0 * c0 + w1 * c1 + w2 * c2;
 return @intCast(@divTrunc(sum, total));
 ```
 
-Colour is the demonstration, and the left triangle in the output is Gouraud
-shading in three lines. The same three weights interpolate texture
+Colour is the demonstration. Press Run and the picture under the output shows
+it in full colour. The left triangle is Gouraud shading in three lines. The same three weights interpolate texture
 coordinates, normals, and depth. This is the main reason edge functions replaced
 scanline approaches: the inside test and the attribute interpolation are
 the same arithmetic.

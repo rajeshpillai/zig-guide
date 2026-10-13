@@ -97,6 +97,7 @@ pub fn main(init: std.process.Init) !void {
     );
 
     try canvas.dump(out, &pixels);
+    try canvas.writePicture(init.io, out, "triangle.ppm", &pixels);
 
     const a = Point{ .x = 0, .y = 0 };
     const b = Point{ .x = 10, .y = 0 };

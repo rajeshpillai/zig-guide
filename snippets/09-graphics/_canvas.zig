@@ -98,6 +98,38 @@ pub fn luma(color: u32) u32 {
     return (@as(u32, c.r) * 77 + @as(u32, c.g) * 150 + @as(u32, c.b) * 29) >> 8;
 }
 
+/// Write the buffer as a PPM file in the working directory and print one line
+/// naming it, its size, and an FNV-1a hash of its pixel bytes.
+///
+/// The playground paints any `.ppm` a snippet leaves behind, so this is how a
+/// chapter shows real colour instead of the ASCII ramp. The printed line is
+/// what keeps that picture honest. It lands in `.expected`, so CI pins the
+/// pixels, and `tools/run-wasi.mjs` fails any `.ppm` whose bytes do not match
+/// its line. The browser gate hashes the canvas it painted against the same
+/// line.
+pub fn writePicture(
+    io: std.Io,
+    out: *std.Io.Writer,
+    name: []const u8,
+    pixels: []const u32,
+) !void {
+    var rgb_bytes: [width * height * 3]u8 = undefined;
+    for (pixels, 0..) |color, i| {
+        const c = channels(color);
+        rgb_bytes[i * 3 ..][0..3].* = .{ c.r, c.g, c.b };
+    }
+
+    const file = try std.Io.Dir.cwd().createFile(io, name, .{});
+    defer file.close(io);
+    var header_buf: [32]u8 = undefined;
+    const header = try std.mem.print(&header_buf, "P6\n{d} {d}\n255\n", .{ width, height });
+    try file.writeStreamingAll(io, header);
+    try file.writeStreamingAll(io, &rgb_bytes);
+
+    const hash = std.hash.Fnv1a_32.hash(&rgb_bytes);
+    try out.print("wrote {s}: {d}x{d}, fnv1a {x:0>8}\n", .{ name, width, height, hash });
+}
+
 /// Print the buffer, one character per pixel.
 pub fn dump(out: *std.Io.Writer, pixels: []const u32) !void {
     var row: [width]u8 = undefined;
