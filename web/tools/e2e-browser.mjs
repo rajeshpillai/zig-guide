@@ -1276,6 +1276,43 @@ let paintChecks = 0;
   }
   await context.close();
 
+  // The watercolour lab, on its own chapter. Its grid is 80 by 50 and the
+  // canvas holds exactly that, so the canvas must equal the engine's render.
+  // Steps run in the browser build must keep every bit of pigment.
+  {
+    const wcTab = await (await browser.newContext()).newPage();
+    await stubThirdParty(wcTab.context());
+    await wcTab.goto(BASE + `${PREFIX}/learn/paint/watercolour/?festive=off`, { waitUntil: "networkidle" });
+    await wcTab.locator(".wc-start").click();
+    await wcTab
+      .waitForFunction(() => document.querySelector(".wc")?.dataset.ready === "true", null, { timeout: 15000 })
+      .catch(() => {});
+    const wcReady = await wcTab.evaluate(() => document.querySelector(".wc")?.dataset.ready === "true");
+    check(wcReady, "the watercolour lab did not start");
+    if (wcReady) {
+      await wcTab.evaluate(() => document.querySelector(".wc").wcPause());
+      // A locator click scrolls the canvas into view first; a raw mouse
+      // click at its box lands outside the window when it is below the fold.
+      await wcTab.locator(".wc-canvas").click();
+      const before = await wcTab.evaluate(() => document.querySelector(".wc").wcPigment());
+      check(before > 0, "a click dropped no pigment");
+      await wcTab.evaluate(() => document.querySelector(".wc").wcStep(90));
+      const after = await wcTab.evaluate(() => document.querySelector(".wc").wcPigment());
+      check(Math.abs(after - before) <= before * 1e-4, `pigment changed over 90 steps: ${before} -> ${after}`);
+      const same = await wcTab.evaluate(() => {
+        const c = document.querySelector(".wc-canvas");
+        const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+        let h = 0x811c9dc5;
+        for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) h = Math.imul(h ^ d[i + k], 0x01000193) >>> 0;
+        return h === document.querySelector(".wc").wcHash();
+      });
+      check(same, "the watercolour canvas differs from the engine's grid");
+      await wcTab.locator('[data-control="clear"]').click();
+      check((await wcTab.evaluate(() => document.querySelector(".wc").wcPigment())) === 0, "Clear left pigment behind");
+    }
+    await wcTab.context().close();
+  }
+
   // With scripting off, nothing in the studio may be offered.
   const bare = await browser.newContext({ javaScriptEnabled: false });
   const off = await bare.newPage();

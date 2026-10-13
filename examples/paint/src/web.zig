@@ -182,5 +182,73 @@ export fn paint_self_test() bool {
     var d = engine.Document.init(gpa, engine.default_width, engine.default_height, engine.default_layers, engine.default_history_budget) catch return false;
     defer d.deinit();
     engine.demo.draw(&d) catch return false;
-    return d.displayHash() == engine.demo.hash;
+    if (d.displayHash() != engine.demo.hash) return false;
+
+    // The watercolour lab has its own fixed run, using `pow` and `exp`.
+    var w = engine.Watercolor.init(gpa, wc_width, wc_height, 1) catch return false;
+    defer w.deinit(gpa);
+    engine.watercolor.demo(&w);
+    var cells: [wc_width * wc_height]engine.Rgba = undefined;
+    return engine.watercolor.hash(w, &cells) == engine.watercolor.demo_hash;
+}
+
+// ---- the watercolour lab --------------------------------------------------
+//
+// A separate experiment with its own grid. The page owns the clock: it calls
+// `wc_step` a whole number of times per frame, each one 1/30 of a second.
+
+/// One cell per 8 by 8 pixels of a 640 by 400 page.
+const wc_width = 80;
+const wc_height = 50;
+
+var wc: ?engine.Watercolor = null;
+var wc_pixels_buf: [wc_width * wc_height]engine.Rgba = undefined;
+
+export fn wc_init() bool {
+    if (wc) |*w| w.deinit(gpa);
+    wc = engine.Watercolor.init(gpa, wc_width, wc_height, 1) catch {
+        wc = null;
+        return false;
+    };
+    return true;
+}
+
+export fn wc_width_cells() u32 {
+    return wc_width;
+}
+
+export fn wc_height_cells() u32 {
+    return wc_height;
+}
+
+/// Drop water and pigment in a disc. Coordinates are in cells.
+export fn wc_drop(x: f32, y: f32, radius: f32, water: f32, pigment: f32) void {
+    wc.?.drop(x, y, radius, water, pigment);
+}
+
+export fn wc_step() void {
+    wc.?.step();
+}
+
+export fn wc_clear() void {
+    wc.?.clear();
+}
+
+export fn wc_set_color(r: u8, g: u8, b: u8) void {
+    wc.?.color = .{ r, g, b };
+}
+
+/// Draw the grid into a buffer of `80 * 50` RGBA pixels and return where it is.
+export fn wc_render() [*]engine.Rgba {
+    wc.?.render(&wc_pixels_buf);
+    return &wc_pixels_buf;
+}
+
+/// All the pigment, floating and settled. Steps must not change it.
+export fn wc_pigment() f64 {
+    return engine.Watercolor.total(wc.?.mobile) + engine.Watercolor.total(wc.?.deposited);
+}
+
+export fn wc_hash() u32 {
+    return engine.watercolor.hash(wc.?, &wc_pixels_buf);
 }

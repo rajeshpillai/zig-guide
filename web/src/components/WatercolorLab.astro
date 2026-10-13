@@ -1,0 +1,185 @@
+---
+/**
+ * The watercolour experiment from the Paint section, running in the page.
+ *
+ * The same `paint.wasm` as the studio, built by `zig build`. Nothing loads
+ * until Start is pressed.
+ */
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+interface Props {
+  caption?: string;
+}
+const { caption } = Astro.props;
+
+const wasm = resolve(process.cwd(), "public/apps/paint/paint.wasm");
+if (!existsSync(wasm)) {
+  throw new Error("web/public/apps/paint/paint.wasm is missing. Run `zig build` at the repository root first.");
+}
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<figure class="wc" data-wasm={`${base}/apps/paint/paint.wasm`}>
+  <div class="wc-bar" hidden>
+    <button type="button" data-control="play">Pause</button>
+    <button type="button" data-control="clear">Clear</button>
+    <label class="wc-field">
+      Drop size
+      <input type="range" data-control="size" min="2" max="12" value="6" />
+    </label>
+    <label class="wc-field">
+      Pigment
+      <input type="color" data-control="color" value="#285aa0" />
+    </label>
+    <span class="wc-clock" aria-live="off"></span>
+  </div>
+  <div class="wc-frame">
+    <canvas class="wc-canvas" width="80" height="50" role="img" aria-label="Watercolour paper. Click or drag to drop water and pigment." hidden></canvas>
+    <div class="wc-poster">
+      <button class="wc-start" type="button" hidden>Start the experiment</button>
+      <p class="wc-hint">Click or drag on the paper to drop water and pigment, then watch it spread and dry.</p>
+      <noscript>
+        <p class="wc-hint">The experiment needs JavaScript. The rest of the chapter does not.</p>
+      </noscript>
+    </div>
+  </div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  /* Same tokens and shape as the paint studio. The paper is white on every
+     theme, because it is the thing being shown. */
+  .wc {
+    margin: 1.75rem 0;
+  }
+
+  .wc-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: var(--raised);
+    color: var(--text);
+    font-size: 0.85rem;
+    accent-color: var(--accent);
+  }
+
+  .wc-bar button {
+    font: inherit;
+    min-height: 2rem;
+    padding: 0.15rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .wc-field {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .wc-field input[type="range"] {
+    width: 6.5rem;
+  }
+
+  .wc-clock {
+    margin-left: auto;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wc-frame {
+    position: relative;
+    aspect-ratio: 80 / 50;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #ffffff;
+    overflow: hidden;
+  }
+
+  .wc-bar:not([hidden]) + .wc-frame {
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  .wc-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* The grid is 80 by 50. Smooth scaling blurs the cells together, which
+       is the soft edge watercolour should have. */
+    image-rendering: auto;
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .wc-poster {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 0.8rem;
+    padding: 1rem;
+    text-align: center;
+    background: var(--sunken);
+  }
+
+  .wc-hint {
+    margin: 0;
+    max-width: 24rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .wc-start {
+    font: inherit;
+    font-weight: 600;
+    padding: 0.55rem 1.4rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent);
+    cursor: pointer;
+  }
+
+  .wc figcaption {
+    margin-top: 0.5rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+</style>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>(".wc")) {
+    const start = root.querySelector<HTMLButtonElement>(".wc-start")!;
+    const canvas = root.querySelector<HTMLCanvasElement>(".wc-canvas")!;
+    const poster = root.querySelector<HTMLElement>(".wc-poster")!;
+    const bar = root.querySelector<HTMLElement>(".wc-bar")!;
+    const hint = root.querySelector<HTMLElement>(".wc-hint")!;
+    start.hidden = false;
+
+    start.addEventListener("click", async () => {
+      start.disabled = true;
+      start.textContent = "Loading…";
+      try {
+        const { startWatercolor } = await import("../scripts/watercolor.ts");
+        await startWatercolor(root, root.dataset.wasm!);
+        canvas.hidden = false;
+        bar.hidden = false;
+        poster.hidden = true;
+      } catch (error) {
+        start.hidden = true;
+        hint.textContent = `The experiment could not start: ${error instanceof Error ? error.message : error}`;
+      }
+    });
+  }
+</script>

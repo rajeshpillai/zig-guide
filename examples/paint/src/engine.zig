@@ -9,6 +9,8 @@ pub const Point = @import("engine/geometry.zig").Point;
 pub const Rect = @import("engine/geometry.zig").Rect;
 pub const Rgba = @import("engine/pixel.zig").Rgba;
 pub const demo = @import("engine/demo.zig");
+pub const Watercolor = @import("engine/watercolor.zig").Watercolor;
+pub const watercolor = @import("engine/watercolor.zig");
 
 /// The document size every front end opens with. The same 640 by 400 the
 /// JavaScript course uses, so its memory arithmetic carries over: one layer
@@ -32,4 +34,5 @@ test {
     _ = @import("engine/document.zig");
     _ = @import("engine/demo.zig");
     _ = @import("engine/paper.zig");
+    _ = @import("engine/watercolor.zig");
 }
