@@ -233,6 +233,40 @@ pub fn build(b: *std.Build) void {
         verify_step.dependOn(&run.step);
     }
 
+    // The paint program's engine. Its tests run in `.safe` mode whatever the
+    // snippets use, because a rounding bug in the compositing arithmetic is
+    // exactly the overflow a safety check catches and a release build hides.
+    // The browser build is installed for the site and must draw the demo
+    // picture with the same pixels the native tests pinned: that one check
+    // proves the wasm the reader runs agrees with the code the tests ran.
+    {
+        const engine_tests = b.addTest(.{
+            .name = "paint-engine",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("examples/paint/src/engine.zig"),
+                .target = b.graph.host,
+                .optimize = .safe,
+            }),
+        });
+        const run_tests = b.addSystemCommand(&.{ "node", "tools/run-native.mjs" });
+        run_tests.addArtifactArg2(engine_tests, .{});
+        run_tests.expectExitCode(0);
+        verify_step.dependOn(&run_tests.step);
+
+        const paint_wasm = @import("examples/paint/build.zig").addWeb(b, b.path("examples/paint/src"), .small);
+        const install_paint = b.addInstallFileWithDir(
+            paint_wasm.getEmittedBin(),
+            .{ .custom = "../web/public/paint" },
+            "paint.wasm",
+        );
+        b.getInstallStep().dependOn(&install_paint.step);
+
+        const self_test = b.addSystemCommand(&.{ "node", "tools/check-paint-wasm.mjs" });
+        self_test.addFileArg(paint_wasm.getEmittedBin());
+        self_test.expectExitCode(0);
+        verify_step.dependOn(&self_test.step);
+    }
+
     // Record the exact compiler that verified these snippets, so the site can
     // state it rather than claiming a version nobody checked.
     const build_info = b.addWriteFiles().add("build-info.json", b.fmt(

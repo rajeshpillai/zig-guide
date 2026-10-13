@@ -15,3 +15,6 @@ web/public/compiler/
 
 # transient file written by the todo-store snippet during `zig build verify`
 todo-demo.db
+
+# The paint program's browser build — reproduce with `zig build`
+web/public/paint/
