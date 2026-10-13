@@ -18,7 +18,7 @@ const Rgba = @import("pixel.zig").Rgba;
 
 pub const Region = struct {
     /// One bit per pixel of the image: set means "in the region".
-    inside: std.DynamicBitSetUnmanaged,
+    inside: std.bit_set.Dynamic,
     /// The smallest rectangle holding the region.
     bounds: Rect,
     count: usize,
@@ -39,7 +39,7 @@ pub fn find(
     y: u32,
 ) !Region {
     const total = @as(usize, width) * height;
-    var inside: std.DynamicBitSetUnmanaged = try .initEmpty(gpa, total);
+    var inside: std.bit_set.Dynamic = try .initEmpty(gpa, total);
     errdefer inside.deinit(gpa);
 
     // Every pixel enters the queue at most once, because it is marked when it

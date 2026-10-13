@@ -75,8 +75,13 @@ pub fn build(b: *std.Build) void {
         // the `.expected` files are: editing one has to invalidate the run.
         for (snippets.items) |snippet| check.addFileArg(b.path(snippet.path));
         var docs: std.ArrayList([]const u8) = .empty;
-        collectDocs(b, docs_root, &docs) catch |err| {
+        collectFiles(b, docs_root, ".mdx", &docs) catch |err| {
             std.debug.panic("failed to scan {s}: {t}", .{ docs_root, err });
+        };
+        // The paint engine is not a snippet, but its source is quoted into
+        // the Paint chapters, so an old name in it is an old name on a page.
+        collectFiles(b, "examples/paint/src", ".zig", &docs) catch |err| {
+            std.debug.panic("failed to scan examples/paint/src: {t}", .{err});
         };
         for (docs.items) |doc| check.addFileArg(b.path(doc));
         check.addFileArg(b.path("build.zig"));
@@ -485,7 +490,7 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
 /// Walk `root` for chapter pages, so the deprecation check can hold prose to
 /// the same standard as code. A chapter that names an old symbol without
 /// naming the current one is stale in exactly the way a snippet would be.
-fn collectDocs(b: *std.Build, root: []const u8, out: *std.ArrayList([]const u8)) !void {
+fn collectFiles(b: *std.Build, root: []const u8, extension: []const u8, out: *std.ArrayList([]const u8)) !void {
     const io = b.graph.io;
     const build_root = b.root.root_dir.handle;
 
@@ -501,7 +506,7 @@ fn collectDocs(b: *std.Build, root: []const u8, out: *std.ArrayList([]const u8))
 
     while (try walker.next(io)) |entry| {
         if (entry.kind != .file) continue;
-        if (!std.mem.endsWith(u8, entry.basename, ".mdx")) continue;
+        if (!std.mem.endsWith(u8, entry.basename, extension)) continue;
         try out.append(b.allocator, b.pathJoin(&.{ root, entry.path }));
     }
 
