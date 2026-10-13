@@ -229,6 +229,28 @@ CI does build and test the desktop game on every push and nightly, which is what
 
 **`SECTION_TAGS` in [tracks.ts](web/src/tracks.ts)** labels the few sections that are not a topic tour (`lane-dodger` is "raylib game"). It renders in the sidebar and on `/learn/`. Keep it sparse: a tag on every section is a tag on nothing.
 
+## The paint program (`examples/paint/`)
+
+A paint engine with brushes, two layers, undo, flood fill and PNG export, written up as the **A Paint Program** section (`paint/`) of the Projects track. It is a port of the owner's JavaScript course "Paint Engineering" (lessons 25 to 65), and keeps its worked examples and checks. Readers here do not have that course, so **lesson numbers never appear in code, tests or prose**; the mapping lives outside the repo.
+
+```bash
+cd examples/paint
+zig build test     # 49 tests, no window
+zig build demo     # zig-out/demo.png: look at the demo picture, do not only hash it
+zig build web      # zig-out/web/paint.wasm
+```
+
+- **The engine reads no input, opens no window and has no clock** (`src/engine/`). Points go in, pixels come out. `web.zig` is a thin set of exports over `Document` and `web/src/scripts/paint.ts` is the only browser code. Keep logic out of both.
+- **Unlike the game, nothing is committed.** The engine is plain Zig, so the browser build is `wasm32-freestanding` with no Emscripten. The guide's `build.zig` imports `addWeb` from `examples/paint/build.zig` (one definition) and installs `web/public/apps/paint/paint.wasm`, which is gitignored. Not under `public/paint/`: the mechanical `/learn/` redirects write `dist/paint/<chapter>/` pages, and the wasm should not share a directory with generated files.
+- **`zig build verify` gates it three ways**: the engine tests in `.safe` mode (a compositing rounding bug is exactly an overflow), `tools/check-paint-wasm.mjs` on the very wasm that is installed, and the deprecation check over `examples/paint/src` (its source is quoted into chapters; `std.DynamicBitSetUnmanaged` slipped through before this was added).
+- **`demo.zig` pins one hash for both builds.** A fixed drawing that uses every tool. The native test and the wasm self-test compare against the same `hash` constant, so a pixel of disagreement between targets fails the build. If a change to the engine moves the picture on purpose, run `zig build demo`, look at the PNG, then update the constant.
+- **`npm run e2e` checks the front end**: after every action (stroke, Ctrl+Z, Redo, fill, erase, an interrupted stroke) the canvas hash must equal the engine's `paint_hash`, and Save PNG must decode through `tools/picture.mjs` to the same pixels.
+- **Blending is in stored bytes, as a canvas does**, with premultiplied RGBA8 layers and a 16-bit stroke buffer. The Layers chapter states this as a choice and links Linear Light. Do not quietly switch to linear: it doubles layer memory and every number in the chapters.
+- **Coverage steps round up** in `mask.zig`. Rounded to nearest, repeated dabs stall at 65534 and never reach full. The Flow and Opacity chapter tells this story; keep the test that found it.
+- **`beginStroke` must not read `d.stroke` before it is assigned.** `Stroke.begin` places the first dab before the stroke is stored, which is why `Painter` carries its own copy of the brush. A test found the earlier version reading `undefined`.
+- **Chapters quote with `<PaintSource>`**, the paint twin of `<GameSource>`; both go through `exampleSource` in `game-source.ts`. Each chapter ends with a "Checks" section quoting the tests, then an "Explain before reading the answer" question answered in the next paragraphs, which is the course's own lesson shape.
+- **Native front end: not written yet.** The plan is raylib (reusing the game's vendored C), cross-compiled for Linux and Windows from Linux, with macOS built on a macOS runner because Apple's SDK cannot be redistributed.
+
 ## Competitive Programming (`competitive-programming/`)
 
 The patterns a contest problem assumes you already have, one complete program per chapter, in a `Practice` track added for it. Chapters can be read in any order, which is why the track sits last and why nothing in it builds towards anything.
