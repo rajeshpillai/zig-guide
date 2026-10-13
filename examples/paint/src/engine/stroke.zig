@@ -22,6 +22,9 @@ pub const Dab = struct {
     radius: f32,
     /// Radians, measured from the x axis towards the y axis (down the page).
     angle: f32,
+    /// The direction the stroke was travelling, in the same units. Bristles
+    /// spread across it.
+    direction: f32,
 };
 
 pub const Stroke = struct {
@@ -110,6 +113,7 @@ pub const Stroke = struct {
             // Following the direction, the brush angle is an offset from it:
             // 0 lays the tip along the stroke, 90 lays it across.
             .angle = (if (b.follow_direction) s.direction else 0) + b.angle * std.math.pi / 180.0,
+            .direction = s.direction,
         });
     }
 };

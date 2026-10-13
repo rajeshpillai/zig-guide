@@ -2,6 +2,7 @@
 title: Flow and Opacity
 seoTitle: "Zig Paint Program: A 16-bit Stroke Buffer for Flow and Opacity"
 description: Dabs overlap. Build a stroke's coverage in its own buffer, apply its opacity once at the end, and a stroke at 50% stays at 50% where it crosses itself.
+seoDescription: "Why paint programs build a stroke in a separate 16-bit coverage buffer: flow adds up as 1 - (1 - f)^n, opacity is applied once, and rounding up avoids a stall at 65534."
 section: A Paint Program
 order: 50
 ---

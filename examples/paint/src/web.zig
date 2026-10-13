@@ -52,6 +52,8 @@ export fn paint_set_brush(
     g: u8,
     b: u8,
     seed: u32,
+    contact: f32,
+    bristles: u32,
 ) void {
     brush = .{
         .radius = radius,
@@ -68,6 +70,8 @@ export fn paint_set_brush(
         .follow_direction = follow_direction,
         .color = .{ r, g, b },
         .seed = seed,
+        .contact = contact,
+        .bristles = bristles,
     };
 }
 

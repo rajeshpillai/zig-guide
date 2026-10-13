@@ -577,7 +577,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
     description:
       "A paint program in Zig that runs in the page, with no graphics library. " +
       "Evenly spaced dabs from uneven pointer samples, soft and calligraphy " +
-      "tips, a 16-bit stroke buffer that keeps opacity honest, premultiplied " +
+      "tips, bristle and dry brushes on paper grain, a 16-bit stroke buffer that keeps opacity honest, premultiplied " +
       "layers and an eraser, undo that stores only what changed, flood fill " +
       "with a queue, PNG export, and a raylib window cross-compiled for Windows.",
     lede:

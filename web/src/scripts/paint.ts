@@ -16,6 +16,7 @@ interface PaintExports {
     radius: number, hardness: number, flow: number, opacity: number, spacing: number,
     follow: number, pressure: number, jitter: number, scatter: number, aspect: number,
     angle: number, followDirection: number, r: number, g: number, b: number, seed: number,
+    contact: number, bristles: number,
   ): void;
   paint_set_tool(tool: number): void;
   paint_begin(x: number, y: number, pressure: number): void;
@@ -49,16 +50,21 @@ interface Preset {
   aspect: number;
   angle: number;
   followDirection: boolean;
+  /** How much of the paper's grain the brush reaches, 0 to 1. */
+  contact: number;
+  /** Separate hairs across the tip; 0 is a solid tip. */
+  bristles: number;
 }
 
 const PRESETS: Record<string, Preset> = {
-  pencil: { hardness: 0.9, flow: 0.9, spacing: 0.15, follow: 0.6, pressure: 0.6, jitter: 0, scatter: 0, aspect: 1, angle: 0, followDirection: false },
-  ink: { hardness: 0.95, flow: 1, spacing: 0.1, follow: 0.35, pressure: 1, jitter: 0, scatter: 0, aspect: 1, angle: 0, followDirection: false },
-  soft: { hardness: 0.1, flow: 0.12, spacing: 0.2, follow: 0.5, pressure: 0.3, jitter: 0, scatter: 0, aspect: 1, angle: 0, followDirection: false },
-  airbrush: { hardness: 0, flow: 0.04, spacing: 0.1, follow: 0.8, pressure: 0, jitter: 0, scatter: 0, aspect: 1, angle: 0, followDirection: false },
-  calligraphy: { hardness: 0.95, flow: 1, spacing: 0.08, follow: 0.4, pressure: 0.4, jitter: 0, scatter: 0, aspect: 0.2, angle: -45, followDirection: false },
-  ribbon: { hardness: 0.8, flow: 1, spacing: 0.08, follow: 0.4, pressure: 0.5, jitter: 0, scatter: 0, aspect: 0.25, angle: 90, followDirection: true },
-  spray: { hardness: 0.6, flow: 0.7, spacing: 1.2, follow: 1, pressure: 0, jitter: 0.6, scatter: 2.5, aspect: 1, angle: 0, followDirection: false },
+  pencil: { hardness: 0.9, flow: 0.9, spacing: 0.15, follow: 0.6, pressure: 0.6, jitter: 0, scatter: 0, aspect: 1, angle: 0, followDirection: false, contact: 1, bristles: 0 },
+  ink: { hardness: 0.95, flow: 1, spacing: 0.1, follow: 0.35, pressure: 1, jitter: 0, scatter: 0, aspect: 1, angle: 0, followDirection: false, contact: 1, bristles: 0 },
+  soft: { hardness: 0.1, flow: 0.12, spacing: 0.2, follow: 0.5, pressure: 0.3, jitter: 0, scatter: 0, aspect: 1, angle: 0, followDirection: false, contact: 1, bristles: 0 },
+  airbrush: { hardness: 0, flow: 0.04, spacing: 0.1, follow: 0.8, pressure: 0, jitter: 0, scatter: 0, aspect: 1, angle: 0, followDirection: false, contact: 1, bristles: 0 },
+  calligraphy: { hardness: 0.95, flow: 1, spacing: 0.08, follow: 0.4, pressure: 0.4, jitter: 0, scatter: 0, aspect: 0.2, angle: -45, followDirection: false, contact: 1, bristles: 0 },
+  ribbon: { hardness: 0.8, flow: 1, spacing: 0.08, follow: 0.4, pressure: 0.5, jitter: 0, scatter: 0, aspect: 0.25, angle: 90, followDirection: true, contact: 1, bristles: 0 },
+  spray: { hardness: 0.6, flow: 0.7, spacing: 1.2, follow: 1, pressure: 0, jitter: 0.6, scatter: 2.5, aspect: 1, angle: 0, followDirection: false, contact: 1, bristles: 0 },
+  dry: { hardness: 0.8, flow: 0.9, spacing: 0.04, follow: 0.5, pressure: 0.4, jitter: 0, scatter: 0, aspect: 1, angle: 0, followDirection: false, contact: 0.55, bristles: 9 },
 };
 
 const TOOLS = { brush: 0, eraser: 1 } as const;
@@ -99,7 +105,7 @@ export async function startPaint(root: HTMLElement, wasmUrl: string): Promise<vo
       Number(size.value), p.hardness, p.flow, Number(opacity.value) / 100, p.spacing,
       p.follow, p.pressure, p.jitter, p.scatter, p.aspect, p.angle, p.followDirection ? 1 : 0,
       parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16),
-      seed,
+      seed, p.contact, p.bristles,
     );
     e.paint_set_tool(tool() === "eraser" ? TOOLS.eraser : TOOLS.brush);
   }

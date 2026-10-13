@@ -7,6 +7,9 @@
 
 const std = @import("std");
 
+/// The most hairs a bristle brush can have.
+pub const max_bristles = 16;
+
 pub const Brush = struct {
     /// Radius of the tip, in pixels, at full size.
     radius: f32 = 12,
@@ -36,6 +39,13 @@ pub const Brush = struct {
     angle: f32 = 0,
     /// Turn the tip with the stroke.
     follow_direction: bool = false,
+    /// How much of the paper the brush reaches, 0 to 1. At 1 it paints
+    /// everywhere. Lower values paint only the hills of the paper's grain,
+    /// like a dry brush.
+    contact: f32 = 1,
+    /// Separate hairs across the tip, each leaving its own track. 0 means a
+    /// solid tip.
+    bristles: u32 = 0,
     /// The paint colour, as stored sRGB bytes.
     color: [3]u8 = .{ 0x26, 0x33, 0x4d },
     /// Seed for jitter and scatter. The same seed repeats the same marks.
@@ -58,6 +68,8 @@ pub const Brush = struct {
             .aspect = fix(b.aspect, d.aspect, 0.05, 1),
             .angle = fix(b.angle, d.angle, -360, 360),
             .follow_direction = b.follow_direction,
+            .contact = fix(b.contact, d.contact, 0, 1),
+            .bristles = @min(b.bristles, max_bristles),
             .color = b.color,
             .seed = b.seed,
         };

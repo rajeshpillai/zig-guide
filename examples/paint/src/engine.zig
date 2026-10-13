@@ -31,4 +31,5 @@ test {
     _ = @import("engine/png.zig");
     _ = @import("engine/document.zig");
     _ = @import("engine/demo.zig");
+    _ = @import("engine/paper.zig");
 }

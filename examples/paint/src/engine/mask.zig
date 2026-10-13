@@ -17,6 +17,7 @@ const std = @import("std");
 const geometry = @import("geometry.zig");
 const Rect = geometry.Rect;
 const Dab = @import("stroke.zig").Dab;
+const Paper = @import("paper.zig").Paper;
 
 pub const full: u32 = 65535;
 
@@ -59,6 +60,12 @@ pub const Mask = struct {
     /// `hardness` is the solid fraction of the radius, `aspect` squashes the
     /// tip into an ellipse, and `flow` is how much one dab adds.
     pub fn stamp(m: *Mask, dab: Dab, hardness: f32, aspect: f32, flow: f32) void {
+        m.stampOn(null, 1, dab, hardness, aspect, flow);
+    }
+
+    /// `stamp`, on paper. Where the brush's `contact` does not reach the
+    /// paper's height, the pixel gets no paint at all.
+    pub fn stampOn(m: *Mask, paper: ?*const Paper, contact: f32, dab: Dab, hardness: f32, aspect: f32, flow: f32) void {
         const r = dab.radius;
         const box = Rect.around(dab.x, dab.y, r, m.width, m.height);
         if (box.isEmpty() or flow <= 0) return;
@@ -83,6 +90,7 @@ pub const Mask = struct {
                 const v = (dy * cos_a - dx * sin_a) / aspect;
                 const d = @sqrt(u * u + v * v);
                 if (d >= r) continue;
+                if (paper) |pp| if (!pp.touches(x, y, contact)) continue;
 
                 // Coverage is 1 inside the solid part, and falls to 0 at the
                 // edge in a straight line.
@@ -109,7 +117,7 @@ pub const Mask = struct {
 test "two dabs at 20% flow give 36%, not 40%" {
     var m = try Mask.init(std.testing.allocator, 32, 32);
     defer m.deinit(std.testing.allocator);
-    const dab: Dab = .{ .x = 16, .y = 16, .radius = 10, .angle = 0 };
+    const dab: Dab = .{ .x = 16, .y = 16, .radius = 10, .angle = 0, .direction = 0 };
     m.stamp(dab, 1, 1, 0.2);
     m.stamp(dab, 1, 1, 0.2);
     const centre = @as(f32, @floatFromInt(m.at(16, 16))) / full;
@@ -119,7 +127,7 @@ test "two dabs at 20% flow give 36%, not 40%" {
 test "many dabs approach full coverage and never pass it" {
     var m = try Mask.init(std.testing.allocator, 16, 16);
     defer m.deinit(std.testing.allocator);
-    for (0..200) |_| m.stamp(.{ .x = 8, .y = 8, .radius = 6, .angle = 0 }, 1, 1, 0.3);
+    for (0..200) |_| m.stamp(.{ .x = 8, .y = 8, .radius = 6, .angle = 0, .direction = 0 }, 1, 1, 0.3);
     try std.testing.expectEqual(@as(u16, 65535), m.at(8, 8));
 }
 
@@ -128,7 +136,7 @@ test "radius 20, hardness 0.6 is solid to 12 and half at 16" {
     defer m.deinit(std.testing.allocator);
     // Centre on a pixel corner, so the pixel at (32 + k, 32) has its centre
     // k + 0.5 pixels from the dab.
-    m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0 }, 0.6, 1, 1);
+    m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0, .direction = 0 }, 0.6, 1, 1);
     const at = struct {
         fn f(mm: Mask, k: u32) f32 {
             return @as(f32, @floatFromInt(mm.at(32 + k, 32))) / full;
@@ -142,14 +150,14 @@ test "radius 20, hardness 0.6 is solid to 12 and half at 16" {
 test "aspect 0.25 makes a tip 40 wide and 10 high" {
     var m = try Mask.init(std.testing.allocator, 64, 64);
     defer m.deinit(std.testing.allocator);
-    m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0 }, 1, 0.25, 1);
+    m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0, .direction = 0 }, 1, 0.25, 1);
     try std.testing.expect(m.at(32 + 18, 32) > 0);
     try std.testing.expect(m.at(32, 32 + 6) == 0);
     try std.testing.expect(m.at(32, 32 + 3) > 0);
     // Turned a quarter turn, the same tip is tall instead of wide.
     var t = try Mask.init(std.testing.allocator, 64, 64);
     defer t.deinit(std.testing.allocator);
-    t.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = std.math.pi / 2.0 }, 1, 0.25, 1);
+    t.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = std.math.pi / 2.0, .direction = 0 }, 1, 0.25, 1);
     try std.testing.expect(t.at(32, 32 + 18) > 0);
     try std.testing.expect(t.at(32 + 6, 32) == 0);
 }
@@ -157,7 +165,7 @@ test "aspect 0.25 makes a tip 40 wide and 10 high" {
 test "a dab past the edge touches nothing outside the image" {
     var m = try Mask.init(std.testing.allocator, 8, 8);
     defer m.deinit(std.testing.allocator);
-    m.stamp(.{ .x = -3, .y = 4, .radius = 5, .angle = 0 }, 1, 1, 1);
+    m.stamp(.{ .x = -3, .y = 4, .radius = 5, .angle = 0, .direction = 0 }, 1, 1, 1);
     try std.testing.expectEqual(Rect{ .x0 = 0, .y0 = 0, .x1 = 2, .y1 = 8 }, m.dirty);
     m.clear();
     for (m.coverage) |c| try std.testing.expectEqual(@as(u16, 0), c);
