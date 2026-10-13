@@ -138,6 +138,29 @@ jobs:
           zig build -Dframes=600 -Ddemo=play
           xvfb-run -a -s "-screen 0 640x1100x24" ./zig-out/bin/lane-dodger
 
+      # The paint program's native window. Its engine tests and its browser
+      # build already ran under `zig build verify`; this is the raylib front
+      # end. The Windows build is cross-compiled from this Linux runner, which
+      # is the claim the Native Window chapter makes, so it is checked here
+      # rather than only stated. Nothing runs it: the runner has no Windows.
+      - name: Vendor raylib for the paint program
+        working-directory: examples/paint
+        run: ./fetch-raylib.sh
+
+      - name: Build the paint program for Linux and Windows
+        working-directory: examples/paint
+        run: |
+          zig build native
+          zig build native -Dtarget=x86_64-windows --prefix zig-out/windows
+          test -f zig-out/windows/bin/paint.exe
+
+      - name: Show the paint demo in a headless window
+        working-directory: examples/paint
+        run: |
+          zig build native -Dframes=30 -Dshot=demo-native.png
+          xvfb-run -a -s "-screen 0 800x600x24" ./zig-out/bin/paint
+          test -s demo-native.png
+
       - name: Install site dependencies
         working-directory: web
         run: npm ci

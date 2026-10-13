@@ -238,6 +238,9 @@ cd examples/paint
 zig build test     # 49 tests, no window
 zig build demo     # zig-out/demo.png: look at the demo picture, do not only hash it
 zig build web      # zig-out/web/paint.wasm
+./fetch-raylib.sh  # once, for the native window
+zig build run      # the native window
+zig build native -Dtarget=x86_64-windows   # paint.exe, from Linux
 ```
 
 - **The engine reads no input, opens no window and has no clock** (`src/engine/`). Points go in, pixels come out. `web.zig` is a thin set of exports over `Document` and `web/src/scripts/paint.ts` is the only browser code. Keep logic out of both.
@@ -249,7 +252,7 @@ zig build web      # zig-out/web/paint.wasm
 - **Coverage steps round up** in `mask.zig`. Rounded to nearest, repeated dabs stall at 65534 and never reach full. The Flow and Opacity chapter tells this story; keep the test that found it.
 - **`beginStroke` must not read `d.stroke` before it is assigned.** `Stroke.begin` places the first dab before the stroke is stored, which is why `Painter` carries its own copy of the brush. A test found the earlier version reading `undefined`.
 - **Chapters quote with `<PaintSource>`**, the paint twin of `<GameSource>`; both go through `exampleSource` in `game-source.ts`. Each chapter ends with a "Checks" section quoting the tests, then an "Explain before reading the answer" question answered in the next paragraphs, which is the course's own lesson shape.
-- **Native front end: not written yet.** The plan is raylib (reusing the game's vendored C), cross-compiled for Linux and Windows from Linux, with macOS built on a macOS runner because Apple's SDK cannot be redistributed.
+- **The native front end is raylib** (`src/native.zig`, `zig build run`), vendored as C by its own `fetch-raylib.sh` at **the same commit as the game's**; bump both together. Audio and models are compiled out. CI builds it for Linux, cross-compiles `x86_64-windows` from the Linux runner (MinGW import libraries ship with Zig; `exe.subsystem = .windows` so no console opens), and shows the demo under Xvfb with `-Dframes=30 -Dshot=`. Nothing ever runs the Windows `.exe`: no Windows runner and no Wine. macOS is not built at all, because Apple's SDK cannot be redistributed; the A Native Window chapter says so.
 
 ## Competitive Programming (`competitive-programming/`)
 

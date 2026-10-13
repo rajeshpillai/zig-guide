@@ -579,7 +579,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "Evenly spaced dabs from uneven pointer samples, soft and calligraphy " +
       "tips, a 16-bit stroke buffer that keeps opacity honest, premultiplied " +
       "layers and an eraser, undo that stores only what changed, flood fill " +
-      "with a queue, and PNG export.",
+      "with a queue, PNG export, and a raylib window cross-compiled for Windows.",
     lede:
       "A paint program you can use on this page, built from an engine that " +
       "never sees a mouse. Points go in and pixels come out, so every brush, " +

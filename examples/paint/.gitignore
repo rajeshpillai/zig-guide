@@ -1,3 +1,9 @@
 # Zig
 .zig-cache/
 zig-out/
+
+# raylib C sources, written by fetch-raylib.sh
+vendor/
+
+# written by the headless smoke run
+demo-native.png
