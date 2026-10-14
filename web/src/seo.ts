@@ -584,7 +584,7 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "A paint program you can use on this page, built from an engine that " +
       "never sees a mouse. Points go in and pixels come out, so every brush, " +
       "every layer and every undo is checked by tests that draw with no " +
-      "window. The browser build is about 41 KB of WebAssembly, and before " +
+      "window. The browser build is about 150 KB of WebAssembly, and before " +
       "the site ships it, it must draw a test picture with exactly the pixels " +
       "the native tests pinned.",
     takeaways: [

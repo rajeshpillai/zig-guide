@@ -192,6 +192,141 @@ export fn paint_self_test() bool {
     return engine.watercolor.hash(w, &cells) == engine.watercolor.demo_hash;
 }
 
+// ---- files ------------------------------------------------------------------
+//
+// A file goes in by the page asking for room with `paint_alloc`, copying the
+// bytes there, and passing the address and length. A file comes out by the
+// engine writing it into `file_bytes` and the page copying it from
+// `paint_file`. When something is refused, `paint_error` names the reason.
+
+var file_bytes: []u8 = &.{};
+var last_error: []const u8 = "";
+var preset_name: [engine.preset.max_name]u8 = undefined;
+var preset_name_len: usize = 0;
+
+export fn paint_alloc(len: u32) ?[*]u8 {
+    const buf = gpa.alloc(u8, len) catch return null;
+    return buf.ptr;
+}
+
+export fn paint_free(ptr: [*]u8, len: u32) void {
+    gpa.free(ptr[0..len]);
+}
+
+export fn paint_file() [*]u8 {
+    return file_bytes.ptr;
+}
+
+export fn paint_error() [*]const u8 {
+    return last_error.ptr;
+}
+
+export fn paint_error_len() u32 {
+    return @intCast(last_error.len);
+}
+
+fn keep(out: *std.Io.Writer.Allocating) u32 {
+    gpa.free(file_bytes);
+    file_bytes = out.toOwnedSlice() catch {
+        out.deinit();
+        file_bytes = &.{};
+        return 0;
+    };
+    return @intCast(file_bytes.len);
+}
+
+/// Save the document with its layers. Returns the file's length, 0 on failure.
+export fn paint_project_save() u32 {
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    engine.project.save(gpa, &doc.?, &out.writer) catch {
+        out.deinit();
+        return 0;
+    };
+    return keep(&out);
+}
+
+/// Open a project. On success the open document is replaced; on failure it
+/// is untouched and `paint_error` says why.
+export fn paint_project_open(ptr: [*]const u8, len: u32) bool {
+    const opened = engine.project.open(gpa, ptr[0..len], engine.default_history_budget) catch |err| {
+        last_error = @errorName(err);
+        return false;
+    };
+    doc.?.deinit();
+    doc = opened;
+    return true;
+}
+
+export fn paint_width() u32 {
+    return doc.?.width;
+}
+
+export fn paint_height() u32 {
+    return doc.?.height;
+}
+
+export fn paint_active_layer() u32 {
+    return doc.?.active_layer;
+}
+
+/// Save the current brush as a preset called `name`.
+export fn paint_preset_save(name_ptr: [*]const u8, name_len: u32) u32 {
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    engine.preset.write(&out.writer, name_ptr[0..name_len], brush) catch {
+        out.deinit();
+        return 0;
+    };
+    return keep(&out);
+}
+
+/// Read a preset into the current brush. On failure the brush is untouched.
+export fn paint_preset_open(ptr: [*]const u8, len: u32) bool {
+    const p = engine.preset.parse(gpa, ptr[0..len], &preset_name) catch |err| {
+        last_error = @errorName(err);
+        return false;
+    };
+    const seed = brush.seed;
+    brush = p.brush;
+    brush.seed = seed;
+    preset_name_len = p.name.len;
+    return true;
+}
+
+export fn paint_preset_name() [*]const u8 {
+    return &preset_name;
+}
+
+export fn paint_preset_name_len() u32 {
+    return @intCast(preset_name_len);
+}
+
+/// One setting of the current brush, so the page can show a loaded preset:
+/// the same order as `paint_set_brush` takes them, with the colour last.
+export fn paint_brush_value(index: u32) f32 {
+    const b = brush;
+    return switch (index) {
+        0 => b.radius,
+        1 => b.hardness,
+        2 => b.flow,
+        3 => b.opacity,
+        4 => b.spacing,
+        5 => b.follow,
+        6 => b.pressure,
+        7 => b.jitter,
+        8 => b.scatter,
+        9 => b.aspect,
+        10 => b.angle,
+        11 => @floatFromInt(@intFromBool(b.follow_direction)),
+        12 => @floatFromInt(b.color[0]),
+        13 => @floatFromInt(b.color[1]),
+        14 => @floatFromInt(b.color[2]),
+        15 => b.contact,
+        16 => @floatFromInt(b.bristles),
+        17 => b.pickup,
+        else => b.drain,
+    };
+}
+
 // ---- the watercolour lab --------------------------------------------------
 //
 // A separate experiment with its own grid. The page owns the clock: it calls

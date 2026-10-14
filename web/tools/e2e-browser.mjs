@@ -1273,6 +1273,40 @@ let paintChecks = 0;
     } catch (err) {
       check(false, `the saved PNG does not decode: ${err.message}`);
     }
+
+    // A project saved and opened again must give back the same picture. A
+    // damaged copy must be refused and leave the picture as it was.
+    const [projectDownload] = await Promise.all([
+      tab.waitForEvent("download"),
+      tab.locator('[data-control="project-save"]').click(),
+    ]);
+    const project = await readFile(await projectDownload.path());
+    check(project.subarray(0, 4).toString() === "ZPNT", "a saved project does not start with ZPNT");
+    await tab.locator('[data-control="undo"]').click(); // change the picture first
+    await tab.locator('[data-control="project-file"]').setInputFiles({ name: "painting.zpaint", mimeType: "application/octet-stream", buffer: project });
+    await tab.waitForFunction(() => /^Opened /.test(document.querySelector(".paint-status").textContent), null, { timeout: 5000 }).catch(() => {});
+    check((await agrees("after opening a project")) === erased, "opening a saved project did not restore the picture");
+
+    const damaged = Buffer.from(project);
+    damaged[damaged.length - 5] ^= 0xff;
+    await tab.locator('[data-control="project-file"]').setInputFiles({ name: "bad.zpaint", mimeType: "application/octet-stream", buffer: damaged.subarray(0, damaged.length - 3) });
+    await tab.waitForFunction(() => /^Not opened/.test(document.querySelector(".paint-status").textContent), null, { timeout: 5000 }).catch(() => {});
+    check(/^Not opened/.test(await tab.locator(".paint-status").textContent()), "a damaged project was not refused");
+    check((await agrees("after refusing a damaged project")) === erased, "a refused project changed the picture");
+
+    // A brush saved as a preset loads back and shows up in the Brush menu.
+    await tab.selectOption('[data-control="preset"]', "calligraphy");
+    const [presetDownload] = await Promise.all([
+      tab.waitForEvent("download"),
+      tab.locator('[data-control="preset-save"]').click(),
+    ]);
+    const presetJson = JSON.parse(await readFile(await presetDownload.path(), "utf8"));
+    // Exactly 0.2: the engine writes the shortest decimal, not the widened f32.
+    check(presetJson.version === 1 && presetJson.brush.aspect === 0.2, `a saved preset does not hold the calligraphy brush (aspect ${presetJson.brush.aspect})`);
+    presetJson.name = "Gate nib";
+    await tab.locator('[data-control="preset-file"]').setInputFiles({ name: "nib.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(presetJson)) });
+    await tab.waitForFunction(() => /^Loaded the brush/.test(document.querySelector(".paint-status").textContent), null, { timeout: 5000 }).catch(() => {});
+    check((await tab.locator('[data-control="preset"] option:checked').textContent()) === "Gate nib", "a loaded preset is not selected in the Brush menu");
   }
   await context.close();
 

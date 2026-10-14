@@ -2,7 +2,7 @@
 title: A Paint Program You Can Test
 seoTitle: "Build a Paint Program in Zig That You Can Test Without a Window"
 description: A paint program you can use on this page, and the one rule that lets tests check every brush.
-seoDescription: A paint program written in Zig and running in your browser as 41 KB of WebAssembly. The engine never sees a mouse or a window, so tests can draw with every brush, undo, fill and export, and compare the pixels.
+seoDescription: A paint program written in Zig and running in your browser as about 150 KB of WebAssembly. The engine never sees a mouse or a window, so tests can draw with every brush, undo, fill and export, and compare the pixels.
 section: A Paint Program
 order: 10
 ---
@@ -24,7 +24,7 @@ Draw on the bottom layer, switch to the top layer, draw again, and erase there. 
 
 The program is in two parts.
 
-The **engine** decides what every pixel becomes. It is about 1,600 lines of Zig, and about 750 more of tests.
+The **engine** decides what every pixel becomes. It is about 2,100 lines of Zig, and about 1,050 more of tests.
 
 The **front end** turns mouse and pen events into calls to the engine, and copies the engine's pixels onto the canvas.
 
@@ -54,7 +54,7 @@ This one checks that a stroke looks the same while you draw it as it does after 
 
 <PaintSource file="src/engine/document.zig" decl="a stroke shows while drawing, and looks the same after it is committed" />
 
-There are 60 tests like this, and none of them opens a window.
+There are 80 tests like this, and none of them opens a window.
 
 ## The same pixels everywhere
 
@@ -82,7 +82,7 @@ So the browser build needs no extra tools. It is the same compiler, pointed at `
 
 `freestanding` means there is no operating system at all. The engine does not need one, because it never opens a file or reads a clock.
 
-The result is about 41 KB.
+The result is about 150 KB. About half of that is the JSON parser that reads brush presets, as the [Projects and Presets](/learn/paint/projects-and-presets/) chapter measures.
 
 ## The chapters
 
@@ -98,8 +98,9 @@ The chapters follow the engine from the pointer to the PNG file.
 8. **Undo**: keeping only what changed, inside a memory budget.
 9. **Fill**: a flood fill with a queue instead of recursion.
 10. **Saving**: the picture as a PNG.
-11. **Watercolour**: water and pigment spreading and drying on a grid, a separate experiment you can run.
-12. **A native window**: the same engine with raylib, and cross-compiling it for Windows.
+11. **Projects and presets**: keeping the layers in a file of our own, and brushes in JSON, and checking both when they come back.
+12. **Watercolour**: water and pigment spreading and drying on a grid, a separate experiment you can run.
+13. **A native window**: the same engine with raylib, and cross-compiling it for Windows.
 
 Each chapter shows the tests that check it.
 

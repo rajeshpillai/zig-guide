@@ -11,6 +11,8 @@ pub const Rgba = @import("engine/pixel.zig").Rgba;
 pub const demo = @import("engine/demo.zig");
 pub const Watercolor = @import("engine/watercolor.zig").Watercolor;
 pub const watercolor = @import("engine/watercolor.zig");
+pub const project = @import("engine/project.zig");
+pub const preset = @import("engine/preset.zig");
 
 /// The document size every front end opens with. The same 640 by 400 the
 /// JavaScript course uses, so its memory arithmetic carries over: one layer
@@ -35,4 +37,6 @@ test {
     _ = @import("engine/demo.zig");
     _ = @import("engine/paper.zig");
     _ = @import("engine/watercolor.zig");
+    _ = @import("engine/project.zig");
+    _ = @import("engine/preset.zig");
 }

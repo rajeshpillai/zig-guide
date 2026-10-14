@@ -235,7 +235,7 @@ A paint engine with brushes, two layers, undo, flood fill and PNG export, writte
 
 ```bash
 cd examples/paint
-zig build test     # 60 tests, no window
+zig build test     # 80 tests, no window
 zig build demo     # zig-out/demo.png: look at the demo picture, do not only hash it
 zig build web      # zig-out/web/paint.wasm
 ./fetch-raylib.sh  # once, for the native window
@@ -252,6 +252,7 @@ zig build native -Dtarget=x86_64-windows   # paint.exe, from Linux
 - **Coverage steps round up** in `mask.zig`. Rounded to nearest, repeated dabs stall at 65534 and never reach full. The Flow and Opacity chapter tells this story; keep the test that found it.
 - **`beginStroke` must not read `d.stroke` before it is assigned.** `Stroke.begin` places the first dab before the stroke is stored, which is why `Painter` carries its own copy of the brush. A test found the earlier version reading `undefined`.
 - **Chapters quote with `<PaintSource>`**, the paint twin of `<GameSource>`; both go through `exampleSource` in `game-source.ts`. Each chapter ends with a "Checks" section quoting the tests, then an "Explain before reading the answer" question answered in the next paragraphs, which is the course's own lesson shape.
+- **Project files and presets are untrusted input** (`project.zig`, `preset.zig`). `open` walks the layer table before allocating (a 16-byte header can ask for 512 MB), builds a whole new `Document` before the page swaps it in, and has a test that cuts the file at every length and flips every byte. Presets are refused, never repaired: valid means `sanitized()` changes nothing. Preset numbers go through `decimal()` because `std.json` widens `f32` and writes 0.2 as 0.20000000298023224. `std.json` costs 67 KB of the ~146 KB wasm; the chapter states the measurement, so re-measure if it moves.
 - **The native front end is raylib** (`src/native.zig`, `zig build run`), vendored as C by its own `fetch-raylib.sh` at **the same commit as the game's**; bump both together. Audio and models are compiled out. CI builds it for Linux, cross-compiles `x86_64-windows` from the Linux runner (MinGW import libraries ship with Zig; `exe.subsystem = .windows` so no console opens), and shows the demo under Xvfb with `-Dframes=30 -Dshot=`. Nothing ever runs the Windows `.exe`: no Windows runner and no Wine. macOS is not built at all, because Apple's SDK cannot be redistributed; the A Native Window chapter says so.
 
 ## Competitive Programming (`competitive-programming/`)

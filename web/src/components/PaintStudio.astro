@@ -2,7 +2,7 @@
 /**
  * The paint program from the Paint section, running in the page.
  *
- * Nothing loads until the reader presses Start. The engine is about 41 KB of
+ * Nothing loads until the reader presses Start. The engine is about 150 KB of
  * WebAssembly, built by `zig build` from `examples/paint/` for
  * `wasm32-freestanding`, so unlike the Lane Dodger game it needs no Emscripten
  * and nothing is committed: CI builds the file this page fetches, and
@@ -72,6 +72,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       <button type="button" data-control="redo" disabled>Redo</button>
       <button type="button" data-control="save">Save PNG</button>
     </div>
+    <div class="paint-files">
+      <button type="button" data-control="project-save">Save project</button>
+      <button type="button" data-control="project-open">Open project…</button>
+      <button type="button" data-control="preset-save">Save brush</button>
+      <button type="button" data-control="preset-open">Load brush…</button>
+      <input type="file" data-control="project-file" accept=".zpaint" hidden />
+      <input type="file" data-control="preset-file" accept=".json,application/json" hidden />
+    </div>
   </div>
 
   <div class="paint-frame">
@@ -79,7 +87,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     <div class="paint-poster">
       <button class="paint-start" type="button" hidden>Start painting</button>
       <p class="paint-hint">
-        The engine this section builds, about 41 KB of WebAssembly. It loads when you press the button.
+        The engine this section builds, about 150 KB of WebAssembly. It loads when you press the button.
       </p>
       <noscript>
         <p class="paint-hint">The paint program needs JavaScript. The rest of the chapter does not.</p>
@@ -153,8 +161,26 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     margin-left: auto;
   }
 
-  .paint-actions button {
+  .paint-actions button,
+  .paint-files button {
     cursor: pointer;
+  }
+
+  .paint-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    width: 100%;
+  }
+
+  .paint-files button {
+    font: inherit;
+    min-height: 2rem;
+    padding: 0.15rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
   }
 
   .paint-actions button:disabled {

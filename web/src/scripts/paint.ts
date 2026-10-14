@@ -36,7 +36,39 @@ interface PaintExports {
   paint_export_png(): number;
   paint_png(): number;
   paint_self_test(): number;
+  paint_alloc(len: number): number;
+  paint_free(ptr: number, len: number): void;
+  paint_file(): number;
+  paint_error(): number;
+  paint_error_len(): number;
+  paint_project_save(): number;
+  paint_project_open(ptr: number, len: number): number;
+  paint_width(): number;
+  paint_height(): number;
+  paint_active_layer(): number;
+  paint_preset_save(namePtr: number, nameLen: number): number;
+  paint_preset_open(ptr: number, len: number): number;
+  paint_preset_name(): number;
+  paint_preset_name_len(): number;
+  paint_brush_value(index: number): number;
 }
+
+/** What each refusal from the engine means, in words a reader can act on. */
+const REFUSALS: Record<string, string> = {
+  NotAProject: "This is not a project file from this program.",
+  NewerVersion: "This file was saved by a newer version of the program.",
+  BadSize: "The file gives a picture size this program does not accept.",
+  BadLayers: "The file's layer information is damaged.",
+  Truncated: "The file is cut short.",
+  BadPixels: "The file's pixel data is damaged.",
+  NotPremultiplied: "The file's pixel data is damaged.",
+  TrailingBytes: "The file has extra data at the end.",
+  NotAPreset: "This is not a brush preset.",
+  BadName: "The preset's name is empty, too long, or has control characters.",
+  BadColor: "The preset's colour is not written as #rrggbb.",
+  OutOfRange: "One of the preset's settings is outside what the brush allows.",
+  OutOfMemory: "There is not enough memory to open this file.",
+};
 
 /** A named set of brush settings (lessons 62 and 71). Size and opacity come from the sliders. */
 interface Preset {
@@ -78,8 +110,8 @@ export async function startPaint(root: HTMLElement, wasmUrl: string): Promise<vo
   const canvas = root.querySelector<HTMLCanvasElement>(".paint-canvas")!;
   const status = root.querySelector<HTMLElement>(".paint-status")!;
   const ctx = canvas.getContext("2d")!;
-  const width = canvas.width;
-  const height = canvas.height;
+  let width = canvas.width;
+  let height = canvas.height;
 
   const response = await fetch(wasmUrl);
   if (!response.ok) throw new Error(`could not fetch the engine (HTTP ${response.status})`);
@@ -265,6 +297,101 @@ export async function startPaint(root: HTMLElement, wasmUrl: string): Promise<vo
     link.download = "painting.png";
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  // ---- files (projects and brush presets) -------------------------------------
+
+  const text = new TextDecoder();
+  const engineText = (ptr: number, len: number) => text.decode(new Uint8Array(e.memory.buffer, ptr, len));
+
+  function download(length: number, name: string, type: string) {
+    // Copied out: the bytes live in the engine's memory and the next file
+    // the engine writes frees them.
+    const bytes = new Uint8Array(e.memory.buffer, e.paint_file(), length).slice();
+    const url = URL.createObjectURL(new Blob([bytes], { type }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  /** Copy a file's bytes into the engine, run `use` on them, and free them. */
+  async function withFile(file: File, use: (ptr: number, len: number) => boolean): Promise<boolean> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const ptr = e.paint_alloc(bytes.length);
+    if (!ptr && bytes.length) {
+      status.textContent = REFUSALS.OutOfMemory;
+      return false;
+    }
+    new Uint8Array(e.memory.buffer, ptr, bytes.length).set(bytes);
+    try {
+      if (use(ptr, bytes.length)) return true;
+      const reason = engineText(e.paint_error(), e.paint_error_len());
+      status.textContent = `Not opened. ${REFUSALS[reason] ?? reason}`;
+      return false;
+    } finally {
+      e.paint_free(ptr, bytes.length);
+    }
+  }
+
+  control<HTMLButtonElement>("project-save").addEventListener("click", () => {
+    const length = e.paint_project_save();
+    if (length) download(length, "painting.zpaint", "application/octet-stream");
+    else status.textContent = "Saving failed: the engine could not write the project.";
+  });
+
+  const projectFile = control<HTMLInputElement>("project-file");
+  control<HTMLButtonElement>("project-open").addEventListener("click", () => projectFile.click());
+  projectFile.addEventListener("change", async () => {
+    const file = projectFile.files?.[0];
+    projectFile.value = "";
+    if (!file || drawing !== null) return;
+    if (!(await withFile(file, (ptr, len) => e.paint_project_open(ptr, len) === 1))) return;
+    // The project may be a different size, so the canvas follows it.
+    canvas.width = e.paint_width();
+    canvas.height = e.paint_height();
+    width = canvas.width;
+    height = canvas.height;
+    layer.value = String(e.paint_active_layer());
+    status.textContent = `Opened ${file.name}.`;
+    scheduleDraw();
+  });
+
+  control<HTMLButtonElement>("preset-save").addEventListener("click", () => {
+    applyBrush();
+    const name = new TextEncoder().encode(preset.options[preset.selectedIndex].text.slice(0, 40));
+    const ptr = e.paint_alloc(name.length);
+    new Uint8Array(e.memory.buffer, ptr, name.length).set(name);
+    const length = e.paint_preset_save(ptr, name.length);
+    e.paint_free(ptr, name.length);
+    if (length) download(length, "brush.json", "application/json");
+  });
+
+  const presetFile = control<HTMLInputElement>("preset-file");
+  control<HTMLButtonElement>("preset-open").addEventListener("click", () => presetFile.click());
+  presetFile.addEventListener("change", async () => {
+    const file = presetFile.files?.[0];
+    presetFile.value = "";
+    if (!file) return;
+    if (!(await withFile(file, (ptr, len) => e.paint_preset_open(ptr, len) === 1))) return;
+    // The engine checked the preset. Read its settings back so the controls
+    // show them, and list it in the Brush menu under its own name.
+    const v = (i: number) => e.paint_brush_value(i);
+    const name = engineText(e.paint_preset_name(), e.paint_preset_name_len());
+    const id = `file:${name}`;
+    PRESETS[id] = {
+      hardness: v(1), flow: v(2), spacing: v(4), follow: v(5), pressure: v(6), jitter: v(7),
+      scatter: v(8), aspect: v(9), angle: v(10), followDirection: v(11) === 1,
+      contact: v(15), bristles: v(16), pickup: v(17), drain: v(18),
+    };
+    if (![...preset.options].some((o) => o.value === id)) preset.add(new Option(name, id));
+    preset.value = id;
+    size.value = String(Math.round(v(0)));
+    opacity.value = String(Math.round(v(3) * 100));
+    color.value = "#" + [v(12), v(13), v(14)].map((c) => c.toString(16).padStart(2, "0")).join("");
+    applyBrush();
+    status.textContent = `Loaded the brush "${name}".`;
   });
 
   // For the browser gate: what the engine holds, and whether this build draws
