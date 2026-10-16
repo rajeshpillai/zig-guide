@@ -82,6 +82,10 @@ info "SITE_URL=$SITE_URL  BASE_PATH=$BASE_PATH"
 (cd web && SITE_URL="$SITE_URL" BASE_PATH="$BASE_PATH" npx astro build) \
   || die "site build failed"
 
+step "Fetching sub-sites (web/subsites.json)"
+(cd web && node tools/fetch-subsites.mjs) \
+  || die "a sub-site could not be fetched — not deploying"
+
 if (( SKIP_E2E )); then
   step "Skipping browser verification (--skip-e2e)"
 else

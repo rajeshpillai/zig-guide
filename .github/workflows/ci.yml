@@ -169,6 +169,16 @@ jobs:
         working-directory: web
         run: npx astro build
 
+      # Separate projects published under this domain (web/subsites.json), e.g.
+      # www.ziglang.in/raylib/ from algorisys-oss/raylib-zig-web. Each builds
+      # itself and publishes to its own gh-pages; this copies those into
+      # web/dist/<path>/ so the orphan deploy below carries them. A sub-site
+      # that cannot be fetched fails the run, which keeps the last good site up
+      # instead of publishing one with that sub-site missing.
+      - name: Fetch sub-sites
+        working-directory: web
+        run: node tools/fetch-subsites.mjs
+
       # Proves the other half of the guarantee: that the published pages
       # actually execute the snippets in a real browser, that compile-only
       # blocks render without a Run button, and that no internal link 404s.
