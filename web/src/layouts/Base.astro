@@ -410,6 +410,9 @@ const openSlug =
         On an older Zig?
       </a>
       <a class="topbar-link" href={`${base}blog/`}>Blog</a>
+      {/* A sub-site (web/subsites.json), copied into dist/raylib/ before the
+          browser check, so the link checker sees it like any other page. */}
+      <a class="topbar-link" href={`${base}raylib/`}>raylib-zig</a>
 
       {/* Hidden until the script wires it up, the same contract the search box
           keeps: an inert control that does nothing is worse than no control.
@@ -565,6 +568,7 @@ const openSlug =
         <p class="nav-aside">
           <a href={pageHref("getting-started/coming-from-older-zig")}>On an older Zig?</a>
           <a class="nav-extra" href={`${base}blog/`}>Blog</a>
+          <a class="nav-extra" href={`${base}raylib/`}>raylib-zig</a>
         </p>
       </nav>
 
@@ -705,6 +709,7 @@ const openSlug =
         <a href={`${base}paths/`}>Reading paths</a>
         <a href={`${base}whats-new/`}>What's new</a>
         <a href={`${base}blog/`}>Blog</a>
+        <a href={`${base}raylib/`}>raylib-zig</a>
         <a href={`${base}verification/`}>How it's verified</a>
         <a href={`${base}about/`}>About</a>
         <a href={`${base}contact/`}>Contact</a>
