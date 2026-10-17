@@ -1,0 +1,135 @@
+# Labelled Loops
+
+> Break or continue an outer loop by name.
+
+In Zig, `break :outer` leaves a labelled outer loop from inside a nested one,
+and `continue :outer` moves on to its next iteration, so no flag variable is
+needed.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "break out of nested loops" {
+    var found: ?[2]usize = null;
+    outer: for (0..5) |i| {
+        for (0..5) |j| {
+            if (i * j == 6) {
+                found = .{ i, j };
+                break :outer; // leaves both loops
+            }
+        }
+    }
+    try expect(found.?[0] == 2);
+    try expect(found.?[1] == 3);
+}
+
+test "continue an outer loop" {
+    var count: u32 = 0;
+    outer: for (0..4) |i| {
+        for (0..4) |j| {
+            if (j > i) continue :outer; // next i, skip remaining j
+            count += 1;
+        }
+    }
+    try expect(count == 10); // 1 + 2 + 3 + 4
+}
+
+test "labelled loops yield values too" {
+    const first_square_over_20 = blk: {
+        for (0..10) |i| {
+            if (i * i > 20) break :blk i;
+        }
+        break :blk 0;
+    };
+    try expect(first_square_over_20 == 5);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.labelled-loops`)*
+
+`break` and `continue` affect the innermost loop by default. Label a loop to
+target it explicitly:
+
+```zig
+outer: for (0..5) |i| {
+    for (0..5) |j| {
+        if (found) break :outer;      // leaves both loops
+        if (skip) continue :outer;    // next i, abandon remaining j
+    }
+}
+```
+
+A label is an identifier followed by a colon, written before the loop keyword.
+The name is arbitrary. `outer` and `blk` are conventional, but nothing
+enforces them. A label that says what the loop is scanning (`rows:`,
+`candidates:`) usually reads better at the `break` site, which is where
+someone will be looking.
+
+## What the alternative costs
+
+Without labels, leaving two loops at once means a flag:
+
+```zig
+var found = false;
+for (rows) |row| {
+    for (row) |cell| {
+        if (matches(cell)) { found = true; break; }
+    }
+    if (found) break;
+}
+```
+
+The flag adds three lines of bookkeeping, and the `if (found) break` has to
+be repeated at every level of nesting. Worse, the flag survives the loop, so later code can
+read it. And the `break` in the inner loop no longer tells you what it does
+until you read the two lines after it. In C you would use `goto` to jump past
+the loops. That works, but the label then names a place in the code, not a
+loop.
+
+Naming the loop also keeps the code correct when it is edited later. If you
+wrap either loop in one more level of nesting, an unlabelled `break` silently
+changes meaning. `break :outer` does not.
+
+## `continue :outer` runs the outer continue expression
+
+A labelled
+`continue` does not jump to the top of the outer loop. It ends the current
+iteration of that loop, which means the outer loop's continue expression runs
+first, exactly as if the outer body had reached its end:
+
+```zig
+outer: while (i < 3) : (i += 1) {
+    while (j < 3) : (j += 1) {
+        if (j == 1) continue :outer;   // i += 1 still happens
+    }
+}
+```
+
+If `continue :outer` skipped the `i += 1`, that loop would never terminate. It
+does not, and the loop runs three times. The rule is that `continue` always
+means "this iteration is done", never "go back to the condition".
+
+## An unused label is a compile error
+
+Label a loop and never mention the label, and the program does not build:
+
+```
+error: unused for loop label
+```
+
+Labels usually appear because a `break
+:outer` was added, and they usually become dead when that `break` is deleted
+or moved during a refactor. A dead label is a strong hint that the control
+flow it was written for is gone. Zig treats it the way it treats an unused
+variable: a leftover that should be used or removed.
+
+## Labels are not only for loops
+
+A label can also name a plain block, and `break :label value` yields a value
+from it. The third test in the snippet uses that to turn a search into a
+single `const`. The block runs the loop, breaks out with the index on a hit,
+and falls through to a default at the end. That construct is covered on its
+own in [labelled blocks](https://www.ziglang.in/learn/language-basics/labelled-blocks/), and
+combined with `for` and `else` it becomes the shorter form in [loops as
+expressions](https://www.ziglang.in/learn/language-basics/loops-as-expressions/).

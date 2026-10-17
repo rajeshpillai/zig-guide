@@ -1,0 +1,108 @@
+# Bristles and Paper
+
+> A row of thin hairs across the stroke gives separate tracks. A fixed grid of paper heights decides where a dry brush touches.
+
+A real brush is not a solid disc. It is a bundle of hairs.
+
+When it is loaded with paint, the hairs press together and leave one solid mark. When it is nearly dry, each hair leaves its own thin track, and the tracks break wherever the paper's surface dips away from the brush.
+
+The Dry brush in the studio does both. It needs two new brush settings:
+
+- **bristles**: how many hairs, from 0 (a solid tip) to 16
+- **contact**: how much of the paper the brush reaches, from 0 to 1
+
+## Hairs across the stroke
+
+A bristle brush stamps one small round dab for each hair, instead of one big dab.
+
+The hairs sit in a row across the stroke, at right angles to the way it is moving. If the stroke moves in direction `θ`, the direction straight across it is:
+
+```
+(−sin θ, cos θ)
+```
+
+Moving right, θ is 0, and that gives (0, 1): straight down the page. Moving down, θ is a quarter turn, and it gives (−1, 0): to the left. Either way it is across the stroke.
+
+Each hair has an **offset** from −1 (one edge of the tip) to 1 (the other). Its position is the dab's centre, plus the direction across times the offset times the radius.
+
+With radius 20 and offset −0.5, a stroke moving right puts that hair 10 pixels above the centre.
+
+<PaintSource file="src/engine/document.zig" decl="dab" />
+
+The direction comes from the stroke. Every dab now carries the direction it was travelling, as well as the tip's angle, because a tip can be turned to any angle while the hairs must always spread across the path.
+
+## Where the hairs sit
+
+Perfectly even hairs look like a comb. So each hair is moved by a small random amount, and given its own share of the flow, so some tracks are fainter than others:
+
+<PaintSource file="src/engine/document.zig" decl="Hairs" />
+
+The layout is made from the brush's seed. The same brush always has the same hairs, so the layout does not need to be stored anywhere. The painter makes it again on each call.
+
+That choice also avoids a bug this file already had once. The first dab of a stroke is placed before the stroke is stored in the document, so nothing the painter needs can live in the stored stroke.
+
+Each hair is half as wide as the space it has. A test found that at 90% the hairs ran into each other after the random shifts, and five hairs left three tracks.
+
+## Paper
+
+Real paper has a surface of tiny hills and dips.
+
+The engine stores it as a grid of **heights**, one per cell of 4 by 4 pixels. The heights are random, from a seed, and they are made once, when the document is made:
+
+<PaintSource file="src/engine/paper.zig" decl="Paper" />
+
+The paper stays where it is. A stroke drawn twice across the same spot meets the same hills both times, which is how real grain behaves.
+
+To find the height under a pixel, divide by the cell size:
+
+```
+column = x / 4
+row    = y / 4
+index  = row × columns + column
+```
+
+The pixel at (22, 10) is in column 5 and row 2. With 160 columns across a 640-pixel document, its cell is number 2 × 160 + 5 = 325.
+
+## Contact
+
+A wet brush pushes into the dips. A dry one touches only the tops of the hills.
+
+**Contact** says how far down the brush reaches. A pixel gets paint only if its paper is high enough:
+
+<PaintSource file="src/engine/paper.zig" decl="touches" />
+
+At contact 0.3, the brush reaches only heights in the top 30%: a height of 0.8 gets paint and 0.4 does not. At contact 0.9, both get paint. At 1, every height does, which is why every other brush behaves exactly as before.
+
+The check sits inside the tip's loop, just after the distance test:
+
+```zig
+if (paper) |pp| if (!pp.touches(x, y, contact)) continue;
+```
+
+A pixel the brush does not reach gets no coverage from this dab. Another dab of the same stroke cannot help, because it meets the same paper.
+
+## Checks
+
+The grid lookup from the example:
+
+<PaintSource file="src/engine/paper.zig" decl="the cell under a pixel: (22, 10) with cells of 4 is column 5, row 2" />
+
+Contact at 30% and at 100%:
+
+<PaintSource file="src/engine/paper.zig" decl="contact: 30% reaches a high cell but not a low one, 100% reaches both" />
+
+A dry stroke paints only high cells:
+
+<PaintSource file="src/engine/document.zig" decl="a dry brush skips the paper's dips, the same ones every time" />
+
+And five hairs leave five tracks. The test reads one column of pixels across the stroke and counts the separate runs of paint:
+
+<PaintSource file="src/engine/document.zig" decl="a bristle brush leaves separate tracks" />
+
+## Explain before reading the answer
+
+A bristle brush moves along a hair's own track and lands on a pixel whose paper is too low for its contact.
+
+Does the hair's track continue after the gap?
+
+Yes. The gap is in the paint, not in the stroke. The stroke keeps walking the path and placing dabs, and the next dab on higher paper paints again. That is the broken line a dry brush leaves.

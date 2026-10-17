@@ -1,0 +1,166 @@
+# Watercolour
+
+> Water and pigment on a grid of paper. They spread to neighbouring cells, the paper dries, and pigment settles into it. Fixed steps keep the run the same on every machine.
+
+Wet paint on wet paper does not stay where the brush put it.
+
+The water spreads into the paper around it and carries the colour with it. Then the paper dries, and the colour stays where the water left it.
+
+None of the brushes so far can do this. A brush decides each pixel once, when the dab lands. Watercolour keeps changing after the brush has gone.
+
+So this is a separate experiment with its own state, and it runs over time:
+
+<WatercolorLab caption="Click to drop water and pigment. Drag for a trail. Each step is 1/30 of a second." />
+
+## A grid of paper
+
+The paper is cut into cells, 80 across and 50 down. On the 640 by 400 page, each cell is 8 by 8 pixels.
+
+Each cell keeps three numbers:
+
+- **water**: how wet the paper is, from 0 (dry) to 1 (soaked)
+- **mobile**: pigment still floating in the water, which can move
+- **deposited**: pigment that has settled into the paper, which cannot
+
+<PaintSource file="src/engine/watercolor.zig" decl="Watercolor" fields />
+
+A grid is stored as one long array, row by row. Cell (x, y) is at `y * width + x`. On a grid 80 wide, cell (3, 2) is number 2 × 80 + 3 = 163.
+
+80 × 50 is 4,000 cells. One `f32` field is 16,000 bytes, and all five fields are 80,000. The grid is coarse on purpose: the whole simulation fits in a small cache and runs 30 times a second on a slow laptop.
+
+The picture on the page is these 4,000 cells, drawn smoothly scaled up. The blur from scaling is the soft edge watercolour should have.
+
+## Neighbours
+
+Water spreads to the cells next to it: left, right, above and below.
+
+At the edge of the paper, some of those do not exist. The checks happen on the coordinates, before an index is made:
+
+<PaintSource file="src/engine/watercolor.zig" decl="neighbours" />
+
+Checking the index instead would be a bug. The cell to the left of (0, 5) would be index 5 × 80 − 1 = 399, which is the last cell of row 4, on the far side of the paper.
+
+A middle cell has four neighbours and a corner has two. Water at an edge has nowhere to go but back in, so the paper keeps all its water.
+
+## Spreading
+
+Each step, every cell moves a little towards each of its neighbours:
+
+```
+next = current + rate × (sum of (neighbour − current))
+```
+
+With `rate` 0.18, a fully wet centre with four dry neighbours keeps 1 + 0.18 × (−4) = 0.28. Each neighbour gets 0.18. The total is still 1.
+
+<PaintSource file="src/engine/watercolor.zig" decl="spread" />
+
+## Read the old grid, write a new one
+
+`spread` reads from `field` and writes to `next`, then copies `next` back.
+
+That matters. If it wrote into `field` as it went, the cell after a changed cell would read the new value, not the old one. The result would depend on the order the cells were visited in, and water would drift in the scanning direction.
+
+With two buffers, every cell reads the state from before the step. The `order` parameter exists only for a test that scans backwards and gets the same answer.
+
+## A limit on the rate
+
+A cell with four neighbours keeps `1 − 4 × rate` of its own value.
+
+At 0.25 that is 0. Above 0.25 it is negative. A cell would give away more water than it has, end below zero, and the next step would swing it the other way, further each time.
+
+So the rate must stay at or below 0.25 for this rule. A test sets it to 0.4 and watches the centre go negative in one step.
+
+Clamping values to 0 afterwards would hide the problem, and quietly create or destroy water. Keeping the rate in range keeps the model correct instead.
+
+## Pigment moves with water
+
+Floating pigment spreads with the same rule, but only as fast as the paper is wet. Between two cells it moves in proportion to the wetness of the drier one:
+
+```zig
+if (wet) |water| amount *= @min(@min(water[i], water[j]), 1);
+```
+
+Between two dry cells nothing moves. That is why a dried stroke keeps its shape.
+
+The amount moved from one cell to another is the same in both directions, so pigment is never created or lost by spreading.
+
+## Drying, with units
+
+The paper should not dry twice as fast because the computer runs twice as many steps.
+
+So the drying rate is stated per second: `retention` is how much of its water a cell keeps after one second. One step is `dt` seconds, so one step keeps `retention` to the power `dt`.
+
+<PaintSource file="src/engine/watercolor.zig" decl="step" />
+
+With `retention` 0.8, thirty steps of 1/30 of a second keep 0.8, and sixty keep 0.64. Two half seconds give the same answer as one second, because powers multiply: 0.8^0.5 × 0.8^0.5 = 0.8.
+
+## Settling
+
+If the picture showed only water, it would vanish as the paper dried. So pigment has its own state.
+
+Each step, a share of the floating pigment settles into the paper. The share comes from a rate per second, the same way drying does: the part left floating after `dt` seconds is `exp(−rate × dt)`, so the part that settles is one minus that.
+
+At rate 0.8, one step settles 1 − e^(−0.8/30), about 2.63%. From 0.6 floating, about 0.0158 settles.
+
+The pigment is moved, not removed: `mobile` goes down by exactly what `deposited` goes up by. The total never changes.
+
+Each cell multiplies the rate by its own **grain**, from 0.6 to 1.4, made once from a seed like the paper in [Bristles and Paper](https://www.ziglang.in/learn/paint/bristles-and-paper/). Pigment settles faster in some cells than others, which gives the speckled look real watercolour has, called granulation.
+
+## The clock belongs to the page
+
+`step` takes no time argument. It always advances exactly 1/30 of a second.
+
+The page keeps the clock. Each frame it adds the time that has passed to an **accumulator**, then runs whole steps while at least 1/30 of a second has built up:
+
+```ts
+while (accumulator >= DT && steps < MAX_STEPS_PER_FRAME) {
+  e.wc_step();
+  accumulator -= DT;
+  steps++;
+}
+if (steps === MAX_STEPS_PER_FRAME) accumulator = 0;
+```
+
+If 0.05 seconds have built up, one step runs and about 0.0167 seconds carry over to the next frame.
+
+The cap of four steps matters on a slow machine. Without it, a frame that took too long would need more steps, which would make the next frame take longer still. With the cap, the experiment slows down instead and the page stays responsive.
+
+Because the engine never sees a clock, a test can run 600 steps without waiting and check exactly what 20 seconds of drying does.
+
+## The same run on every build
+
+The simulation uses `pow` and `exp` on `f32` values. Those are where two builds of the same program could start to disagree.
+
+So, like the brush demo, the engine carries a fixed run, three drops and three seconds, with a pinned hash of its picture. The native tests and the browser build's self-test both compare with it, and the site is not published if they differ.
+
+## Checks
+
+The cell numbering, and the neighbours at a corner and an edge:
+
+<PaintSource file="src/engine/watercolor.zig" decl="a middle cell has four neighbours, a corner two, and an edge does not wrap" />
+
+The spreading example, 0.28 and 0.18:
+
+<PaintSource file="src/engine/watercolor.zig" decl="a wet centre at rate 0.18 keeps 0.28 and gives each neighbour 0.18" />
+
+Scanning backwards changes nothing:
+
+<PaintSource file="src/engine/watercolor.zig" decl="reading the old grid makes the scan order irrelevant" />
+
+With drying off, all the water is still there after 300 steps, and none of it is negative:
+
+<PaintSource file="src/engine/watercolor.zig" decl="spreading keeps the total and never goes negative" />
+
+Drying, 0.8 then 0.64:
+
+<PaintSource file="src/engine/watercolor.zig" decl="drying at 0.8 a second leaves 0.8 after one second and 0.64 after two" />
+
+And no pigment is lost while it settles:
+
+<PaintSource file="src/engine/watercolor.zig" decl="settling moves pigment into the paper and loses none" />
+
+## Explain before reading the answer
+
+Does `rate` 0.18 mean that real paper spreads water at some measured speed?
+
+No. It is a number that makes this grid behave like wet paper, within the limit that keeps the rule stable. A finer grid would need a different number for the same look, because each step would move water a shorter distance. The units that are real here are the ones for drying and settling, which are stated per second.

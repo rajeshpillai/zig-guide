@@ -1,0 +1,136 @@
+# Flow and Opacity
+
+> Dabs overlap. Build a stroke's coverage in its own buffer, apply its opacity once at the end, and a stroke at 50% stays at 50% where it crosses itself.
+
+A brush has two settings that both sound like "how much paint".
+
+**Flow** is how much one dab adds.
+
+**Opacity** is the most the whole stroke can cover.
+
+They are different, and the difference shows the moment dabs overlap. Every stroke is made of overlapping dabs, so it shows everywhere.
+
+## The problem
+
+Say we draw each dab straight onto the layer at 50%.
+
+Two dabs overlap at a pixel. The first covers it 50%. The second covers half of what is left, so the pixel ends up 75% covered.
+
+Ten dabs overlap along a slow stroke, and the pixel is close to 100%.
+
+So a stroke drawn "at 50%" comes out solid in the middle, darker wherever it crosses itself, and darker again where you moved slowly.
+
+That is right for flow. It is how an airbrush builds up paint. It is wrong for opacity, which should be a limit that the stroke as a whole never goes past.
+
+## The stroke buffer
+
+The fix is to keep the stroke off the layer until it is finished.
+
+While you draw, dabs go into a separate buffer that holds one number per pixel: how much of that pixel the stroke covers.
+
+<PaintSource file="src/engine/mask.zig" decl="Mask" fields />
+
+When you let go, the stroke goes onto the layer once, with its coverage multiplied by the opacity.
+
+Overlapping dabs only raise the coverage towards 1. The opacity is applied once on top of that, so where the coverage reaches 1, the stroke covers exactly 50%, no more.
+
+## Building up coverage
+
+Each dab adds `flow` times what is still uncovered. In the stamp loop:
+
+```zig
+const new = old + ((full - old) * add + full - 1) / full;
+m.coverage[i] = @intCast(new);
+```
+
+`full - old` is what is still uncovered. `add` is the dab's coverage at this pixel times the flow.
+
+After `n` dabs of flow `f`, the coverage is 1 − (1 − f)ⁿ.
+
+Two dabs at 20% flow give 1 − 0.8² = 0.36, not 0.40.
+
+The coverage gets closer to 1 with every dab and never passes it, however many dabs land.
+
+## Why 16 bits
+
+Coverage is a `u16`: 0 is none and 65535 is full.
+
+Eight bits would not be enough. The Airbrush in the studio has a flow of 4%. In 8 bits, 4% of 255 is 10.2, and that rounds to 10.
+
+Worse, the fading edge of a soft tip is made of small fractions of that 10. They round to 0, 1, 2 and 3, and the edge comes out in visible steps.
+
+In 16 bits, 4% is 2621, and the steps are too small to see.
+
+## The rounding bug the tests found
+
+The line above rounds the step **up**: it adds `full - 1` before dividing.
+
+The first version rounded to nearest, and a test caught it.
+
+The test stamps 200 dabs at 30% flow and expects full coverage. Rounded to nearest, coverage stopped at 65534.
+
+At 65534 the uncovered part is 1. One dab adds 30% of 1, which is 0.3, and 0.3 rounds to 0. So every later dab added nothing, and the stroke could never quite finish covering a pixel.
+
+Rounded up, the step is at least 1 whenever anything is uncovered. It still never passes full, because rounding up never makes the step bigger than the gap it is filling.
+
+## Putting the stroke onto the layer
+
+`endStroke` does three things: keeps the old pixels for undo, applies the stroke to every pixel the buffer touched, and clears the buffer.
+
+<PaintSource file="src/engine/document.zig" decl="endStroke" />
+
+It visits only `mask.dirty`, the rectangle the stroke's dabs reached. A short stroke in a corner touches a corner, not the whole layer.
+
+The pixel-by-pixel work is `applyStroke`:
+
+<PaintSource file="src/engine/document.zig" decl="applyStroke" />
+
+## What you see while drawing
+
+The stroke is not on the layer until you let go. But you still need to see it while you draw.
+
+So the screen is built with the stroke applied on the fly. When it builds the active layer's pixel, it runs the same `applyStroke` first:
+
+<PaintSource file="src/engine/document.zig" decl="composite" />
+
+The preview and the commit call the same function with the same numbers. So the stroke cannot change when you let go. A test checks it: it hashes the screen just before `endStroke` and just after, and the two must match.
+
+## Cancelling
+
+A stroke can be interrupted. The browser can take the pointer away when a dialog opens, or the window loses focus halfway through.
+
+Committing half a stroke would leave a mark the person never finished. Leaving the buffer as it was would leave a ghost on screen.
+
+Because the stroke is still only in the buffer, cancelling is easy: clear the buffer and redraw that rectangle.
+
+<PaintSource file="src/engine/document.zig" decl="cancelStroke" />
+
+## Checks
+
+The worked example:
+
+<PaintSource file="src/engine/mask.zig" decl="two dabs at 20% flow give 36%, not 40%" />
+
+The test that found the rounding bug:
+
+<PaintSource file="src/engine/mask.zig" decl="many dabs approach full coverage and never pass it" />
+
+A stroke at 50% opacity that goes back over itself, and stays at 50%:
+
+<PaintSource file="src/engine/document.zig" decl="a stroke crossing itself does not get darker" />
+
+Opacity 0 must change nothing at all:
+
+<PaintSource file="src/engine/document.zig" decl="opacity 0 leaves the layer unchanged" />
+
+And a cancelled stroke leaves nothing behind, on screen or in the history:
+
+<PaintSource file="src/engine/document.zig" decl="cancelling a stroke leaves no ghost" />
+
+## Explain before reading the answer
+
+You draw one stroke at 50% opacity. Then you draw a second stroke at 50% across the first.
+
+Where they cross, is the colour 50% or 75%?
+
+75%. Each stroke is limited to 50% on its own, because each stroke has its own buffer. But the second stroke is applied over the result of the first, like a second coat of paint: 50% of the 50% that was still uncovered, plus the first 50%.

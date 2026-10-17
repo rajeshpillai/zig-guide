@@ -1,0 +1,106 @@
+# The Three Standard Streams
+
+> Buffering belongs to your writer, not to the descriptor underneath it.
+
+The output of the snippet below is not in the order the program wrote it.
+
+```zig
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+
+    // Two writers, both aimed at descriptor 1. One holds bytes back until it
+    // is told to drain. The other has no buffer, so it writes them at once.
+    var buf: [1024]u8 = undefined;
+    var buffered = std.Io.File.stdout().writerStreaming(io, &buf);
+    var unbuffered = std.Io.File.stdout().writerStreaming(io, &.{});
+
+    try buffered.interface.writeAll("written first, into a buffer\n");
+    try unbuffered.interface.writeAll("written second, straight to the fd\n");
+    try buffered.interface.flush();
+
+    const out = &buffered.interface;
+
+    // Whether a stream is a terminal is a question about the descriptor, and
+    // it is the question a program asks before deciding to emit colour. Under
+    // a WASI sandbox, or a pipe, or a CI log file, the answer is no.
+    try out.print("\nstdout is a tty: {}\n", .{try std.Io.File.stdout().isTty(io)});
+    try out.print("stderr is a tty: {}\n", .{try std.Io.File.stderr().isTty(io)});
+
+    // Descriptor 2 exists so that a diagnostic survives a redirect of the
+    // program's output, and so that it is not sitting in a buffer when the
+    // process dies. Progress, warnings and errors go here; results go to 1.
+    var err_buf: [256]u8 = undefined;
+    var err_writer = std.Io.File.stderr().writerStreaming(io, &err_buf);
+    try err_writer.interface.writeAll("this line went to stderr\n");
+    try err_writer.interface.flush();
+
+    try out.writeAll("this line went to stdout\n");
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`14-os.standard-streams`)*
+
+## Two writers, one descriptor
+
+```zig
+var buffered = std.Io.File.stdout().writerStreaming(io, &buf);
+var unbuffered = std.Io.File.stdout().writerStreaming(io, &.{});
+
+try buffered.interface.writeAll("written first, into a buffer\n");
+try unbuffered.interface.writeAll("written second, straight to the fd\n");
+try buffered.interface.flush();
+```
+
+Both writers address descriptor 1. The first was given a 1 KB buffer and holds
+bytes until it is drained. The second was given an empty slice and has nowhere
+to put them, so each write goes out immediately. The second line reaches the
+terminal first. Reading the source from top to bottom does not show you that.
+
+The descriptor has no buffer. Your writer does the buffering, on your side of the call. So the fix is
+`flush`, not a flag on the file.
+[Hello, World](https://www.ziglang.in/learn/getting-started/hello-world/) covers the mechanics. Here,
+the fact to see is that two writers on one descriptor have two independent
+buffers, and neither knows about the other.
+
+This is a common way for interleaved output to go wrong. A program prints
+progress to standard error unbuffered and results to standard output buffered.
+The log then shows the work in an order that did not happen.
+
+## Which stream a line belongs on
+
+Descriptor 1 is for what the program was asked to produce. Descriptor 2 is for
+everything the program has to say about producing it.
+
+A pipe tests the split. `zig build 2>/dev/null | wc -l` should count results,
+not warnings. It only does if each line went to the right stream. Anything a reader
+would want to filter out of the data belongs on 2: progress, warnings, errors,
+the name of the file being processed.
+
+Standard error is also the stream whose output survives a crash. For that
+reason it is usually unbuffered, or line buffered. If a diagnostic is still in
+a buffer when the process dies, you never see it, and a crash is when you need
+it most.
+
+## `isTty`, and why anyone asks
+
+```zig
+std.Io.File.stdout().isTty(io)
+```
+
+The answer is false in the playground above, false in a CI log, false through
+a pipe, and true in your terminal. The answer depends on the descriptor, not
+on the program. A well-behaved tool asks it before it emits colour escapes,
+redraws a progress bar in place, or prints a table sized to the window. A tool
+that does not ask writes escape sequences into log files.
+
+## Both streams in the playground
+
+The playground merges 1 and 2 into one pane, because a browser has one place
+to put text. Under CI they stay separate. The runner routes each to its own
+file and compares only standard output against the recorded expectation. So
+the stderr line in this snippet is not in the expectation that gates it. That
+is the right split for a test: the test checks what the program produced, and
+ignores the messages it printed along the way.

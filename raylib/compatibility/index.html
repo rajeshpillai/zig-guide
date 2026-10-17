@@ -1,0 +1,280 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Compatibility · raylib-zig</title><meta name="description" content="How compatible raylib-zig is with C raylib: what is verified, how it is checked, and what is not covered."><link rel="canonical" href="https://www.ziglang.in/raylib/compatibility/"><script>
+      try {
+        const t = localStorage.getItem("theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch {}
+    </script><style>:root{color-scheme:light;--bg:light-dark(#f7f8fa,#15171c);--surface:light-dark(#eceef2,#1e2128);--raised:light-dark(#e1e4ea,#2a2e37);--border:light-dark(#d2d6de,#363b46);--text:light-dark(#1d2027,#e6e8ee);--muted:light-dark(#5a6070,#9aa1b2);--accent:light-dark(#8a5400,#f7a41d);--on-accent:light-dark(#fff,#15171c);--ok:light-dark(#2f6b2a,#7fc069);--warn:light-dark(#8a5a00,#e0b050);--radius:8px;--gutter:1rem;--measure:46rem;--wide:72rem}:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}*,:before,:after{box-sizing:border-box}html{-webkit-text-size-adjust:100%}[hidden]{display:none!important}body{background:var(--bg);color:var(--text);margin:0;font:1rem/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}a{color:var(--accent)}a:hover{text-decoration-thickness:2px}code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em}:not(pre)>code{background:var(--surface);border-radius:4px;padding:.1em .35em}.astro-code,.astro-code span{color:light-dark(var(--shiki-light),var(--shiki-dark));background-color:light-dark(var(--shiki-light-bg),var(--shiki-dark-bg))}.astro-code{border:1px solid var(--border);border-radius:var(--radius);margin:0;padding:1rem;line-height:1.5;overflow-x:auto}.wrap{width:100%;max-width:var(--wide);padding-inline:var(--gutter);margin-inline:auto}.prose{max-width:var(--measure)}.prose table{border-collapse:collapse;margin:1rem 0;font-size:.9rem;display:block;overflow-x:auto}.prose th,.prose td{border:1px solid var(--border);text-align:left;vertical-align:top;padding:.4rem .6rem}.prose th{background:var(--surface)}.prose pre:not(.astro-code){border-radius:var(--radius);background:var(--surface);padding:.75rem 1rem;overflow-x:auto}.topbar{border-bottom:1px solid var(--border);background:var(--surface)}.topbar .wrap{flex-wrap:wrap;align-items:center;gap:1.25rem;min-height:3.25rem;display:flex}.back{color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:.15rem .6rem;font-size:.85rem;text-decoration:none}.back:hover{color:var(--text);border-color:var(--muted)}.brand{color:var(--text);letter-spacing:.01em;font-weight:700;text-decoration:none}.brand span{color:var(--accent)}.nav{flex-wrap:wrap;gap:.25rem 1rem;margin:0;padding:0;list-style:none;display:flex}.nav a{color:var(--muted);white-space:nowrap;text-decoration:none}.nav a:hover,.nav a[aria-current=page]{color:var(--text)}.topbar .spacer{flex:1}.theme-toggle{font:inherit;color:var(--text);background:var(--raised);border:1px solid var(--border);cursor:pointer;border-radius:999px;padding:.25rem .7rem;font-size:.85rem}.theme-toggle[data-next=dark]:before{content:"Dark"}.theme-toggle[data-next=light]:before{content:"Light"}main{padding-block:2rem 3rem}h1{margin:0 0 .75rem;font-size:1.9rem;line-height:1.25}h2{margin:2rem 0 .75rem;font-size:1.3rem}.lede{color:var(--muted);max-width:var(--measure);font-size:1.1rem}.crumbs{color:var(--muted);margin-bottom:.75rem;font-size:.85rem}.crumbs a{color:var(--muted)}.footer{border-top:1px solid var(--border);color:var(--muted);padding-block:1.5rem;font-size:.85rem}.footer p{margin:.25rem 0}.stars{color:var(--accent);letter-spacing:.05em;white-space:nowrap}.badge{white-space:nowrap;border:1px solid;border-radius:999px;padding:.05rem .5rem;font-size:.75rem;font-weight:600;display:inline-block}.badge.ok{color:var(--ok)}.badge.warn{color:var(--warn)}.badge.muted{color:var(--muted)}@media (width>=48rem){:root{--gutter:1.5rem}h1{font-size:2.2rem}}
+.source-note[data-astro-cid-v2dscfkq]{color:var(--muted);font-size:.9rem}
+</style></head><body><header class="topbar"><div class="wrap"><a class="back" href="https://www.ziglang.in/" title="Back to ziglang.in, the Zig guide">← ziglang.in</a><a class="brand" href="/raylib/">raylib<span>-zig</span></a><ul class="nav"><li><a href="/raylib/getting-started/">Getting started</a></li><li><a href="/raylib/examples/">Examples</a></li><li><a href="/raylib/api/">API</a></li><li><a href="/raylib/cheatsheet/">Cheatsheet</a></li><li><a href="/raylib/compatibility/" aria-current="page">Compatibility</a></li><li><a href="/raylib/about/">About</a></li></ul><span class="spacer"></span><a class="nav-gh" href="https://github.com/algorisys-oss/raylib-zig-port" target="_blank" rel="noopener noreferrer">GitHub</a><button class="theme-toggle" type="button" hidden></button></div></header><main class="wrap"><div class="prose" data-astro-cid-v2dscfkq><p class="source-note" data-astro-cid-v2dscfkq>This page is raylib-zig's own compatibility record, <a href="https://github.com/algorisys-oss/raylib-zig-port/blob/main/docs/compatibility.md" data-astro-cid-v2dscfkq target="_blank" rel="noopener noreferrer">docs/compatibility.md</a>, shown as it was when this site was built.</p><h1 id="compatibility-with-c-raylib--what-is-verified-and-how">Compatibility with C raylib — what is verified, and how</h1>
+<p>Status as of 2026-10-16 (tag <code>raylib-6.2-parity</code> and later). This records how
+compatible the Zig port is with upstream C raylib, the evidence behind each
+claim, and — just as important — what is <strong>not</strong> covered.</p>
+<p><strong>Short answer:</strong> for the pinned configuration (raylib 6.2, Linux x86-64,
+desktop GLFW, OpenGL 3.3, default <code>config.h</code>), the Zig library is a drop-in
+replacement for C raylib: unmodified raylib programs compile against the same
+<code>raylib.h</code>, link against the Zig library, and render <strong>byte-identical frames</strong>
+for every upstream example that can be run deterministically (217 of 217),
+with numeric, audio and data functions bit-exact on their test grids. Outside
+that configuration, compatibility is not claimed.</p>
+<h2 id="1-scope-the-configuration-the-claims-apply-to">1. Scope: the configuration the claims apply to</h2>
+<table>
+<thead>
+<tr>
+<th>Axis</th>
+<th>Supported / verified</th>
+<th>Not supported (yet)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>raylib version</td>
+<td><strong>6.2</strong> (tag <code>6.2</code>, git <code>02566453</code>)</td>
+<td>other versions (re-port per release; 6.1-dev → 6.2 took one session)</td>
+</tr>
+<tr>
+<td>OS / arch</td>
+<td>Linux x86-64</td>
+<td>others untested</td>
+</tr>
+<tr>
+<td>Platform backend</td>
+<td><code>PLATFORM_DESKTOP_GLFW</code> (GLFW 3, X11)</td>
+<td>SDL, RGFW, Win32, DRM, Android (see <a href="https://github.com/algorisys-oss/raylib-zig-port/blob/main/docs/not-migrated.md" target="_blank" rel="noopener noreferrer">not-migrated.md</a>)</td>
+</tr>
+<tr>
+<td>Graphics API</td>
+<td><code>GRAPHICS_API_OPENGL_33</code></td>
+<td>OpenGL 1.1 / 2.1 / 4.3, ES2, rlsw</td>
+</tr>
+<tr>
+<td>Web (in progress)</td>
+<td><code>PLATFORM_WEB</code> + <code>GRAPHICS_API_OPENGL_ES3</code> (WebGL 2) on <code>wasm32-emscripten</code>: ported; the browser gate covers <strong>209</strong> examples (every desktop-gated example but 8; exclusions, one known web gap and what audio covers in web.md) (see <a href="https://github.com/algorisys-oss/raylib-zig-port/blob/main/docs/web.md" target="_blank" rel="noopener noreferrer">web.md</a>)</td>
+<td>claims above do not yet extend to the web</td>
+</tr>
+<tr>
+<td>Feature config</td>
+<td>raylib’s <strong>default <code>config.h</code></strong></td>
+<td>any non-default <code>SUPPORT_*</code> flag (see §5)</td>
+</tr>
+<tr>
+<td>Library form</td>
+<td>static <code>libraylib.a</code></td>
+<td>shared <code>libraylib.so</code> (not built)</td>
+</tr>
+<tr>
+<td>Optimization</td>
+<td>Debug and ReleaseFast (both gated, §3)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-interface-compatibility-does-a-c-program-link">2. Interface compatibility (does a C program link?)</h2>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Result</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Public API symbols</td>
+<td><strong>619 / 619</strong> <code>RLAPI</code> functions in raylib.h exported, each defined exactly once, <strong>all from Zig objects</strong> (none from C)</td>
+<td><code>nm</code> sweep of <code>libraylib.a</code> vs raylib.h prototypes</td>
+</tr>
+<tr>
+<td>Header</td>
+<td>programs compile against the <strong>unmodified</strong> upstream <code>raylib.h</code> (plus <code>raymath.h</code>, <code>rlgl.h</code>, <code>rcamera.h</code>)</td>
+<td>219 upstream examples build unmodified</td>
+</tr>
+<tr>
+<td>raymath / rlgl / rcamera</td>
+<td>out-of-line exported symbols (<code>RMAPI</code>/<code>RLAPI</code>)</td>
+<td>math/camera grids link against the Zig exports</td>
+</tr>
+<tr>
+<td>Mirrored constants</td>
+<td><strong>514</strong> enum values / <code>#define</code>s (numeric, string, bool flags) in the Zig sources equal raylib’s</td>
+<td><code>python3 tools/constaudit.py</code> (0 mismatches; negative control re-finds the historical SHADER_LOC off-by-one)</td>
+</tr>
+<tr>
+<td>Struct layout &amp; by-value ABI</td>
+<td><code>Color</code>/<code>Vector*</code>/<code>Rectangle</code>/<code>Matrix</code>/<code>Image</code>/<code>Model</code>… passed by value and by pointer exactly as C does</td>
+<td>exercised by every gate below; the separate Zig API’s 35 structs are checked field-by-field against translate-c’d raylib.h (<code>zig build apitest</code>)</td>
+</tr>
+<tr>
+<td>Global state</td>
+<td><code>CoreData</code>/<code>rlglData</code> unchanged between 6.1-dev and 6.2; internal to Zig modules</td>
+<td>struct diff of upstream headers</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-behavioral-compatibility-does-it-do-the-same-thing">3. Behavioral compatibility (does it do the same thing?)</h2>
+<p>The oracle is the <strong>same build of upstream C raylib</strong> (all-C library from the
+vendored 6.2 sources), compiled side by side; every gate compares C output to
+Zig output <strong>byte-for-byte</strong> — no tolerances.</p>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>What is compared</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>zig build test</code></td>
+<td>12 scenes (2D, text, textures, image ops, 3D shapes/meshes) rendered headless under mesa llvmpipe</td>
+<td><strong>12/12</strong> framebuffers identical</td>
+</tr>
+<tr>
+<td><code>tools/exdiff.sh</code> (examples)</td>
+<td>every upstream example (unmodified), final frame after 240 frames, deterministic shim (fixed clock, hidden window, fixed RNG seed)</td>
+<td><strong>217/217</strong> automated identical; 10 excluded (§4) = all 227 accounted for</td>
+</tr>
+<tr>
+<td><code>zig build mathtest</code></td>
+<td>148 raymath functions over a pseudo-random grid incl. edge cases (opposite vectors, TRS round-trips, cubic Hermite)</td>
+<td><strong>93,000</strong> values bit-identical</td>
+</tr>
+<tr>
+<td><code>zig build camtest</code> / <code>gesttest</code></td>
+<td>rcamera functions over an input grid / rgestures over scripted touch events</td>
+<td><strong>7,500</strong> / <strong>3,200</strong> values bit-identical</td>
+</tr>
+<tr>
+<td><code>zig build audiocheck</code></td>
+<td>decoded PCM (WAV/OGG/MP3/QOA/XM/MOD), Wave ops, export round-trips, stream/music metadata</td>
+<td><strong>43/43</strong> identical</td>
+</tr>
+<tr>
+<td><code>zig build datacheck</code></td>
+<td>compression, base64, file/data helpers</td>
+<td>0 failures</td>
+</tr>
+<tr>
+<td><code>zig build cdiff</code></td>
+<td>paths examples can’t reach, 12 programs: Text* and font loading (TTF/BMFont/image fonts, crafted .fnt files, ExportFontAsCode), hashes for lengths 0..200, path predicates, file system I/O on a real file tree, the automation events file (glibc fgets/sscanf edge cases), image ops across all 13 formats plus export/load, every model format and animation plus ExportMesh/AsCode and GenMesh*, wave export/format/crop, rlgl batches/shaders/readback, rshapes point lists and a 720-frame thickness/angle sweep; every TraceLog line compared</td>
+<td><strong>12/12</strong> programs identical (Debug and ReleaseFast)</td>
+</tr>
+<tr>
+<td>Real GPU spot check (<code>EXDIFF_GPU=1</code>)</td>
+<td>examples on Intel Iris Xe (Mesa 25.2.8, GL 4.6) instead of llvmpipe</td>
+<td><strong>219/219</strong> identical (run before the last two audio exclusions)</td>
+</tr>
+<tr>
+<td>ReleaseFast</td>
+<td>all non-example gates at <code>-Doptimize=ReleaseFast</code></td>
+<td>pixel 12/12, math, cam, gest, data, audio 43/43, cdiff 4/4 identical</td>
+</tr>
+<tr>
+<td>ReleaseFast examples sweep</td>
+<td>full examples gate, optimized Zig library vs optimized C oracle</td>
+<td><strong>217/217</strong> identical</td>
+</tr>
+</tbody>
+</table>
+<p>Upstream behavior is reproduced <strong>including its quirks</strong>: e.g. <code>ImageDrawTextPro</code>
+is an empty stub in 6.2 and is a no-op here too; upstream example bugs are kept
+where they affect output.</p>
+<h2 id="4-what-the-oracle-cannot-see">4. What the oracle cannot see</h2>
+<p>These are limits of the evidence, not known incompatibilities:</p>
+<ul>
+<li><strong>Self-nondeterministic examples (10 excluded).</strong> Their <em>C</em> build disagrees
+with itself run-to-run, so no comparison is meaningful: 6 audio examples
+whose pixels follow the real-time audio thread (<code>audio_mixed_processor</code>,
+<code>audio_module_playing</code>, <code>audio_raw_stream</code>, <code>audio_spectrum_visualizer</code>,
+<code>audio_stream_callback</code>, <code>audio_stream_effects</code>), <code>core_custom_frame_control</code>
+(busy-waits on wall time), <code>core_input_gestures_testbed</code>,
+<code>core_window_should_close</code> (needs a key press), and <code>rlgl_standalone</code> (never
+calls the library). Reasons per example: <code>test/examples.list</code>.</li>
+<li><strong>One frame per example.</strong> The gate compares the final frame after 240
+frames, not every frame (intermediate state that is later overdrawn is not
+compared).</li>
+<li><strong>No live input.</strong> Examples run without mouse/keyboard/gamepad input, so
+input-driven branches are covered only where <code>cdiff</code>, <code>camtest</code> and
+<code>gesttest</code> script them. Two real gaps were found this way (rtext’s SDF glyph
+generation; rshapes parameter ranges) — both fixed and now gated.</li>
+<li><strong>Audio playback.</strong> Decoding is byte-checked; what reaches the speaker in
+real time (mixing, device callbacks) is not.</li>
+<li><strong>GPU output in general.</strong> The gate runs on llvmpipe; one real GPU was
+spot-checked (identical). Other drivers are not verified, and GPU output is
+not guaranteed bit-deterministic.</li>
+<li><strong>Floating point.</strong> Byte-exactness is against C raylib compiled with
+<code>-ffp-contract=off</code>. C raylib built by clang with its default FMA
+contraction differs (in the last bit, sometimes in pixels) from this port —
+and from GCC builds of C raylib — on rotated/scaled geometry.</li>
+<li><strong>libm.</strong> A program linked by Zig takes <code>sinf</code>/<code>cosf</code>/… from Zig’s
+compiler_rt (one archive member that carries weak libm functions and
+replaces glibc’s once anything pulls it in, which Zig code always does).
+The gates pin both sides to it (<code>pinCompilerRtMath</code> in build.zig,
+<code>-Wl,-u,__multi3</code> in tools/exdiff.sh). C raylib linked against glibc’s
+libm can differ in the last bit of trigonometric results (found in glTF
+animation poses).</li>
+<li><strong>Undefined behavior in C.</strong> Where upstream C has UB (e.g. out-of-range
+float→int casts, misaligned reads in bundled parsers), the Zig port picks
+the result C gives on x86-64 and is gated against it; it does not trap.</li>
+</ul>
+<h2 id="5-known-incompatibilities">5. Known incompatibilities</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Non-default <code>config.h</code></td>
+<td>The Zig modules implement raylib’s <strong>default</strong> feature set. Code behind default-off flags is not ported: image formats TGA, JPG, PSD, HDR, PIC, PNM, KTX, ASTC, PKM, PVR, PEP; font format BDF; audio format FLAC; rshapes’ triangles fallback (<code>SUPPORT_QUADS_DRAW_MODE=0</code>). Rebuilding with different <code>SUPPORT_*</code> values changes the C oracle but not the Zig port.</td>
+</tr>
+<tr>
+<td>Other platforms / GL versions</td>
+<td>Not compiled (see §1, not-migrated.md).</td>
+</tr>
+<tr>
+<td>Shared library</td>
+<td>Only a static archive is built.</td>
+</tr>
+<tr>
+<td>File system misuse</td>
+<td>Where C raylib’s result depends on undefined behaviour or on the filesystem, the Zig port picks one documented answer: <code>LoadFileText</code> on a directory returns NULL (“Failed to read text file”); C’s answer varies by filesystem (on ext4 it returns “”). <code>LoadFileData</code>/<code>GetFileLength</code> on a directory match C on ext4. <code>ExportDataAsCode</code> with <code>dataSize &lt;= 0</code> returns false (C reads <code>data[-1]</code>). NULL paths return NULL/false/0 where C would crash, and <code>SaveFileText(f, NULL)</code> writes an empty file (glibc writes “(null)”). A failed write makes <code>SaveFileData</code>/<code>SaveFileText</code> return false. <code>LoadDirectoryFilesEx</code> with no matches returns <code>paths == NULL</code> (C returns a <code>calloc(0)</code> pointer); <code>count</code> is 0 either way and <code>UnloadDirectoryFiles</code> accepts both.</td>
+</tr>
+<tr>
+<td>Multi-page BMFont</td>
+<td>raylib 6.2 unloads atlas pages 1..n before drawing them into the merged atlas (rtext.c lines 2714/2727: a use-after-free, so its pixels are undefined). The port draws the pages, then unloads them. Page metadata is gated; the merged pixels can’t be.</td>
+</tr>
+<tr>
+<td>Other misuse and allocation failure</td>
+<td>Where C crashes or reads out of bounds the port returns raylib’s failure result instead: a NULL file type in <code>LoadWaveFromMemory</code>, <code>ExportImageAsCode</code>/<code>ExportWaveAsCode</code> on empty data, NULL text arguments to Text* functions, malformed IQM/glTF offsets (read as zeros), negative <code>GenImage*</code> sizes, a failed allocation (logs a warning; raylib has no wording for it). <code>rlGetShaderLocsDefault()</code> after <code>rlglClose</code> returns NULL (C returns freed memory). <code>LoadImageColors</code> on a compressed format returns zeroed memory (C: uninitialized).</td>
+</tr>
+</tbody>
+</table>
+<p>There are <strong>no known behavioral differences</strong> for valid inputs within the configuration of §1.</p>
+<h2 id="6-the-idiomatic-zig-api-a-separate-surface">6. The idiomatic Zig API (a separate surface)</h2>
+<p><code>@import("raylib")</code> is <strong>not</strong> ABI-compatible by design — it is a Zig API over
+the C ABI above, with raylib’s names and design (docs/zig-api.md). Its
+compatibility is checked differently:</p>
+<ul>
+<li><strong>Same behavior:</strong> every wrapper forwards to the gated C-ABI export, and
+<strong>217 / 217</strong> Zig-API translations of upstream examples render byte-identical
+to the original C examples (<code>zig build apiexamples</code>); 226 of 227 examples are
+translated (9 build-only for the §4 reasons; <code>rlgl_standalone</code> n/a).</li>
+<li><strong>Same layout:</strong> all API structs match translate-c’d raylib.h / rlgl.h
+(<code>zig build apitest</code>).</li>
+<li><strong>Deliberate differences from C raylib’s surface:</strong> loaders return error
+unions (a failed <code>try rl.loadTexture</code> returns an error where C returns an
+invalid texture); <code>textFormat</code>/<code>traceLog</code> use <code>std.fmt</code> syntax and rounding
+(signed zero-padding prints <code>+6</code> where printf prints <code>06</code>; exact ties round
+differently); <code>setShaderValue</code> infers the uniform type; enums/flags/slices
+replace ints and pointer+count pairs; raygui control results stay <code>i32</code>.</li>
+</ul>
+<h2 id="re-verifying">Re-verifying</h2>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="--shiki-light:#0e1116;--shiki-dark:#f0f3f6;--shiki-light-bg:#ffffff;--shiki-dark-bg:#0a0c10; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="--shiki-light:#702C00;--shiki-dark:#FFB757">zig</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> build</span><span style="--shiki-light:#0E1116;--shiki-dark:#F0F3F6"> &amp;&amp; </span><span style="--shiki-light:#702C00;--shiki-dark:#FFB757">zig</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> build</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> test</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> mathtest</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> camtest</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> gesttest</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> datacheck</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> audiocheck</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> cdiff</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> apitest</span></span>
+<span class="line"><span style="--shiki-light:#702C00;--shiki-dark:#FFB757">python3</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> tools/constaudit.py</span></span>
+<span class="line"><span style="--shiki-light:#702C00;--shiki-dark:#FFB757">tools/exdiff.sh</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> "$(</span><span style="--shiki-light:#702C00;--shiki-dark:#FFB757">find</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> ~/.cache/zig-local </span><span style="--shiki-light:#023B95;--shiki-dark:#91CBFF">-name</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> libraylib_oracle.a </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF9492">|</span><span style="--shiki-light:#702C00;--shiki-dark:#FFB757"> head</span><span style="--shiki-light:#023B95;--shiki-dark:#91CBFF"> -1</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF">)"</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> zig-out/lib/libraylib.a</span></span>
+<span class="line"><span style="--shiki-light:#702C00;--shiki-dark:#FFB757">zig</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> build</span><span style="--shiki-light:#032563;--shiki-dark:#ADDCFF"> apiexamples</span></span></code></pre>
+<p>Run the examples sweeps on a quiet machine: the audio-driven examples are
+timing-sensitive under heavy CPU load.</p>
+</div></main><footer class="footer"><div class="wrap"><p>raylib-zig is an unofficial port. It is not raylib.com and is not made by the raylib project.</p><p><a href="https://www.raylib.com" target="_blank" rel="noopener noreferrer">raylib</a> is created by Ramon Santamaria (<a href="https://github.com/raysan5" target="_blank" rel="noopener noreferrer">@raysan5</a>) and contributors, under the zlib/libpng license. The examples keep their original license and authors.</p><p>Part of <a href="https://www.ziglang.in/">ziglang.in</a>, a Zig guide where every snippet is compiled and run on Zig master. This website is Vibe Architected by Rajesh Pillai.</p></div></footer><script type="module">var e=document.documentElement,t=document.querySelector(`.theme-toggle`);function n(){return e.dataset.theme===`dark`?`dark`:`light`}function r(){if(!t)return;let e=n()===`dark`?`light`:`dark`;t.dataset.next=e,t.setAttribute(`aria-label`,`Switch to ${e} theme`)}t&&(t.hidden=!1,r(),t.addEventListener(`click`,()=>{let t=n()===`dark`?`light`:`dark`;e.dataset.theme=t;try{localStorage.setItem(`theme`,t)}catch{}r()}));</script></body></html>
