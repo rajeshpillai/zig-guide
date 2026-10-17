@@ -2,7 +2,7 @@
   {
     "path": "raylib",
     "repo": "algorisys-oss/raylib-zig-web",
-    "branch": "gh-pages",
+    "branch": "site",
     "about": "raylib-zig: raylib ported to Zig, every example running in the browser"
   }
 ]
