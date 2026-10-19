@@ -35,12 +35,18 @@ const TECHNICAL = new Set(
    working coloring spanning folding saving substring combining allocating
    signalling saturating learning calling narrowing wrapping mixing
    closing nesting packing counting pipelining handling spelling sharing
-   profiling moving boxing debugging balancing meeting trailing ranking`.split(/\s+/).filter(Boolean),
+   profiling moving boxing debugging balancing meeting trailing ranking
+   compositing interlacing bounding buffering winding culling supersampling
+   ringing opening resampling sampling hinting blitting
+   tree-walking walking lexing backpatching hoisting lowering shaping freestanding pending mangling marshalling
+   escaping smuggling listening decoding shadowing recording sourcing branching
+   journalling quoting climbing planning spawning
+   thrashing scripting positioning stacking`.split(/\s+/).filter(Boolean),
 );
 
 // Words after "is" that end like a participle but are not one.
 const NOT_PARTICIPLE = new Set(
-  "open often even then when token seven eleven heaven garden kitchen between".split(" "),
+  "open often even then when token seven eleven heaven garden kitchen between children fourteen thirteen".split(" "),
 );
 
 const PHRASAL = [
