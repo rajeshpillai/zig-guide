@@ -1,8 +1,8 @@
 ---
 title: Breadth-First Search on a Grid
 seoTitle: "Zig BFS on a Grid: Fewest Moves, and the Marking Bug"
-description: The distance field printed as the frontier expands, and the one line whose position decides whether a cell can enter the queue twice.
-seoDescription: Breadth-first search on a grid in Zig, with the distance field printed as the frontier fills it. Why a queue finds the fewest moves when every move costs one, why marking a cell as it leaves the queue instead of as it enters turns 94 pushes into 143, how to size the queue at the cell count and never grow it, and how to take one off a row index without overflowing a usize.
+description: The distance field as the frontier grows, and the one line with a position that decides if a cell can enter the queue two times.
+seoDescription: "Breadth-first search on a grid in Zig, with the distance field at each level. Mark a cell when it enters the queue, not when it leaves: 94 pushes, not 143."
 section: Competitive Programming
 order: 70
 ---
@@ -10,29 +10,24 @@ order: 70
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Breadth-first search, or BFS, is useful for finding the shortest path on a grid when every move has the same cost.
+Breadth-first search, or BFS, is useful to find the shortest path on a grid when each move has the same cost.
 
-The queue itself knows nothing about shortest paths.
+The queue does not know about shortest paths. The shortest paths come from the order in which BFS visits cells:
 
-The shortest paths come from the order in which BFS visits cells.
+- BFS processes the cells one move away before the cells two moves away.
+- BFS processes the cells two moves away before the cells three moves away.
 
-Cells one move away are processed before cells two moves away.
+Because of this order, the first route that BFS finds to a cell is the shortest route to that cell.
 
-Cells two moves away are processed before cells three moves away.
+The example uses a grid with 9 rows and 13 columns. The grid has walls, one cell that BFS cannot get to, a start position `S`, and a target `T`.
 
-Because of that order, the first time BFS reaches a cell, it has found the shortest route to that cell.
-
-The example uses a grid with 9 rows and 13 columns.
-
-It contains walls, one unreachable cell, a start position `S`, and a target `T`.
-
-The program finds the shortest route from `S` to `T`, prints the distance field, and also demonstrates a common marking mistake.
+The program finds the shortest route from `S` to `T` and prints the distance field. It also shows a common mistake with the mark on a cell.
 
 <Playground name="23-competitive.grid-bfs" />
 
 ## BFS finds the shortest route
 
-The shortest route in this grid takes 24 moves:
+The shortest route in this grid has 24 moves:
 
 ```
 the shortest route: 24 moves through 25 cells
@@ -48,27 +43,17 @@ the shortest route: 24 moves through 25 cells
   r8    .  .  #  o  o  o  o  o  o  o  o  o  T
 ```
 
-If there were no walls, moving from the top-left area to the target would require eight downward moves and twelve rightward moves.
+Without walls, the route from the top-left area to the target needs eight moves down and twelve moves to the right. That is 20 moves.
 
-That is 20 moves.
-
-The walls force the route to make four extra moves.
-
-BFS still finds the minimum possible number of moves.
+The walls make the route four moves longer. BFS still finds the smallest possible number of moves.
 
 ## Why DFS does not guarantee the shortest path
 
-A depth-first search uses a stack instead of a queue.
-
-It follows one path as far as possible before returning and trying another direction.
+A depth-first search, or DFS, uses a stack instead of a queue. DFS follows one path as far as possible. Then DFS returns and tries a different direction.
 
 <SnippetSource name="23-competitive.grid-bfs" decl="dfsFirstPath" />
 
-This DFS marks each cell when it enters it and stops when it first reaches the target.
-
-That finds a valid route.
-
-It does not guarantee the shortest route.
+This DFS marks each cell when it enters the cell, and it stops when it first gets to the target. Thus DFS finds a valid route, but it does not guarantee the shortest route.
 
 On the same grid:
 
@@ -76,41 +61,27 @@ On the same grid:
 the first route a depth-first walk finds: 68 moves, against 24
 ```
 
-DFS finds a route of 68 moves while BFS finds one in 24.
+DFS finds a route of 68 moves, and BFS finds a route of 24 moves.
 
-The result also depends on the order of the possible moves.
+The result also depends on the order of the possible moves. A different order of `moves` can make DFS find a completely different route.
 
-Changing the order of `moves` can make DFS find a completely different route.
+DFS is useful for many graph problems. But a normal DFS is not the correct tool when the problem asks for the fewest moves in an unweighted graph or grid.
 
-DFS is useful for many graph problems, but a normal DFS is not the correct tool when the problem asks for the fewest moves in an unweighted graph or grid.
-
-## Moving safely with usize coordinates
+## Move safely with usize coordinates
 
 <SnippetSource name="23-competitive.grid-bfs" decl="step" />
 
-Rows and columns are stored as `usize` because they are used as array indices.
+The program stores rows and columns as `usize`, because they are array indices. This causes a problem for a move up or a move to the left.
 
-That creates a problem when moving up or left.
+For example, look at a cell in row 0. For that cell, the expression `p.r - 1` is not valid. A `usize` cannot hold `-1`. The subtraction underflows before the code can test if the result is inside the grid.
 
-Take a cell in row 0.
+The same problem occurs for a move to the left from column 0.
 
-For that cell, the expression `p.r - 1` is invalid.
+The code prevents this problem, because it calculates the move with `isize`:
 
-A `usize` cannot represent `-1`.
-
-The subtraction underflows before we get a chance to test whether the result is inside the grid.
-
-The same problem happens when moving left from column 0.
-
-The code avoids this by doing the movement calculation using `isize`.
-
-For example, moving up from `(0, 0)` produces `(-1, 0)`.
-
-Both coordinates are valid `isize` values.
-
-We can then check whether both coordinates are inside the grid.
-
-Only after the bounds check do we convert them back to `usize`.
+1. Calculate the move in `isize`. For example, a move up from `(0, 0)` gives `(-1, 0)`. The two coordinates are both valid `isize` values.
+2. Check if the two coordinates are inside the grid.
+3. After the bounds check, change the coordinates back to `usize`.
 
 From `(0, 0)`, the four moves give:
 
@@ -122,37 +93,26 @@ From `(0, 0)`, the four moves give:
   right    0   1     0     1  yes
 ```
 
-From the top-left corner, moving up and left produces negative coordinates.
+From the top-left corner, a move up or a move to the left gives negative coordinates. The code rejects those moves before it accesses the array. A move down and a move to the right are valid.
 
-Those moves are rejected before any array access happens.
+A different method is to check before the subtraction. For example, test `if (p.r > 0)` before you calculate `p.r - 1`. The two methods are both valid.
 
-Moving down and right is valid.
-
-Another approach is to check before subtracting.
-
-For example, test `if (p.r > 0)` before calculating `p.r - 1`.
-
-Both approaches are valid.
-
-Do not subtract 1 from a zero `usize` and then try to check the result afterwards.
+Do not subtract 1 from a `usize` with the value zero and then try to check the result.
 
 ## Why BFS gives the shortest distance
 
 <SnippetSource name="23-competitive.grid-bfs" decl="bfsMarkOnPush" />
 
-BFS processes the grid one distance level at a time.
+BFS processes the grid one distance level at a time:
 
-The start cell has distance 0.
+- The start cell has distance 0.
+- The neighbours of the start cell have distance 1.
+- Their unvisited neighbours have distance 2.
+- The levels continue in the same way.
 
-Its neighbours have distance 1.
+The queue keeps this order.
 
-Their unvisited neighbours have distance 2.
-
-And so on.
-
-The queue preserves this order.
-
-Here is the search partway through:
+The search at a point before it is complete:
 
 ```
   distance 4 is out of the queue, and the 6 cells at distance 5 are in it
@@ -168,27 +128,16 @@ Here is the search partway through:
   r8    .  . ##  .  .  .  .  .  .  .  .  .  .
 ```
 
-The cells marked 5 are the current frontier.
+The cells with the value 5 are the current frontier. BFS already processed each cell with a smaller distance.
 
-Every cell with a smaller distance has already been processed.
+This order gives the guarantee of the shortest path:
 
-This ordering gives us the shortest-path guarantee.
+1. BFS first gets to a cell from a different cell at distance `d`.
+2. BFS gives the cell the distance `d + 1`.
+3. A shorter route cannot occur later, because each cell that BFS processes later is at distance `d` or more.
+4. Thus each later route to the same cell also has a length of `d + 1` or more.
 
-Suppose a cell is first reached from another cell at distance `d`.
-
-We assign it `d + 1`.
-
-A shorter route cannot appear later.
-
-Anything processed later is at distance `d` or greater.
-
-So any later route to the same cell would also have length at least `d + 1`.
-
-The first distance written is therefore already the shortest distance.
-
-So BFS does not need to keep comparing possible distances for the same cell.
-
-It can mark the cell once and never revisit it.
+Thus the first distance that BFS writes is already the shortest distance. BFS does not have to compare possible distances for the same cell again. BFS can mark the cell one time and never visit it again.
 
 The completed distance field is:
 
@@ -208,31 +157,21 @@ The completed distance field is:
 
 The target has distance 24.
 
-The cell at row 2, column 10 remains a dot.
+The cell at row 2, column 10 is still a dot. Walls are on all sides of the cell, thus BFS cannot get to it.
 
-It is surrounded by walls and cannot be reached.
-
-There are 95 open cells in the grid.
-
-BFS reaches 94 of them.
-
-One remains unreachable.
+The grid has 95 open cells. BFS gets to 94 of them. BFS cannot get to the last one.
 
 ## Mark a cell when it enters the queue
 
-A common BFS bug is marking cells too late.
+A common BFS bug is to mark cells too late.
 
-The correct version marks a cell as visited when it is pushed into the queue.
+The correct version marks a cell as visited when it pushes the cell into the queue. Thus a different neighbour cannot push the same cell again.
 
-That prevents another neighbour from pushing the same cell again.
-
-Now move that marking step to the point where the cell is popped.
+Now move the mark to the point where BFS pops the cell.
 
 <SnippetSource name="23-competitive.grid-bfs" decl="bfsMarkOnPop" />
 
-The final distances are still correct.
-
-But the search does unnecessary work.
+The final distances are still correct. But the search does work that is not necessary.
 
 The program measures the difference:
 
@@ -246,101 +185,65 @@ what each marking rule costs on this grid
   same distance to the target either way, 24 and 24 -> true
 ```
 
-When we mark on push, every reachable cell enters the queue exactly once.
+With the mark on push, each cell that BFS can get to enters the queue exactly one time. BFS can get to 94 cells. Thus there are exactly 94 pushes and 94 pops.
 
-There are 94 reachable cells.
+With the mark on pop, a cell has no mark while it waits in the queue. During that time, more than one neighbour can find the cell. Each neighbour sees that the cell is not visited, and pushes the cell again. Thus the queue gets duplicates.
 
-So there are exactly 94 pushes and 94 pops.
+The second version does 143 pushes. Forty-nine pops are duplicates of cells that BFS already processed.
 
-When we mark on pop, a cell remains unmarked while it is waiting in the queue.
-
-During that time, several neighbouring cells may discover it.
-
-Each one sees it as unvisited and pushes it again.
-
-That creates duplicates.
-
-The second version performs 143 pushes.
-
-Forty-nine pops are duplicates that have already been processed earlier.
-
-The result is still correct because the code checks `seen` when the cell is popped.
-
-But the queue does much more work.
+The result is still correct, because the code checks `seen` when it pops the cell. But the queue does much more work.
 
 The correct rule is to mark a node when you enqueue it, not when you dequeue it.
 
-## Why marking on push matters
+## Why the mark on push is important
 
-Consider a cell that can be reached from three neighbouring cells.
+Look at a cell that BFS can get to from three neighbours.
 
-With marking on push:
+With the mark on push:
 
-1. The first neighbour discovers it.
-2. The cell is marked.
-3. The first neighbour pushes it.
-4. The other neighbours later see that it is already marked.
-5. They do not push it again.
+1. The first neighbour finds the cell.
+2. The first neighbour marks the cell.
+3. The first neighbour pushes the cell.
+4. Later, the other neighbours see that the cell already has a mark.
+5. The other neighbours do not push the cell again.
 
-The cell enters the queue once.
+The cell enters the queue one time.
 
-With marking on pop:
+With the mark on pop:
 
-1. The first neighbour pushes it.
-2. The cell is still unmarked.
-3. A second neighbour pushes it.
-4. A third neighbour may push it too.
-5. Only later does the first copy leave the queue and become marked.
+1. The first neighbour pushes the cell.
+2. The cell still has no mark.
+3. A second neighbour pushes the cell.
+4. A third neighbour can also push the cell.
+5. Later, the first copy leaves the queue and gets a mark.
 
-The duplicates are already inside the queue by then.
+At that time, the duplicates are already inside the queue.
 
-On a grid, each cell has only a small number of neighbours, so the extra work is limited by a constant factor.
+On a grid, each cell has only a small number of neighbours. Thus a constant factor limits the extra work.
 
-On a general graph, a vertex may have many neighbours.
+On a general graph, a vertex can have many neighbours. Then the number of pushes that are not necessary can become much larger.
 
-Then the number of unnecessary pushes can become much larger.
-
-## Sizing the queue
+## Choose the size of the queue
 
 <SnippetSource name="23-competitive.grid-bfs" decl="Queue" />
 
-The queue in this example uses a plain array and two indices.
+The queue in this example uses a plain array and two indices. The queue does not use a position again after a pop. Thus the necessary storage depends on the total number of pushes, not only on the number of items that wait at one time.
 
-It does not reuse positions after they are popped.
+With the correct mark, BFS pushes each cell that it can get to exactly one time. Thus a grid with `rows * columns` cells needs that number of queue slots or fewer. For this grid, `9 * 13 = 117`, thus 117 slots are sufficient.
 
-That means the required storage depends on the total number of pushes, not only on how many items are waiting at one time.
+The queue can allocate space for all cells one time. The queue never has to grow or wrap around. This method works because the number of cells is known before BFS starts.
 
-With correct marking, every reachable cell is pushed exactly once.
+With the mark on pop, the number of cells is not a limit for the number of pushes. The example fills a queue of 117 slots, but BFS can get to only 94 cells. The overflow is one more practical reason to mark on push.
 
-So a grid with `rows * columns` cells needs at most that many queue slots.
+A circular queue uses old slots again and prevents the overflow of the fixed array. But the duplicate pushes still occur.
 
-For this grid, `9 * 13 = 117`, so 117 slots are enough.
+If you do not know the maximum number of nodes before the search, you can use a structure that can grow. For example, a `std.ArrayList` with a head index can work as a queue.
 
-The queue can simply allocate space for all cells once.
-
-It never needs to grow or wrap around.
-
-This works because the number of cells is known before BFS starts.
-
-With marking on pop, the number of pushes is no longer bounded by the number of cells.
-
-The example fills a queue of 117 slots even though only 94 cells are reachable.
-
-The overflow is another practical reason to mark on push.
-
-A circular queue would reuse old slots and avoid the fixed-array overflow, but the duplicate pushes would still happen.
-
-Where the maximum number of nodes is not known in advance, a growable structure can be used.
-
-For example, a `std.ArrayList` plus a head index can work as a queue.
-
-[Queues](/learn/concurrency/queues/) covers queue-related structures, and [A Growable Array](/learn/data-structures/growable-array/) covers dynamic storage.
+[Queues](/learn/concurrency/queues/) explains structures for queues, and [A Growable Array](/learn/data-structures/growable-array/) explains dynamic storage.
 
 ## BFS work is proportional to cells and edges
 
-With correct marking, every cell enters the queue at most once.
-
-Each time we process a cell, we inspect its possible neighbours.
+With the correct mark, each cell enters the queue one time or less. Each time BFS processes a cell, it examines the possible neighbours of the cell.
 
 On this grid, there are four possible moves:
 
@@ -349,42 +252,26 @@ On this grid, there are four possible moves:
 - left
 - right
 
-So the total work is proportional to the number of cells plus the number of neighbour connections.
+Thus the total work is proportional to the number of cells plus the number of connections between neighbours. For a normal rectangular grid, the work is O(rows * columns).
 
-For a normal rectangular grid, this is O(rows * columns).
-
-The program reports:
+The program shows:
 
 ```
 repeated relaxation agrees on every cell -> true
   13 sweeps of the whole grid, 4940 neighbours looked at, against 376 from the queue
 ```
 
-The alternative verification method repeatedly scans the entire grid and updates distances until nothing changes.
+The second method of verification scans the full grid again and again. It updates the distances until no distance changes.
 
-It eventually gets the same answer.
-
-But it inspects 4,940 neighbour positions.
-
-BFS needs only 376 neighbour checks.
-
-The queue lets BFS process only the cells whose distance has actually become known.
+This method gets the same answer, but it examines 4,940 neighbour positions. BFS needs only 376 neighbour checks. The queue lets BFS process only the cells with a distance that is already known.
 
 ## BFS depends on equal edge costs
 
-The shortest-path guarantee above depends on every move costing the same amount.
+The guarantee of the shortest path above is true only if each move has the same cost. Here each move costs exactly one. Because of this, the distance levels agree with the order of the queue.
 
-Here every move costs exactly one.
+For example, a move to the right can cost 1 and a move down can cost 5. Then the first time that a cell enters the queue is not always its cheapest route. Normal BFS is not sufficient.
 
-Because of that, distance levels line up with queue order.
-
-If moving right cost 1 but moving down cost 5, the first time a cell enters the queue would no longer necessarily be its cheapest route.
-
-Normal BFS would not be enough.
-
-For weighted graphs, another shortest-path algorithm is needed.
-
-For example:
+For weighted graphs, you need a different shortest-path algorithm. For example:
 
 - BFS for edges that all have the same cost
 - 0-1 BFS for edge costs of only 0 and 1

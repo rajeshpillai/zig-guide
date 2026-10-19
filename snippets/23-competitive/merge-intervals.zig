@@ -1,21 +1,22 @@
 //! title: Merge Intervals
-//! Sorting by start, then one pass that only ever compares an interval with
-//! the run being built. The program prints the list before and after sorting,
-//! a row per merge step, the same pass with the end taken from the wrong
-//! place, and a sweep that counts how many intervals overlap at once. A
-//! coordinate map built independently checks both answers.
+//! A sort by start, then one pass that compares an interval only with the
+//! current run. The program prints the list before and after the sort, and a
+//! row for each merge step. It also prints the same pass with the end from the
+//! wrong place, and a sweep that counts the intervals that overlap at one time.
+//! An independent map of the coordinates checks the two answers.
 
 const std = @import("std");
 
 /// The intervals, as text, one per line: start then end.
 ///
-/// A snippet here runs under WASI in a browser tab, where there is no stdin to
-/// read. The order is the order they arrived in, which is no particular order,
-/// and the parser below reads it the way it would read a real file.
+/// A snippet here runs under WASI in a browser tab. The tab has no stdin to
+/// read. The intervals are in the order that they arrived, and that order has
+/// no pattern. The parser below reads the text in the same way that it reads a
+/// real file.
 ///
-/// `1 20` with `3 5` inside it is the case that catches a merge written
-/// without `@max`. `3 5` next to `5 8`, and `24 26` next to `26 29`, are the
-/// pairs that touch at a single coordinate.
+/// `1 20` with `3 5` inside it is the case that finds a merge without `@max`.
+/// `3 5` next to `5 8`, and `24 26` next to `26 29`, are the pairs that touch
+/// at one coordinate.
 const input =
     \\24 26
     \\1 20
@@ -30,20 +31,21 @@ const input =
     \\26 29
 ;
 
-/// A closed interval: both `start` and `end` are inside it.
+/// A closed interval: `start` and `end` are both inside the interval.
 ///
-/// So `[3, 5]` and `[5, 8]` share the coordinate 5 and overlap. The other
-/// convention, half-open, would write those as `[3, 5)` and `[5, 8)` and they
-/// would not.
+/// Thus `[3, 5]` and `[5, 8]` share the coordinate 5, and they overlap. The
+/// other convention, half-open, writes them as `[3, 5)` and `[5, 8)`. Then the
+/// two intervals do not overlap.
 const Interval = struct {
     start: i32,
     end: i32,
 };
 
-/// The comparator `std.mem.sort` wants: true when `a` belongs before `b`.
+/// The comparator that `std.mem.sort` needs: true when `a` goes before `b`.
 ///
-/// Only the start decides which interval the pass sees first. Ordering equal
-/// starts by end as well costs nothing and makes the printed table stable.
+/// Only the start decides which interval the pass gets first. For equal
+/// starts, the comparator also uses the end. This costs nothing, and the
+/// printed table is always the same.
 /// [Sorting](/learn/standard-library/sorting/) has the rest of `std.mem.sort`.
 fn byStart(_: void, a: Interval, b: Interval) bool {
     if (a.start != b.start) return a.start < b.start;
@@ -52,9 +54,9 @@ fn byStart(_: void, a: Interval, b: Interval) bool {
 
 /// Read one interval per line into `out`.
 ///
-/// It takes a `*std.Io.Reader` instead of the string, as the networking
-/// chapters do for protocols. The function turns bytes into
-/// values, so the same code works over a file, over a socket, and over a
+/// The function takes a `*std.Io.Reader` instead of the string. The
+/// networking chapters use the same method for protocols. The function changes
+/// bytes into values. Thus the same code works with a file, a socket, or a
 /// string literal that CI can check.
 fn readIntervals(reader: *std.Io.Reader, out: []Interval) ![]Interval {
     var count: usize = 0;
@@ -73,17 +75,19 @@ fn readIntervals(reader: *std.Io.Reader, out: []Interval) ![]Interval {
     return out[0..count];
 }
 
-/// Merge overlapping intervals. `sorted` must already be sorted by start.
+/// Merge the intervals that overlap. `sorted` must already be in order of start.
 ///
-/// Sorted, an interval can only overlap the run currently open. Anything
-/// earlier ended before this run began, and anything later starts no earlier
-/// than this one does, so there is nothing else to compare against.
+/// In sorted input, an interval can only overlap the run that is open now.
+/// Each earlier run ended before this run started. Each later interval starts
+/// at the same point as this interval or after it. Thus there is nothing else
+/// to compare with.
 ///
-/// `<=` and not `<`, because these intervals are closed and `[3, 5]` meets
+/// Use `<=`, not `<`, because these intervals are closed, and `[3, 5]` meets
 /// `[5, 8]` at the coordinate 5.
 ///
-/// `@max` and not `iv.end`. A nested interval like `[3, 5]` inside `[1, 20]`
-/// has a smaller end, and taking it would shorten the run to five.
+/// Use `@max`, not `iv.end`. A nested interval such as `[3, 5]` inside
+/// `[1, 20]` has a smaller end. If the run takes that end, the run becomes
+/// shorter and ends at five.
 fn merge(sorted: []const Interval, out: []Interval) []Interval {
     var count: usize = 0;
     for (sorted) |iv| {
@@ -97,11 +101,11 @@ fn merge(sorted: []const Interval, out: []Interval) []Interval {
     return out[0..count];
 }
 
-/// The same pass with `@max` dropped, which is a common first attempt.
+/// The same pass without `@max`. This is a common first attempt.
 ///
-/// It looks harmless: the intervals are sorted, so the next end should be
-/// the larger one. That holds for every interval except the ones already
-/// inside the run.
+/// The change looks safe: the intervals are sorted, thus the next end must be
+/// the larger end. This is true for each interval, except for the intervals
+/// that are already inside the run.
 fn mergeTakingLast(sorted: []const Interval, out: []Interval) []Interval {
     var count: usize = 0;
     for (sorted) |iv| {
@@ -118,34 +122,37 @@ fn mergeTakingLast(sorted: []const Interval, out: []Interval) []Interval {
 /// One end of one interval, as an event on the coordinate line.
 ///
 /// `delta` is +1 where an interval starts and -1 where it ends. `owner` is
-/// only carried so the trace can name the interval.
+/// there only to let the trace show the interval.
 const Event = struct {
     at: i32,
     delta: i32,
     owner: Interval,
 };
 
-/// Order events by coordinate, and put a start before an end at the same one.
+/// Sort the events by coordinate. At the same coordinate, put a start before
+/// an end.
 ///
-/// The tie is the closed convention again. `[24, 26]` and `[26, 29]` both hold
-/// the coordinate 26, so both are in use there and the count has to rise
-/// before it falls.
+/// The rule for equal coordinates comes from the closed convention again.
+/// `[24, 26]` and `[26, 29]` both hold the coordinate 26. Thus the two
+/// intervals are both in use there, and the count must increase before it
+/// decreases.
 fn startsFirst(_: void, a: Event, b: Event) bool {
     if (a.at != b.at) return a.at < b.at;
     return a.delta > b.delta;
 }
 
-/// The half-open reading: an end at the same coordinate is released first.
+/// The half-open convention: at the same coordinate, an end goes first.
 fn endsFirst(_: void, a: Event, b: Event) bool {
     if (a.at != b.at) return a.at < b.at;
     return a.delta < b.delta;
 }
 
-/// The most intervals in use at any one coordinate, and where that first
-/// happens.
+/// The largest number of intervals in use at one coordinate, and the first
+/// coordinate where this occurs.
 ///
-/// The running count is the answer. Nothing here merges anything, and nothing
-/// here remembers which intervals are open, only how many.
+/// The count that changes at each event is the answer. This function does not
+/// merge intervals. It does not record which intervals are open, only how
+/// many intervals are open.
 fn peakOverlap(events: []const Event) struct { rooms: i32, at: i32 } {
     var live: i32 = 0;
     var best: i32 = 0;
@@ -162,9 +169,9 @@ fn peakOverlap(events: []const Event) struct { rooms: i32, at: i32 } {
 
 /// Right-align a value in a cell of `width` characters.
 ///
-/// `{d:>2}` would be shorter, and it prints a `+` in front of a non-negative
-/// signed integer as soon as a width is given. Formatting the digits first and
-/// padding them keeps the tables readable.
+/// `{d:>2}` is shorter, but it prints a `+` before a non-negative signed
+/// integer when you give a width. This function formats the digits first and
+/// then adds the padding. Thus the tables are easy to read.
 fn writeCell(out: *std.Io.Writer, value: i32, width: usize) !void {
     var digits: [12]u8 = undefined;
     const text = try std.mem.print(&digits, "{d}", .{value});
@@ -172,7 +179,7 @@ fn writeCell(out: *std.Io.Writer, value: i32, width: usize) !void {
     try out.writeAll(text);
 }
 
-/// One interval in a fixed eight columns, so a table lines up.
+/// One interval in eight columns. Thus the columns of a table align.
 fn writeInterval(out: *std.Io.Writer, iv: Interval) !void {
     try out.writeByte('[');
     try writeCell(out, iv.start, 2);
@@ -181,9 +188,10 @@ fn writeInterval(out: *std.Io.Writer, iv: Interval) !void {
     try out.writeByte(']');
 }
 
-/// Two lists of intervals hold the same intervals in the same order.
+/// True if two lists hold the same intervals in the same order.
 ///
-/// `std.mem.eql` wants a type it can compare with `!=`, which a struct is not.
+/// `std.mem.eql` needs a type that it can compare with `!=`. A struct is not
+/// such a type.
 fn sameRuns(a: []const Interval, b: []const Interval) bool {
     if (a.len != b.len) return false;
     for (a, b) |x, y| {
@@ -192,7 +200,7 @@ fn sameRuns(a: []const Interval, b: []const Interval) bool {
     return true;
 }
 
-/// A row of intervals on one line, unpadded.
+/// A row of intervals on one line, without padding.
 fn writeList(out: *std.Io.Writer, list: []const Interval) !void {
     for (list) |iv| try out.print(" [{d}, {d}]", .{ iv.start, iv.end });
     try out.writeByte('\n');
@@ -207,10 +215,12 @@ fn writeRows(out: *std.Io.Writer, list: []const Interval) !void {
     try out.writeAll("\n");
 }
 
-/// The merge pass again, printing what each interval did to the open run.
+/// The merge pass again. It prints the change that each interval made to the
+/// open run.
 ///
-/// Kept separate so `merge` stays the shape you would paste into a solution.
-/// The run below checks that the two agree rather than trusting that they do.
+/// This function is separate, thus `merge` keeps the shape that you can copy
+/// into a solution. The run below checks that the two functions agree. It
+/// does not assume that they do.
 fn traceMerge(
     out: *std.Io.Writer,
     sorted: []const Interval,
@@ -281,11 +291,11 @@ fn writeMap(out: *std.Io.Writer, label: []const u8, marks: []const u8) !void {
     try out.writeByte('\n');
 }
 
-/// Mark every coordinate any of `list` covers.
+/// Mark each coordinate that an interval in `list` covers.
 ///
-/// The check uses none of the reasoning in the pass above. It does not
-/// sort, it does not know what a run is, and it would give the same answer if
-/// the input arrived backwards.
+/// The check does not use the logic of the pass above. It does not sort, and
+/// it does not know what a run is. If the input arrived in reverse order, the
+/// answer is the same.
 fn paint(list: []const Interval, marks: []u8) void {
     @memset(marks, '.');
     for (list) |iv| {
@@ -310,7 +320,7 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("\nsorted by start, the only preparation the pass needs\n");
     try writeRows(out, intervals);
 
-    // The traced pass, and the plain one it has to agree with.
+    // The pass with a trace, and the plain pass. The two must agree.
     var traced_storage: [32]Interval = undefined;
     var merged_storage: [32]Interval = undefined;
     try out.writeAll("\none pass, each interval against the run being built\n");
@@ -323,8 +333,8 @@ pub fn main(init: std.process.Init) !void {
         .{sameRuns(traced, merged)},
     );
 
-    // The same pass with the end taken from the interval instead of from the
-    // larger of the two.
+    // The same pass, with the end from the interval instead of the larger of
+    // the two ends.
     var wrong_storage: [32]Interval = undefined;
     var wrong_trace: [32]Interval = undefined;
     try out.writeAll("\nthe same pass with end = next end, in place of the larger end\n");
@@ -333,7 +343,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("  {d} runs:", .{wrong.len});
     try writeList(out, wrong);
 
-    // A coordinate map, painted from the input and from each answer.
+    // A map of the coordinates, from the input and from each answer.
     var from_input: [map_width]u8 = undefined;
     var from_merged: [map_width]u8 = undefined;
     var from_wrong: [map_width]u8 = undefined;
@@ -356,7 +366,8 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.writeByte('\n');
 
-    // Merging cannot answer how many are open at once, so build events.
+    // A merge cannot tell how many intervals are open at one time. Thus make
+    // events.
     var event_storage: [64]Event = undefined;
     var event_count: usize = 0;
     for (intervals) |iv| {
@@ -391,7 +402,7 @@ pub fn main(init: std.process.Init) !void {
         .{ peak.rooms, peak.at },
     );
 
-    // The same count, taken one coordinate at a time.
+    // The same count, one coordinate at a time.
     var depth: [map_width]u8 = undefined;
     @memset(&depth, '.');
     var deepest: u8 = 0;
@@ -421,9 +432,9 @@ pub fn main(init: std.process.Init) !void {
         },
     );
 
-    // The other convention, on the same data. An interval read as [start, end)
-    // releases its coordinate before the next one claims it, and [40, 40)
-    // holds nothing at all.
+    // The other convention, on the same data. With [start, end), an interval
+    // releases its end coordinate before the next interval takes it. [40, 40)
+    // holds no coordinates.
     var half_storage: [64]Event = undefined;
     var half_count: usize = 0;
     for (intervals) |iv| {

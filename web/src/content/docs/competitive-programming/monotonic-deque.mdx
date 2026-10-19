@@ -1,8 +1,8 @@
 ---
 title: The Monotonic Deque
 seoTitle: "Zig Sliding Window Maximum: The Monotonic Deque in One Pass"
-description: The largest value in every window, from a deque whose two ends drop indices for two different reasons.
-seoDescription: The sliding window maximum in Zig, with both ends of the deque printed on every step. Why a carried maximum goes wrong the moment the largest value leaves, why rescanning on loss is correct and still quadratic on the wrong input, how the back evicts on value while the front expires on index, and the push and pop counts behind one pass.
+description: The largest value in each window, from a deque with two ends that remove indices for two different reasons.
+seoDescription: The sliding window maximum in Zig, with a trace of the deque at each step. The back removes by value, the front removes by index, in one pass.
 section: Competitive Programming
 order: 90
 ---
@@ -10,49 +10,33 @@ order: 90
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-A window moves across an array one step at a time.
+A window moves across an array one step at a time. At each step, one value enters from the right and one value leaves from the left. The problem is to find the largest value in each window.
 
-One value enters from the right.
+There are three cases:
 
-One value leaves from the left.
+- If the previous maximum is still inside the new window, the answer can stay the same.
+- If the new value is larger, the new value becomes the new maximum.
+- If the old maximum is the value that left, the answer is not known. This case is difficult.
 
-For every window, we want to know the largest value.
+A monotonic deque solves the problem in one pass.
 
-If the previous maximum is still inside the new window, the answer may stay the same.
-
-If the new value is larger, it becomes the new maximum.
-
-The difficult case is when the old maximum is the value that just left.
-
-A monotonic deque solves this in one pass.
-
-The example below uses twelve values and a window size of four. That gives nine windows.
-
-The program prints what happens at both ends of the deque on every step.
+The example below uses twelve values and a window size of four. Thus there are nine windows. The program prints the changes at the two ends of the deque at each step.
 
 <Playground name="23-competitive.monotonic-deque" />
 
-## Carrying only the maximum does not work
+## Do not carry only the maximum
 
-A sliding sum is easy to maintain because we can add the incoming value and subtract the outgoing value.
+A sliding sum is easy to update, because you can add the value that enters and subtract the value that leaves. A maximum does not work in the same way.
 
-A maximum does not work that way.
-
-If the largest value leaves the window, we cannot recover the next largest value from a single stored number.
-
-We did not keep enough information.
+If the largest value leaves the window, one stored number cannot give the next largest value. The stored number does not hold sufficient information.
 
 <SnippetSource name="23-competitive.monotonic-deque" decl="carryMax" />
 
-One correct solution is to scan every window from scratch.
+One correct solution is to scan each window again from the start. The cost is `k` comparisons for each window.
 
-That costs `k` comparisons per window.
+A different method keeps the previous maximum and compares it with the new value. This method is faster, but it gives the wrong answer when the previous maximum leaves the window.
 
-Another idea is to keep the previous maximum and compare it with the new value.
-
-That is faster, but it is wrong when the previous maximum leaves the window.
-
-Here are both methods on the example input:
+The two methods on the example input:
 
 ```
   window       values        rescan  carried
@@ -68,27 +52,16 @@ Here are both methods on the example input:
   36 comparisons to rescan, 2 of 9 windows carried wrong
 ```
 
-The value 8 at index 2 is the maximum for the first few windows.
+The value 8 at index 2 is the maximum for the first three windows. When the value 8 leaves, the carried value is still 8, but 8 is not inside the window. Later, the same problem occurs with 9.
 
-When it leaves, the carried value is still 8 even though 8 is no longer inside the window.
-
-The same thing happens later with 9.
-
-## Rescan only when the maximum leaves
+## Scan again only when the maximum leaves
 
 <SnippetSource name="23-competitive.monotonic-deque" decl="rescanOnLoss" />
 
-We can improve the previous idea.
+The previous method can be better. When the window moves, compare the value that leaves with the current maximum:
 
-When the window moves, compare the leaving value with the current maximum.
-
-If they are different, the maximum is still somewhere inside the window.
-
-We only need to compare the incoming value with it.
-
-If the leaving value is the current maximum, we no longer know the next largest value.
-
-In that case, scan the new window again.
+- If the two values are different, the maximum is still inside the window. Compare only the value that enters with the maximum.
+- If the value that leaves is the current maximum, the next largest value is not known. Scan the new window again.
 
 For this input:
 
@@ -96,31 +69,25 @@ For this input:
 rescanning only when the maximum leaves: 18 comparisons, agrees -> true
 ```
 
-This is correct and much cheaper than scanning every window on this particular array.
+On this array, the method is correct and costs much less than a scan of each window. But the method can still be slow on a different input. If the maximum leaves at each slide, the method scans almost each window again. A monotonic deque does not have this problem.
 
-But it can still be slow on the wrong input.
-
-If the maximum leaves on every slide, we end up rescanning almost every window.
-
-A monotonic deque avoids that.
-
-## Store useful indices in decreasing order
+## Keep useful indices in descending order
 
 <SnippetSource name="23-competitive.monotonic-deque" decl="dequeMax" />
 
-The deque stores indices, not values.
+The deque holds indices, not values. From front to back, the values at those indices are in descending order. The front always points to the largest useful value in the current window.
 
-The values at those indices are kept in decreasing order from front to back.
+Two rules keep the deque correct:
 
-The front always points to the largest useful value in the current window.
+- When a new value arrives, the back removes indices with smaller values.
+- When the window moves, the front removes indices that are now outside the window.
 
-Two rules maintain the deque.
+Each row below shows one value that arrives. The row also shows these items:
 
-When a new value arrives, the back removes indices whose values are smaller.
-
-When the window moves, the front removes indices that are now outside it.
-
-Each row below shows one arriving value, what was removed from the back, what expired from the front, the deque after the step, and the current maximum.
+- The indices that the back removed.
+- The indices that expired from the front.
+- The deque after the step.
+- The current maximum.
 
 ```
    i  val  evicted from back     expired  deque, front to back      max
@@ -138,87 +105,37 @@ Each row below shows one arriving value, what was removed from the back, what ex
   11    3  10:2                  7:9      9:6 11:3                    6
 ```
 
-At index 2, the value 8 arrives.
+At index 2, the value 8 arrives. The back of the deque holds index 1 with value 3. The value 8 is larger than 3. Thus, while 8 is in the same window, index 1 can never become a future maximum. The back removes index 1.
 
-The back of the deque contains index 1 with value 3.
+The next value at the back is 5, and 5 is also smaller than 8. The back removes that index too. Then the deque adds index 2. Now the deque holds only `2:8`.
 
-Since 8 is larger than 3, index 1 can never become a future maximum while 8 is still in the same window.
+At index 7, the value 9 arrives. The back removes the values 1, 1 and 7, because all three values are smaller than 9.
 
-So index 1 is removed.
+At index 11, the two ends of the deque both remove an index. The new value 3 removes index 10, which holds 2. Then index 7 expires from the front, because index 7 is outside the current window. Index 7 holds 9. After index 7 leaves, the next index at the front is 9, with the value 6. Thus the maximum becomes 6.
 
-The next value at the back is 5, which is also smaller than 8.
+The maximum is always available directly from the front, as `items[d.front().?]`. You do not have to search the deque.
 
-That index is removed too.
+The deque keeps equal values, because the back rule removes only values that are strictly smaller. Thus, if two equal maximum values exist, the older value can expire while the newer value stays available.
 
-Then index 2 is added.
+## Remove by value at the back
 
-The deque now contains only `2:8`.
+The back rule answers one question: after the new value arrives, can an old value ever become the maximum again?
 
-At index 7, the value 9 arrives.
+Look at an entry in the deque with a value that is smaller than the new value. The new value is larger, and it is also further to the right. Thus the new value stays inside future windows for at least as long as the older, smaller value.
 
-It removes 1, 1 and 7 from the back because all three are smaller.
+Each future window that holds the older value also holds the newer value. The newer value is larger, thus the older value can never become the maximum. The back can remove the older index permanently.
 
-At index 11, both ends of the deque are used.
+## Remove by position at the front
 
-The new value 3 removes index 10, which holds 2.
+The front rule solves a different problem. The current window starts at index `start`. Each stored index that is smaller than `start` is outside the window. The front must remove that index, whatever its value is.
 
-Then index 7 expires from the front because it is outside the current window.
+This rule compares only indices. Values have no part in the rule.
 
-That index holds 9.
+For example, index 7 holds 9, the largest value in the full array. At the last step, index 7 must still leave, because the window starts at index 8.
 
-Once it leaves, the next index at the front is 9, whose value is 6.
+The two rules together keep the maximum of the current window at the front.
 
-So the maximum becomes 6.
-
-The maximum is always available directly from the front, as `items[d.front().?]`.
-
-There is no need to search the deque.
-
-Equal values are kept.
-
-The back rule only removes strictly smaller values.
-
-So if two equal maximum values exist, the older one may expire while the newer one remains available.
-
-## The back removes by value
-
-The back rule answers one question: can an old value ever become the maximum again after this new value arrives?
-
-Take an existing deque entry whose value is smaller than the new value.
-
-The new value is larger.
-
-It is also further to the right.
-
-So it will remain inside future windows at least as long as the older smaller value.
-
-Any future window containing the older value will also contain the newer one.
-
-Because the newer value is larger, the older value can never become the maximum.
-
-So the older index can be removed permanently.
-
-## The front removes by position
-
-The front rule handles a different problem.
-
-The current window starts at index `start`.
-
-Any stored index smaller than `start` is outside the window.
-
-It must be removed, no matter how large its value is.
-
-This rule compares only indices.
-
-Values play no part in it.
-
-For example, index 7 contains 9, the largest value in the whole array.
-
-At the final step, it still has to leave because the window begins at index 8.
-
-Together, the two rules keep the maximum of the current window at the front.
-
-The program also prints every index that leaves the deque:
+The program also prints each index that leaves the deque:
 
 ```
 every index that left the deque, in the order it left
@@ -235,23 +152,20 @@ every index that left the deque, in the order it left
       7      9  front    index 7 is below window start 8 at i=11
 ```
 
-A row marked `back` was removed because a larger value arrived.
+The two kinds of row have two different causes:
 
-A row marked `front` was removed because the index moved outside the window.
+- A row with `back` shows an index that left because a larger value arrived.
+- A row with `front` shows an index that left because it moved outside the window.
 
-[The monotonic stack](/learn/competitive-programming/monotonic-stack/) only needs one end because its entries never expire from a moving window.
+[The monotonic stack](/learn/competitive-programming/monotonic-stack/) needs only one end, because its entries never expire from a window that moves.
 
-A normal queue of the last `k` indices knows which indices expire.
-
-But it keeps values that can no longer become the maximum.
-
-The monotonic deque removes both kinds of index.
+A normal queue of the last `k` indices knows which indices expire. But the queue keeps values that can no longer become the maximum. The monotonic deque removes the two kinds of index.
 
 ## Why the algorithm is O(n)
 
-The two `while` loops inside the `for` loop are still linear, for the same reason as in [the monotonic stack](/learn/competitive-programming/monotonic-stack/).
+The two `while` loops inside the `for` loop are still linear. The reason is the same as in [the monotonic stack](/learn/competitive-programming/monotonic-stack/).
 
-Each index is pushed once and removed at most once, so there are at most about `2n` deque operations.
+The algorithm pushes each index one time and removes each index one time or less. Thus there are at most about `2n` deque operations.
 
 For this input:
 
@@ -261,43 +175,27 @@ deque and rescan agree -> true
   22 moves over 12 values, ceiling 2n = 24
 ```
 
-Twelve indices are pushed.
-
-Eight leave from the back.
-
-Two leave from the front.
-
-Two remain when the algorithm finishes.
-
-Those numbers add up to twelve indices.
+The algorithm pushes twelve indices. Eight indices leave from the back and two leave from the front. Two indices stay in the deque when the algorithm stops. The sum of those numbers is twelve indices.
 
 [Sliding Window](/learn/competitive-programming/sliding-window/) uses the same kind of amortised argument.
 
-## The deque implementation
+## Make the deque
 
 <SnippetSource name="23-competitive.monotonic-deque" decl="Deque" />
 
-The deque uses a plain array and two indices.
+The deque uses a plain array and two indices. The indices do not wrap around to the start of the array. This design is sufficient for this algorithm, because the algorithm pushes each input index only one time.
 
-There is no wraparound.
+`tail` moves forward one slot for each push. Thus an array with `n` slots can hold each index that the algorithm will insert. After `tail` moves past a slot, the algorithm never inserts that index again.
 
-That is enough for this algorithm because each input index is pushed only once.
+A ring buffer lets the deque use old storage positions again, but this algorithm does not need that.
 
-`tail` advances once per push.
+## Compare the methods
 
-So an array with `n` slots can hold every index that will ever be inserted.
+The program compares three methods:
 
-Once a slot is passed, that exact index is never inserted again.
-
-A ring buffer would allow old storage positions to be reused, but this algorithm does not need that.
-
-## Comparing the approaches
-
-The program compares three strategies:
-
-- rescan every window
-- carry the maximum and rescan only when it leaves
-- monotonic deque
+- Scan each window again.
+- Carry the maximum, and scan again only when the maximum leaves.
+- Use a monotonic deque.
 
 ```
 what each array costs
@@ -308,33 +206,13 @@ what each array costs
   random     1000 100   90100     1990    1000   983     10
 ```
 
-For the original input, rescanning every window needs 36 comparisons.
+For the example input, a new scan of each window needs 36 comparisons. A new scan only when the maximum leaves needs 18. The deque does a linear number of pushes and pops.
 
-Rescanning only when the maximum leaves needs 18.
+The "falling" array shows the weak point of the second method. In an array with values that decrease, the maximum is always at the left side of the window. Thus the maximum leaves at each slide, and the method must scan the full window each time. The cost becomes the same as a scan of each window.
 
-The deque performs a linear number of pushes and pops.
+The "rising" array is different. Each new value becomes the maximum, thus the second method costs very little. The deque removes almost all of its indices from the back at each step, but the deque can remove each index only one time.
 
-The falling array shows the weakness of the rescan-on-loss method.
-
-In a decreasing array, the maximum is always at the left side of the window.
-
-So it leaves on every slide.
-
-That forces a complete rescan every time.
-
-The method falls back to the same cost as rescanning every window.
-
-The rising array behaves differently.
-
-Every new value becomes the maximum.
-
-The rescan-on-loss method is very cheap there.
-
-The deque removes almost everything from the back on each step, but each index can still be removed only once.
-
-The final row shows the difference more clearly.
-
-For 1,000 values and a window size of 100:
+The last row shows the difference more clearly. For 1,000 values and a window size of 100:
 
 ```
 rescan       90,100 reads
@@ -342,24 +220,15 @@ on loss       1,990 reads
 deque         1,000 pushes and 993 pops
 ```
 
-The cost of the first two strategies depends heavily on the shape of the input.
+The cost of the first two methods depends very much on the shape of the input. The total work of the deque stays O(n) for each input.
 
-The total work of the deque stays O(n) for every input.
+## Use the same pattern again
 
-## Reusing the same pattern
+If you reverse the comparison at the back, the same structure gives the minimum value in each window:
 
-If we reverse the back comparison, the same structure gives the minimum value in every window.
+- For the maximum, remove smaller values from the back.
+- For the minimum, remove larger values from the back.
 
-For the maximum, remove smaller values from the back.
+You can also keep two deques at the same time. One deque tracks the maximum, and the other deque tracks the minimum. Then, after the deque updates, each window gives the two values in O(1).
 
-For the minimum, remove larger values from the back.
-
-We can also maintain two deques at the same time.
-
-One can track the maximum.
-
-The other can track the minimum.
-
-Then every window gives both values in O(1) after the deque updates.
-
-This is useful for problems that ask about the difference between the largest and smallest value inside each window.
+This method is useful for problems about the difference between the largest and the smallest value in each window.

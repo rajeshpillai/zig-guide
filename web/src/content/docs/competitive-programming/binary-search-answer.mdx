@@ -1,8 +1,8 @@
 ---
 title: Binary Search on the Answer
 seoTitle: "Zig Binary Search on the Answer: Monotonic Predicates and Bounds"
-description: Searching a range of possible answers instead of an array, with a greedy pack as the predicate and a brute-force scan checking the boundary.
-seoDescription: Binary search on the answer in Zig, with the program printing every capacity it tries. The monotonic predicate that makes a range searchable, minimum ship capacity in D days packed day by day, where the two bounds come from, the wrong bound that fails silently, O(n log range) against a scan of the whole range, and what the same loop returns when the predicate is not monotonic.
+description: Search a range of possible answers instead of an array, with a greedy pack as the predicate and a full scan to check the boundary.
+seoDescription: Binary search on the answer in Zig, with a trace of each capacity. The monotonic predicate, the two bounds, a wrong bound, and O(n log range).
 section: Competitive Programming
 order: 60
 ---
@@ -10,29 +10,23 @@ order: 60
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-A shipping company has a list of packages that must be loaded onto a boat in the same order they arrive. The goal is to ship all the packages within four days.
+A company ships packages by boat, and it has a list of packages. The company must load the packages onto a boat in the same order that they arrive. The goal is to ship all of the packages in four days or fewer.
 
-We need to find the minimum boat capacity required.
+The task is to find the minimum capacity of the boat. The input does not contain this value directly. Thus there is no sorted array to search.
 
-This value does not appear directly in the input, so there is no sorted array that we can search.
+But for each capacity, you can ask a simple question:
 
-But for any given capacity, we can ask a simple question:
+Can a boat with this capacity ship all of the packages in four days or fewer?
 
-Can all packages be shipped within four days using this capacity?
+For example, a capacity of 9 tonnes is not sufficient. A capacity of 61 tonnes is sufficient. Also, if a capacity works, each larger capacity also works.
 
-For example, a capacity of 9 tonnes is not enough. A capacity of 61 tonnes is enough.
-
-Also, if a capacity works, every larger capacity will work.
-
-So the results look like this:
+Thus the results have this shape:
 
 ```
 no no no no ... yes yes yes yes ...
 ```
 
-There is one point where the answer changes from `no` to `yes`.
-
-We can use binary search to find that point.
+The answer changes from `no` to `yes` at one point. Binary search can find that point.
 
 <Playground name="23-competitive.binary-search-answer" />
 
@@ -40,17 +34,11 @@ We can use binary search to find that point.
 
 <SnippetSource name="23-competitive.binary-search-answer" decl="feasible" />
 
-The packages must be loaded in arrival order.
+The packages must go onto the boat in the order of arrival. For a given capacity, the function adds packages to the load of the current day. If the next package does not fit, the function starts a new day.
 
-For a given capacity, we keep adding packages to the current day's load. If the next package does not fit, we start a new day.
+The function has no other choices to make. Thus the same capacity always gives the same number of days for the same list of packages.
 
-There are no other choices to make. The same capacity will always produce the same number of days for the same package list.
-
-`daysNeeded` returns null when a single package is heavier than the given capacity.
-
-That capacity can never work because the package cannot be loaded at all.
-
-`feasible` therefore treats null as `false`.
+`daysNeeded` returns null when one package is heavier than the given capacity. That capacity can never work, because the boat cannot load the package. Thus `feasible` uses `false` for null.
 
 <SnippetSource name="23-competitive.binary-search-answer" decl="daysNeeded" />
 
@@ -63,35 +51,25 @@ capacity 35, packed in arrival order
   2 days against a limit of 4 -> feasible
 ```
 
-A capacity of 35 finishes in two days, so it is feasible.
+A capacity of 35 completes the work in two days. Thus the capacity is feasible.
 
-The binary search does not need to know that it took exactly two days. It only needs the result:
+The binary search does not have to know that the work took exactly two days. The binary search needs only the result:
 
 ```
 true
 ```
 
-Each call to `feasible` checks the package list once. This is the `n` part of the final time complexity.
+Each call to `feasible` reads the list of packages one time. This is the `n` part of the final time complexity.
 
-## Choosing the lower and upper bounds
+## Choose the lower and upper bounds
 
-The lower bound is the weight of the heaviest package.
+The lower bound is the weight of the heaviest package. The heaviest package weighs 9 tonnes. Thus the capacity of the boat must be 9 or more. Do not test a value below 9.
 
-The heaviest package weighs 9 tonnes, so the boat must have a capacity of at least 9.
+The upper bound is the total weight of all of the packages. The total is 61 tonnes. With a capacity of 61, the boat can load all of the packages in one day.
 
-There is no reason to test anything below 9.
+Thus the answer is between 9 and 61. These bounds come directly from the input. Thus they stay correct when the weights of the packages change.
 
-The upper bound is the total weight of all packages.
-
-The total is 61 tonnes. With a capacity of 61, every package can be loaded in one day.
-
-So the answer must be somewhere between 9 and 61.
-
-These bounds come directly from the input. They continue to work even when the package weights change.
-
-Using a guessed bound can make the binary search return the wrong answer.
-
-For example, using the average load per day as the upper bound is incorrect:
+A bound that you guess can make the binary search return the wrong answer. For example, the average load for each day is an incorrect upper bound:
 
 ```
 with the high bound set to total / days = 15
@@ -99,47 +77,38 @@ with the high bound set to total / days = 15
   6 days needed there, limit 4
 ```
 
-The binary search still returns 15 because that is the highest value available inside the search range.
+The binary search returns 15, because 15 is the highest value in the search range. The loop did not make a mistake. The search range was wrong, and the range did not contain a feasible value.
 
-The loop itself did nothing wrong. The search range was wrong.
+Thus it is useful to check the result after the search:
 
-There was no feasible value inside that range.
+- The returned answer must be feasible.
+- The value immediately below the answer must not be feasible.
 
-This is why it is useful to check the result after the search.
-
-The returned answer should be feasible.
-
-The value immediately below it should not be feasible.
-
-## Binary search using a predicate
+## Use a predicate in the binary search
 
 <SnippetSource name="23-competitive.binary-search-answer" decl="firstFeasible" />
 
-[Binary Search](/learn/competitive-programming/binary-search/) explains the half-open search window and the invariant used by this loop.
+[Binary Search](/learn/competitive-programming/binary-search/) explains the half-open search window and the invariant of this loop. The main difference here is the comparison.
 
-The main difference here is the comparison.
-
-In a normal lower-bound search, we may write something like:
+A usual lower-bound search can use a comparison such as:
 
 `items[mid] < key`
 
-This means `mid` is too small, so we move the lower bound to:
+If the comparison is true, `mid` is too small. Thus the search moves the lower bound to:
 
 `mid + 1`
 
-Here we use:
+This search uses:
 
 `!pred(ship, mid)`
 
-If the predicate returns false, that capacity is too small.
-
-So we again move to:
+If the predicate returns false, that capacity is too small. Thus the search again moves to:
 
 `mid + 1`
 
-If the predicate returns true, `mid` may be the answer, so we keep it inside the search range.
+If the predicate returns true, `mid` can be the answer. Thus the search keeps `mid` inside the search range.
 
-The binary search structure is the same. Instead of reading a value from an array, we call a function that tells us whether the current value works.
+The structure of the binary search does not change. The search does not read a value from an array. It calls a function that tells if the current value works.
 
 For this example:
 
@@ -155,15 +124,11 @@ binary search over the capacities
   window closed after 6 steps on capacity 16
 ```
 
-There are 53 possible capacities from 9 to 61.
+There are 53 possible capacities from 9 to 61. Binary search finds the answer with six calls to the predicate.
 
-Binary search finds the answer using six predicate calls.
+At step three, capacity 15 fails because it needs six days. Thus the search removes 15 and each smaller capacity.
 
-At step three, capacity 15 fails because it needs six days.
-
-Therefore 15 and every smaller capacity can be removed from the search.
-
-## Checking the boundary
+## Check the boundary
 
 Capacity 15 does not work:
 
@@ -178,7 +143,7 @@ capacity 15, packed in arrival order
   6 days against a limit of 4 -> too slow
 ```
 
-It needs six days, so it misses the four-day deadline.
+Capacity 15 needs six days. Thus it does not meet the limit of four days.
 
 Capacity 16 works:
 
@@ -191,19 +156,15 @@ capacity 16, packed in arrival order
   4 days against a limit of 4 -> feasible
 ```
 
-So 16 is the minimum feasible capacity.
+Thus 16 is the minimum feasible capacity.
 
-Notice that increasing the capacity from 15 to 16 changes several day boundaries.
-
-The algorithm packs the packages again from the beginning. It does not modify the packing produced for capacity 15.
+When the capacity increases from 15 to 16, the boundaries of several days change. The algorithm packs the packages again from the start. It does not change the plan for capacity 15.
 
 ## Verify the result with a full scan
 
 <SnippetSource name="23-competitive.binary-search-answer" decl="writeScan" />
 
-This example has only 53 possible capacities, so we can also test every capacity.
-
-The program prints one character for each value:
+This example has only 53 possible capacities. Thus the program can also test each capacity. The program prints one character for each value:
 
 ```
 every capacity from 9 to 61, '#' means feasible
@@ -213,33 +174,24 @@ every capacity from 9 to 61, '#' means feasible
   predicate calls: 53 scanning, 6 searching
 ```
 
-The dots represent capacities that do not work.
+A dot shows a capacity that does not work. A `#` character shows a capacity that works.
 
-The `#` characters represent capacities that work.
-
-The output changes exactly once:
+The output changes exactly one time:
 
 ```
 false -> true
 ```
 
-This is the property required for binary search on the answer.
+Binary search on the answer must have this property. For a small test case, a scan of the full range is a useful method to verify that the predicate is monotonic.
 
-For a small test case, scanning the whole range is a useful way to verify that the predicate is monotonic.
+Here, binary search uses six calls to the predicate instead of 53. The difference is much more important when the range is large.
 
-Here binary search uses six predicate calls instead of 53.
+For example, the range of possible capacities can contain one billion values:
 
-The difference becomes much more important when the range is large.
+- A full scan can need one billion calls to the predicate.
+- Binary search needs only approximately 30 calls, because each step removes approximately half of the search range. `2^30` is a little more than one billion.
 
-Suppose the possible capacity range contains one billion values.
-
-A full scan could require one billion predicate calls.
-
-Binary search needs only about 30 calls because the search range is divided roughly in half each time. `2^30` is slightly more than one billion.
-
-Each predicate call scans the `n` packages once.
-
-So the binary-search solution takes:
+Each call to the predicate reads the `n` packages one time. Thus the binary-search solution takes:
 
 ```
 O(n log range)
@@ -251,19 +203,15 @@ A full scan takes:
 O(n * range)
 ```
 
-For large ranges, scanning every possible answer is usually too slow.
+For a large range, a scan of each possible answer is usually too slow.
 
 ## The predicate must be monotonic
 
 <SnippetSource name="23-competitive.binary-search-answer" decl="feasibleAndFull" />
 
-Now consider another rule.
+Now add a different rule: each day must also use half of the capacity of the boat or more.
 
-Suppose every day must also use at least half of the boat's capacity.
-
-This may sound like a small change, but it breaks the property required by binary search.
-
-Increasing the boat capacity can now make a previously valid plan invalid.
+This change looks small, but it removes the property that binary search needs. Now a larger capacity can make a plan fail that worked before.
 
 For example:
 
@@ -275,34 +223,16 @@ now require every day to fill at least half the hold
   feasibleAndFull(31) = true, and 8 smaller capacities pass too
 ```
 
-The predicate changes between true and false several times.
-
-There is no single boundary of the form:
+The predicate changes between true and false many times. There is no single boundary of this form:
 
 ```
 false false false ... true true true ...
 ```
 
-Binary search still runs and returns 31.
+Binary search continues to run and returns 31. Capacity 31 satisfies the predicate, but 31 is not the smallest value that satisfies it. Capacity 16 also works, and so do some other smaller values.
 
-Capacity 31 satisfies the predicate, but it is not the smallest value that does.
+The binary search cannot find this problem. At each step, the search assumes that one result of the predicate lets it remove half of the range. That assumption is correct only when the predicate is monotonic.
 
-Capacity 16 also works, along with several other smaller values.
+For the original problem, the monotonic property is clear. If a capacity can ship all of the packages in the necessary number of days, a larger capacity cannot need more days. Thus when the predicate becomes true, it stays true for each larger capacity.
 
-The binary search cannot detect this problem.
-
-At every step it assumes that one predicate result allows half of the remaining range to be discarded.
-
-That assumption is only valid when the predicate is monotonic.
-
-For the original shipping problem, the monotonic property is clear.
-
-If a capacity can ship all packages within the required number of days, increasing that capacity cannot require more days.
-
-So once the predicate becomes true, it stays true for every larger capacity.
-
-The half-full rule does not have this property.
-
-Before using binary search on the answer, make sure you can explain why the predicate is monotonic.
-
-For small test cases, you can also scan the complete range and check how many times the predicate changes.
+The half-full rule does not have this property. Before you use binary search on the answer, make sure that you can explain why the predicate is monotonic. For small test cases, you can also scan the full range and count the changes of the predicate.

@@ -1,16 +1,17 @@
 //! title: Breadth-First Search on a Grid
-//! Fewest moves from one cell to another, with the distance field printed as
-//! the frontier expands. The program runs the same search twice, once marking
-//! a cell seen as it goes into the queue and once as it comes out, and counts
-//! what the second one costs. Every table here is output CI diffed.
+//! The fewest moves from one cell to a different cell. The program prints the
+//! distance field as the frontier grows. It runs the same search two times.
+//! The first search marks a cell when the cell enters the queue. The second
+//! search marks a cell when the cell leaves the queue, and the program counts
+//! the cost of the second search. CI compared each table here with the output.
 
 const std = @import("std");
 
 /// The grid, as text.
 ///
-/// A snippet here runs under WASI in a browser tab, where there is no stdin to
+/// A snippet here runs under WASI in a browser tab. The tab has no stdin to
 /// read. `#` is a wall, `.` is open, `S` is the start and `T` is the target.
-/// The parser below reads it the way it would read a real file.
+/// The parser below reads the grid in the same way that it reads a real file.
 const input =
     \\S.....#......
     \\......#...#..
@@ -23,20 +24,22 @@ const input =
     \\..#.........T
 ;
 
-/// Where a cell is. Rows and columns are `usize` because they index.
+/// The position of a cell. Rows and columns are `usize` because they are
+/// indices.
 const Pos = struct { r: usize, c: usize };
 
 /// One of the four moves, as a pair of signed offsets.
 ///
-/// `i8` and not `usize`. Moving up from row 0 has to produce something that is
-/// recognisably off the grid. Subtracting one from an unsigned row of zero
-/// does not: it overflows, which panics in a safety build and is undefined
-/// behaviour in the release build this page ships. The offsets stay signed
-/// until the bounds check has passed.
+/// Use `i8`, not `usize`. A move up from row 0 must give a value that is
+/// clearly off the grid. A subtraction of one from an unsigned row of zero
+/// does not give such a value. The subtraction overflows. In a safety build,
+/// the overflow causes a panic, and in the release build that this page ships,
+/// it is undefined behaviour. The offsets stay signed until the bounds check
+/// is complete.
 const Step = struct { dr: i8, dc: i8, name: []const u8 };
 
-/// Up, down, left, right. The order does not change the distances. It does
-/// decide which path a depth-first walk picks.
+/// Up, down, left, right. The order does not change the distances. But the
+/// order decides which path a depth-first search finds.
 const moves = [4]Step{
     .{ .dr = -1, .dc = 0, .name = "up" },
     .{ .dr = 1, .dc = 0, .name = "down" },
@@ -72,9 +75,9 @@ const Grid = struct {
 
     /// The cell one move from `p`, or null when that move leaves the grid.
     ///
-    /// The arithmetic happens in `isize`, where -1 is a value like any other.
-    /// Both bounds are checked before the result is narrowed back to `usize`,
-    /// so nothing subtracts one from a zero-valued index anywhere in the file.
+    /// The arithmetic uses `isize`, where -1 is a normal value. The function
+    /// checks the two bounds before it changes the result back to `usize`.
+    /// Thus no code in the file subtracts one from an index with the value zero.
     fn step(g: Grid, p: Pos, m: Step) ?Pos {
         const r = @as(isize, @intCast(p.r)) + m.dr;
         const c = @as(isize, @intCast(p.c)) + m.dc;
@@ -90,10 +93,11 @@ const Grid = struct {
 
 /// Read the grid out of a reader, one line per row.
 ///
-/// Taking a `*std.Io.Reader` rather than the string is the same discipline the
-/// networking chapters use for protocols. On a judge, pass a reader over a
-/// file and the function stays the same. Rows of different lengths are
-/// rejected here rather than at the first index that walks off the end of one.
+/// The function takes a `*std.Io.Reader` instead of the string. The
+/// networking chapters use the same method for protocols. On a judge, give the
+/// function a reader for a file. The function does not change. The function
+/// rejects rows of different lengths here. Thus the error does not occur later,
+/// at the first index that goes past the end of a row.
 fn readGrid(reader: *std.Io.Reader, out: []u8) !Grid {
     var rows: usize = 0;
     var cols: usize = 0;
@@ -110,19 +114,19 @@ fn readGrid(reader: *std.Io.Reader, out: []u8) !Grid {
     return .{ .cells = out[0..used], .rows = rows, .cols = cols };
 }
 
-/// One waiting cell: where it is, and how far it is from the start.
+/// One cell in the queue: its position, and its distance from the start.
 ///
-/// Carrying the distance in the queue rather than reading it out of the
-/// distance array keeps the two searches below comparable: the only thing
-/// that moves between them is where a cell is marked.
+/// The queue holds the distance, and the searches do not read it from the
+/// distance array. Thus the two searches below are comparable. The only
+/// difference between them is the point where a cell gets its mark.
 const Entry = struct { cell: usize, dist: u32 };
 
 /// A queue that is an array, a read index and a write index.
 ///
-/// `pop` moves `head` forward and never reclaims the slot behind it, so the
-/// number of slots this needs is the number of pushes over the whole search
-/// and not the most it ever held at once. The two searches below disagree
-/// about that number.
+/// `pop` moves `head` forward and never uses the slot behind it again. Thus
+/// the queue needs one slot for each push in the full search. The largest
+/// number of entries at one time is not the limit. The two searches below give
+/// different numbers of pushes.
 const Queue = struct {
     slots: []Entry,
     head: usize = 0,
@@ -145,7 +149,7 @@ const Queue = struct {
     }
 };
 
-/// What a search cost.
+/// The cost of a search.
 const Cost = struct {
     pushes: usize = 0,
     pops: usize = 0,
@@ -153,16 +157,16 @@ const Cost = struct {
     longest: usize = 0,
 };
 
-/// Fewest moves from `start` to every reachable cell.
+/// The fewest moves from `start` to each cell that the search can get to.
 ///
-/// A cell is marked the moment it is pushed. Every push therefore takes a cell
-/// that has never been pushed before, which caps the pushes at the number of
-/// cells and lets the queue be sized exactly once, up front.
+/// The search marks a cell at the time of its push. Thus each push takes a
+/// cell that no earlier push took. The number of cells is the limit for the
+/// pushes, and you can choose the size of the queue one time, at the start.
 ///
-/// The distances come out right because the queue hands cells back in the
-/// order they went in. All the cells at distance `d` are pushed before any at
-/// `d + 1`, so they come out first as well, and the first time a cell is
-/// reached is by a route as short as any other.
+/// The distances are correct because the queue gives back cells in the order
+/// that they went in. The search pushes all the cells at distance `d` before a
+/// cell at `d + 1`. Thus the cells at distance `d` also leave first. When the
+/// search first gets to a cell, the route is as short as each other route.
 fn bfsMarkOnPush(
     g: Grid,
     start: usize,
@@ -198,13 +202,13 @@ fn bfsMarkOnPush(
     }
 }
 
-/// The same search, marking a cell when it comes out of the queue.
+/// The same search, but it marks a cell when the cell leaves the queue.
 ///
-/// The mark moves down two lines and the answers do not change. A cell now
-/// enters the queue once for every neighbour that expands before the cell is
-/// first popped, so the pushes are bounded by the moves between cells rather
-/// than by the cells. The skip on the way out is what keeps the result
-/// correct, and it is the only reason the extra copies are harmless.
+/// The mark moves from the push to the pop, and the answers do not change. Now a cell
+/// enters the queue one time for each neighbour that expands before the first
+/// pop of the cell. Thus the limit for the pushes is the number of moves
+/// between cells, not the number of cells. The skip at the pop keeps the
+/// result correct. The skip is the only reason that the extra copies are safe.
 fn bfsMarkOnPop(
     g: Grid,
     start: usize,
@@ -241,10 +245,11 @@ fn bfsMarkOnPop(
 
 /// The distances again, from repeated relaxation instead of a queue.
 ///
-/// Sweep the whole grid, lower any cell that a neighbour can improve, and
-/// repeat until a sweep changes nothing. It shares no code with the searches
-/// above, so its agreement is an independent check. It also costs a sweep per
-/// level, because it does not know what order to look in.
+/// Sweep the full grid, and make the distance smaller for each cell that a
+/// neighbour can improve. Do the sweep again until a sweep changes nothing.
+/// This function shares no code with the searches above. Thus its agreement is
+/// an independent check. It also costs one sweep for each level, because it
+/// does not know the correct order of the cells.
 fn relaxDistances(g: Grid, start: usize, dist: []?u32, sweeps: *usize, looks: *usize) void {
     @memset(dist, null);
     dist[start] = 0;
@@ -269,11 +274,13 @@ fn relaxDistances(g: Grid, start: usize, dist: []?u32, sweeps: *usize, looks: *u
     }
 }
 
-/// The first path a depth-first walk finds, in the move order above.
+/// The first path that a depth-first search finds, with the order of moves
+/// above.
 ///
-/// It marks a cell seen on the way in and never unmarks it, so it visits each
-/// cell once and returns a path rather than the shortest path. `path` holds
-/// the cells still on the stack, which is the route back to the start.
+/// The search marks a cell as seen when it enters the cell, and it never
+/// removes the mark. Thus it visits each cell one time, and it returns a path,
+/// not the shortest path. `path` holds the cells that are still on the stack.
+/// These cells are the route back to the start.
 fn dfsFirstPath(
     g: Grid,
     at: usize,
@@ -296,7 +303,8 @@ fn dfsFirstPath(
     return false;
 }
 
-/// Walk `from` back to the start, filling `path` with the route forwards.
+/// Follow `from` back to the start, and put the route in `path` from start to
+/// target.
 fn tracePath(target: usize, from: []const ?usize, path: []usize) usize {
     var len: usize = 0;
     var cur: ?usize = target;
@@ -310,9 +318,9 @@ fn tracePath(target: usize, from: []const ?usize, path: []usize) usize {
 
 /// Right-align a value in a cell of `width` characters.
 ///
-/// `{d:>4}` would be shorter, and it prints a `+` in front of a non-negative
-/// signed integer as soon as a width is given. Formatting the digits first and
-/// padding them keeps the columns readable.
+/// `{d:>4}` is shorter, but it prints a `+` before a non-negative signed
+/// integer when you give a width. This function formats the digits first and
+/// then adds the padding. Thus the columns are easy to read.
 fn writeCell(out: *std.Io.Writer, value: i64, width: usize) !void {
     var digits: [24]u8 = undefined;
     const text = try std.mem.print(&digits, "{d}", .{value});
@@ -320,7 +328,7 @@ fn writeCell(out: *std.Io.Writer, value: i64, width: usize) !void {
     try out.writeAll(text);
 }
 
-/// The column numbers, above whatever grid comes next.
+/// The column numbers, above the next grid.
 fn writeHeader(out: *std.Io.Writer, g: Grid) !void {
     try out.writeAll("      ");
     for (0..g.cols) |c| try writeCell(out, @intCast(c), 3);
@@ -341,10 +349,10 @@ fn writeGrid(out: *std.Io.Writer, g: Grid, overlay: []const u8) !void {
     }
 }
 
-/// The distance field, hiding anything further out than `limit`.
+/// The distance field, without the cells that are further away than `limit`.
 ///
-/// A wall prints as `##` and a cell with no distance yet prints as a dot, so
-/// you can see the reachable region grow in the picture.
+/// A wall prints as `##`, and a cell with no distance prints as a dot. Thus
+/// you can see the region that the search got to become larger in the picture.
 fn writeField(out: *std.Io.Writer, g: Grid, dist: []const ?u32, limit: u32) !void {
     try writeHeader(out, g);
     for (0..g.rows) |r| {
@@ -373,11 +381,12 @@ fn writeCostRow(out: *std.Io.Writer, label: []const u8, cost: Cost) !void {
     try out.writeByte('\n');
 }
 
-/// `bfsMarkOnPush` with the field printed each time the frontier moves out one
+/// `bfsMarkOnPush`, but it prints the field each time the frontier moves one
 /// step past a distance in `snapshots`.
 ///
-/// Kept separate so the function above stays the shape you would paste into a
-/// solution. The run below checks that the two agree rather than trusting it.
+/// This function is separate, thus `bfsMarkOnPush` keeps the shape that you
+/// can copy into a solution. The run below checks that the two functions agree.
+/// It does not assume that they do.
 fn traceBfs(
     out: *std.Io.Writer,
     g: Grid,
@@ -442,7 +451,8 @@ pub fn main(init: std.process.Init) !void {
     try writeGrid(out, g, &.{});
     try out.writeByte('\n');
 
-    // Where the four moves land from the corner, and what stops two of them.
+    // The result of the four moves from the corner, and the reason that two
+    // moves fail.
     try out.writeAll("the four moves from the start, in signed arithmetic\n");
     try out.writeAll("  move    dr  dc     r     c  on the grid\n");
     const corner = g.at(start);
@@ -464,7 +474,7 @@ pub fn main(init: std.process.Init) !void {
     var path: [512]usize = undefined;
     var overlay: [512]u8 = undefined;
 
-    // The frontier, printed twice on the way out and once at the end.
+    // The frontier, printed two times while it grows and one time at the end.
     try out.writeAll("the distance field as the frontier expands\n");
     const snapshots = [_]u32{ 4, 17 };
     try traceBfs(out, g, start, dist[0..n], seen[0..n], slots[0..n], &snapshots);
@@ -475,7 +485,8 @@ pub fn main(init: std.process.Init) !void {
     try writeField(out, g, dist[0..n], std.math.maxInt(u32));
     try out.writeByte('\n');
 
-    // How many cells sit at each distance, and how many the walls seal off.
+    // The number of cells at each distance, and the number of cells that the
+    // walls isolate.
     var open_cells: usize = 0;
     var reached: usize = 0;
     var deepest: u32 = 0;
@@ -508,7 +519,7 @@ pub fn main(init: std.process.Init) !void {
         .{ open_cells, reached, deepest, open_cells - reached },
     );
 
-    // The route itself, drawn back through the parent of each cell.
+    // The route, from the parent of each cell back to the start.
     const path_len = tracePath(target, from[0..n], &path);
     @memset(overlay[0..n], 0);
     for (path[0..path_len]) |i| overlay[i] = 'o';
@@ -521,7 +532,8 @@ pub fn main(init: std.process.Init) !void {
     try writeGrid(out, g, overlay[0..n]);
     try out.writeByte('\n');
 
-    // The same target found by going deep instead of wide.
+    // The same target, with a depth-first search instead of a breadth-first
+    // search.
     var dfs_len: usize = 0;
     @memset(seen[0..n], false);
     if (!dfsFirstPath(g, start, target, seen[0..n], &path, &dfs_len)) return error.NoPath;
@@ -536,7 +548,7 @@ pub fn main(init: std.process.Init) !void {
     try writeGrid(out, g, overlay[0..n]);
     try out.writeByte('\n');
 
-    // What the queue costs, for each search.
+    // The cost of the queue, for each search.
     var pop_cost: Cost = .{};
     try bfsMarkOnPop(g, start, check[0..n], seen[0..n], &slots, &pop_cost);
 
@@ -564,7 +576,7 @@ pub fn main(init: std.process.Init) !void {
         .{ dist[target].?, check[target].?, std.mem.eql(?u32, dist[0..n], check[0..n]) },
     );
 
-    // A second implementation that shares nothing with the first.
+    // A second implementation that shares no code with the first.
     var sweeps: usize = 0;
     var looks: usize = 0;
     relaxDistances(g, start, check[0..n], &sweeps, &looks);

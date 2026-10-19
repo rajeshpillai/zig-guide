@@ -1,13 +1,13 @@
 //! title: Binary Search on the Answer
-//! The search space is a range of possible answers rather than an array. The
-//! predicate is a greedy pack, the bounds come out of the input, and the
-//! program prints the window closing, the boundary it lands on, a brute-force
-//! scan that has to agree with it, and a predicate that flickers so the same
-//! loop returns a number that means nothing.
+//! The search space is a range of possible answers, not an array. The
+//! predicate is a greedy pack, and the bounds come from the input. The program
+//! prints the window as it closes and the boundary that the search finds. Then
+//! it prints a full scan that must agree with the search. Last, it uses a
+//! predicate that changes many times, and the same loop returns a wrong number.
 
 const std = @import("std");
 
-/// The problem: package weights in loading order, then the number of days.
+/// The problem: package weights in the order of arrival, then the number of days.
 const input =
     \\5 3 8 2 9 4 7 6 1 8 3 5
     \\4
@@ -26,18 +26,18 @@ fn readRow(reader: *std.Io.Reader, out: []u32) ![]u32 {
     return out[0..count];
 }
 
-/// The ship, the deadline, and a count of how often the question was asked.
+/// The ship, the deadline, and a count of the calls to the predicate.
 ///
-/// Packages are loaded in the order they arrive, so a capacity fixes the whole
-/// plan. Fill today until the next package would overflow the hold, then start
-/// tomorrow. `calls` counts every predicate call so the two searches below can
-/// be priced against each other.
+/// The ship loads the packages in the order of arrival. Thus a capacity sets
+/// the full plan. Fill the current day until the next package does not fit,
+/// then start the next day. `calls` counts each call to the predicate. Thus
+/// you can compare the cost of the two searches below.
 const Ship = struct {
     weights: []const u32,
     limit: u32,
     calls: usize = 0,
 
-    /// Days needed at this capacity, or null when some package cannot be loaded.
+    /// The days necessary at this capacity, or null when a package does not fit.
     fn daysNeeded(self: *Ship, cap: u32) ?u32 {
         self.calls += 1;
         var days: u32 = 1;
@@ -53,22 +53,22 @@ const Ship = struct {
         return days;
     }
 
-    /// Does this capacity finish on time?
+    /// True when this capacity completes the work in the time limit.
     ///
-    /// False below the boundary and true at or above it, with one flip in
-    /// between. Nothing else in this file is allowed to assume that; the run
-    /// below checks it.
+    /// The result is false below the boundary and true at or above it. It
+    /// changes one time. No other code in this file can assume this property.
+    /// The run below checks it.
     fn feasible(self: *Ship, cap: u32) bool {
         const days = self.daysNeeded(cap) orelse return false;
         return days <= self.limit;
     }
 
-    /// The same question with a second condition added: no day may leave
-    /// more than half the hold empty.
+    /// The same question with a second condition: on each day, half of the
+    /// hold or more must be full.
     ///
-    /// It sounds like a tidier plan and it is not monotonic. A big ship
-    /// finishes early and sails half empty on the last day, so a capacity that
-    /// works can stop working when you add one tonne to it.
+    /// This plan looks better, but the predicate is not monotonic. A big ship
+    /// completes the work early and is half empty on the last day. Thus a
+    /// capacity that works can fail when you add one tonne to it.
     fn feasibleAndFull(self: *Ship, cap: u32) bool {
         const days = self.daysNeeded(cap) orelse return false;
         if (days > self.limit) return false;
@@ -88,12 +88,13 @@ const Ship = struct {
 
 const Predicate = *const fn (*Ship, u32) bool;
 
-/// First capacity in `[low, high]` that the predicate accepts.
+/// The first capacity in `[low, high]` that the predicate accepts.
 ///
-/// The loop is the one from the binary search chapter with the array taken
-/// out. `items[mid] < key` becomes `!pred(mid)`: mid is too small to be the
-/// answer, so `lo = mid + 1` discards it. The other branch leaves mid a
-/// candidate and keeps it. When the window empties, `lo` is the boundary.
+/// The loop is the loop from the binary search chapter, without the array.
+/// `items[mid] < key` becomes `!pred(mid)`: mid is too small to be the answer.
+/// Thus `lo = mid + 1` removes mid. In the other branch, mid can be the
+/// answer, and the loop keeps it. When the window is empty, `lo` is the
+/// boundary.
 fn firstFeasible(ship: *Ship, low: u32, high: u32, pred: Predicate) u32 {
     var lo = low;
     var hi = high;
@@ -104,10 +105,11 @@ fn firstFeasible(ship: *Ship, low: u32, high: u32, pred: Predicate) u32 {
     return lo;
 }
 
-/// The same walk with a row printed per step.
+/// The same search, but it prints one row for each step.
 ///
-/// Kept separate so the function above stays the shape you would paste into a
-/// solution. The run checks that the two return the same capacity.
+/// This function is separate. Thus the function above keeps the shape that you
+/// can copy into a solution. The run checks that the two functions return the
+/// same capacity.
 fn traceFirstFeasible(out: *std.Io.Writer, ship: *Ship, low: u32, high: u32) !u32 {
     var lo = low;
     var hi = high;
@@ -126,7 +128,7 @@ fn traceFirstFeasible(out: *std.Io.Writer, ship: *Ship, low: u32, high: u32) !u3
     return lo;
 }
 
-/// One day of the plan: the packages loaded, then the tonnage.
+/// One day of the plan: the packages on the boat, then the total weight.
 fn writeDay(out: *std.Io.Writer, day: u32, items: []const u32, load: u32) !void {
     try out.print("  day {d}:", .{day});
     var used: usize = 0;
@@ -138,7 +140,7 @@ fn writeDay(out: *std.Io.Writer, day: u32, items: []const u32, load: u32) !void 
     try out.print("load {d:>2}\n", .{load});
 }
 
-/// Run the greedy pack at one capacity and print the plan it produces.
+/// Run the greedy pack at one capacity and print the plan that it makes.
 fn writePacking(out: *std.Io.Writer, ship: *Ship, cap: u32) !void {
     try out.print("capacity {d}, packed in arrival order\n", .{cap});
     var start: usize = 0;
@@ -165,18 +167,18 @@ fn writePacking(out: *std.Io.Writer, ship: *Ship, cap: u32) !void {
     });
 }
 
-/// What an exhaustive scan of the range found.
+/// The result of a full scan of the range.
 const Scan = struct {
     first_true: ?u32,
     flips: usize,
     calls: usize,
 };
 
-/// Ask the predicate about every capacity in the range and draw the answers.
+/// Ask the predicate about each capacity in the range and print the answers.
 ///
-/// One character per capacity, so the shape of the predicate is visible rather
-/// than assumed. A monotonic predicate flips once. Anything else is not a
-/// question binary search can answer.
+/// The function prints one character for each capacity. Thus you can see the
+/// shape of the predicate, and you do not have to assume it. A monotonic
+/// predicate changes one time. Binary search cannot answer a different shape.
 fn writeScan(out: *std.Io.Writer, ship: *Ship, low: u32, high: u32, pred: Predicate) !Scan {
     const before = ship.calls;
     var first_true: ?u32 = null;
@@ -222,15 +224,16 @@ pub fn main(init: std.process.Init) !void {
     for (weights) |w| try out.print("{d:>3}", .{w});
     try out.print("\n  heaviest {d}, total {d}\n\n", .{ heaviest, total });
 
-    // The bounds. Nothing under the heaviest package can hold it, and one day
-    // at the total always works, so the boundary is somewhere in between.
+    // The bounds. A capacity below the heaviest package cannot hold that
+    // package. One day at the total always works. Thus the boundary is between
+    // the two bounds.
     try out.print("search range: [{d}, {d}], {d} candidates\n\n", .{
         heaviest,
         total,
         total - heaviest + 1,
     });
 
-    // What one predicate call actually does.
+    // The work of one call to the predicate.
     try writePacking(out, &ship, heaviest + (total - heaviest) / 2);
 
     ship.calls = 0;
@@ -241,7 +244,7 @@ pub fn main(init: std.process.Init) !void {
         answer == firstFeasible(&ship, heaviest, total, Ship.feasible),
     });
 
-    // The two packings on either side of the boundary prove the answer.
+    // The two plans on the two sides of the boundary prove the answer.
     try out.writeAll("either side of the boundary\n");
     try writePacking(out, &ship, answer - 1);
     try writePacking(out, &ship, answer);
@@ -257,7 +260,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("  the predicate flips {d} time, so it is monotonic\n", .{scan.flips});
     try out.print("  predicate calls: {d} scanning, {d} searching\n\n", .{ scan.calls, search_calls });
 
-    // Move a bound and the search still returns a number.
+    // Move a bound, and the search still returns a number.
     const average = total / ship.limit;
     const bad = firstFeasible(&ship, heaviest, average, Ship.feasible);
     try out.print("with the high bound set to total / days = {d}\n", .{average});
@@ -268,8 +271,9 @@ pub fn main(init: std.process.Init) !void {
     });
     try out.print("  {d} days needed there, limit {d}\n\n", .{ ship.daysNeeded(bad).?, ship.limit });
 
-    // A predicate that flips more than once. The loop terminates, returns a
-    // capacity, and that capacity is not the smallest one the predicate accepts.
+    // A predicate that changes more than one time. The loop stops and returns
+    // a capacity. That capacity is not the smallest one that the predicate
+    // accepts.
     ship.calls = 0;
     try out.writeAll("now require every day to fill at least half the hold\n");
     const flicker = try writeScan(out, &ship, heaviest, total, Ship.feasibleAndFull);

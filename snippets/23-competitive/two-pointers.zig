@@ -1,16 +1,16 @@
 //! title: Two Pointers
-//! Two indices start at the ends of a sorted array and walk towards each
-//! other. Every step prints the pair being held and the part of the array
-//! already thrown away, so the traces in the chapter are the traces CI ran.
+//! Two indices start at the ends of a sorted array and move toward each
+//! other. Each step prints the current pair and the part of the array that the
+//! search removed. Thus the traces in the chapter are the traces that CI ran.
 
 const std = @import("std");
 
 /// The problem, as text.
 ///
-/// There is no stdin under WASI in a browser tab, so the four lines a judge
-/// would feed the program live in the file instead: the sorted values, the
-/// target sums to look for, some words to test for symmetry, and a row of
-/// heights for the last section.
+/// A browser tab under WASI has no stdin. Thus the file holds the four lines
+/// that a judge gives to the program. The lines are the sorted values, the
+/// target sums, some words for the palindrome test, and a row of heights for
+/// the last section.
 const input =
     \\2 3 5 8 11 17 20 24
     \\25 5 44 31 100 4
@@ -18,16 +18,15 @@ const input =
     \\1 8 6 2 5 4 8 3 7
 ;
 
-/// One line, or an error if the input ran out.
+/// One line, or an error if the input has no more lines.
 fn readLine(reader: *std.Io.Reader) ![]const u8 {
     return (try reader.takeDelimiter('\n')) orelse error.MissingRow;
 }
 
 /// Read one line of whitespace-separated integers into `out`.
 ///
-/// The parameter is a `*std.Io.Reader` and not a string, so the same function
-/// reads a file on a judge and a literal here. Only the reader passed in
-/// changes.
+/// The parameter is a `*std.Io.Reader`, not a string. Thus the same function
+/// reads a file on a judge and a literal here. Only the reader changes.
 fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     const line = try readLine(reader);
     var count: usize = 0;
@@ -40,14 +39,16 @@ fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     return out[0..count];
 }
 
-/// Indices of two values that add up to `target`, or null.
+/// The indices of two values with the sum `target`, or null.
 ///
-/// `items` must be sorted. Because of the sorting, only one move is right. The
-/// value at `hi` is the largest partner `lo` has left, so a sum below the
-/// target says `lo` is in no pair at all and `lo` moves up. The value at `lo`
-/// is the smallest partner `hi` has left, so a sum above the target says the
-/// same about `hi` and `hi` moves down. Each step drops one index for good,
-/// so the search is a single pass.
+/// `items` must be sorted. Because of the sort, only one move is correct.
+///
+/// The value at `hi` is the largest partner for `lo` in the range. Thus a sum
+/// below the target shows that `lo` is in no pair, and `lo` moves up. The
+/// value at `lo` is the smallest partner for `hi` in the range. Thus a sum
+/// above the target shows the same about `hi`, and `hi` moves down.
+///
+/// Each step removes one index permanently. Thus the search is a single pass.
 fn twoSum(items: []const i32, target: i32) ?[2]usize {
     if (items.len < 2) return null;
     var lo: usize = 0;
@@ -62,9 +63,9 @@ fn twoSum(items: []const i32, target: i32) ?[2]usize {
 
 /// Right-align a value in a cell of `width` characters.
 ///
-/// A width on a signed integer prints a sign with it, so `{d:>4}` renders 7 as
-/// `  +7`. Writing the digits first and padding them by hand keeps the plus
-/// signs out of the columns.
+/// A width on a signed integer also prints a sign. Thus `{d:>4}` shows 7 as
+/// `  +7`. This function writes the digits first and adds the padding by hand.
+/// Thus the columns do not show plus signs.
 fn writeCell(out: *std.Io.Writer, value: i32, width: usize) !void {
     var digits: [12]u8 = undefined;
     const text = try std.mem.print(&digits, "{d}", .{value});
@@ -72,8 +73,8 @@ fn writeCell(out: *std.Io.Writer, value: i32, width: usize) !void {
     try out.writeAll(text);
 }
 
-/// The array with the live range drawn in: `>` at `lo`, `<` at `hi`, and a dot
-/// for every index the search has already discarded.
+/// The array with the current range: `>` at `lo`, `<` at `hi`, and a dot for
+/// each index that the search removed.
 fn writeWindow(out: *std.Io.Writer, items: []const i32, lo: usize, hi: usize) !void {
     for (items, 0..) |value, i| {
         if (i < lo or i > hi) {
@@ -93,11 +94,13 @@ fn writeWindow(out: *std.Io.Writer, items: []const i32, lo: usize, hi: usize) !v
 
 const Search = struct { pair: ?[2]usize, steps: usize };
 
-/// The same walk as `twoSum`, printing the pair and the verdict at each step.
+/// The same search as `twoSum`, but it prints the pair and the result at each
+/// step.
 ///
-/// The printing lives here so `twoSum` stays the shape you would paste into a
-/// solution. The step count comes back with the answer, because the count is
-/// the claim to check: it never reaches the length of the array.
+/// The print calls are here. Thus `twoSum` keeps the shape that you can copy
+/// into a solution. The function also returns the number of steps, because
+/// that number is the claim to check: it never gets to the length of the
+/// array.
 fn traceTwoSum(out: *std.Io.Writer, items: []const i32, target: i32) !Search {
     if (items.len < 2) return .{ .pair = null, .steps = 0 };
     var lo: usize = 0;
@@ -122,12 +125,13 @@ fn traceTwoSum(out: *std.Io.Writer, items: []const i32, target: i32) !Search {
     return .{ .pair = null, .steps = steps };
 }
 
-/// True when `text` reads the same in both directions.
+/// True when `text` is the same in the two directions.
 ///
-/// The movement is the one above with the comparison changed. Equal bytes at
-/// the two ends settle both positions at once, so both indices move and the
-/// untested middle shrinks by two. A mismatch ends the walk, because the pair
-/// that failed is a pair in every reading of the string.
+/// The movement is the same as above, with a different comparison. When the
+/// bytes at the two ends are equal, the two positions are complete. Thus the
+/// two indices move, and the middle part becomes two bytes smaller. When two
+/// bytes are not equal, the search stops, because that pair is a pair in each
+/// direction of the string.
 fn isPalindrome(text: []const u8) bool {
     if (text.len == 0) return true;
     var lo: usize = 0;
@@ -140,7 +144,7 @@ fn isPalindrome(text: []const u8) bool {
     return true;
 }
 
-/// `isPalindrome` with the settled bytes printed as dots.
+/// `isPalindrome`, but each checked byte prints as a dot.
 fn tracePalindrome(out: *std.Io.Writer, text: []const u8) !bool {
     if (text.len == 0) return true;
     var lo: usize = 0;
@@ -180,13 +184,14 @@ fn tracePalindrome(out: *std.Io.Writer, text: []const u8) !bool {
 
 const Area = struct { best: i32, lo: usize, hi: usize };
 
-/// The largest rectangle between two of `heights`, water held between two
+/// The largest rectangle between two of `heights`: the water between two
 /// walls on a flat floor.
 ///
-/// The area is the shorter wall times the distance, so the shorter wall is the
-/// one that limits it. Every pair still containing that wall is narrower than
-/// the pair just measured and no taller, so none of them can beat it, and the
-/// wall can be dropped. The trace prints the side that moved.
+/// The area is the shorter wall times the distance. Thus the shorter wall
+/// limits the area. Each other pair with that wall is narrower than the pair
+/// that the function measured, and it is not taller. Thus no such pair has a
+/// larger area, and the function can remove the wall. The trace prints the
+/// side that moved.
 fn maxArea(out: *std.Io.Writer, heights: []const i32) !Area {
     if (heights.len < 2) return .{ .best = 0, .lo = 0, .hi = 0 };
     var lo: usize = 0;
@@ -233,7 +238,8 @@ pub fn main(init: std.process.Init) !void {
     for (values) |v| try writeCell(out, v, 4);
     try out.writeAll("\n\n");
 
-    // The traced walk, and the untraced one it has to agree with.
+    // The search with a trace, and the search without a trace. The two
+    // results must agree.
     try out.writeAll("two values that add up to 25\n");
     const traced = try traceTwoSum(out, values, 25);
     const pair = traced.pair.?;
@@ -246,8 +252,8 @@ pub fn main(init: std.process.Init) !void {
         .{std.meta.eql(twoSum(values, 25), traced.pair)},
     );
 
-    // One step retires one index, so the step count is bounded by the length
-    // of the array however the values fall.
+    // Each step removes one index. Thus the length of the array limits the
+    // number of steps, for all values.
     try out.writeAll("every target, with the steps it cost\n");
     try out.writeAll("  target    pair    values  steps\n");
     var sink: std.Io.Writer.Discarding = .init(&.{});
@@ -272,7 +278,7 @@ pub fn main(init: std.process.Init) !void {
     });
     try out.print("  the worst row above took {d}\n\n", .{worst});
 
-    // The same movement over bytes.
+    // The same movement on bytes.
     try out.writeAll("racecar, checked from both ends\n");
     const symmetric = try tracePalindrome(out, "racecar");
     try out.print("  palindrome -> {}\n\n", .{symmetric});
@@ -288,8 +294,8 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.writeAll("\n");
 
-    // Discarding a candidate needs a reason. Here the reason says the
-    // shorter wall can be thrown away.
+    // To remove a candidate, the search needs a reason. Here the reason
+    // shows that the search can remove the shorter wall.
     try out.writeAll("most water between two walls\n");
     try out.writeAll("  step   lo   hi  h[lo]  h[hi]  width  area  best  moved\n");
     const water = try maxArea(out, heights);

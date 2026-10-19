@@ -1,8 +1,8 @@
 ---
 title: Two Pointers
 seoTitle: "Zig Two Pointers: The Converging Walk Over Sorted Data"
-description: Two indices starting at opposite ends, and the argument that says which one of them has to move.
-seoDescription: The converging two-pointer walk in Zig, with the program printing every step. Two-sum on a sorted array, why the comparison decides which index moves, why the walk costs one pass instead of n squared, the same movement over bytes for a palindrome, and the discard argument behind container with most water.
+description: Two indices that start at opposite ends, and the argument that tells which index must move.
+seoDescription: "Two pointers in Zig, with a trace of each step: two-sum on a sorted array, a palindrome test, and container with most water."
 section: Competitive Programming
 order: 20
 ---
@@ -10,87 +10,51 @@ order: 20
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-The input is a sorted array and a target sum.
+The input is a sorted array and a target sum. The task is to find two values with a sum that is equal to the target.
 
-We need to find two values whose sum equals the target.
+One method is to try each possible pair. That method takes O(n²) time. For an array with 100,000 values, the number of comparisons is much too large.
 
-One way is to try every possible pair. That takes O(n²) time.
+The array is sorted. Thus a better method is possible:
 
-For an array with 100,000 values, that is far too many comparisons.
+1. Put one index at the start and a second index at the end.
+2. Add the two values.
+3. Use the result to move one of the indices toward the center.
 
-Because the array is sorted, we can do better.
+Each step removes one value from the search.
 
-Place one index at the beginning and another at the end. Add the two values. Based on the result, move one of the indices inward.
-
-Each step removes one value from consideration.
-
-The trace below shows every step. The two active indices are marked, and positions that have already been ruled out are shown as dots.
+The trace below shows each step. Marks show the two active indices. A dot shows a position that the search removed.
 
 <Playground name="23-competitive.two-pointers" />
 
-## Deciding which pointer moves
+## Decide which pointer moves
 
 <SnippetSource name="23-competitive.two-pointers" decl="twoSum" />
 
-`lo` and `hi` mark the part of the array that is still being considered.
+`lo` and `hi` mark the part of the array that the search did not remove. The current range is `items[lo..hi + 1]`. The search removed each value outside this range.
 
-The current range is `items[lo..hi + 1]`.
+At each step, the loop calculates `items[lo] + items[hi]`. There are three possible cases:
 
-Everything outside this range has already been ruled out.
+- If the sum is equal to the target, the loop has the answer.
+- If the sum is smaller than the target, `lo` must move.
+- If the sum is larger than the target, `hi` must move.
 
-At each step, we calculate `items[lo] + items[hi]`.
+When the sum is too small, look at `items[hi]`. It is the largest value in the range that can be a pair with `items[lo]`. If that pair is too small, no other value in the range can make a sufficiently large sum with `items[lo]`. Thus `items[lo]` cannot be part of the answer. The loop removes it with `lo += 1`.
 
-There are three possible cases.
+When the sum is too large, look at `items[lo]`. It is the smallest value in the range that can be a pair with `items[hi]`. If that pair is already too large, each other possible partner for `items[hi]` gives an equal or larger sum. Thus `items[hi]` cannot be part of the answer. The loop removes it with `hi -= 1`.
 
-If the sum equals the target, we have found the answer.
+Each step removes exactly one index from the search. The two pointers never move backward. Thus the distance between `lo` and `hi` becomes smaller on each iteration, and the loop runs O(n) times or fewer.
 
-If the sum is smaller than the target, `lo` must move.
+This argument is correct only when the array is sorted. If the array is not sorted, a move of `lo` or `hi` tells you nothing about the values in the range. The function does not check that the array is sorted. Thus sort the input first.
 
-`items[hi]` is the largest value that can still be paired with `items[lo]`.
+[Sorting](/learn/standard-library/sorting/) explains `std.mem.sort` and its comparator.
 
-If even that pair is too small, then no other remaining value can make a large enough sum with `items[lo]`.
+In this example, the two pointers start at opposite ends and move toward each other. A different common pattern has two pointers that move in the same direction, with a contiguous range between them. [Sliding Window](/learn/competitive-programming/sliding-window/) explains that pattern.
 
-So `items[lo]` cannot be part of the answer.
-
-We remove it with `lo += 1`.
-
-If the sum is larger than the target, `hi` must move.
-
-`items[lo]` is the smallest value that can still be paired with `items[hi]`.
-
-If that pair is already too large, then every other possible partner for `items[hi]` will produce an equal or larger sum.
-
-So `items[hi]` cannot be part of the answer.
-
-We remove it with `hi -= 1`.
-
-Each step removes exactly one index from the search.
-
-Neither pointer ever moves backwards.
-
-The distance between `lo` and `hi` becomes smaller on every iteration.
-
-So the loop runs at most O(n) times.
-
-This reasoning depends on the array being sorted.
-
-If the array is not sorted, moving `lo` or `hi` no longer tells us anything about the values that remain.
-
-The function does not check whether the array is sorted, so sort the input first.
-
-[Sorting](/learn/standard-library/sorting/) covers `std.mem.sort` and the comparator it takes.
-
-In this example, the two pointers start at opposite ends and move towards each other.
-
-Another common pattern uses two pointers moving in the same direction while maintaining a contiguous range between them.
-
-That pattern is covered in [Sliding Window](/learn/competitive-programming/sliding-window/).
-
-## Following the search
+## Follow the search
 
 <SnippetSource name="23-competitive.two-pointers" decl="traceTwoSum" />
 
-`>` marks `lo`, `<` marks `hi`, and dots show positions that have already been removed from consideration:
+`>` marks `lo`, and `<` marks `hi`. A dot shows a position that the search removed:
 
 ```
   step 1   2 + 24 =  26  too big    >  2   3   5   8  11  17  20 24<
@@ -99,19 +63,16 @@ That pattern is covered in [Sliding Window](/learn/competitive-programming/slidi
   step 4   5 + 20 =  25  match         .   .>  5   8  11  17 20<   .
 ```
 
-At step one, the sum is too large, so 24 is removed by moving `hi`.
+The trace has four steps:
 
-At step two, the sum is too small, so 2 is removed by moving `lo`.
+1. The sum is too large. Thus the search moves `hi` and removes 24.
+2. The sum is too small. Thus the search moves `lo` and removes 2.
+3. The sum is too small again. Thus the search removes 3.
+4. `5 + 20` is equal to the target.
 
-At step three, the sum is still too small, so 3 is removed.
+The two ends do not have to move at the same rate. The current sum alone decides which pointer moves.
 
-At step four, `5 + 20` equals the target.
-
-The two ends do not have to move at the same rate.
-
-Which pointer moves depends entirely on the current sum.
-
-Running the same search for every target on the second input line gives:
+The same search for each target on the second input line gives these results:
 
 ```
   target    pair    values  steps
@@ -123,35 +84,19 @@ Running the same search for every target on the second input line gives:
        4     -          -      7
 ```
 
-The array has eight values.
+The array has eight values. No search takes more than seven steps. This is also true when no pair has the target sum.
 
-No search takes more than seven steps.
+For target 100, each possible sum is too small. For target 4, each possible sum is too large. The pointers move until they meet. If they meet and the search did not find the target, no pair has the target sum.
 
-That is true even when there is no matching pair.
-
-For target 100, every possible sum is too small.
-
-For target 4, every possible sum is too large.
-
-The pointers keep moving until they meet.
-
-If they meet without finding the target, no valid pair exists.
-
-## The same idea for a palindrome
+## Use the same method for a palindrome
 
 <SnippetSource name="23-competitive.two-pointers" decl="isPalindrome" />
 
-The same two-pointer structure can be used with strings.
+You can use the same two-pointer structure with strings. Do not add the values at the two ends. Compare them.
 
-Instead of adding the values at the two ends, compare them.
+One pointer starts at the first byte. The other pointer starts at the last byte. If the two bytes are equal, move the two pointers toward the center.
 
-One pointer starts at the first byte.
-
-The other starts at the last byte.
-
-If the two bytes match, move both pointers inward.
-
-For `racecar` the walk looks like this:
+For `racecar`, the search has these steps:
 
 ```
   step 1  r = r  >r  a  c  e  c  a  r<
@@ -160,71 +105,37 @@ For `racecar` the walk looks like this:
   3 steps, nothing left to pair
 ```
 
-The string has seven bytes.
+The string has seven bytes, but the function needs only three comparisons. The function does not compare the middle `e` with a different byte. The condition `while (lo < hi)` stops before the middle value.
 
-Only three comparisons are needed.
-
-The middle `e` does not need to be compared with anything.
-
-The condition `while (lo < hi)` stops before the middle value.
-
-If the two sides do not match, the function can return `false` immediately:
+If the two sides are not equal, the function can return `false` immediately:
 
 ```
   step 1  z ! g  >z  i  g<
 ```
 
-There is no need to check the remaining bytes.
+The function does not have to check the other bytes. In a palindrome, each pair from the outside to the center must be equal. Thus one pair that is not equal proves that the string is not a palindrome.
 
-A palindrome requires every matching pair from the outside inward to be equal.
+This implementation compares bytes. For ASCII text, one character is one byte. Thus the function gives the correct result.
 
-One mismatch is enough to prove that the string is not a palindrome.
-
-This implementation compares bytes.
-
-For ASCII text, one character is one byte, so this works as expected.
-
-For Unicode text, a character may use multiple bytes.
-
-For example, `été` looks the same forwards and backwards as characters, but its UTF-8 bytes are not arranged as single-byte characters.
-
-For general Unicode text, decode the string into code points before applying the same two-pointer idea.
+For Unicode text, a character can use more than one byte. For example, the characters of `été` are the same in the two directions. But the UTF-8 bytes of `été` are not all single-byte characters. For general Unicode text, decode the string into code points before you use the same two-pointer method.
 
 ## Container with most water
 
 <SnippetSource name="23-competitive.two-pointers" decl="maxArea" />
 
-The same pattern appears in the container-with-most-water problem.
+The same pattern solves the container-with-most-water problem. Each number is the height of a vertical wall. For two walls at positions `lo` and `hi`, the shorter wall limits the quantity of water between them.
 
-Each number represents the height of a vertical wall.
+The area has these parts:
 
-For two walls at positions `lo` and `hi`, the amount of water they can hold is limited by the shorter wall.
+- The width is `hi - lo`.
+- The height is `@min(heights[lo], heights[hi])`.
+- Thus the area is `@min(heights[lo], heights[hi]) * (hi - lo)`.
 
-The width is `hi - lo`.
+The search starts with the widest possible pair: the first wall and the last wall. After that, each move makes the width smaller. Thus a move is useful only if it can find a taller wall. This rule decides which pointer moves.
 
-The height is `@min(heights[lo], heights[hi])`.
+For example, `heights[lo]` is the shorter wall. Each new pair that keeps `lo` has a smaller width. Its height can never be greater than `heights[lo]`, because the height of a pair is never more than the height of either wall. Thus no pair that keeps this wall can have a larger area than the pair that the search already measured.
 
-So the area is `@min(heights[lo], heights[hi]) * (hi - lo)`.
-
-We start with the widest possible pair: the first and last walls.
-
-After that, every move makes the width smaller.
-
-So if we move a pointer, we need a chance to find a taller wall.
-
-That need decides which pointer should move.
-
-Suppose `heights[lo]` is shorter.
-
-Any new pair that keeps `lo` will have a smaller width.
-
-Its height can never be greater than `heights[lo]`, because `lo` is still the shorter wall.
-
-So no pair that keeps this wall can produce a better area than the one we have already checked.
-
-We can safely remove `lo`.
-
-The same reasoning applies to `hi` when the right wall is shorter.
+Thus the search can safely remove `lo`. The same argument applies to `hi` when the right wall is shorter.
 
 The program prints the first four steps:
 
@@ -236,18 +147,8 @@ The program prints the first four steps:
      4    1    6     8     8      5    40    49  hi
 ```
 
-At step one, the left wall is shorter, so `lo` moves.
+At step one, the left wall is shorter. Thus `lo` moves. At step two, the right wall is shorter. Thus `hi` moves, and the best area becomes 49.
 
-At step two, the right wall is shorter, so `hi` moves.
+At step four, the two walls have the same height. In this case, either pointer can move. The code moves `hi` because of the form of the comparison, but a move of `lo` is also correct.
 
-The best area becomes 49.
-
-At step four, both walls have the same height.
-
-In that case, either pointer can move.
-
-The code moves `hi` because of how the comparison is written, but moving `lo` would also be valid.
-
-Always move the shorter wall.
-
-Moving the taller wall may work for some inputs, but it can remove a pair that would have produced the maximum area.
+Always move the shorter wall. A move of the taller wall can work for some inputs. But it can remove a pair that has the maximum area.

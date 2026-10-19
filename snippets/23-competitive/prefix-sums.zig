@@ -1,17 +1,18 @@
 //! title: Prefix Sums and Difference Arrays
-//! The prefix array that turns a range sum into one subtraction, the extra
-//! cell that removes the special case at index 0, the difference array that
-//! does the same trick for range updates, and the pass that shows the two are
-//! inverses. The program prints every table, so the numbers in the chapter are
-//! the numbers CI ran.
+//! The prefix array changes a range sum into one subtraction. An extra cell
+//! removes the special case at index 0. The difference array uses the same
+//! method for range updates, and one pass shows that the two are inverses.
+//! The program prints each table. Thus the numbers in the chapter are the
+//! numbers that CI ran.
 
 const std = @import("std");
 
 /// The problem, as text.
 ///
-/// A snippet here runs under WASI in a browser tab, where there is no stdin to
-/// read. The first line is the values. The second is five ranges as `lo hi`
-/// pairs, half-open. The third is three range updates as `lo hi delta`.
+/// A snippet here runs under WASI in a browser tab. The tab has no stdin to
+/// read. The first line has the values. The second line has five half-open
+/// ranges as `lo hi` pairs. The third line has three range updates as
+/// `lo hi delta`.
 const input =
     \\3 1 4 1 5 9 2 6
     \\0 3 2 5 1 8 4 4 0 8
@@ -20,9 +21,9 @@ const input =
 
 /// Read one line of whitespace-separated integers into `out`.
 ///
-/// It takes a `*std.Io.Reader` instead of the string, as the networking
-/// chapters do for protocols. On a judge, pass a reader over stdin and the
-/// function stays the same.
+/// The function takes a `*std.Io.Reader` instead of the string. The
+/// networking chapters use the same method for protocols. On a judge, give
+/// the function a reader on stdin. The function does not change.
 fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     const line = (try reader.takeDelimiter('\n')) orelse return error.MissingRow;
     var count: usize = 0;
@@ -35,8 +36,9 @@ fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     return out[0..count];
 }
 
-/// Half-open, so `items[span.lo..span.hi]` is the range and `span.hi` is one
-/// past its last value. The same convention the binary search chapter uses.
+/// Half-open: `items[span.lo..span.hi]` is the range, and `span.hi` is one
+/// position after the last value. The binary search chapter uses the same
+/// convention.
 const Span = struct {
     lo: usize,
     hi: usize,
@@ -46,14 +48,14 @@ const Span = struct {
     }
 };
 
-/// `out[i]` becomes the sum of the first `i` values, so `out` is one cell
-/// longer than `items`. The spare cell is what lets a range starting at index
-/// 0 be read the same way as any other range.
+/// `out[i]` becomes the sum of the first `i` values. Thus `out` is one cell
+/// longer than `items`. The extra cell lets the code read a range that starts
+/// at index 0 in the same way as all other ranges.
 ///
-/// `i64` and not `i32`. Eight small values fit either type, and a hundred
-/// thousand values near the top of `i32` do not, so the totals get the wider
-/// one. `adds` counts the additions, because the build cost is part of deciding
-/// whether a prefix array is cheaper than a loop.
+/// Use `i64`, not `i32`. Eight small values fit in the two types. A hundred
+/// thousand values near the top of `i32` do not fit. Thus the totals use the
+/// wider type. `adds` counts the additions, because the build cost helps you
+/// decide if a prefix array is cheaper than a loop.
 fn buildPrefix(items: []const i32, out: []i64, adds: *usize) []i64 {
     out[0] = 0;
     for (items, 0..) |value, i| {
@@ -63,20 +65,21 @@ fn buildPrefix(items: []const i32, out: []i64, adds: *usize) []i64 {
     return out[0 .. items.len + 1];
 }
 
-/// Sum of `items[lo..hi]`, from two reads and a subtraction.
+/// The sum of `items[lo..hi]`, from two reads and a subtraction.
 ///
-/// `pre[hi]` counts everything below `hi` and `pre[lo]` counts everything below
-/// `lo`, so the difference is exactly the stretch between them. `lo == hi`
-/// gives zero without a branch, and `lo == 0` reads `pre[0]`, which the spare
-/// cell already set to zero.
+/// `pre[hi]` counts all values below `hi`, and `pre[lo]` counts all values
+/// below `lo`. Thus the difference is exactly the part between them.
+/// `lo == hi` gives zero without a branch. `lo == 0` reads `pre[0]`, and the
+/// extra cell already set `pre[0]` to zero.
 fn rangeSum(pre: []const i64, span: Span) i64 {
     return pre[span.hi] - pre[span.lo];
 }
 
-/// The same sum, by adding the values up.
+/// The same sum, from the addition of each value.
 ///
-/// Kept so the two results can be compared instead of trusted, and so the
-/// additions can be counted against the ones `buildPrefix` charged.
+/// This function lets you compare the two results. You do not have to assume
+/// that they agree. It also lets you compare its count of additions with the
+/// count from `buildPrefix`.
 fn rangeSumByLoop(items: []const i32, span: Span, adds: *usize) i64 {
     var sum: i64 = 0;
     for (items[span.lo..span.hi]) |value| {
@@ -88,21 +91,23 @@ fn rangeSumByLoop(items: []const i32, span: Span, adds: *usize) i64 {
 
 /// Record "add `delta` to every value in `items[lo..hi]`" in two writes.
 ///
-/// `diff` is one cell longer than the array it describes, for the same reason
-/// the prefix array is: an update running to the last index writes its closing
-/// mark at `items.len`, and that cell has to exist.
+/// `diff` is one cell longer than the array that it describes. The reason is
+/// the same as for the prefix array. An update that goes to the last index
+/// writes its end mark at `items.len`, and that cell must exist.
 ///
-/// Nothing about the cost depends on how wide the range is. A range covering
-/// the whole array is two writes, and so is a range covering one value.
+/// The cost does not change with the width of the range. A range on the full
+/// array is two writes, and a range on one value is also two writes.
 fn applyRange(diff: []i64, span: Span, delta: i64) void {
     diff[span.lo] += delta;
     diff[span.hi] -= delta;
 }
 
-/// Running sum of `diff`, which gives back the values it recorded.
+/// The cumulative sum of `diff`. This sum gives the values that `diff`
+/// recorded.
 ///
-/// The last cell of `diff` never contributes a value. It exists to cancel the
-/// deltas that opened, so after the pass the running total is back at zero.
+/// The last cell of `diff` never adds a value to the output. The last cell
+/// cancels the deltas that started. Thus after the pass, the total is zero
+/// again.
 fn accumulate(diff: []const i64, out: []i32) []i32 {
     var running: i64 = 0;
     for (diff[0 .. diff.len - 1], 0..) |value, i| {
@@ -112,11 +117,11 @@ fn accumulate(diff: []const i64, out: []i32) []i32 {
     return out[0 .. diff.len - 1];
 }
 
-/// The gap between each value and the one before it.
+/// The difference between each value and the value before it.
 ///
-/// The inverse of `accumulate`: run this over an array and accumulate the
-/// result, and the original comes back. `out[items.len]` closes the array off
-/// by subtracting the last value.
+/// The inverse of `accumulate`. Use this function on an array, then use
+/// `accumulate` on the result. The output is the original array.
+/// `out[items.len]` closes the array, because it subtracts the last value.
 fn difference(items: []const i32, out: []i64) []i64 {
     var previous: i64 = 0;
     for (items, 0..) |value, i| {
@@ -127,10 +132,11 @@ fn difference(items: []const i32, out: []i64) []i64 {
     return out[0 .. items.len + 1];
 }
 
-/// Apply every update the slow way, writing each cell of each range.
+/// Apply each update in the slow way: write each cell of each range.
 ///
-/// The reference the difference array has to agree with. Its cost is the sum
-/// of the range widths, which is what the two writes per update replace.
+/// The difference array must agree with this reference. The cost of this
+/// function is the sum of the range widths. The two writes for each update
+/// replace this cost.
 fn applyRangesDirectly(out: []i32, spans: []const Span, deltas: []const i64) []i32 {
     @memset(out, 0);
     for (spans, deltas) |span, delta| {
@@ -141,9 +147,9 @@ fn applyRangesDirectly(out: []i32, spans: []const Span, deltas: []const i64) []i
 
 /// Right-align a value in a cell of `width` characters.
 ///
-/// `{d:>4}` would be shorter, and it prints a `+` in front of a non-negative
-/// signed integer as soon as a width is given. Formatting the digits first and
-/// padding them keeps the columns readable.
+/// `{d:>4}` is shorter, but it prints a `+` before a non-negative signed
+/// integer when you give a width. This function formats the digits first and
+/// then adds the padding. Thus the columns are easy to read.
 fn writeCell(out: *std.Io.Writer, value: i64, width: usize) !void {
     var digits: [24]u8 = undefined;
     const text = try std.mem.print(&digits, "{d}", .{value});
@@ -151,36 +157,37 @@ fn writeCell(out: *std.Io.Writer, value: i64, width: usize) !void {
     try out.writeAll(text);
 }
 
-/// The array with one range drawn into it.
+/// The array, with one range shown in it.
 ///
-/// Four characters per value: a bracket or a space, the value in two, a bracket
-/// or a space. An empty range draws no brackets at all, which is what `[4,4)`
-/// looks like on the page.
+/// Four characters for each value: a bracket or a space, the value in two
+/// characters, a bracket or a space. An empty range shows no brackets. The
+/// row for `[4,4)` on the page shows this result.
 fn writeRange(out: *std.Io.Writer, items: []const i32, span: Span) !void {
     const inside = span.lo < span.hi;
     for (items, 0..) |value, i| {
         try out.writeByte(if (inside and i == span.lo) '[' else ' ');
         try writeCell(out, value, 2);
         const closing: u8 = if (inside and i + 1 == span.hi) ']' else ' ';
-        // No trailing space at the end of a row: the expected output is diffed
-        // byte for byte, and a space you cannot see is easy to get wrong.
+        // No space at the end of a row. CI compares the output with the expected
+        // output byte for byte, and a space that you cannot see is easy to get
+        // wrong.
         if (closing == ' ' and i + 1 == items.len) break;
         try out.writeByte(closing);
     }
 }
 
-/// A labelled row of `i64` cells, four characters each.
+/// A row of `i64` cells with a label. Each cell is four characters.
 ///
-/// The label field is 13 wide so the update trace lines up under a header of
-/// column numbers, which is the only way to see which two cells a range update
-/// touched.
+/// The label field is 13 characters wide. Thus the update trace aligns under
+/// a header of column numbers. Only this alignment shows which two cells a
+/// range update changed.
 fn writeWideRow(out: *std.Io.Writer, label: []const u8, cells: []const i64) !void {
     try out.print("  {s: <13}", .{label});
     for (cells) |value| try writeCell(out, value, 4);
     try out.writeByte('\n');
 }
 
-/// A labelled row of `i32` cells, four characters each.
+/// A row of `i32` cells with a label. Each cell is four characters.
 fn writeNarrowRow(out: *std.Io.Writer, label: []const u8, cells: []const i32) !void {
     try out.print("  {s: <4}", .{label});
     for (cells) |value| try writeCell(out, value, 4);
@@ -234,8 +241,8 @@ pub fn main(init: std.process.Init) !void {
     try writeNarrowRow(out, "val", values);
     try out.writeByte('\n');
 
-    // The build. One pass, one addition per value, one cell more than the
-    // array it summarises.
+    // The build. One pass, one addition for each value, and one cell more than
+    // the array that it summarises.
     var build_adds: usize = 0;
     var prefix_storage: [65]i64 = undefined;
     const pre = buildPrefix(values, &prefix_storage, &build_adds);
@@ -247,7 +254,7 @@ pub fn main(init: std.process.Init) !void {
     for (pre) |v| try writeCell(out, v, 4);
     try out.writeAll("\n\n");
 
-    // Each query is two reads and a subtraction, whatever the range covers.
+    // Each query is two reads and a subtraction, for all sizes of range.
     try out.print("{d} range sums, each one a subtraction\n", .{queries.len});
     try out.writeAll("  range   pre[hi] pre[lo]   sum  values\n");
     var loop_adds: usize = 0;
@@ -268,8 +275,8 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.print("  every sum matches a loop over the same values -> {}\n\n", .{all_agree});
 
-    // The build is paid once. An array that changes between queries needs a
-    // new build every time, and then the loop is cheaper.
+    // The program pays for the build one time. An array that changes between
+    // queries needs a new build each time, and then the loop is cheaper.
     try out.writeAll("what the build costs, against what it saves\n");
     var plan: [40]u8 = undefined;
     const built_once = try std.mem.print(&plan, "build once, then {d} lookups", .{queries.len});
@@ -277,7 +284,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("  {s: <28}{d:>4} adds\n", .{ "rebuild before each lookup", build_adds * queries.len });
     try out.print("  {s: <28}{d:>4} adds\n\n", .{ "no prefix array at all", loop_adds });
 
-    // The opposite direction. Two writes record a change across a whole range.
+    // The opposite direction. Two writes record a change on a full range.
     try out.print("{d} range updates on a difference array\n", .{update_spans.len});
     var diff_storage: [65]i64 = undefined;
     const diff = diff_storage[0 .. values.len + 1];
@@ -295,7 +302,7 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.writeByte('\n');
 
-    // One pass reads the totals back out.
+    // One pass reads the totals.
     try out.writeAll("one running sum turns those marks into values\n");
     var totals_storage: [64]i32 = undefined;
     const totals = accumulate(diff, &totals_storage);
@@ -316,7 +323,8 @@ pub fn main(init: std.process.Init) !void {
         .{ 2 * update_spans.len, update_spans.len, covered },
     );
 
-    // The two operations undo each other, so the round trip is a check on both.
+    // Each operation cancels the other. Thus the round trip checks the two
+    // operations.
     try out.writeAll("a running sum undoes a difference\n");
     var gaps_storage: [65]i64 = undefined;
     const gaps = difference(values, &gaps_storage);

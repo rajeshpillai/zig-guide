@@ -1,17 +1,19 @@
 //! title: Union-Find (Disjoint Set Union)
-//! Groups that merge as edges arrive, and the question "are these two in the
-//! same group?" answered after every one. The program runs a naive version
-//! that relabels a whole group, a parent array with no balancing, and the
-//! finished structure with union by size and path compression, and prints what
-//! each one costs. Every table in the chapter is output CI diffed.
+//! Groups that merge when edges arrive, and an answer to the question "are
+//! these two in the same group?" after each edge. The program runs three
+//! versions and prints the cost of each version. The first version relabels a
+//! whole group. The second version is a parent array with no balance. The
+//! third version is the full structure with union by size and path
+//! compression. CI compares each table in the
+//! chapter with the output.
 
 const std = @import("std");
 
 /// The problem, as text.
 ///
-/// A snippet here runs under WASI in a browser tab, where there is no stdin to
-/// read. The first line is the number of nodes. Every line after it is one
-/// edge, and the edges arrive in the order they are written.
+/// A snippet here runs under WASI in a browser tab. The tab has no stdin to
+/// read. The first line is the number of nodes. Each line after the first line
+/// is one edge. The edges arrive in the order of the lines.
 const input =
     \\10
     \\0 1
@@ -26,18 +28,18 @@ const input =
     \\7 1
 ;
 
-/// The most nodes and edges the parsed problem may hold.
+/// The maximum number of nodes and edges in the parsed problem.
 ///
-/// A contest states its bounds, so the arrays are sized from them once and
-/// nothing is allocated.
+/// A contest gives its bounds. Thus the bounds set the size of the arrays one
+/// time, and the program allocates no memory.
 const max_nodes = 16;
 const max_edges = 32;
 
-/// The size of the scale runs at the bottom of the output.
+/// The size of the large runs at the end of the output.
 const scale_n = 1000;
 const scale_random_edges = 1000;
 
-/// A chain this long is what a recursive find would have to walk.
+/// A recursive find must follow a chain of this length.
 const long_n = 1_000_000;
 
 var long_parent: [long_n]u32 = undefined;
@@ -47,11 +49,12 @@ const Edge = struct { a: u32, b: u32 };
 
 const Problem = struct { n: u32, edges: []const Edge };
 
-/// Read the node count, then one edge per line, out of a reader.
+/// Read the node count from a reader, then read one edge from each line.
 ///
-/// Taking a `*std.Io.Reader` rather than the string is the same discipline
-/// the networking chapters use for protocols. An edge naming a node that does
-/// not exist is rejected here rather than at the first index past the end.
+/// The function takes a `*std.Io.Reader` instead of the string. The networking
+/// chapters use the same method for protocols. If an edge names a node that
+/// does not exist, this function rejects the edge. Thus the error does not
+/// occur later, at the first index past the end.
 fn readProblem(reader: *std.Io.Reader, out: []Edge) !Problem {
     const first = (try reader.takeDelimiter('\n')) orelse return error.MissingCount;
     const n = try std.fmt.parseInt(u32, std.mem.trim(u8, first, " "), 10);
@@ -70,17 +73,18 @@ fn readProblem(reader: *std.Io.Reader, out: []Edge) !Problem {
     return .{ .n = n, .edges = out[0..count] };
 }
 
-/// What the naive version did.
+/// The work that the simple version did.
 const RelabelWork = struct {
     reads: usize = 0,
     rewrites: usize = 0,
 };
 
-/// The naive version: every node carries the label of its group.
+/// The simple version: each node has the label of its group.
 ///
-/// Asking whether two nodes are connected is one comparison. Merging is the
-/// expensive half. Every node holding `a`'s label has to be found and given
-/// `b`'s, and finding them means reading the whole array.
+/// To check whether two nodes are connected costs one comparison. The merge
+/// is the expensive half. The function must find each node with the label of
+/// `a` and give it the label of `b`. To find these nodes, the function reads
+/// the whole array.
 fn relabel(label: []u32, a: u32, b: u32, work: *RelabelWork) bool {
     const from = label[a];
     const to = label[b];
@@ -95,21 +99,21 @@ fn relabel(label: []u32, a: u32, b: u32, work: *RelabelWork) bool {
     return true;
 }
 
-/// Follow parent links until a node is its own parent.
+/// Follow the parent links until a node is its own parent.
 ///
 /// That node is the root, and the root is the name of the group. Two nodes
-/// are connected exactly when they reach the same root.
+/// are connected if and only if they get to the same root.
 fn findRoot(parent: []const u32, x: u32) u32 {
     var node = x;
     while (parent[node] != node) node = parent[node];
     return node;
 }
 
-/// Merge two groups by hanging one root under the other.
+/// Merge two groups. Put one root under the other root.
 ///
-/// Only a root changes. No other node in either group is touched, which is
-/// why this is cheaper than relabelling. Nothing here decides which root goes
-/// underneath, and that is the problem the chain below shows.
+/// Only a root changes. No other node in the two groups changes. Thus this
+/// merge costs less than a relabel. This function does not select the root
+/// that goes under the other root. The chain below shows the problem.
 fn unitePlain(parent: []u32, a: u32, b: u32) bool {
     const ra = findRoot(parent, a);
     const rb = findRoot(parent, b);
@@ -118,18 +122,20 @@ fn unitePlain(parent: []u32, a: u32, b: u32) bool {
     return true;
 }
 
-/// The version to paste into a solution.
+/// The version to copy into a solution.
 ///
-/// `find` walks to the root, then walks the same path again and points every
-/// node on it straight at the root. Two loops and no recursion, so a chain of
-/// a million nodes costs a million steps once and a fixed amount of stack.
+/// `find` follows the links to the root. Then it follows the same path again
+/// and points each node on the path directly at the root. It has two loops
+/// and no recursion. Thus a chain of a million nodes costs a million steps one
+/// time, and a fixed amount of stack.
 ///
-/// `unite` hangs the smaller group under the larger one. A node only moves
-/// further from its root when its group at least doubles in size, so no tree
-/// is ever taller than log2 of the node count.
+/// `unite` puts the smaller group under the larger group. A node moves further
+/// from its root only when its group becomes two or more times as large. Thus
+/// no tree is taller than log2 of the node count.
 ///
-/// `count` is the number of groups. It starts at one per node and drops by
-/// one on every union that merged two different groups.
+/// `count` is the number of groups. At the start, there is one group for each
+/// node. `count` decreases by one on each union that merged two different
+/// groups.
 const DisjointSet = struct {
     parent: []u32,
     size: []u32,
@@ -168,40 +174,41 @@ const DisjointSet = struct {
     }
 };
 
-/// The same find, written recursively.
+/// The same find, as a recursive function.
 ///
-/// Shorter, and correct. It also makes one call per link on the path, and the
-/// first find on a tall chain has a very long path.
+/// This version is shorter, and it is correct. But it makes one call for each
+/// link on the path. The first find on a tall chain has a very long path.
 fn findRecursive(parent: []u32, x: u32) u32 {
     if (parent[x] == x) return x;
     parent[x] = findRecursive(parent, parent[x]);
     return parent[x];
 }
 
-/// A common mistake: asking whether two nodes share a parent.
+/// A common mistake: a check for the same parent.
 ///
-/// Sharing a parent does mean sharing a root, so it never says two separate
-/// groups are joined. It says "no" to any pair sitting at different depths of
-/// the same tree.
+/// Two nodes with the same parent also have the same root. Thus the check
+/// never joins two separate groups. But the check says "no" to
+/// each pair at different depths of the same tree.
 fn connectedByParent(parent: []const u32, a: u32, b: u32) bool {
     return parent[a] == parent[b];
 }
 
-/// Another common mistake: linking the nodes instead of their roots.
+/// A different common mistake: a link between the nodes instead of their roots.
 ///
-/// The root check is right. The link is not. `parent[a] = b` pulls `a` and
-/// everything below it out of its old tree, and leaves the rest of that tree
-/// behind as a separate group.
+/// The root check is correct. The link is not correct. `parent[a] = b` removes
+/// `a` and all nodes below `a` from the old tree. The other nodes of the old
+/// tree stay as a separate group.
 fn uniteNodes(parent: []u32, a: u32, b: u32) bool {
     if (findRoot(parent, a) == findRoot(parent, b)) return false;
     parent[a] = b;
     return true;
 }
 
-/// An instrumented forest for the experiments.
+/// A forest with counters, for the experiments.
 ///
-/// Two switches and a step counter. Kept separate from `DisjointSet` so that
-/// one stays the shape you would paste into a solution.
+/// The forest has two switches and a step counter. It is separate from
+/// `DisjointSet`. Thus `DisjointSet` keeps the shape that you can copy into a
+/// solution.
 const Forest = struct {
     parent: []u32,
     size: []u32,
@@ -244,7 +251,8 @@ const Forest = struct {
         return true;
     }
 
-    /// Links from `x` to its root, counted without compressing anything.
+    /// The number of links from `x` to its root. This count does not compress
+    /// a path.
     fn depth(f: Forest, x: u32) usize {
         var node = x;
         var links: usize = 0;
@@ -262,7 +270,7 @@ const Forest = struct {
     }
 };
 
-/// The four combinations of the two switches, in the order the table prints.
+/// The four combinations of the two switches, in the order of the table.
 const variants = [4]struct { name: []const u8, by_size: bool, compress: bool }{
     .{ .name = "plain", .by_size = false, .compress = false },
     .{ .name = "by size", .by_size = true, .compress = false },
@@ -270,17 +278,19 @@ const variants = [4]struct { name: []const u8, by_size: bool, compress: bool }{
     .{ .name = "both", .by_size = true, .compress = true },
 };
 
-/// Edges `0-1`, `0-2`, `0-3` and on, every one joining a new node to node 0.
+/// The edges `0-1`, `0-2`, `0-3` and more. Each edge joins a new node to
+/// node 0.
 ///
-/// With no balancing, the old root goes under the new single node every time,
-/// so the tree grows one link taller per edge and node 0 sinks to the bottom.
+/// With no balance, the old root always goes under the new single node. Thus
+/// the tree becomes one link taller for each edge, and node 0 moves to the
+/// bottom.
 fn fillChain(out: []Edge) []Edge {
     for (out, 1..) |*e, i| e.* = .{ .a = 0, .b = @intCast(i) };
     return out;
 }
 
-/// Edges between random pairs, from a fixed linear congruential generator so
-/// the printed counts are the same on every machine.
+/// Edges between random pairs, from a fixed linear congruential generator.
+/// Thus the printed counts are the same on all machines.
 fn fillRandom(out: []Edge, n: u32) []Edge {
     var state: u32 = 20260925;
     for (out) |*e| {
@@ -313,7 +323,7 @@ fn writeEdge(out: *std.Io.Writer, e: Edge) !void {
     try out.writeAll(text);
 }
 
-/// The naive version on the input, one row per edge.
+/// The simple version on the input, with one row for each edge.
 fn traceRelabel(out: *std.Io.Writer, p: Problem) !void {
     var storage: [max_nodes]u32 = undefined;
     const label = storage[0..p.n];
@@ -339,8 +349,8 @@ fn traceRelabel(out: *std.Io.Writer, p: Problem) !void {
     );
 }
 
-/// The plain parent array on the input: roots, the links walked to reach
-/// them, and the group count after every edge.
+/// The plain parent array on the input: the roots, the links to the roots,
+/// and the group count after each edge.
 fn tracePlain(out: *std.Io.Writer, p: Problem) !void {
     var parent_storage: [max_nodes]u32 = undefined;
     var size_storage: [max_nodes]u32 = undefined;
@@ -377,7 +387,7 @@ fn tracePlain(out: *std.Io.Writer, p: Problem) !void {
     for (0..p.n) |i| try out.print("{d:>3}", .{f.depth(@intCast(i))});
     try out.writeByte('\n');
 
-    // Path compression on this same forest, one find at a time.
+    // Path compression on the same forest, one find at a time.
     try out.writeAll("\none compressing find on node 0 of that forest\n");
     try out.writeAll("  path before  0");
     var node: u32 = 0;
@@ -400,7 +410,7 @@ fn tracePlain(out: *std.Io.Writer, p: Problem) !void {
     try out.writeByte('\n');
 }
 
-/// The chain, run under all four variants, one row per edge.
+/// The chain with each of the four variants, with one row for each edge.
 fn traceChain(out: *std.Io.Writer, n: u32) !void {
     var edge_storage: [max_nodes]Edge = undefined;
     const edges = fillChain(edge_storage[0 .. n - 1]);
@@ -431,7 +441,7 @@ fn traceChain(out: *std.Io.Writer, n: u32) !void {
     try out.writeByte('\n');
 }
 
-/// The finished structure on the input.
+/// The full structure on the input.
 fn traceDisjointSet(out: *std.Io.Writer, p: Problem, closing: []Edge) !usize {
     var parent_storage: [max_nodes]u32 = undefined;
     var size_storage: [max_nodes]u32 = undefined;
@@ -467,7 +477,7 @@ fn traceDisjointSet(out: *std.Io.Writer, p: Problem, closing: []Edge) !usize {
     for (0..p.n) |i| try out.print("{d:>3}", .{d.find(@intCast(i))});
     try out.writeByte('\n');
 
-    // Recursion gives the same roots on a forest this small.
+    // On a forest of this small size, recursion gives the same roots.
     var copy: [max_nodes]u32 = undefined;
     @memcpy(copy[0..p.n], d.parent);
     var agree = true;
@@ -481,7 +491,7 @@ fn traceDisjointSet(out: *std.Io.Writer, p: Problem, closing: []Edge) !usize {
 
 /// The two mistakes, run on the same input.
 fn traceMistakes(out: *std.Io.Writer, p: Problem) !void {
-    // A correct forest built without compression, so some trees stay deep.
+    // A correct forest without compression. Thus some trees stay deep.
     var parent_storage: [max_nodes]u32 = undefined;
     const parent = parent_storage[0..p.n];
     for (parent, 0..) |*x, i| x.* = @intCast(i);
@@ -525,7 +535,7 @@ fn traceMistakes(out: *std.Io.Writer, p: Problem) !void {
     }
     try out.print("  wrong on {d} of {d} pairs, and every wrong answer is a no\n\n", .{ wrong, total });
 
-    // Linking the nodes rather than their roots.
+    // A link between the nodes instead of their roots.
     var bad_storage: [max_nodes]u32 = undefined;
     const bad = bad_storage[0..p.n];
     for (bad, 0..) |*x, i| x.* = @intCast(i);
@@ -545,7 +555,7 @@ fn traceMistakes(out: *std.Io.Writer, p: Problem) !void {
     }
 }
 
-/// A chain of a million nodes, and what finding its bottom costs.
+/// A chain of a million nodes, and the cost to find the root from the bottom.
 fn traceLongChain(out: *std.Io.Writer) !void {
     var f: Forest = .init(&long_parent, &long_size, false, false);
     var i: u32 = 0;
@@ -569,9 +579,10 @@ fn traceLongChain(out: *std.Io.Writer) !void {
 
 /// One row of each cost table, for one list of edges.
 ///
-/// The naive version reads the whole label array on every merge, so its reads
-/// are the node count times the merges. The four forests are counted in links
-/// walked by `find`, which is the only loop they have.
+/// The simple version reads the whole label array on each merge. Thus its
+/// reads are the node count multiplied by the merges. For the four forests,
+/// the count is the links that `find` follows. `find` is the only loop in the
+/// forests.
 fn writeCostRows(
     cost: *std.Io.Writer,
     height: *std.Io.Writer,
@@ -636,8 +647,8 @@ pub fn main(init: std.process.Init) !void {
     try traceLongChain(out);
     try out.writeByte('\n');
 
-    // The same three edge lists feed both tables. The second table is
-    // written into a buffer and printed after the first.
+    // The two tables use the same three lists of edges. The program writes
+    // the second table into a buffer and prints it after the first table.
     var chain_storage: [scale_n - 1]Edge = undefined;
     var random_storage: [scale_random_edges]Edge = undefined;
     const chain = fillChain(&chain_storage);

@@ -1,18 +1,18 @@
 //! title: The Monotonic Deque
-//! The largest value in every window of width k, from one pass. Indices sit in
-//! a deque in decreasing order of value. The back end drops an index for what
-//! it holds. The front end drops one for where it is. The program prints both
-//! ends working on every step, the departures with the reason each one left,
-//! and the counters behind the amortised argument, so the tables in the
-//! chapter are the tables CI ran.
+//! The largest value in each window of width k, in one pass. A deque holds
+//! indices in descending order of value. The back end removes an index because
+//! of its value, and the front end removes an index because of its position. The
+//! program prints the work at the two ends at each step. It also prints each
+//! index that left with the reason, and the counters for the amortised
+//! argument. Thus the tables in the chapter are the tables that CI ran.
 
 const std = @import("std");
 
 /// The problem, as text.
 ///
-/// A snippet here runs under WASI in a browser tab, where there is no stdin to
-/// read. One line of values and a window width is the whole problem, and the
-/// parser below reads the line the way it would read a real file.
+/// A snippet here runs under WASI in a browser tab. The tab has no stdin to
+/// read. The full problem is one line of values and a window width. The parser
+/// below reads the line in the same way that it reads a real file.
 const input =
     \\5 3 8 2 7 1 1 9 4 6 2 3
 ;
@@ -20,18 +20,18 @@ const input =
 /// The window width the trace uses.
 const width = 4;
 
-/// Twelve values falling from left to right.
+/// Twelve values that decrease from left to right.
 ///
-/// The maximum sits at the left edge of every window, so it leaves on every
-/// slide and the repair-by-rescanning version rescans the window each time. The
-/// deque never evicts from the back on this array.
+/// The maximum is at the left edge of each window. Thus the maximum leaves at
+/// each slide, and the version that repairs with a new scan scans the window
+/// each time. On this array, the deque never removes an index from the back.
 const falling = [_]i32{ 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
 
-/// The mirror of it. The maximum is the value that just arrived, so the repair
-/// never fires, and the deque throws away everything it holds on every step.
+/// The opposite of `falling`. The maximum is the value that arrived last. Thus
+/// the repair never occurs, and at each step the deque removes all that it holds.
 const rising = [_]i32{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
 
-/// A larger array, so the two rates are far enough apart to read.
+/// A larger array. Thus the difference between the two rates is easy to see.
 const scale_n = 1000;
 const scale_k = 100;
 
@@ -41,8 +41,8 @@ var scale_slots: [scale_n]usize = undefined;
 
 /// Fill `buf` with values from a linear congruential generator.
 ///
-/// Fixed seed, fixed constants, so the counts printed at the bottom are the
-/// same on every machine and CI can diff them.
+/// The seed and the constants do not change. Thus the counts at the bottom are
+/// the same on each machine, and CI can compare them.
 fn fillPseudoRandom(buf: []i32) void {
     var state: u32 = 20260909;
     for (buf) |*value| {
@@ -53,9 +53,9 @@ fn fillPseudoRandom(buf: []i32) void {
 
 /// Read one line of whitespace-separated integers into `out`.
 ///
-/// It takes a `*std.Io.Reader` instead of the string, as the networking
-/// chapters do for protocols. On a judge, pass a reader over stdin and the
-/// function stays the same.
+/// The function takes a `*std.Io.Reader` instead of the string. The
+/// networking chapters use the same method for protocols. On a judge, give the
+/// function a reader for stdin. The function does not change.
 fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     const line = (try reader.takeDelimiter('\n')) orelse return error.MissingRow;
     var count: usize = 0;
@@ -70,11 +70,11 @@ fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
 
 /// A double-ended queue of indices over a fixed array.
 ///
-/// `head` and `tail` only ever move right, and there is no wraparound. That is
-/// safe because an index is pushed at most once for the whole run, so `tail`
-/// cannot pass the number of values. Sizing `slots` at `items.len` is
-/// therefore enough for any window width, and a ring buffer would only recycle
-/// slots that are never asked for again.
+/// `head` and `tail` move only to the right, and they do not wrap around. This
+/// is safe because the run pushes each index one time or less. Thus `tail`
+/// cannot go past the number of values. Thus `items.len` slots are sufficient
+/// for each window width. A ring buffer only lets the deque use old slots
+/// again, and the algorithm never needs those slots again.
 const Deque = struct {
     slots: []usize,
     head: usize = 0,
@@ -113,11 +113,11 @@ const Deque = struct {
     }
 };
 
-/// What one run cost, split by which end did the work.
+/// The cost of one run, for each end of the deque.
 ///
-/// The two pop counters are kept apart because they answer different
-/// questions. Their sum can never pass the pushes, and the pushes can never
-/// pass the number of values.
+/// The two pop counters are separate because they answer different questions.
+/// Their sum can never be more than the pushes. The pushes can never be more
+/// than the number of values.
 const Work = struct {
     pushes: usize = 0,
     back_pops: usize = 0,
@@ -128,28 +128,29 @@ const Work = struct {
     }
 };
 
-/// The largest value in every window of `k` consecutive values, in one pass.
+/// The largest value in each window of `k` consecutive values, in one pass.
 ///
-/// The deque holds indices, and the values at those indices fall from front to
-/// back. Two rules keep it that way, and neither one knows about the other.
+/// The deque holds indices. From front to back, the values at those indices
+/// decrease. Two rules keep this order, and each rule is independent of the
+/// other rule.
 ///
-/// The back evicts on value. An index already in the deque holding a value
-/// smaller than the arriving one is finished: the arriving value is larger and
-/// it stays in the window longer, so the smaller value can never be the answer
-/// again. Dropping it is safe, because no future window can need that index.
+/// The back removes by value. Look at an index in the deque with a value that
+/// is smaller than the value that arrives. The new value is larger, and it
+/// stays in the window longer. Thus the smaller value can never be the answer
+/// again. The removal is safe, because no future window can need that index.
 ///
-/// The front expires on index. `start` is the leftmost index the window now
-/// covers, and anything below it is out of range whatever it holds. The
-/// comparison here is between indices and never touches a value.
+/// The front removes by index. `start` is the leftmost index in the window
+/// now. Each index below `start` is out of range, whatever its value is. This
+/// comparison is between indices, and it never reads a value.
 ///
-/// After both rules have run, the front holds the largest value in the window,
-/// because everything larger was popped for being out of range and everything
-/// in range that is smaller was popped from the back.
+/// After the two rules, the front holds the largest value in the window. Each
+/// larger value left because it was out of range. Each smaller value in range
+/// left from the back.
 ///
-/// `>=` and not `>` on the back rule. Two equal values are both kept, since
-/// the later one outlives the earlier and the earlier is still the answer
-/// until it expires. Using `>` would drop the earlier one and give the same
-/// maxima with a shorter deque.
+/// Use `>=`, not `>`, in the back rule. The deque keeps two equal values,
+/// because the later value stays longer, and the earlier value is the answer
+/// until it expires. With `>`, the deque removes the earlier value. The maxima
+/// are the same, and the deque is shorter.
 fn dequeMax(items: []const i32, k: usize, out: []i32, slots: []usize, work: *Work) void {
     var d: Deque = .{ .slots = slots };
 
@@ -173,10 +174,10 @@ fn dequeMax(items: []const i32, k: usize, out: []i32, slots: []usize, work: *Wor
     }
 }
 
-/// The same answers by looking at every window from scratch.
+/// The same answers, from a new scan of each window.
 ///
-/// `comparisons` counts the values read, which comes to `k` for each of the
-/// `n - k + 1` windows however the values are arranged.
+/// `comparisons` counts the values that the function reads. The count is `k`
+/// for each of the `n - k + 1` windows, whatever the order of the values.
 fn rescanMax(items: []const i32, k: usize, out: []i32, comparisons: *usize) void {
     var start: usize = 0;
     while (start + k <= items.len) : (start += 1) {
@@ -190,12 +191,13 @@ fn rescanMax(items: []const i32, k: usize, out: []i32, comparisons: *usize) void
     }
 }
 
-/// One value carried across the slides, and nothing else.
+/// One value that moves with the window, and nothing more.
 ///
-/// This is what a running total does for a sum, applied to a maximum. It takes
-/// the arriving value into account and has no way to take the leaving one out,
-/// so `best` is the largest value seen so far rather than the largest value in
-/// the window. The rows where those differ are printed rather than described.
+/// For a sum, you can add the value that arrives and subtract the value that
+/// leaves. This function tries the same method for a maximum. It includes the
+/// value that arrives, but it cannot remove the value that leaves.
+/// Thus `best` is the largest value until now, not the largest value in the
+/// window. The program prints the rows where the two values are different.
 fn carryMax(items: []const i32, k: usize, out: []i32) void {
     var best = items[0];
     for (items, 0..) |value, i| {
@@ -204,12 +206,13 @@ fn carryMax(items: []const i32, k: usize, out: []i32) void {
     }
 }
 
-/// The repair: carry one value, and rescan the window whenever it leaves.
+/// The repair: carry one value, and scan the window again when that value
+/// leaves.
 ///
-/// Correct on every array, and the price depends on the data. When the leaving
-/// value is not the maximum, one comparison against the arriving value is
-/// enough. When it is the maximum, nothing is left to fall back on and the
-/// window has to be read again.
+/// The function is correct on each array, and the cost depends on the data.
+/// If the value that leaves is not the maximum, one comparison with the value
+/// that arrives is sufficient. If the value that leaves is the maximum, no
+/// other information is available. Then the function must read the window again.
 fn rescanOnLoss(items: []const i32, k: usize, out: []i32, comparisons: *usize) void {
     var best = items[0];
     comparisons.* += 1;
@@ -237,21 +240,22 @@ fn rescanOnLoss(items: []const i32, k: usize, out: []i32, comparisons: *usize) v
     }
 }
 
-/// One index leaving the deque, with the end it left by.
+/// One index that left the deque, and the end that it left from.
 const Departure = struct {
     index: usize,
     from_back: bool,
     step: usize,
-    /// The arriving value for a back eviction, the window start for a front
-    /// expiry. The two rules read different things, so the record does too.
+    /// For a removal at the back, the value that arrived. For an expiry at the
+    /// front, the start of the window. The two rules read different data, thus
+    /// the record does too.
     against: usize,
 };
 
 /// Right-align a value in a cell of `field` characters.
 ///
-/// `{d:>4}` would be shorter, and it prints a `+` in front of a non-negative
-/// signed integer as soon as a width is given. Formatting the digits first and
-/// padding them keeps the columns readable.
+/// `{d:>4}` is shorter, but it prints a `+` before a non-negative signed
+/// integer when you give a width. This function formats the digits first and
+/// then adds the padding. Thus the columns are easy to read.
 fn writeCell(out: *std.Io.Writer, value: i32, field: usize) !void {
     var digits: [12]u8 = undefined;
     const text = try std.mem.print(&digits, "{d}", .{value});
@@ -259,10 +263,10 @@ fn writeCell(out: *std.Io.Writer, value: i32, field: usize) !void {
     try out.writeAll(text);
 }
 
-/// A list of indices as `index:value` pairs, padded out to `field`.
+/// A list of indices as `index:value` pairs, with padding to `field`.
 ///
-/// Printing the value beside the index is what makes the ordering visible. A
-/// column of bare indices would hide the property the method depends on.
+/// The value next to the index makes the order visible. A column of only
+/// indices hides the property that the method needs.
 fn writePairs(
     out: *std.Io.Writer,
     items: []const i32,
@@ -288,10 +292,12 @@ fn writePairs(
     if (field > used) try out.splatByteAll(' ', field - used);
 }
 
-/// `dequeMax` with a row printed per arriving value, and the departures kept.
+/// `dequeMax`, but it prints a row for each value that arrives, and it records
+/// each index that leaves.
 ///
-/// Kept separate so the function above stays the shape you would paste into a
-/// solution. The run below checks that the two agree rather than trusting it.
+/// This function is separate, thus `dequeMax` keeps the shape that you can copy
+/// into a solution. The run below checks that the two functions agree. It does
+/// not assume that they do.
 fn traceDequeMax(
     out: *std.Io.Writer,
     items: []const i32,
@@ -348,10 +354,10 @@ fn traceDequeMax(
     return count;
 }
 
-/// Every index that left, in the order it left, with the reason.
+/// Each index that left, in the order that it left, with the reason.
 ///
-/// The two reason columns show how the rules differ. A back row quotes two
-/// values and no index. A front row quotes two indices and no value.
+/// The two reason columns show the difference between the rules. A back row
+/// shows two values and no index. A front row shows two indices and no value.
 fn writeDepartures(
     out: *std.Io.Writer,
     items: []const i32,
@@ -380,7 +386,7 @@ fn writeDepartures(
     }
 }
 
-/// The windows, their values, the rescanned answer and the carried one.
+/// The windows, their values, the answer from a new scan and the carried answer.
 fn writeWindows(
     out: *std.Io.Writer,
     items: []const i32,
@@ -456,9 +462,9 @@ pub fn main(init: std.process.Init) !void {
     for (values) |v| try writeCell(out, v, 4);
     try out.writeAll("\n\n");
 
-    // Every window read from scratch, beside one value carried across the
-    // slides. The second column is wrong wherever the value that left was the
-    // one being carried.
+    // A new scan of each window, next to one value that moves with the window.
+    // The second column is wrong at each row where the value that left was the
+    // carried value.
     var scanned_answers: [64]i32 = undefined;
     var carried_answers: [64]i32 = undefined;
     var scanned: usize = 0;
@@ -472,7 +478,7 @@ pub fn main(init: std.process.Init) !void {
         .{ scanned, wrong, windows },
     );
 
-    // The repair. Correct on every array, and its cost depends on the data.
+    // The repair. It is correct on each array, and its cost depends on the data.
     var repaired_answers: [64]i32 = undefined;
     var repaired: usize = 0;
     rescanOnLoss(values, k, &repaired_answers, &repaired);
@@ -481,7 +487,7 @@ pub fn main(init: std.process.Init) !void {
         .{ repaired, std.mem.eql(i32, repaired_answers[0..windows], scanned_answers[0..windows]) },
     );
 
-    // The pass, printed. Both ends work on the last row.
+    // The pass, with a trace. On the last row, the two ends both remove an index.
     var slots: [64]usize = undefined;
     var gone: [64]Departure = undefined;
     try out.writeAll("the deque, one row per arriving value\n");
@@ -514,7 +520,7 @@ pub fn main(init: std.process.Init) !void {
     );
 
     // Three shapes of data and one larger array. The repair column changes by
-    // a factor of three. The push column is the length of the array every time.
+    // a factor of three. The push column is always the length of the array.
     fillPseudoRandom(&scale_values);
     try out.writeAll("what each array costs\n");
     try out.writeAll("  array         n   k  rescan  on loss  pushes  back  front\n");

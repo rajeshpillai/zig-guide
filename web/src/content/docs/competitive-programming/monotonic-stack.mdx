@@ -1,8 +1,8 @@
 ---
 title: The Monotonic Stack
 seoTitle: "Zig Monotonic Stack: Next Greater Element in One Pass"
-description: A stack of the indices still waiting for an answer, and the two counters that show the inner loop keeps the total linear.
-seoDescription: The monotonic stack in Zig, printing every push and every pop. Next greater element in one pass instead of a scan from each index, why a while loop nested inside a for loop is still linear when each index is pushed once and popped once, what the indices left on the stack mean, and the same run read backwards for the previous smaller element.
+description: A stack of the indices that still wait for an answer, and the two counters that show the inner loop keeps the total linear.
+seoDescription: The monotonic stack in Zig with each push and pop. Next greater element in one pass, why the nested loop is linear, and the previous smaller element.
 section: Competitive Programming
 order: 50
 ---
@@ -10,133 +10,63 @@ order: 50
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-For every value in an array, we want the first larger value to its right.
+The problem: for each value in an array, find the first larger value to its right. Some values find a larger value immediately. Some values must look much farther. Some values do not have a larger value to their right.
 
-Some values find a larger value immediately.
+A simple solution starts at each index and scans to the right until it finds a larger value. That solution works, but in the worst case it checks almost each pair of values.
 
-Some have to look much further.
-
-Some do not have a larger value to their right at all.
-
-A simple solution is to start at every index and scan to the right until a larger value is found.
-
-That works, but in the worst case it checks almost every pair of values.
-
-A monotonic stack solves the same problem in one pass.
-
-Instead of asking "What is the answer for this index?", we ask which earlier indices the current value can answer.
-
-The stack stores the indices that are still waiting for a larger value.
+A monotonic stack solves the same problem in one pass. The question changes. The question is not "What is the answer for this index?". The question is "Which earlier indices can the current value answer?". The stack keeps the indices that still wait for a larger value.
 
 <Playground name="23-competitive.monotonic-stack" />
 
-## Scanning right from every index
+## Scan right from each index
 
 <SnippetSource name="23-competitive.monotonic-stack" decl="scanRight" />
 
-The direct solution is easy to understand.
+The direct solution is easy to understand. For each index, scan to the right until you find a larger value:
 
-For each index, scan to the right until a larger value is found.
+- If you find a larger value, store it.
+- If you get to the end of the array, that index has no answer.
 
-If one is found, store it.
+This solution is correct. The problem is the number of comparisons, and the number changes with the input.
 
-If the end of the array is reached, there is no answer for that index.
+For an array in ascending order such as `1 2 3 4 5`, each value except the last value finds its answer immediately. Thus each of these indices needs only one comparison.
 
-This solution is correct.
+For an array in descending order such as `9 8 7 6 5`, no value finds a larger value to its right. The first index checks four values, the second index checks three, then two, then one. The total is `n(n - 1) / 2` comparisons. Thus the worst-case time complexity is O(n²).
 
-The problem is the number of comparisons.
-
-The cost depends on the input.
-
-For an increasing array such as `1 2 3 4 5`, each value except the last finds its answer immediately.
-
-So each index needs only one comparison.
-
-For a decreasing array such as `9 8 7 6 5`, no value ever finds a larger value to its right.
-
-The first index checks four values.
-
-The second checks three.
-
-Then two.
-
-Then one.
-
-The total is `n(n - 1) / 2` comparisons.
-
-So the worst-case time complexity is O(n²).
-
-## The stack stores indices still waiting for an answer
+## The stack keeps the indices that wait for an answer
 
 <SnippetSource name="23-competitive.monotonic-stack" decl="nextGreater" />
 
-The monotonic-stack solution looks at the problem from the other direction.
+The monotonic-stack solution examines the problem from the other direction. At index `i`, the solution does not immediately try to find the answer for `i`. Instead, the current value can answer some earlier indices. The stack contains the indices that do not have their next greater value yet.
 
-When we reach index `i`, we do not immediately try to find the answer for `i`.
+The current value is `items[i]`. For each value, do these steps:
 
-Instead, the current value may answer some earlier indices.
+1. Look at the index on the top of the stack.
+2. If `items[i] > items[stack_top]`, the current value is the next greater value for that index. Pop that index and record the answer.
+3. Do steps 1 and 2 again. Stop when the stack is empty or the top value is greater than or equal to the current value.
+4. Push `i`.
 
-The stack contains indices whose next greater value has not been found yet.
+The values of the indices on the stack become smaller from the bottom to the top. For example, if the stack contains the values `9 7 5 3`, a new value of 6 can answer 3 and 5. The value 6 cannot answer 7. Thus the pops stop at 7.
 
-Let the current value be `items[i]`.
+The stack keeps this order without more work. Before the push of a new value, the loop already removed each smaller value at the top. Then the loop pushes the new value above values that are greater than or equal to it.
 
-Look at the index on top of the stack.
+The comparison must be correct for equal values. An equal value is not a greater value. If an index waits for a value greater than 5, a second 5 does not answer that index.
 
-If `items[i] > items[stack_top]`, the current value is the next greater value for that stored index.
+At the start, all the values in `out` are null. The loop writes an answer only when it pops an index from the stack. If an index is still on the stack at the end of the loop, there was no larger value to its right. Thus the output for that index stays null.
 
-So we pop that index and record the answer.
+The stack is a `std.ArrayList(usize)`, and the code uses only one end of it. [Stacks](/learn/standard-library/stacks/) tells about `append`, `pop` and `last`. [Growable Array](/learn/data-structures/growable-array/) tells how the storage below the list grows.
 
-Then we check the next index on the stack.
+If you know the maximum size, the same algorithm can use a fixed array and a length counter instead.
 
-We continue until the stack is empty or the value on top is greater than or equal to the current value.
-
-After that, we push `i`.
-
-The values represented by the stack stay in decreasing order from bottom to top.
-
-For example, if the stack contains the values `9 7 5 3`, a new value of 6 can answer 3 and 5.
-
-It cannot answer 7.
-
-So the popping stops there.
-
-The stack keeps this order without any extra work.
-
-Before pushing a new value, every smaller value at the top has already been removed.
-
-The new value is then pushed above values that are greater than or equal to it.
-
-The comparison must treat equal values correctly.
-
-An equal value is not a greater value.
-
-If an index is waiting for something greater than 5, another 5 does not answer it.
-
-`out` starts filled with null values.
-
-An answer is written only when an index is popped from the stack.
-
-If an index is still on the stack when the loop finishes, there was no larger value to its right.
-
-Its output remains null.
-
-The stack is implemented with `std.ArrayList(usize)` and used from one end.
-
-[Stacks](/learn/standard-library/stacks/) covers `append`, `pop` and `last`, and [Growable Array](/learn/data-structures/growable-array/) covers how the underlying storage grows.
-
-If the maximum size is known, the same algorithm could use a fixed array and a length counter instead.
-
-## Following the stack
+## Follow the stack
 
 <SnippetSource name="23-competitive.monotonic-stack" decl="traceNextGreater" />
 
-Each row shows one incoming value.
+Each row shows one new value:
 
-The `resolved` column shows which earlier indices received an answer.
-
-The final column shows the stack after processing the current value.
-
-Each stack entry is written as `index:value`, from bottom to top.
+- The `resolved` column shows the earlier indices that got an answer.
+- The last column shows the stack after the step for the current value.
+- Each stack entry has the form `index:value`, from the bottom to the top.
 
 ```
    i  val  resolved (index -> answer)   stack after (bottom to top)
@@ -154,41 +84,17 @@ Each stack entry is written as `index:value`, from bottom to top.
   2 indices never popped: 5:9 10:7
 ```
 
-At index 0, the value is 3.
+At index 0, the value is 3. No index waits, thus the loop pushes index 0.
 
-There is nothing waiting, so index 0 is pushed.
+At index 1, the value is 1. The value 1 is not larger than 3, thus no index gets an answer. The loop pushes index 1 above index 0.
 
-At index 1, the value is 1.
+At index 2, the value is 4. The value 4 is larger than 1, thus the loop pops index 1, and its answer becomes 4. The value 4 is also larger than 3, thus the loop pops index 0, and its answer also becomes 4. The stack is now empty. The loop pushes index 2.
 
-It is not larger than 3, so nothing is resolved.
+Later, at index 10, the value is 7. The value 7 answers indices 9, 8 and 7. Then the loop gets to index 5, which has the value 9. The value 7 is not larger than 9, thus the pops stop.
 
-Index 1 is pushed above index 0.
+At the end, two indices stay on the stack: `5:9` and `10:7`. These two indices do not have a larger value to their right. Thus their answers stay null.
 
-At index 2, the value is 4.
-
-4 is larger than 1, so index 1 is popped and its answer becomes 4.
-
-4 is also larger than 3, so index 0 is popped and its answer also becomes 4.
-
-The stack is now empty.
-
-Index 2 is pushed.
-
-Later, at index 10, the value is 7.
-
-It resolves indices 9, 8 and 7.
-
-Then it reaches index 5, whose value is 9.
-
-7 is not larger than 9, so the popping stops.
-
-At the end, two indices remain: `5:9` and `10:7`.
-
-Neither has a larger value to its right.
-
-So their answers remain null.
-
-The program compares the stack solution with the direct scanning solution:
+The program compares the stack solution with the direct scan:
 
 ```
   stack and scan agree -> true
@@ -198,37 +104,20 @@ The program compares the stack solution with the direct scanning solution:
 
 <SnippetSource name="23-competitive.monotonic-stack" decl="writeCostRow" />
 
-The algorithm contains a `while` loop inside a `for` loop.
+The algorithm has a `while` loop inside a `for` loop. At first, this can look like O(n²), but it is O(n). To see why, count how many times an index can go onto the stack and come off the stack.
 
-At first this can look like O(n²), but it is O(n).
+- The loop pushes each index exactly one time. Thus there are exactly `n` pushes.
+- The loop can pop an index a maximum of one time. After the pop, the loop never adds that index again. Thus there can be a maximum of `n` pops.
 
-To see why, count how many times an index can enter and leave the stack.
-
-Each index is pushed exactly once.
-
-So there are exactly `n` pushes.
-
-An index can also be popped at most once.
-
-Once it is popped, it is never added again.
-
-So there can be at most `n` pops.
-
-That gives at most about `2n` stack operations across the entire function.
-
-For this example:
+Thus the full function has a maximum of approximately `2n` stack operations. The counts for this example are:
 
 ```
   11 pushes, 9 pops over 11 values, ceiling 2n = 22
 ```
 
-The inner loop may run several times during one outer-loop iteration.
+The inner loop can run many times in one iteration of the outer loop. But these pops cannot occur again later. Thus the total work for the full array stays linear.
 
-But those pops cannot happen again later.
-
-So the total work over the whole array stays linear.
-
-The example compares both approaches on different inputs:
+The example compares the two methods on different inputs:
 
 ```
   array         n  scans  pushes  pops
@@ -237,35 +126,22 @@ The example compares both approaches on different inputs:
   increasing    9      8       9     8
 ```
 
-For the decreasing array, the direct scan performs 36 comparisons.
+For the `decreasing` array, the direct scan does 36 comparisons. The monotonic stack does nine pushes and no pops.
 
-The monotonic stack performs nine pushes and no pops.
+For the `increasing` array, the direct scan does only eight comparisons. The stack does nine pushes and eight pops.
 
-For the increasing array, the direct scan performs only eight comparisons.
+Thus the stack is not always faster on each input. Its advantage is the worst-case bound. The direct scan can increase to O(n²). The monotonic stack stays O(n) for all inputs.
 
-The stack performs nine pushes and eight pops.
-
-So the stack is not always faster on every individual input.
-
-Its advantage is the worst-case bound.
-
-The direct scan can grow to O(n²).
-
-The monotonic stack stays O(n) for every input.
-
-A nested loop does not automatically mean quadratic time.
-
-If every item can enter the inner loop only a fixed number of times across the whole algorithm, the total work can still be linear.
+A nested loop does not always mean quadratic time. Count how many times each item can go into the inner loop in the full algorithm. If that number is fixed, the total work can still be linear.
 
 ## Previous smaller element
 
 <SnippetSource name="23-competitive.monotonic-stack" decl="previousSmaller" />
 
-The same idea solves another common problem: for each value, find the nearest smaller value to its left.
+The same method solves a different common problem: for each value, find the nearest smaller value to its left. The structure is almost the same, with two changes:
 
-The structure is almost the same.
-
-The comparison changes, and we read the answer from the index that remains on the stack after larger or equal values have been removed.
+- The comparison is different.
+- The answer comes from the index that stays on the stack after the loop removes the larger or equal values.
 
 The program prints:
 
@@ -280,29 +156,11 @@ The program prints:
     6    2             1    3
 ```
 
-Consider index 6, whose value is 2.
+Look at index 6, which has the value 2. At that step, the stack contains the values 5 and 9 above an earlier 1. The values 5 and 9 are too large to be the previous smaller value for 2. Thus the loop pops them. The next value is 1 at index 3. That value is smaller than 2, thus index 3 is the answer.
 
-The stack may contain values 5 and 9 above an earlier 1.
+The popped indices are not useful for future values. The current 2 is nearer to future positions, and it is smaller than both of the popped values. Thus a future value that can use 5 or 9 as a previous smaller value can use 2 instead.
 
-Both 5 and 9 are too large to be the previous smaller value for 2.
-
-So they are popped.
-
-The next value is 1 at index 3.
-
-That value is smaller than 2, so index 3 is the answer.
-
-The popped indices are no longer useful for future values.
-
-The current 2 is closer to future positions and is smaller than both of them.
-
-So any future value that could use 5 or 9 as a previous smaller value could use 2 instead.
-
-Rows 1 and 3 have no previous smaller value.
-
-Both contain 1, which is the smallest value seen up to those positions.
-
-The stack becomes empty before their answer is read.
+Rows 1 and 3 have no previous smaller value. These two rows contain 1, which is the smallest value up to those positions. The stack becomes empty before the loop reads their answer.
 
 The number of stack operations is still linear:
 
@@ -310,18 +168,16 @@ The number of stack operations is still linear:
   11 pushes, 7 pops, same ceiling
 ```
 
-This gives us a common family of monotonic-stack problems:
+The method gives a common family of monotonic-stack problems:
 
 - next greater element
 - next smaller element
 - previous greater element
 - previous smaller element
 
-The same basic structure works for all four.
+The same basic structure works for all four. These items change:
 
-What changes is:
-
-- whether we scan from left to right or right to left
-- whether the stack is increasing or decreasing
-- whether we pop on greater or smaller values
-- whether the answer comes from the current value or from the stack after popping
+- the direction of the scan: from left to right, or from right to left
+- the order of the stack: values that become larger or smaller from the bottom to the top
+- the condition for a pop: on greater values, or on smaller values
+- the source of the answer: the current value, or the stack after the pops

@@ -1,29 +1,30 @@
 //! title: A Contest Template
 //! native
-//! The one program in this section that reads real stdin. Every other chapter
-//! parses a const string through a `*std.Io.Reader`; this one hands the same
-//! kind of reader a file handle instead. CI feeds it the sibling `.stdin` file
-//! and diffs stdout, exactly as a judge would.
+//! The one program in this section that reads real stdin. Each other chapter
+//! parses a const string through a `*std.Io.Reader`. This program gives the
+//! same type of reader a file handle. CI gives it the sibling `.stdin` file
+//! and compares stdout, in the same way as a judge.
 
 const std = @import("std");
 
-/// The largest `n` the problem promises. Contest statements always give one,
-/// and sizing storage from it means no allocation at all.
+/// The largest `n` that the problem allows. Contest statements always give
+/// this limit. If the storage size comes from the limit, the program does not
+/// allocate memory.
 const max_n = 200_000;
 
-/// Declared at container level, not inside `main`.
+/// The declaration is at container level, not inside `main`.
 ///
-/// 200,000 values of 8 bytes is 1.6 MB. A local array lives on the stack,
-/// which is commonly 8 MB on Linux and often less on a judge, so a bound ten
-/// times larger would crash before the first read. A global lives in the
-/// program's zeroed data instead, and is reused by every test case.
+/// 200,000 values of 8 bytes is 1.6 MB. A local array is on the stack. On
+/// Linux the stack is usually 8 MB, and on a judge it is frequently smaller.
+/// Thus a bound ten times larger crashes before the first read. A global is
+/// in the zeroed data of the program, and each test case uses it again.
 var values: [max_n]i64 = undefined;
 
 /// Skip whitespace, then read one integer.
 ///
-/// It reads byte by byte and never looks at line breaks, so it does not care
-/// how the input is laid out. Judges promise the tokens and their order, not
-/// which line each one is on.
+/// The function reads one byte at a time and does not examine line breaks.
+/// Thus the layout of the input has no effect. A judge tells you the tokens
+/// and their order, not the line of each token.
 fn nextInt(in: *std.Io.Reader) !i64 {
     var c = try in.takeByte();
     while (c == ' ' or c == '\n' or c == '\r' or c == '\t') c = try in.takeByte();
@@ -44,10 +45,10 @@ fn nextInt(in: *std.Io.Reader) !i64 {
     return if (negative) -value else value;
 }
 
-/// One test case: the sum of the values and the largest of them.
+/// One test case: the sum of the values and the largest value.
 ///
-/// The sum is `i64` on purpose. Three values of 10^9 add up to 3 * 10^9, and
-/// `i32` stops at 2,147,483,647.
+/// The sum is `i64` on purpose. The sum of three values of 10^9 is 3 * 10^9,
+/// and the maximum value of `i32` is 2,147,483,647.
 fn solve(in: *std.Io.Reader, out: *std.Io.Writer) !void {
     const n: usize = @intCast(try nextInt(in));
     if (n == 0 or n > max_n) return error.BadLength;
@@ -69,8 +70,8 @@ pub fn main(init: std.process.Init) !void {
     var stdin = std.Io.File.stdin().readerStreaming(init.io, &in_buf);
     const in = &stdin.interface;
 
-    // Every answer goes into this buffer, and the operating system sees one
-    // write each time it fills, not one per line.
+    // Each answer goes into this buffer. The operating system gets one write
+    // each time the buffer is full, not one write for each line.
     var out_buf: [64 * 1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &out_buf);
     const out = &stdout.interface;

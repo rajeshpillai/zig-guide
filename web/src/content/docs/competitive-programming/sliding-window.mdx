@@ -1,8 +1,8 @@
 ---
 title: Sliding Window
 seoTitle: "Zig Sliding Window: Fixed Windows, Shrinking Windows, and Why It Is O(n)"
-description: One addition and one subtraction instead of a fresh sum, the window that grows and shrinks, and the count that shows the inner loop keeps the total linear.
-seoDescription: The sliding window in Zig, with the window printed at every move. Maximum sum of k consecutive values from one addition and one subtraction, the shortest run reaching a target by growing the right edge and shrinking the left, why a loop inside a loop is still linear, and the negative value that breaks the shrink rule.
+description: One addition and one subtraction instead of a new sum, the window that grows and shrinks, and the count that shows the total stays linear.
+seoDescription: The sliding window in Zig with a trace of each move. A fixed window, the shortest run that gets to a target, why the inner loop is linear, and negative values.
 section: Competitive Programming
 order: 30
 ---
@@ -10,65 +10,46 @@ order: 30
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-We have ten numbers and two questions about them.
+The example uses ten numbers and two questions about them:
 
-First, what is the largest sum of four consecutive values?
+1. What is the largest sum of four consecutive values?
+2. What is the shortest consecutive range with a sum of 19 or more?
 
-Second, what is the shortest consecutive range whose sum is at least 19?
+The two problems use a contiguous part of the array. A sliding window solves them with two indices that move from left to right.
 
-Both problems work with a contiguous part of the array.
-
-A sliding window lets us solve them by moving two indices from left to right.
-
-The trace below shows the window at every step. It also shows which value entered, which value left, and the current sum.
+The trace below shows the window at each step. Each line also shows the value that entered, the value that left, and the current sum.
 
 <Playground name="23-competitive.sliding-window" />
 
-## Recalculating every window
+## Calculate each window again
 
 <SnippetSource name="23-competitive.sliding-window" decl="resumMaxWindow" />
 
-One simple solution is to calculate the sum of every possible window from scratch.
+A simple solution calculates the sum of each possible window from the start. This solution gives the correct answer.
 
-This gives the correct answer.
+For a window size of four, there are seven possible windows in an array of ten values. Each window needs four additions.
 
-For a window size of four, there are seven possible windows in an array of ten values.
+The problem is the quantity of repeated work. There are `n - k + 1` windows, and each window needs `k` additions. Thus the time complexity is `O(n * k)`.
 
-Each window needs four additions.
+For 200,000 values with a window size of 1,000, the result is approximately 200 million additions. Most of these additions are not necessary.
 
-The problem is the amount of repeated work.
+Two adjacent windows share `k - 1` values. Do not add these values again. Keep the previous sum, and change the sum only for the two values that are different.
 
-There are `n - k + 1` windows, and each window takes `k` additions.
-
-So the time complexity is `O(n * k)`.
-
-For 200,000 values with a window size of 1,000, this means about 200 million additions.
-
-Most of those additions are unnecessary.
-
-Two neighbouring windows share `k - 1` values.
-
-Instead of adding those values again, we can keep the previous sum and update only the values that changed.
-
-## One addition and one subtraction
+## Use one addition and one subtraction
 
 <SnippetSource name="23-competitive.sliding-window" decl="slidingMaxWindow" />
 
-First, calculate the sum of the first window normally.
+First, calculate the sum of the first window in the usual way. After that, each new window is different from the previous window by only two values:
 
-After that, each new window differs from the previous window by only two values.
+- One value enters from the right.
+- One value leaves from the left.
 
-One value enters from the right.
+Thus you do not calculate the full sum again. Change the current sum in two steps:
 
-One value leaves from the left.
+1. Add the new value.
+2. Subtract the old value.
 
-So instead of calculating the full sum again, we update the existing sum.
-
-Add the new value.
-
-Subtract the old value.
-
-The first four windows look like this:
+The first four windows are:
 
 ```
   move     enter leave   sum  window
@@ -78,53 +59,32 @@ The first four windows look like this:
   slide        8     1    24    2   7   1 [ 9   4   3   8]  5   6   2
 ```
 
-In the third row, 3 enters the window and 7 leaves it.
+In the third row, 3 enters the window and 7 leaves the window. The sum changes from 21 to 17. The program does not add the values in the middle again.
 
-The sum changes from 21 to 17.
-
-The values in the middle do not need to be added again.
-
-The program also counts how many additions are performed by both approaches:
+The program also counts the additions in the two methods:
 
 ```
   16 additions sliding, 28 re-summing every window
 ```
 
-The difference is small for ten values.
+For ten values, the difference is small. The difference becomes larger when the array becomes larger.
 
-It grows as the array grows.
+The sliding version does approximately `2n - k` additions and subtractions. The version that calculates each sum again does `k(n - k + 1)` additions. Thus the sliding version is O(n), and the calculation of each window from the start is O(nk).
 
-The sliding version does about `2n - k` additions and subtractions.
+The total uses `i64`, but each value is `i32`. The sum of many `i32` values can be too large for an `i32`. A wider type for the total prevents this overflow.
 
-The re-summing version does `k(n - k + 1)` additions.
-
-So the sliding version is O(n), while calculating every window from scratch is O(nk).
-
-The running total uses `i64` even though each individual value is `i32`.
-
-A large number of `i32` values may produce a sum that does not fit inside an `i32`.
-
-Using a wider type for the running total avoids that overflow.
-
-## A window with changing size
+## Use a window that changes size
 
 <SnippetSource name="23-competitive.sliding-window" decl="shortestAtLeast" />
 
-The second problem is different.
+The second problem is different. The answer is the shortest consecutive range with a sum that is equal to or more than the target. The window size is not fixed. Thus the window must grow and shrink.
 
-We want the shortest consecutive range whose sum is at least the target.
+The window changes in two ways:
 
-There is no fixed window size.
+- The right edge moves forward and adds values to the sum.
+- When the sum gets to the target, the left edge moves forward to make the window smaller. The left edge continues to move while the window satisfies the condition.
 
-The window must be able to grow and shrink.
-
-The right edge moves forward and adds values to the sum.
-
-Once the sum reaches the target, we try to make the window smaller by moving the left edge.
-
-We keep shrinking while the window still satisfies the condition.
-
-A `shrink` row in the trace shows a valid window and the value that is about to be removed:
+A `shrink` row in the trace shows a valid window and the value that the next step removes:
 
 ```
   grow         6    22     4    2   7   1   9   4 [ 3   8   5   6]  2
@@ -133,23 +93,11 @@ A `shrink` row in the trace shows a valid window and the value that is about to 
   grow         2    13     3    2   7   1   9   4   3   8 [ 5   6   2]
 ```
 
-Adding 6 makes the sum 22.
+The addition of 6 makes the sum 22. This sum is equal to or more than the target, thus the current window is valid. The length of the window is four.
 
-That is at least the target, so the current window is valid.
+Then the loop removes 3 from the left. The values 8, 5 and 6 stay in the window, and their sum is 19. This sum also gets to the target. Thus the loop has a shorter valid window, with a length of three.
 
-Its length is four.
-
-We then remove 3 from the left.
-
-The remaining values 8, 5 and 6 have a sum of 19.
-
-This still reaches the target, so we now have a shorter valid window of length three.
-
-Next, 8 is removed.
-
-The sum falls below the target, so shrinking stops.
-
-The right edge starts moving again.
+Next, the loop removes 8. The sum becomes less than the target, thus the left edge stops. The right edge starts to move again.
 
 The final answer is:
 
@@ -157,52 +105,39 @@ The final answer is:
   answer: items[6..9], 3 values summing to 19
 ```
 
-Notice that we record the current window before removing the left value.
-
-If we removed the value first and checked afterwards, we could miss a valid candidate.
+The loop records the current window before it removes the left value. If the loop removes the value first and checks the window after the removal, the loop can miss a valid candidate.
 
 ## Why the inner loop is still O(n)
 
 <SnippetSource name="23-competitive.sliding-window" decl="everyStartAtLeast" />
 
-The `while` loop inside the `for` loop is still O(n), for the reason explained in [The Monotonic Stack](/learn/competitive-programming/monotonic-stack/).
+The `while` loop inside the `for` loop is still O(n). [The Monotonic Stack](/learn/competitive-programming/monotonic-stack/) gives the reason.
 
-Each value enters the window once and leaves it at most once.
+Each value enters the window one time and leaves the window a maximum of one time. Here, `lo` never moves backwards. Thus the two edges together move a maximum of approximately `2n` times.
 
-Here `lo` never moves backwards, so the two edges together move at most about `2n` times.
-
-For this example:
+The counts for this example are:
 
 ```
   17 moves over 10 values, ceiling 2n = 20
   34 additions to try every starting index instead
 ```
 
-There are ten grow operations and seven shrink operations.
+The window grows ten times and shrinks seven times. The total is 17 moves.
 
-That gives 17 total moves.
+The other version starts a new sum at each possible start position. It repeats the work that the earlier start positions did. Thus that version is quadratic.
 
-The alternative version starts a new sum for every possible starting position.
+The sliding-window version uses the current state again and never resets `lo`.
 
-It repeats work that earlier starting positions already performed.
-
-That version is quadratic.
-
-The sliding-window version reuses the existing state and never resets `lo`.
-
-## When the shrinking rule fails
+## When the shrink rule fails
 
 <SnippetSource name="23-competitive.sliding-window" decl="with_a_negative" />
 
-The variable-size window above depends on one property.
+The window with a variable size above needs one property. When the loop removes a value from the left, the sum must stay the same or become smaller.
 
-When we remove a value from the left, the sum must stay the same or become smaller.
+- If all values are non-negative, this property is true.
+- If the input can have negative values, this property is not true.
 
-That is true when all values are non-negative.
-
-It is not true when negative values are allowed.
-
-Consider this input:
+Look at this input:
 
 ```
   val    2  -1   2   3
@@ -210,50 +145,27 @@ Consider this input:
   every start says items[2..4], 2 values summing to 5
 ```
 
-The complete array has a sum of 6, so the window reaches the target.
+The sum of the full array is 6, thus the window gets to the target. Then the algorithm removes the first value, 2. The sum becomes 4. The sum is now less than the target, thus the left edge stops.
 
-The algorithm then removes the leading 2.
+But the window still contains `-1`. If the loop also removes that negative value, the last two values `2` and `3` give a shorter valid window with a sum of 5. The usual shrink rule never gets to that window. Thus the sliding-window solution with a variable size is not correct for arbitrary negative values.
 
-The sum becomes 4.
+The brute-force version checks each start position and finds the correct answer, but it needs O(n²) time.
 
-Because the sum is now below the target, shrinking stops.
-
-But the window still contains `-1`.
-
-If that negative value could also be removed, the last two values `2` and `3` would give a valid shorter window with a sum of 5.
-
-The normal shrinking rule never reaches that window.
-
-So the variable-size sliding-window solution is not correct for arbitrary negative values.
-
-The brute-force version checks every starting position and finds the correct answer, but it takes O(n²) time.
-
-The fixed-size sliding window does not have this problem.
-
-It does not make decisions based on whether the sum increased or decreased.
-
-It simply adds the incoming value and removes the outgoing value.
-
-So it still works correctly with negative values:
+The fixed-size sliding window does not have this problem. The fixed window does not make decisions from an increase or a decrease of the sum. It only adds the value that enters and removes the value that leaves. Thus the fixed window is also correct with negative values:
 
 ```
   largest sum of 2 consecutive values is still 5
 ```
 
-A problem having a contiguous answer does not automatically mean sliding window will work.
+A problem with a contiguous answer does not always mean that a sliding window will work. For a sliding window with a variable size, the condition must usually change in a predictable way when the window grows or shrinks.
 
-For a variable-size sliding window, the condition usually needs to change predictably when the window grows or shrinks.
+For example, with non-negative numbers:
 
-For example, with non-negative numbers, adding another value cannot reduce the sum.
+- An added value cannot make the sum smaller.
+- A removed value cannot make the sum larger.
 
-Removing a value cannot increase the sum.
+These two facts give a safe rule for when to grow and when to shrink. Other examples are a limit on the number of different characters in a window, or on the number of forbidden values in a window.
 
-These two facts give us a safe rule for deciding when to grow and when to shrink.
+If the condition does not have this property, a different technique can be necessary, for example prefix sums, a deque, or a heap.
 
-Other examples include keeping a limit on the number of distinct characters or the number of forbidden values inside a window.
-
-If this property does not hold, another technique may be needed, such as prefix sums, a deque, or a heap.
-
-Two indices that start at opposite ends of a sorted array and move towards each other use a different pattern.
-
-[Two Pointers](/learn/competitive-programming/two-pointers/) covers that approach.
+Two indices that start at the two ends of a sorted array and move towards each other use a different pattern. [Two Pointers](/learn/competitive-programming/two-pointers/) tells about that method.

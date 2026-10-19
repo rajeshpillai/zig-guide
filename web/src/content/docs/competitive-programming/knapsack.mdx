@@ -1,8 +1,8 @@
 ---
 title: "Take or Skip: The 0/1 Knapsack"
 seoTitle: "Zig Dynamic Programming: The 0/1 Knapsack, Take or Skip"
-description: Every subset, then the take-or-skip recursion, the table that stops it repeating itself, the walk back to the chosen items, and the one-row version whose loop direction decides the answer.
-seoDescription: The 0/1 knapsack in Zig, with the program printing every table it fills. Brute force over all 2^n subsets, the take-or-skip recursion and how often it revisits a state, memoisation, the bottom-up table and the walk back that recovers the chosen items, the single-row version and why its capacity loop must run downward, and why O(n*W) is pseudo-polynomial.
+description: All subsets, the take-or-skip recursion, the table that stops repeats, the walk back to the items, and the one-row version with its loop direction.
+seoDescription: The 0/1 knapsack in Zig, with each table printed. Brute force, take-or-skip recursion, memoisation, the bottom-up table, the one-row version and pseudo-polynomial time.
 section: Competitive Programming
 order: 110
 ---
@@ -10,19 +10,11 @@ order: 110
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-We have a bag that holds 10 kilograms and five items.
+A bag holds 10 kilograms, and there are five items. Each item has a weight and a value. The problem is to get the most value that fits in the bag.
 
-Each item has a weight and a value.
+Each item goes into the bag one time or not at all. You cannot cut an item in half, and you cannot take two copies of an item. The "0/1" in the name means exactly this rule.
 
-We want the most value that fits in the bag.
-
-Each item goes in once or not at all.
-
-We can't cut an item in half, and we can't take two copies of it.
-
-The "0/1" in the name means exactly that.
-
-The program below solves the same problem five ways and prints what each one does.
+The program below solves the same problem in five ways. It prints the work that each method does.
 
 <Playground name="23-competitive.knapsack" />
 
@@ -39,62 +31,46 @@ The input is the capacity, then a row of weights, then a row of values.
   value     10  40  30  50  15
 ```
 
-Item 4 is light and valuable, so it is an easy pick.
+Item 4 is light and has a high value. Thus item 4 is an easy choice.
 
-The rest is harder to see by eye.
+For the other items, the best choice is not easy to see:
 
-Items 2 and 3 together weigh exactly 10 and are worth 70.
+- Items 2 and 3 together weigh exactly 10, and their value is 70.
+- Items 2, 4 and 5 weigh 9, and their value is 105.
 
-Items 2, 4 and 5 weigh 9 and are worth 105.
+You need a method that checks all of the options, but does not make a list of each option.
 
-We need a method that checks every option without actually listing every option.
-
-## Every subset
+## Try all subsets
 
 <SnippetSource name="23-competitive.knapsack" decl="bestBySubsets" />
 
-The certain way is to try every subset.
+The certain method is to try all of the subsets. Each item is in the subset or not in it. Thus one bit for each item is sufficient to keep a subset.
 
-Each item is either in or out, so a subset fits in one bit per item.
-
-Counting `mask` from 0 up to `2^n - 1` visits every subset exactly once.
-
-For each mask we add up the weight and the value, and keep the best one that fits.
+When `mask` counts from 0 to `2^n - 1`, it gets to each subset exactly one time. For each mask, the function adds the weights and the values. It keeps the best subset that fits.
 
 ```
 every subset of 5 items
   32 subsets tried, best is items 2 4 5, weight 9, value 105
 ```
 
-Five items give 32 subsets.
+Five items give 32 subsets. Twenty items give 1,048,576. Each new item doubles the work. Thus this method is useful only as a check on small inputs.
 
-Twenty items give 1,048,576.
-
-Every extra item doubles the work, so this method is only useful as a check on small inputs.
-
-We keep it here for that job, and every faster method below has to agree with it.
+The program keeps this method for that check. Each faster method below must give the same answer.
 
 ## Take or skip
 
 <SnippetSource name="23-competitive.knapsack" decl="bestPlain" />
 
-A better way is to decide one item at a time.
+A better method is to decide about one item at a time.
 
-`bestPlain(items, i, cap)` answers a smaller question: what is the best value using only the first `i` items with `cap` room left?
+`bestPlain(items, i, cap)` answers a smaller question: what is the best value from only the first `i` items, when `cap` is the space that is left?
 
-Look at the last of those items, item `i - 1`.
+Look at the last of these items, item `i - 1`. For this item, there are only two choices:
 
-There are only two choices for it.
+- Skip the item. Then the answer is the best value from the first `i - 1` items with the same space.
+- Take the item. Then add its value, and get the best value from the first `i - 1` items with the space that is left. You can take the item only when it fits.
 
-If we skip it, the answer is the best the first `i - 1` items can do with the same room.
-
-If we take it, we add its value and ask the first `i - 1` items what they can do with the room that is left.
-
-We can only take it when it fits.
-
-The answer is the larger of the two.
-
-When `i` is 0 there are no items, so the answer is 0 whatever the room.
+The answer is the larger of the two values. When `i` is 0, there are no items. Thus the answer is 0 for all values of the space.
 
 ```
 take or skip, as plain recursion
@@ -102,21 +78,13 @@ take or skip, as plain recursion
   43 calls reached 34 distinct (i, cap) states
 ```
 
-The recursion agrees with the subsets.
+The recursion gives the same answer as the subsets. It made 43 calls, but it asked only 34 different questions. Thus 9 calls asked a question that had an answer already.
 
-It made 43 calls, but only 34 different questions were asked.
-
-So 9 calls answered a question that had already been answered.
-
-## Counting the repeats
+## Count the repeats
 
 <SnippetSource name="23-competitive.knapsack" decl="Calls" />
 
-Nine repeats out of 43 does not look like much.
-
-The program runs the same recursion on bigger inputs to see how the gap grows.
-
-It repeats the five items two, three and four times and scales the bag to match.
+Nine repeats in 43 calls do not look like many. The program runs the same recursion on larger inputs to show how the difference grows. It repeats the five items two, three and four times, and it makes the bag larger by the same factor.
 
 ```
   items  cap   subsets  plain calls  states  memo calls  cells
@@ -126,65 +94,38 @@ It repeats the five items two, three and four times and scales the bag to match.
      20   40   1048576      1286627     596        1074    861
 ```
 
-Look at the `plain calls` and `states` columns.
+Look at the `plain calls` and `states` columns. With 20 items, the recursion makes 1,286,627 calls. But these calls have only 596 different `(i, cap)` pairs.
 
-With 20 items the recursion makes 1,286,627 calls.
+The calls grow at approximately the same rate as the subsets. The states grow much more slowly, because a state is only two small numbers:
 
-There are only 596 different `(i, cap)` pairs among them.
+- `i` goes from 0 to `n`.
+- `cap` goes from 0 to the capacity.
 
-The calls grow at about the same rate as the subsets.
+Thus the number of states is never more than `(n + 1) * (cap + 1)`, which is the `cells` column.
 
-The states grow much more slowly, because a state is only two small numbers.
+Dynamic programming is for this type of problem, where the same small set of questions occurs again and again.
 
-`i` runs from 0 to `n`, and `cap` runs from 0 to the capacity.
-
-So there can never be more states than `(n + 1) * (cap + 1)`, which is the `cells` column.
-
-A problem where the same small set of questions comes up again and again is what dynamic programming is for.
-
-## Remembering answers
+## Keep the answers
 
 <SnippetSource name="23-competitive.knapsack" decl="bestMemo" />
 
-The fix is to store each answer the first time we compute it.
+The solution is to keep each answer the first time that the function calculates it. `Memo` is a two-dimensional array with one cell for each state. A cell is `null` until the function solves its state.
 
-`Memo` is a two-dimensional array with one cell per state.
+The recursion does not change. The function has only one new lookup at the start and one new store at the end. The name of this method is memoisation.
 
-A cell is `null` until its state is solved.
+In the table above, the `memo calls` column counts all of the calls. This count includes the calls that found a stored answer. With 20 items, the function made 1,074 calls instead of 1,286,627.
 
-The recursion itself is unchanged.
+The function solves each state one time, and a solved state makes a maximum of two calls. Thus the number of calls is never more than two times the number of states, plus one for the first call.
 
-We only added a lookup at the top and a store at the bottom.
+The arrays have a fixed size, from `max_items` and `max_cap`, as in a contest solution. [Arrays](/learn/language-basics/arrays/) tells about `@splat`, which fills the arrays.
 
-This is called memoisation.
-
-In the table above, the `memo calls` column counts every call, including the ones that found the answer already stored.
-
-With 20 items it made 1,074 calls instead of 1,286,627.
-
-Each state is solved once, and a solved state makes at most two calls of its own.
-
-So the calls can never be more than twice the states, plus one for the first call.
-
-The arrays are fixed size, sized by `max_items` and `max_cap`, as a contest solution would do.
-
-[Arrays](/learn/language-basics/arrays/) covers `@splat`, which fills them.
-
-## The table, bottom up
+## Fill the table from the bottom up
 
 <SnippetSource name="23-competitive.knapsack" decl="fillTable" />
 
-Memoisation fills the table in whatever order the recursion asks.
+Memoisation fills the table in the order that the recursion asks for. You can also fill the table in a fixed order, with no recursion.
 
-We can also fill it in a fixed order, with no recursion at all.
-
-`dp[i][c]` means the same thing as `bestPlain(items, i, c)`.
-
-Row `i` only reads row `i - 1`.
-
-So if we fill the rows from top to bottom, every cell a state needs is already filled.
-
-Row 0 is no items, which is 0 everywhere.
+`dp[i][c]` has the same meaning as `bestPlain(items, i, c)`. Row `i` reads only row `i - 1`. Thus, if you fill the rows from the top to the bottom, each cell that a state needs is already filled. Row 0 has no items, thus it is 0 in each cell.
 
 ```
 dp[i][c]: best value from the first i items with room c
@@ -198,33 +139,22 @@ dp[i][c]: best value from the first i items with room c
   answer dp[5][10] = 105, subsets said 105, agree -> true
 ```
 
-Each row adds one item to the ones above it.
+Each row adds one item to the items in the rows above it.
 
-Read the row for the third item at capacity 10.
+Read the row for the third item at capacity 10. The value is 70: items 2 and 3 fill the bag exactly. The next row adds item 4, and the same cell becomes 90. Now the cell holds items 2 and 4, and 3 kilograms of space are empty.
 
-It says 70, which is items 2 and 3 filling the bag exactly.
+The answer to the full problem is the cell at the bottom right.
 
-One row later, item 4 arrives and the same cell becomes 90.
-
-The cell now holds items 2 and 4, with 3 kilograms of room to spare.
-
-The answer to the whole problem is the bottom-right cell.
-
-## Which items were chosen
+## Find the selected items
 
 <SnippetSource name="23-competitive.knapsack" decl="chosenItems" />
 
-The table holds values, not choices.
+The table holds values, not choices. But you can find the choices again. Start at the cell at the bottom right and move back through the table.
 
-We can still recover the choices by walking back from the bottom-right cell.
+Compare each cell with the cell immediately above it:
 
-Compare each cell with the one directly above it.
-
-If they are equal, the earlier items already reach that value, so this item was not needed.
-
-If they differ, this item must have been taken.
-
-We then move up one row and to the left by the item's weight.
+- If the two cells are equal, the earlier items already give that value. Thus the function did not need this item.
+- If the two cells are different, the function took this item. Then move up one row, and move left by the weight of the item.
 
 ```
 walking back from the bottom-right cell
@@ -236,27 +166,17 @@ walking back from the bottom-right cell
   chosen: items 2 4 5, weight 9, value 105
 ```
 
-The walk lands on items 2, 4 and 5, the same set the subset search found.
+The walk gives items 2, 4 and 5. The subset search found the same set.
 
-Two different sets can tie for the best value.
+Two different sets can have the same best value. The walk skips an item when the skip keeps the same value. Thus, when two sets are equal, the walk selects the set without the later item. If a judge wants one specific set, the problem tells you how to select between equal sets.
 
-This walk skips an item whenever skipping keeps the same value, so a tie goes to the set without the later item.
-
-A judge that wants one particular set will say how to break ties.
-
-## One row instead of a table
+## Use one row instead of a table
 
 <SnippetSource name="23-competitive.knapsack" decl="rollDown" />
 
-Each row only reads the row above it.
+Each row reads only the row above it. Thus you do not need to keep the full table. One row is sufficient, if you write over it carefully.
 
-So we don't need to keep the whole table.
-
-One row is enough, if we overwrite it carefully.
-
-`best[c]` starts as the old row's value.
-
-For each item we update it in place, running the capacity from high to low.
+At the start, `best[c]` holds the value from the old row. For each item, the function updates `best[c]` in place, and the capacity goes from high to low.
 
 ```
 one row, capacity loop running downward
@@ -269,33 +189,20 @@ one row, capacity loop running downward
   every row matches the table -> true, answer 105
 ```
 
-After each item, the single row equals the matching row of the full table.
+After each item, the single row is equal to the same row of the full table. The memory decreases from `(n + 1) * (W + 1)` cells to `W + 1`.
 
-Memory drops from `(n + 1) * (W + 1)` cells to `W + 1`.
+The cost is the walk back. With only one row, there is no row above to compare with. Thus this version gives the best value but not the items. If a problem asks for the items, keep the table.
 
-The cost is the walk back.
-
-With only one row left, there is nothing to compare against, so this version gives the best value but not the items.
-
-If a problem asks for the items, keep the table.
-
-## The loop must run downward
+## Run the loop downward
 
 <SnippetSource name="23-competitive.knapsack" decl="rollUp" />
 
-The downward direction is not a style choice.
+The downward direction is necessary. When the function calculates `best[c]`, it reads `best[c - w]`, which is a cell to the left.
 
-When we compute `best[c]`, we read `best[c - w]`, which is a cell to its left.
+The two directions give different results:
 
-Running downward, the cells to the left have not been touched yet for this item.
-
-They still hold the previous row, which is what the formula needs.
-
-Running upward, the cells to the left were updated a moment ago.
-
-They may already include this item.
-
-Adding the item's value again takes the item a second time.
+- Downward: for this item, the function did not change the cells to the left yet. These cells still hold the previous row, and the formula needs the previous row.
+- Upward: the function changed the cells to the left a short time before. These cells can already include this item. Then the function adds the value of the item again, and it takes the item a second time.
 
 ```
 one row, capacity loop running upward
@@ -308,73 +215,40 @@ one row, capacity loop running upward
   answer 150, but the 0/1 answer is 105
 ```
 
-The first row already shows it.
+The first row already shows the problem. Item 1 weighs 5 and its value is 10, but the cell at capacity 10 is 20. Two copies of item 1 give the 20.
 
-Item 1 weighs 5 and is worth 10, and the cell at capacity 10 says 20.
+The row for item 4 is 100 at capacity 6 and 150 at capacity 9. These values are two and three copies of item 4.
 
-Two copies of item 1 make that 20.
-
-The row for item 4 says 100 at capacity 6 and 150 at capacity 9, which are two and three copies of it.
-
-The upward loop still compiles, runs and returns a reasonable-looking number.
-
-The number answers a different problem.
+The upward loop compiles, runs, and returns a number that looks correct. But the number is the answer to a different problem.
 
 <SnippetSource name="23-competitive.knapsack" decl="bestUnbounded" />
 
-That problem is the unbounded knapsack, where each item can be taken any number of times.
-
-`bestUnbounded` solves it with the loops the other way round, capacity outside and items inside.
+The different problem is the unbounded knapsack. In the unbounded knapsack, you can take each item any number of times. `bestUnbounded` solves it with the loops in the opposite order: the capacity outside and the items inside.
 
 ```
   the unbounded knapsack, any item any number of times, gives 150 -> agree true
 ```
 
-So when a problem does allow repeats, the upward loop is the correct one.
+Thus, when a problem lets you take an item more than one time, the upward loop is correct. Before you select the direction, find "each item at most once" or "unlimited supply" in the problem statement.
 
-Read the statement for "each item at most once" or "unlimited supply" before choosing the direction.
+## The cost
 
-## What it costs
+The table has `(n + 1) * (W + 1)` cells, where `W` is the capacity. Each cell needs a constant quantity of work. Thus the time is O(n * W). The full table uses O(n * W) memory, and the single row uses O(W).
 
-The table has `(n + 1) * (W + 1)` cells, where `W` is the capacity.
+Compare this cost with the 2^n subsets. For 100 items and a capacity of 10,000, the table has approximately one million cells. The number of subsets is approximately 10^30.
 
-Each cell takes a constant amount of work.
+But `W` causes a problem. `W` is a number from the input, not the length of something. The input needs only some digits for `W`, but the table needs `W + 1` columns. A capacity of 1,000,000,000 needs ten characters in the input, but one billion columns in the row.
 
-So the whole thing is O(n * W) time.
+Thus the name for this time is pseudo-polynomial. The time is polynomial in the value of `W`, not in the size of the input.
 
-The full table is O(n * W) memory, and the single row is O(W).
+Check the limits before you use this table:
 
-Compare that with the 2^n subsets.
-
-For 100 items and a capacity of 10,000, the table has about a million cells.
-
-The subsets would number about 10^30.
-
-There is a problem with `W`.
-
-`W` is a number from the input, not the length of anything.
-
-Writing `W` takes only a handful of digits, but the table needs `W + 1` columns.
-
-A capacity of 1,000,000,000 is ten characters in the input and a billion columns in the row.
-
-So the running time is called pseudo-polynomial.
-
-It is polynomial in the value of `W`, not in the size of the input.
-
-So check the bounds before using this table.
-
-If `W` is up to about 10^5 or 10^6, the table fits.
-
-If `W` is up to 10^9 and the values are small, the usual approach is to swap the roles: index the table by total value and store the least weight that reaches it.
+- If `W` is a maximum of approximately 10^5 or 10^6, the table fits.
+- If `W` can be 10^9 and the values are small, the usual method is to change the roles. Use the total value as the index of the table, and store the least weight that gets that value.
 
 ## The width of a total
 
-The weights and values are read as `u32`.
-
-Every total in the program is `u64`.
-
-A total is a sum of up to `n` values, and a sum can outgrow the type of the numbers it adds.
+The program reads the weights and values as `u32`. Each total in the program is `u64`. A total is a sum of a maximum of `n` values. A sum can become too large for the type of the numbers that it adds.
 
 ```
 the width of a total
@@ -382,14 +256,10 @@ the width of a total
   100 items of value 1000000000 add up to 100000000000
 ```
 
-A hundred values of 10^9 each fit in `u32` one at a time.
+Each of a hundred values of 10^9 fits in `u32`. The sum of the values does not fit.
 
-Their sum does not.
+In a Debug or ReleaseSafe build, that addition causes a panic. In ReleaseFast, the addition is illegal behaviour, and the program can continue with a wrong total.
 
-In a Debug or ReleaseSafe build that addition panics.
+[Integer Rules](/learn/language-basics/integer-rules/) tells what Zig does when an addition overflows.
 
-In ReleaseFast it is illegal behaviour, and the program may carry on with a wrong total.
-
-[Integer Rules](/learn/language-basics/integer-rules/) covers what Zig does when an addition overflows.
-
-For a contest, take the largest possible value, multiply by the number of items, and pick a type that holds the product.
+For a contest, multiply the largest possible value by the number of items. Then select a type that can hold the product.

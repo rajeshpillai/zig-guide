@@ -1,8 +1,8 @@
 ---
 title: A Contest Template
 seoTitle: "Zig Competitive Programming Template: Fast stdin and Buffered Output"
-description: The one program in the section that reads real stdin, and the three things a judge punishes that a browser never shows.
-seoDescription: A Zig template for competitive programming judges. A token reader over stdin that ignores line layout, buffered output flushed once, storage sized from the stated bound and kept off the stack, and 64-bit sums for values that overflow i32.
+description: The one program in the section that reads real stdin, and three problems that a judge finds and a browser never shows.
+seoDescription: "A Zig template for contest judges: a token reader over stdin, output flushed one time, storage sized from the bound, and 64-bit sums."
 section: Competitive Programming
 order: 120
 ---
@@ -10,37 +10,30 @@ order: 120
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Every other chapter in this section parses its input from a `const` string.
+Each other chapter in this section parses its input from a `const` string. A judge does not give you a string. A judge gives you standard input, and it compares your standard output with the correct output.
 
-A judge doesn't give you a string.
+This program is the shape around each solution in the section. The program reads real stdin. Thus it cannot run in your browser, because the WASI sandbox has no standard input.
 
-It gives you standard input, and it compares what you write to standard output.
-
-This program is the shape that sits around every solution in the section.
-
-It reads real stdin.
-
-So it can't run in your browser, where the WASI sandbox has no standard input.
-
-CI builds it for the host instead, feeds it a file, and compares the output, the same way a judge does.
+CI builds the program for the host. Then CI gives it a file as input and compares the output, in the same way as a judge.
 
 <Playground
   name="23-competitive.contest-template"
-  note="Built and run natively by CI with the input below on stdin. The browser has no stdin to give it."
+  note="CI builds and runs this program natively, with the input below on stdin. The browser has no stdin to give to the program."
   tryLocally="zig run contest-template.zig < input.txt"
 />
 
 ## The problem
 
-The problem is deliberately small, so the template is what you look at.
+The problem is small on purpose. Thus you can look at the template and not at the problem.
 
-The first number is how many test cases follow.
+The input has this format:
 
-Each test case is a count `n`, then `n` integers.
+- The first number is the number of test cases.
+- Each test case is a count `n`, then `n` integers.
 
-For each case, print the sum of the integers and the largest one.
+For each case, print the sum of the integers and the largest integer.
 
-This is the input CI feeds it:
+CI gives the program this input:
 
 ```
 3
@@ -53,7 +46,7 @@ This is the input CI feeds it:
 -5 -2 -9 -1 -3
 ```
 
-And this is the output it has to match, byte for byte:
+The output must be the same as this text, byte for byte:
 
 ```
 7 4
@@ -61,140 +54,79 @@ And this is the output it has to match, byte for byte:
 -20 -1
 ```
 
-Look at the second test case.
-
-Its three numbers are split across two lines.
-
-A judge is allowed to do that.
-
-The statement promises which tokens come in which order, not which line each one sits on.
+Look at the second test case. Its three numbers are on two lines. A judge can do this. The problem statement tells you the tokens and their order. It does not tell you the line of each token.
 
 ## Read tokens, not lines
 
-The other chapters read a line with `takeDelimiter` and split it.
+The other chapters read a line with `takeDelimiter` and split the line. That method works when you write the input yourself. On a judge, a reader that expects three numbers on one line fails on the second test case above.
 
-That works when we wrote the input ourselves.
-
-On a judge, a reader that expects three numbers on one line breaks on the second test case above.
-
-So the template reads one integer at a time, and treats every kind of whitespace the same:
+Thus the template reads one integer at a time. It uses the same rule for each type of whitespace:
 
 <SnippetSource name="23-competitive.contest-template" decl="nextInt" />
 
-`takeByte` returns the next byte from the reader's buffer.
+`takeByte` returns the next byte from the buffer of the reader. It asks the operating system for more bytes only when the buffer is empty. The buffer here is 64 KB. Thus a large input costs one system call for each 64 KB, not one for each number.
 
-It only asks the operating system for more when the buffer is empty.
+The parser does not make a string for each number. For each byte, it multiplies the value by ten and adds the digit. For this reason, the code does not use `std.fmt.parseInt`: it needs the number as a slice first.
 
-The buffer here is 64 KB, so a large input costs one system call per 64 KB, not one per number.
+The input can end where the parser reads the byte after the last digit. At that position, `EndOfStream` only means that the file stopped immediately after a number. This is normal, thus the loop stops. At a different position, the end of the input is an error, and the program stops.
 
-The parser never builds a string for each number.
-
-It multiplies by ten and adds the digit as the bytes go past.
-
-That's also why `std.fmt.parseInt` isn't used here: it needs the number as a slice first.
-
-Reading the next byte after the last digit is where the input may end.
-
-`EndOfStream` there just means the file stopped right after a number, which is normal, so the loop breaks.
-
-Anywhere else, running out of input is an error and the program stops.
-
-## Stdin is just another reader
+## Stdin is one more reader
 
 <SnippetSource name="23-competitive.contest-template" decl="main" />
 
-`std.Io.File.stdin().readerStreaming` wraps standard input in the same `std.Io.Reader` interface the other chapters use.
+`std.Io.File.stdin().readerStreaming` puts standard input behind the same `std.Io.Reader` interface that the other chapters use. `nextInt` takes a `*std.Io.Reader` and does not know where the bytes come from.
 
-`nextInt` takes a `*std.Io.Reader` and has no idea where the bytes come from.
+For this reason, each other chapter parses through a reader, and does not cut its `const` string into slices by hand. To move one of those solutions to a judge, replace the reader and nothing else.
 
-That's why every other chapter parses through a reader instead of slicing its `const` string by hand.
+[Readers and Writers](/learn/standard-library/readers-and-writers/) explains the interface.
 
-To move any of those solutions to a judge, you replace the reader and nothing else.
+## Write one time, at the end
 
-[Readers and Writers](/learn/standard-library/readers-and-writers/) covers the interface.
+The output also goes through a 64 KB buffer. `print` copies the answer into the buffer. The operating system gets a write only when the buffer is full, or when you call `flush`.
 
-## Write once, at the end
+A problem with 200,000 answers of approximately 20 bytes each writes 4 MB. That output needs approximately 60 writes. Without a buffer, each line is a separate system call. This is a common cause when a correct solution fails the time limit.
 
-Output goes through a 64 KB buffer as well.
-
-`print` copies the answer into the buffer.
-
-The operating system only sees a write when the buffer fills, or when we call `flush`.
-
-A problem with 200,000 answers of about 20 bytes each writes 4 MB, and that takes about 60 writes.
-
-Without a buffer, each line would be its own system call.
-
-That's a common reason a correct solution fails the time limit.
-
-The cost is that nothing appears until you flush.
-
-If the program returns early without flushing, the buffered answers are lost.
+The cost is that no output appears until you flush. If the program returns early without a flush, the program loses the answers in the buffer.
 
 [Readers and Writers](/learn/standard-library/readers-and-writers/) shows that failure.
 
 ## Size storage from the bound
 
-Every contest statement gives limits, like `1 ≤ n ≤ 200 000`.
-
-The template turns that into a constant and a fixed array:
+Each contest statement gives limits, for example `1 ≤ n ≤ 200 000`. The template changes the limit into a constant and a fixed array:
 
 <SnippetSource name="23-competitive.contest-template" decl="max_n" />
 
 <SnippetSource name="23-competitive.contest-template" decl="values" />
 
-The array is declared outside `main` on purpose.
+The declaration of the array is outside `main` on purpose. A local array is on the stack. On Linux, the stack of the main thread is usually 8 MB, and a judge can set a lower limit.
 
-A local array lives on the stack.
+This array is 1.6 MB, thus it fits. If you increase the bound to 2,000,000, the array is 16 MB. Then the program crashes before it reads the first number.
 
-On Linux the main thread's stack is commonly 8 MB, and a judge may set it lower.
+A container-level `var` is in the data of the program. Thus the stack does not limit its size.
 
-This array is 1.6 MB, which fits.
+Each test case uses the same array again. The program does not allocate memory, and it does not have to free memory between cases.
 
-Raise the bound to 2,000,000 and it's 16 MB, which crashes before the first number is read.
+If the bound is too large for a fixed array, pass an allocator in. Then allocate one time for the largest case. [Allocators](/learn/standard-library/allocators/) explains this method.
 
-A container-level `var` lives in the program's data instead, so its size isn't limited by the stack.
-
-Every test case reuses the same array.
-
-Nothing is allocated, and nothing needs freeing between cases.
-
-When the bound is too large for a fixed array, pass an allocator in and allocate once for the largest case.
-
-[Allocators](/learn/standard-library/allocators/) covers that.
-
-## Pick integer widths from the limits
+## Choose integer widths from the limits
 
 <SnippetSource name="23-competitive.contest-template" decl="solve" />
 
-The second test case sums three values of 1,000,000,000.
+The second test case adds three values of 1,000,000,000. The answer is 3,000,000,000. The maximum value of `i32` is 2,147,483,647. Thus the sum is an `i64`, but each value alone fits in an `i32`.
 
-The answer is 3,000,000,000.
+Use this rule: multiply the largest value by the largest count, and choose a type that holds the result.
 
-`i32` stops at 2,147,483,647.
+If you choose the wrong type, the result depends on the build mode:
 
-So the sum is an `i64`, even though every single value would fit in an `i32`.
+- A safe build stops with an overflow panic.
+- A `ReleaseFast` build, which is the build that you submit, has no check. The result is undefined.
 
-The rule to use is: multiply the largest value by the largest count, and pick a type that holds the result.
-
-What happens when you get this wrong depends on how you built the program.
-
-A safe build stops with an overflow panic.
-
-A `ReleaseFast` build, which is what you would submit, has no check, and the result is undefined.
-
-[Integer Rules](/learn/language-basics/integer-rules/) covers the widths and the overflow operators.
+[Integer Rules](/learn/language-basics/integer-rules/) explains the widths and the overflow operators.
 
 ## Before you submit
 
-Build with `-O ReleaseFast`.
+Build with `-O ReleaseFast`. A Debug build keeps all of the safety checks and does no optimization. Thus a Debug build can be many times slower.
 
-A Debug build keeps every safety check and does no optimising, so it can be many times slower.
-
-Check which Zig version the judge has, if it has one at all.
-
-This guide targets Zig master.
-
-A judge running an older release may reject much of this code.
+Find which Zig version the judge has, if the judge has Zig. This guide uses Zig master. A judge with an older release can reject much of this code.
 
 [What Changed in Zig 0.17](/learn/getting-started/zig-0-17/) and [Coming from an Older Zig](/learn/getting-started/coming-from-older-zig/) list the differences.

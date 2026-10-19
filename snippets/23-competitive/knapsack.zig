@@ -1,25 +1,27 @@
 //! title: Take or Skip: The 0/1 Knapsack
-//! Five items and a bag that holds ten. The program tries every subset, then
-//! the take-or-skip recursion with a count of how often it repeats itself,
-//! then the memoised version, the bottom-up table and the walk back through it,
-//! and last the one-row version run in both directions, so the wrong direction
-//! prints its wrong answer next to the right one.
+//! Five items and a bag that holds ten. The program tries all subsets. Then it
+//! runs the take-or-skip recursion and counts the repeats. Then it runs the
+//! memoised version, the bottom-up table and the walk back through the table.
+//! Last, it runs the one-row version in the two directions. Thus the wrong
+//! direction prints its wrong answer next to the correct answer.
 
 const std = @import("std");
 
-/// The problem: the bag's capacity, then each item's weight, then its value.
+/// The problem: the capacity of the bag, then the weight of each item, then
+/// the value of each item.
 const input =
     \\10
     \\5 4 6 3 2
     \\10 40 30 50 15
 ;
 
-/// Contest-sized bounds. The largest run below repeats the five items four
-/// times, so 20 items and a capacity of 40 cover every table in this file.
+/// Limits of the size that a contest uses. The largest run below repeats the
+/// five items four times. Thus 20 items and a capacity of 40 are sufficient
+/// for each table in this file.
 const max_items = 20;
 const max_cap = 40;
 
-/// Read one line of whitespace-separated values into `out`.
+/// Read one line of values into `out`. Whitespace separates the values.
 fn readRow(reader: *std.Io.Reader, out: []u32) ![]u32 {
     const line = (try reader.takeDelimiter('\n')) orelse return error.MissingRow;
     var count: usize = 0;
@@ -32,19 +34,20 @@ fn readRow(reader: *std.Io.Reader, out: []u32) ![]u32 {
     return out[0..count];
 }
 
-/// Weights and values are read as `u32`. Every total is a `u64`, because a
-/// total is a sum of up to `max_items` values and a sum can outgrow the type
-/// of the things it adds.
+/// The program reads weights and values as `u32`. Each total is a `u64`,
+/// because a total is a sum of a maximum of `max_items` values. A sum can
+/// become too large for the type of the numbers that it adds.
 const Item = struct {
     weight: u32,
     value: u32,
 };
 
-/// Try every subset of the items, one bit per item.
+/// Try all subsets of the items, with one bit for each item.
 ///
-/// Bit `i` of `mask` set means item `i` is in the bag. There are `2^n` masks,
-/// so this is the answer every faster method below has to agree with, and the
-/// cost none of them can afford once `n` passes about 25.
+/// If bit `i` of `mask` is 1, item `i` is in the bag. There are `2^n` masks.
+/// Thus each faster method below must give the same answer as this function.
+/// But when `n` is more than approximately 25, no method can use this
+/// function, because the cost is too high.
 fn bestBySubsets(items: []const Item, cap: u32, tried: *u64) struct { value: u64, mask: u32 } {
     var best: u64 = 0;
     var best_mask: u32 = 0;
@@ -68,7 +71,8 @@ fn bestBySubsets(items: []const Item, cap: u32, tried: *u64) struct { value: u64
     return .{ .value = best, .mask = best_mask };
 }
 
-/// Counts for the recursion: every call, and which `(i, cap)` pairs it reached.
+/// Counts for the recursion: all of the calls, and the `(i, cap)` pairs that
+/// the calls got to.
 const Calls = struct {
     calls: u64 = 0,
     seen: [max_items + 1][max_cap + 1]bool = @splat(@splat(false)),
@@ -82,12 +86,14 @@ const Calls = struct {
     }
 };
 
-/// The best value using only the first `i` items with `cap` room left.
+/// The best value from only the first `i` items, when `cap` is the space
+/// that is left.
 ///
-/// Look at item `i - 1` and make the one choice there is. Skip it, and the
-/// answer is whatever the first `i - 1` items do with the same room. Take it,
-/// if it fits, and the answer is its value plus what the first `i - 1` items
-/// do with the room that is left. The larger of the two wins.
+/// Look at item `i - 1` and make the one choice for it. If you skip the item,
+/// the answer is the best value from the first `i - 1` items with the same
+/// space. You can take the item only if it fits. Then the answer is its value
+/// plus the best value from the first `i - 1` items with the space that is
+/// left. The answer is the larger of the two values.
 fn bestPlain(items: []const Item, i: usize, cap: u32, stats: *Calls) u64 {
     stats.calls += 1;
     stats.seen[i][cap] = true;
@@ -99,14 +105,15 @@ fn bestPlain(items: []const Item, i: usize, cap: u32, stats: *Calls) u64 {
     return @max(skip, take);
 }
 
-/// One cell per `(i, cap)` state, null until that state has been solved.
+/// One cell for each `(i, cap)` state. A cell is null until the function
+/// solves its state.
 const Memo = [max_items + 1][max_cap + 1]?u64;
 
-/// `bestPlain` with a table in front of it.
+/// `bestPlain` with a table before it.
 ///
-/// The recursion is unchanged. The only new lines are the lookup at the top
-/// and the store at the bottom, so each state is solved once and every later
-/// call for it is a read.
+/// The recursion does not change. The only new lines are the lookup at the
+/// start and the store at the end. Thus the function solves each state one
+/// time, and each later call for that state only reads the table.
 fn bestMemo(items: []const Item, i: usize, cap: u32, memo: *Memo, calls: *u64) u64 {
     calls.* += 1;
     if (memo[i][cap]) |known| return known;
@@ -123,11 +130,12 @@ fn bestMemo(items: []const Item, i: usize, cap: u32, memo: *Memo, calls: *u64) u
 
 const Table = [max_items + 1][max_cap + 1]u64;
 
-/// The same states, filled in order instead of on demand.
+/// The same states, but the function fills them in order. It does not wait
+/// for a request.
 ///
-/// Row `i` depends only on row `i - 1`, so filling rows top to bottom means
-/// both cells a state needs are already there. Row 0 is no items at all, which
-/// is zero at every capacity.
+/// Row `i` uses only row `i - 1`. Thus, if the function fills the rows from
+/// the top to the bottom, the two cells that a state needs already have a
+/// value. Row 0 has no items, thus it is zero at each capacity.
 fn fillTable(items: []const Item, cap: u32, dp: *Table) void {
     for (0..cap + 1) |c| dp[0][c] = 0;
     for (items, 1..) |item, i| {
@@ -140,13 +148,14 @@ fn fillTable(items: []const Item, cap: u32, dp: *Table) void {
     }
 }
 
-/// Recover the chosen items by walking back up the table.
+/// Find the selected items again. Start at the bottom of the table and move up.
 ///
-/// If `dp[i][c]` equals the cell above it, the first `i - 1` items already
-/// reach that value at this capacity, so item `i` can be skipped. Otherwise
-/// item `i` had to be taken, and the walk continues from the room it left.
-/// Each decision is printed as it is made, and the chosen items come back as
-/// a mask in the same bit layout `bestBySubsets` uses.
+/// If `dp[i][c]` is equal to the cell above it, the first `i - 1` items
+/// already give that value at this capacity. Thus the function can skip item
+/// `i`. If not, the function had to take item `i`, and the walk continues from
+/// the space that item `i` left. The function prints each decision when it
+/// makes the decision. It returns the selected items as a mask, with the same
+/// bit layout as `bestBySubsets`.
 fn chosenItems(items: []const Item, cap: u32, dp: *const Table, out: *std.Io.Writer) !u32 {
     var mask: u32 = 0;
     var c = cap;
@@ -169,10 +178,11 @@ fn chosenItems(items: []const Item, cap: u32, dp: *const Table, out: *std.Io.Wri
     return mask;
 }
 
-/// One item folded into the single-row table, capacity running downward.
+/// Add one item to the single-row table. The capacity goes downward.
 ///
-/// `best[c - w]` is read before anything at a lower capacity is written, so it
-/// still holds the previous item's row. Each item is counted at most once.
+/// The function reads `best[c - w]` before it writes a cell at a lower
+/// capacity. Thus `best[c - w]` still holds the row of the previous item. The
+/// function counts each item a maximum of one time.
 fn rollDown(best: []u64, item: Item) void {
     var c = best.len;
     while (c > item.weight) {
@@ -181,11 +191,12 @@ fn rollDown(best: []u64, item: Item) void {
     }
 }
 
-/// The same loop with the capacity running upward. This one is wrong for 0/1.
+/// The same loop, but the capacity goes upward. This loop is wrong for 0/1.
 ///
-/// By the time `best[c]` is computed, `best[c - w]` may already include this
-/// item, so adding the item again takes it twice. The loop solves a different
-/// problem: each item may be taken any number of times.
+/// When the function calculates `best[c]`, `best[c - w]` can already include
+/// this item. Thus the function adds the item again and takes it two times.
+/// The loop solves a different problem: you can take each item any number of
+/// times.
 fn rollUp(best: []u64, item: Item) void {
     if (item.weight >= best.len) return;
     for (item.weight..best.len) |c| {
@@ -193,10 +204,11 @@ fn rollUp(best: []u64, item: Item) void {
     }
 }
 
-/// The unbounded knapsack, written independently of `rollUp` to check it.
+/// The unbounded knapsack. This function does not use code from `rollUp`,
+/// thus it can check `rollUp`.
 ///
-/// Capacity on the outside and items on the inside, so nothing about the
-/// order of the loops is shared with the function it is checking.
+/// The capacity loop is outside and the item loop is inside. Thus the order
+/// of the loops is different from the order in the function that it checks.
 fn bestUnbounded(items: []const Item, cap: u32) u64 {
     var best: [max_cap + 1]u64 = @splat(0);
     for (1..cap + 1) |c| {
@@ -264,7 +276,7 @@ pub fn main(init: std.process.Init) !void {
     for (items) |item| try out.print("{d:>4}", .{item.value});
     try out.writeAll("\n\n");
 
-    // Every subset, the slow and certain way.
+    // All subsets, the slow and certain method.
     var tried: u64 = 0;
     const brute = bestBySubsets(items, cap, &tried);
     try out.print("every subset of {d} items\n", .{items.len});
@@ -272,14 +284,15 @@ pub fn main(init: std.process.Init) !void {
     try writeMask(out, items, brute.mask);
     try out.writeAll("\n\n");
 
-    // The recursion, counting calls against the states it actually visits.
+    // The recursion. Compare the count of calls with the count of states
+    // that the calls get to.
     var plain: Calls = .{};
     const recursive = bestPlain(items, items.len, cap, &plain);
     try out.writeAll("take or skip, as plain recursion\n");
     try out.print("  best({d}, {d}) = {d}\n", .{ items.len, cap, recursive });
     try out.print("  {d} calls reached {d} distinct (i, cap) states\n\n", .{ plain.calls, plain.states() });
 
-    // The same recursion on bigger copies of the same items.
+    // The same recursion on larger copies of the same items.
     try out.writeAll("the same items repeated, with the bag scaled to match\n");
     try out.writeAll("  items  cap   subsets  plain calls  states  memo calls  cells\n");
     var k: u32 = 1;
@@ -307,7 +320,7 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.writeByte('\n');
 
-    // Bottom-up: the whole table, printed.
+    // Bottom-up: print the full table.
     var dp: Table = undefined;
     fillTable(items, cap, &dp);
     try out.writeAll("dp[i][c]: best value from the first i items with room c\n");
@@ -327,7 +340,7 @@ pub fn main(init: std.process.Init) !void {
     try writeMask(out, items, mask);
     try out.writeAll("\n\n");
 
-    // One row instead of a table, and the direction the capacity loop runs.
+    // One row instead of a table, and the direction of the capacity loop.
     var down: [max_cap + 1]u64 = @splat(0);
     var up: [max_cap + 1]u64 = @splat(0);
     const down_row = down[0 .. cap + 1];
@@ -356,7 +369,7 @@ pub fn main(init: std.process.Init) !void {
         unbounded, unbounded == up_row[cap],
     });
 
-    // Why the totals are u64.
+    // The reason that the totals are u64.
     const many: u64 = 100;
     const each: u64 = 1_000_000_000;
     try out.writeAll("the width of a total\n");

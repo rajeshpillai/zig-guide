@@ -1,37 +1,37 @@
 //! title: The Monotonic Stack
-//! A stack of indices held in decreasing order of value, so that one pass
-//! answers a question that looks like it needs a scan from every index. The
-//! program prints the push, the pops and the stack after every step, plus the
-//! counters behind the amortised argument, so the trace in the chapter is the
-//! trace CI ran.
+//! A stack of indices with values that become smaller from bottom to top.
+//! Thus one pass answers a question that looks like it needs a scan from each
+//! index. The program prints the push, the pops and the stack after each
+//! step. It also prints the counters for the amortised argument. Thus the
+//! trace in the chapter is the trace that CI ran.
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 /// The problem, as text.
 ///
-/// A snippet here runs under WASI in a browser tab, where there is no stdin to
-/// read. One line of values is all the problem needs, and the parser below
-/// reads it the way it would read a real file.
+/// A snippet here runs under WASI in a browser tab. The tab has no stdin to
+/// read. The problem needs only one line of values. The parser below reads
+/// the line in the same way that it reads a real file.
 const input =
     \\3 1 4 1 5 9 2 6 5 3 7
 ;
 
-/// The worst array for a scan and the easiest one for the stack.
+/// The worst array for a scan and the easiest array for the stack.
 ///
-/// Nothing has a greater value to its right, so the scan walks to the end from
-/// every index and the stack never pops.
+/// No value has a greater value to its right. Thus the scan goes to the end
+/// from each index, and the stack never pops.
 const decreasing = [_]i32{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
 
-/// The mirror of it. The scan stops on its first comparison every time, and the
-/// stack pops the index it pushed a moment ago.
+/// The opposite of `decreasing`. The scan stops at its first comparison each
+/// time. The stack pops the index that it pushed on the step before.
 const increasing = [_]i32{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
 /// Read one line of whitespace-separated integers into `out`.
 ///
-/// It takes a `*std.Io.Reader` instead of the string, as the networking
-/// chapters do for protocols. On a judge, pass a reader over stdin and the
-/// function stays the same.
+/// The function takes a `*std.Io.Reader` instead of the string. The
+/// networking chapters use the same method for protocols. On a judge, give
+/// the function a reader on stdin. The function does not change.
 fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     const line = (try reader.takeDelimiter('\n')) orelse return error.MissingRow;
     var count: usize = 0;
@@ -44,10 +44,10 @@ fn readRow(reader: *std.Io.Reader, out: []i32) ![]i32 {
     return out[0..count];
 }
 
-/// The two counters the amortised argument rests on.
+/// The two counters that the amortised argument uses.
 ///
-/// Counting them costs two lines and answers a question that is easy to get
-/// wrong by reasoning about the nested loop.
+/// The count costs two lines. It answers a question that is easy to get wrong
+/// if you only think about the nested loop.
 const Work = struct {
     pushes: usize = 0,
     pops: usize = 0,
@@ -55,9 +55,9 @@ const Work = struct {
 
 /// For each index, the index of the first greater value to its right.
 ///
-/// The direct solution. Fix an index, walk right to a greater value, or
-/// stop at the end of the array. `comparisons` counts the values looked at,
-/// which is the number that grows with the square of the input.
+/// The direct solution. Select an index, then move right to a greater value,
+/// or stop at the end of the array. `comparisons` counts the values that the
+/// scan examines. This number increases with the square of the input size.
 fn scanRight(items: []const i32, out: []?usize, comparisons: *usize) void {
     for (items, 0..) |value, i| {
         out[i] = null;
@@ -73,21 +73,22 @@ fn scanRight(items: []const i32, out: []?usize, comparisons: *usize) void {
 
 /// The same answers from one pass over the array.
 ///
-/// The stack holds the indices whose answer is still unknown, and it holds them
-/// in decreasing order of value. When `value` arrives, every index on the stack
-/// with a smaller value has found its answer, and those indices sit together at
-/// the top because of the ordering. Pop them, record `i`, push `i`.
+/// The stack holds the indices that do not have an answer yet. The values of
+/// these indices become smaller from bottom to top. When `value` comes, each
+/// index on the stack with a smaller value has its answer. Because of the
+/// order, these indices are together at the top. Pop them, record `i`, and
+/// push `i`.
 ///
-/// The order is preserved by the loop itself. Everything left after the pops is
-/// at least as large as `value`, so putting `i` on top keeps the stack falling
-/// from bottom to top.
+/// The loop itself keeps the order. Each index that stays after the pops has
+/// a value that is equal to or larger than `value`. Thus with `i` on top, the
+/// values on the stack still become smaller from bottom to top.
 ///
-/// `>=` and not `>`. An equal value is not greater, so an index waiting on a 7
-/// is not answered by another 7.
+/// Use `>=`, not `>`. An equal value is not greater. Thus a second 7 does not
+/// answer an index that waits for a value greater than 7.
 ///
-/// Indices still on the stack when the array runs out are never written, and
-/// `out` was filled with null before the loop, so having no answer needs no
-/// case of its own.
+/// The loop never writes the indices that are still on the stack at the end
+/// of the array. Before the loop, `@memset` set each item in `out` to null.
+/// Thus an index without an answer does not need a separate case.
 fn nextGreater(gpa: Allocator, items: []const i32, out: []?usize, work: *Work) !void {
     var stack: std.ArrayList(usize) = .empty;
     defer stack.deinit(gpa);
@@ -107,10 +108,11 @@ fn nextGreater(gpa: Allocator, items: []const i32, out: []?usize, work: *Work) !
 
 /// The first smaller value to the left, from the same method.
 ///
-/// Two changes. The comparison flips, so the stack rises from bottom to top
-/// instead of falling. And the answer is read off the survivor rather than
-/// written into the values popped: after the pops, whatever is still on top is
-/// the nearest index to the left holding a smaller value.
+/// There are two changes. First, the comparison is the opposite. Thus the
+/// values on the stack become larger from bottom to top. Second, the answer
+/// comes from the index that stays on the stack, not from the popped indices.
+/// After the pops, the index on top is the nearest index to the left with a
+/// smaller value.
 fn previousSmaller(gpa: Allocator, items: []const i32, out: []?usize, work: *Work) !void {
     var stack: std.ArrayList(usize) = .empty;
     defer stack.deinit(gpa);
@@ -130,9 +132,9 @@ fn previousSmaller(gpa: Allocator, items: []const i32, out: []?usize, work: *Wor
 
 /// Right-align a value in a cell of `width` characters.
 ///
-/// `{d:>4}` would be shorter, and it prints a `+` in front of a non-negative
-/// signed integer as soon as a width is given. Formatting the digits first and
-/// padding them keeps the columns readable.
+/// `{d:>4}` is shorter, but it prints a `+` before a non-negative signed
+/// integer when you give a width. This function formats the digits first and
+/// then adds the padding. Thus the columns are easy to read.
 fn writeCell(out: *std.Io.Writer, value: i32, width: usize) !void {
     var digits: [12]u8 = undefined;
     const text = try std.mem.print(&digits, "{d}", .{value});
@@ -140,7 +142,7 @@ fn writeCell(out: *std.Io.Writer, value: i32, width: usize) !void {
     try out.writeAll(text);
 }
 
-/// A value that may be missing, right-aligned. A dot means no answer.
+/// A value that can be absent, right-aligned. A dot means no answer.
 fn writeMaybe(out: *std.Io.Writer, value: ?i32, width: usize) !void {
     if (value) |v| return writeCell(out, v, width);
     try out.splatByteAll(' ', width - 1);
@@ -149,8 +151,8 @@ fn writeMaybe(out: *std.Io.Writer, value: ?i32, width: usize) !void {
 
 /// The stack, bottom to top, as `index:value` pairs.
 ///
-/// Printing the values beside the indices is what makes the ordering visible.
-/// A column of bare indices would hide the property the method depends on.
+/// The values next to the indices show the order. A column of only indices
+/// hides the property that the method needs.
 fn writeStack(out: *std.Io.Writer, items: []const i32, indices: []const usize) !void {
     for (indices, 0..) |idx, k| {
         if (k > 0) try out.writeByte(' ');
@@ -158,11 +160,11 @@ fn writeStack(out: *std.Io.Writer, items: []const i32, indices: []const usize) !
     }
 }
 
-/// The indices resolved by this step, each with the answer it got.
+/// The indices that this step resolved, each with its answer.
 ///
-/// They all get the same answer, since they were all popped by the same
-/// arriving value. Writing it out per index keeps the row readable next to the
-/// answers table further down.
+/// All these indices get the same answer, because the same new value popped
+/// them. The row shows the answer for each index. Thus the row is easy to
+/// compare with the answers table below.
 fn writeResolved(out: *std.Io.Writer, popped: []const usize, answer: i32, width: usize) !void {
     var used: usize = 0;
     if (popped.len == 0) {
@@ -182,12 +184,12 @@ fn writeResolved(out: *std.Io.Writer, popped: []const usize, answer: i32, width:
     try out.splatByteAll(' ', width - used);
 }
 
-/// `nextGreater` with a row printed per incoming value.
+/// `nextGreater`, but it prints a row for each new value.
 ///
-/// Kept separate so the function above stays the shape you would paste into a
-/// solution. The run below checks that the two agree rather than trusting it.
-/// The last row is also the answer to what happens at the end: whatever the
-/// stack is holding then never found a greater value.
+/// This function is separate, thus `nextGreater` keeps the shape that you can
+/// copy into a solution. The run below checks that the two functions agree. It
+/// does not assume that they do. The last row also shows the result at the
+/// end: each index on the stack at that time never found a greater value.
 fn traceNextGreater(out: *std.Io.Writer, gpa: Allocator, items: []const i32) !void {
     var stack: std.ArrayList(usize) = .empty;
     defer stack.deinit(gpa);
@@ -217,11 +219,12 @@ fn traceNextGreater(out: *std.Io.Writer, gpa: Allocator, items: []const i32) !vo
     try out.writeByte('\n');
 }
 
-/// One row of the cost table: what the scan pays against what the stack pays.
+/// One row of the cost table: the cost of the scan and the cost of the stack.
 ///
-/// Both run over the same array, so the two numbers are comparable rather than
-/// quoted from different runs. The scan's count is comparisons and the stack's
-/// is moves, and neither array can push the stack past `2n`.
+/// The two methods use the same array. Thus you can compare the two numbers,
+/// because they do not come from different runs. The count for the scan is
+/// comparisons, and the count for the stack is moves. No array can make the
+/// stack moves more than `2n`.
 fn writeCostRow(out: *std.Io.Writer, gpa: Allocator, name: []const u8, items: []const i32) !void {
     var storage: [64]?usize = undefined;
     const answers = storage[0..items.len];
@@ -241,7 +244,7 @@ fn writeCostRow(out: *std.Io.Writer, gpa: Allocator, name: []const u8, items: []
     });
 }
 
-/// An answers table: the value at each index and where its answer lives.
+/// An answers table: the value at each index and the position of its answer.
 fn writeAnswers(
     out: *std.Io.Writer,
     items: []const i32,
@@ -276,8 +279,8 @@ pub fn main(init: std.process.Init) !void {
     for (values) |v| try writeCell(out, v, 4);
     try out.writeAll("\n\n");
 
-    // The pass, printed. Every pop resolves an index, and the stack is
-    // decreasing on every row.
+    // The pass, with a trace. Each pop resolves an index. On each row, the
+    // values on the stack become smaller from bottom to top.
     try out.writeAll("next greater to the right, one pass with a stack\n");
     try traceNextGreater(out, gpa, values);
 
@@ -290,7 +293,7 @@ pub fn main(init: std.process.Init) !void {
         .{ work.pushes, work.pops, values.len, 2 * values.len },
     );
 
-    // The answers, and the scan they have to agree with.
+    // The answers, and the scan that they must agree with.
     var comparisons: usize = 0;
     scanRight(values, scan_answers[0..values.len], &comparisons);
     try out.writeAll("the answers, and the scan they have to agree with\n");
@@ -300,8 +303,9 @@ pub fn main(init: std.process.Init) !void {
         .{std.mem.eql(?usize, stack_answers[0..values.len], scan_answers[0..values.len])},
     );
 
-    // The rates, not the totals. Eleven values is too few to show the scan's
-    // cost, so the two arrays that bracket it are here too.
+    // The rates, not the totals. Eleven values are not sufficient to show the
+    // cost of the scan. Thus the program also uses the two arrays at the two
+    // limits.
     try out.writeAll("what each array costs\n");
     try out.writeAll("  array         n  scans  pushes  pops\n");
     try writeCostRow(out, gpa, "the input", values);
@@ -309,8 +313,8 @@ pub fn main(init: std.process.Init) !void {
     try writeCostRow(out, gpa, "increasing", &increasing);
     try out.writeAll("\n");
 
-    // The same stack, one comparison flipped and the answer read from the
-    // survivor instead of the values popped.
+    // The same stack with the opposite comparison. The answer comes from the
+    // index that stays on the stack, not from the popped indices.
     try out.writeAll("previous smaller to the left, from the same stack\n");
     var left_answers: [64]?usize = undefined;
     var left_work: Work = .{};
