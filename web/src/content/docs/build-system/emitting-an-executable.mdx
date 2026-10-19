@@ -1,11 +1,11 @@
 ---
 title: Emitting an Executable
-description: Building without a build.zig.
+description: How to build without a build.zig.
 section: Build System
 order: 71
 ---
 
-For a single file you do not need a build script at all:
+For a single file, you do not need a build script:
 
 ```bash
 zig build-exe main.zig          # an executable
@@ -26,9 +26,9 @@ zig test       main.zig         # build and run its tests
 | `-fstrip` | drop debug info |
 | `-fsingle-threaded` | assume no threads |
 
-## `zig run` is the one you will use most
+## You will use `zig run` most
 
-The difference between `run` and `build-exe` is only where the binary ends up:
+The only difference between `run` and `build-exe` is the location of the binary:
 
 ```
 zig run foo.zig
@@ -45,68 +45,59 @@ zig build-exe foo.zig
            ./foo
 ```
 
-`build-exe` leaves an artifact in your working directory for you to run,
-ship, or link. `run` puts the same artifact in the cache and executes it
-immediately, so there is nothing to clean up and nothing to add to
-`.gitignore`.
+`build-exe` puts an artifact in your working directory. You can then run the artifact, ship it or link it.
 
-For anything up to a few hundred lines, `zig run main.zig` is all you need,
-and there is no build step to remember. Arguments for the
-program go after `--`:
+`run` puts the same artifact in the cache and runs it immediately. Thus there is nothing to delete after the run, and nothing to add to `.gitignore`.
+
+For a program of a few hundred lines or fewer, `zig run main.zig` is sufficient, and there is no build step to remember. Put the arguments for the program after `--`:
 
 ```bash
 zig run main.zig -- --verbose input.txt
 ```
 
-The cache is content-addressed, so running it again after no changes does not
-recompile. That makes `zig run` fast enough to use like a script interpreter.
-You can work on a single-file tool this way for a long time.
+The cache is content-addressed. If nothing changed, a second `zig run` does not compile again. Thus `zig run` is fast enough to use as a script interpreter. You can work on a tool in a single file this way for a long time.
 
-`zig test` works the same way, and needs no `main`. A file that is nothing but
-`test` blocks is a complete, runnable program as far as Zig is concerned.
+`zig test` works in the same way, and it does not need a `main`. For Zig, a file that contains only `test` blocks is a complete program that can run.
 
-## What each command actually produces
+## The output of each command
 
-`build-exe` produces something the OS can run, which means it needs an entry
-point and it links. `build-lib` produces a `.a` (or `.lib`) for someone else
-to link, and adding `-dynamic` gives you a shared library instead. `build-obj`
-stops before linking and hands you a single object file, which is what you
-want when Zig is one part of a build driven by something else.
+- `build-exe` makes a file that the OS can run. Thus it needs an entry point, and it links.
+- `build-lib` makes a `.a` file (or a `.lib` file) that other code links. With `-dynamic`, it makes a shared library.
+- `build-obj` stops before the link and gives you a single object file. Use it when Zig is one part of a build that a different tool controls.
 
-`build-obj` is an easy way to bring Zig into an existing codebase. Compile one module
-with `build-obj` and link it into a C or C++ project exactly like any other
-object file. Nothing else about the project has to change.
+`build-obj` is an easy way to add Zig to a codebase that you already have. Compile one module with `build-obj`. Then link the object file into a C or C++ project, the same as all other object files. Nothing else in the project must change.
 
-## Targeting WebAssembly
+## Build for WebAssembly
 
-This is how every snippet on this site is built:
+Most snippets on this site build with this target and this mode:
 
 ```bash
 zig build-exe main.zig -target wasm32-wasi -OReleaseSmall
 ```
 
-For a freestanding wasm module with no WASI (the browser-canvas case), you
-want `-target wasm32-freestanding` plus `-fno-entry` and explicit exports:
+For a freestanding wasm module without WASI, use `-target wasm32-freestanding`. The browser-canvas example is this type of module. Add `-fno-entry` and give each export explicitly:
 
 ```bash
 zig build-exe main.zig -target wasm32-freestanding \
   -OReleaseSmall -fno-entry --export=add
 ```
 
-The difference between the two is what the module expects the host to provide.
-`wasm32-wasi` assumes a filesystem-shaped interface and a `main`;
-`wasm32-freestanding` assumes nothing, so there is no entry point to call and
-you name the functions the host may call instead. `-OReleaseSmall` matters
-a lot here, because the artifact is downloaded before it
-runs.
+The two targets are different in what the module expects from the host:
 
-## When to graduate to `build.zig`
+- `wasm32-wasi` expects an interface like a filesystem, and a `main`.
+- `wasm32-freestanding` expects nothing. Thus there is no entry point to call. Instead, you give the names of the functions that the host can call.
 
-Once you have more than one artifact, dependencies, generated files, or a named
-test step, move to a build script. `zig build --help` then lists the
-steps and options that script defines.
+`-OReleaseSmall` is very important here, because the browser downloads the artifact before it runs.
 
-The threshold in practice is usually the second target or the first
-dependency. As long as one command line builds the thing, the command line is
-simpler than a script. As soon as you are keeping a note of which flags to
-pass, that note should be `build.zig`.
+## When to change to `build.zig`
+
+Move to a build script when you have one of these:
+
+- more than one artifact
+- dependencies
+- generated files
+- a named test step
+
+Then `zig build --help` shows the steps and options that the script defines.
+
+Usually, the change is necessary at the second target or at the first dependency. While one command line builds the program, the command line is simpler than a script. When you start to keep a note of the flags, that note must become `build.zig`.

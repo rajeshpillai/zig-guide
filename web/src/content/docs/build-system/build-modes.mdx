@@ -1,15 +1,16 @@
 ---
 title: Build Modes
-description: Four modes, and what each one trades.
+description: Four modes, and the cost and the benefit of each one.
 section: Build System
 order: 70
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig has four build modes: `Debug`, `ReleaseSafe`, `ReleaseFast` and
-`ReleaseSmall`. They differ in whether runtime safety checks stay in the
-binary and whether the optimiser aims for speed or for size.
+Zig has four build modes: `Debug`, `ReleaseSafe`, `ReleaseFast` and `ReleaseSmall`. The modes are different in two ways:
+
+- Some modes keep the runtime safety checks in the binary, and some modes remove them.
+- The optimiser makes the code fast in some modes, and small in a different mode.
 
 <Playground name="04-build-system.build-modes" />
 
@@ -20,90 +21,59 @@ binary and whether the optimiser aims for speed or for size.
 | `ReleaseFast` | **no** | yes | medium |
 | `ReleaseSmall` | **no** | yes | small |
 
-Select with `-O`:
+Select the mode with `-O`:
 
 ```bash
 zig build-exe main.zig -OReleaseSafe
 zig build -Doptimize=ReleaseSafe
 ```
 
-## What each mode is actually for
+## The purpose of each mode
 
-- **`Debug`** is the default, and it is the one you develop in. Compilation is
-  fast because there is almost no optimisation, every safety check is on, and
-  `undefined` memory is filled with `0xaa`, so reading it uninitialised is easy
-  to spot. Binaries are large and the code is slow. That is fine while you are
-  editing.
-- **`ReleaseSafe`** is the one to ship unless you have a reason not to. Full
-  optimisation, checks retained.
-- **`ReleaseFast`** removes the checks. Use it when a measurement shows the
-  checks are the bottleneck. That happens less often than people expect.
-- **`ReleaseSmall`** optimises for size instead of speed and also drops the
-  checks. Embedded targets use it, and so does this site: a snippet here is
-  about 70 KB, and the same snippet in `ReleaseSafe` is over a megabyte. The
-  reader's browser has to download that before anything runs.
+- **`Debug`** is the default. Use it while you develop. The compiler does almost no optimisation, thus the compilation is fast. All safety checks are on. The compiler fills `undefined` memory with `0xaa`, thus a read of memory without a value is easy to see. The binaries are large and the code is slow. That is not a problem while you edit the code.
+- **`ReleaseSafe`** is the mode to ship, if you do not have a reason to use a different mode. It has full optimisation, and it keeps the checks.
+- **`ReleaseFast`** removes the checks. Use it when a measurement shows that the checks make the program too slow. That occurs less frequently than people expect.
+- **`ReleaseSmall`** makes the code small instead of fast, and it also removes the checks. Embedded targets use this mode. This site also uses it. A snippet here is about 60 KB. The same snippet in `ReleaseSafe` is more than one megabyte. The browser of the reader must download the file before the snippet can run.
 
-Those numbers are from this project, not an estimate. That is why only
-five snippets here are built `.safe`: the ones whose job is to show a panic.
+These numbers come from measurements of this project. They are not estimates. Thus only five snippets on this site use `.safe`. These five snippets show a panic, and the panic is the lesson.
 
-## `ReleaseSafe` deserves more use than it gets
+## Use `ReleaseSafe` more frequently
 
-In C and C++, a release build usually means an unchecked build. Zig keeps
-the two choices separate: `ReleaseSafe` is optimised *and* keeps bounds checks,
-overflow checks, and null-unwrap checks. For most software the cost is small and the
-alternative is silent memory corruption.
+In C and C++, a release build is usually a build without checks. Zig keeps the two choices separate. `ReleaseSafe` has optimisation, *and* it keeps the bounds checks, the overflow checks and the null-unwrap checks. For most software, the cost is small. Without the checks, memory can become corrupt and nothing tells you.
 
-Use `ReleaseFast` when you have measured that the checks matter. Do not use it
-by default.
+Use `ReleaseFast` when you measured that the checks are important to the speed. Do not use it as the default.
 
-The two costs are very different. A check that stays in costs a compare and a
-predictable branch. On modern hardware that is close to free, unless the code
-is already memory-bound. A removed check costs nothing until the day an index
-is wrong. Then it costs a corrupted heap and a bug you cannot reproduce. That
-is a bad trade to make by default: a small cost you always pay, swapped for a
-rare but very large one. For decades, C and C++ offered no other option.
+The two costs are very different:
 
-## Where the checks are removed, the rules do not change
+- A check that stays in the binary costs a compare and a predictable branch. On modern hardware, that cost is almost zero, unless the speed of the code is already limited by memory.
+- A check that the compiler removes costs nothing until an index is wrong. Then the cost is a corrupt heap and a bug that you cannot reproduce.
 
-In `ReleaseFast` and `ReleaseSmall`, an out-of-bounds index is **illegal
-behaviour**, the same category as C's undefined behaviour. The check only
-reported that the rule was broken. Removing the check does not remove the
-rule. Code that only
-works because Debug caught the panic is already wrong.
+Thus a default without checks is a bad exchange. You remove a small cost that you always pay, and you get a large cost that occurs rarely. For decades, C and C++ gave no other choice.
 
-If a program works in ReleaseFast, that does not show it is correct. It only
-shows that nothing has caught the problem yet. The optimiser is allowed to
-assume the rules are followed, and it uses that assumption to delete branches
-you thought were there.
+## When the checks go, the rules stay
 
-## Per-scope override
+In `ReleaseFast` and `ReleaseSmall`, an index out of bounds is **illegal behaviour**. Illegal behaviour is the same category as undefined behaviour in C. The check only reported that the code broke the rule. When you remove the check, the rule stays. If code works only because Debug found the panic, the code is already wrong.
+
+If a program works in ReleaseFast, the result does not show that the program is correct. It only shows that nothing found the problem until now. The optimiser can assume that the code obeys the rules. The optimiser uses that assumption to delete branches that you think are in the code.
+
+## Change the mode for one scope
 
 ```zig
 @setRuntimeSafety(true);
 ```
 
-This keeps checks in one function of an otherwise unchecked build. It is
-useful for a routine that parses untrusted input.
+This call keeps the checks in one function of a build that has no other checks. Use it for a function that parses input that you cannot trust.
 
-The reverse works too: `@setRuntimeSafety(false)` in one hot function of an
-otherwise safe build. Prefer this approach. The unsafe code stays small and
-easy to find and review. The other way makes the whole program unchecked to
-speed up one loop.
+The opposite also works: put `@setRuntimeSafety(false)` in one hot function of a safe build. Use this approach when you can. The unsafe code stays small, and it is easy to find and examine. The other approach removes the checks from the full program to make one loop faster.
 
-## Knowing the mode at compile time
+## Get the mode at compile time
 
-`@import("builtin").optimize` is a comptime value, so mode-specific code costs
-nothing at runtime: the dead branch is not compiled in.
+`@import("builtin").optimize` is a comptime value. Thus code for one mode has no cost at runtime: the compiler does not compile the branch that cannot run.
 
-The tags are lowercase: `.debug`, `.safe`, `.fast`, `.small`. They used to be
-`.Debug`, `.ReleaseSafe`, `.ReleaseFast` and `.ReleaseSmall`, so a comparison
-copied from an older tutorial will not compile. The field was also renamed
-from `mode` to `optimize`. `builtin.mode` still works for now, and the std
-source marks it for removal after 0.18.0. On the command line both spellings
-work: `-O ReleaseFast` and `-O fast` build the same thing.
+The tags are lowercase: `.debug`, `.safe`, `.fast`, `.small`. Before, the tags were `.Debug`, `.ReleaseSafe`, `.ReleaseFast` and `.ReleaseSmall`. Thus a comparison from an older tutorial does not compile.
 
-So expensive assertions are practical. You can put a consistency check that
-walks an entire data structure behind `if (builtin.optimize == .debug)`. In a
-release build, that check is not in the binary at all. `std.debug.assert` is a
-different tool: it lowers to `unreachable`, so it follows the safety checks
-rather than the mode name, and it still fires in `ReleaseSafe`.
+The name of the field also changed from `mode` to `optimize`. `builtin.mode` still works at this time, and the std source marks it for removal after 0.18.0. On the command line, both forms work: `-O ReleaseFast` and `-O fast` make the same build.
+
+Because the mode is a comptime value, expensive assertions are practical. You can put a check of a full data structure behind `if (builtin.optimize == .debug)`. In a release build, that check is not in the binary.
+
+`std.debug.assert` is a different tool. It becomes `unreachable`. Thus it follows the safety checks and not the name of the mode, and it still fires in `ReleaseSafe`.

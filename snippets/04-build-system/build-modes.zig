@@ -1,29 +1,29 @@
 //! title: Build Modes
-//! The four modes, and what each trades away. Tags are lowercase since 0.17-dev.
+//! The four modes, and the cost of each one. The tags are lowercase from 0.17-dev.
 
 const std = @import("std");
 const builtin = @import("builtin");
 const expect = std.testing.expect;
 
 test "the current mode is known at compile time" {
-    // These snippets are built as .small. Master lowercased the mode tags:
-    // .Debug/.ReleaseSafe/.ReleaseFast/.ReleaseSmall are now
+    // The build makes these snippets as .small. Master changed the mode tags
+    // to lowercase: .Debug/.ReleaseSafe/.ReleaseFast/.ReleaseSmall are now
     // .debug/.safe/.fast/.small.
     try expect(builtin.optimize == .small);
 }
 
 test "safety checks follow the mode" {
-    // True in .debug and .safe, false in .fast and .small.
+    // True in .debug and .safe. False in .fast and .small.
     const safety_on = switch (builtin.optimize) {
         .debug, .safe => true,
         .fast, .small => false,
     };
-    try expect(!safety_on); // because we are in .small
+    try expect(!safety_on); // because this build is .small
 }
 
 test "safety can be forced back on for a scope" {
-    // Useful for keeping bounds checks in one risky function of an
-    // otherwise ReleaseFast build.
+    // Use this call to keep the bounds checks in one risky function of a
+    // ReleaseFast build.
     @setRuntimeSafety(true);
     var index: usize = 1;
     _ = &index;
@@ -32,8 +32,9 @@ test "safety can be forced back on for a scope" {
 }
 
 test "branch hints and unreachable" {
-    // In safety builds `unreachable` panics. In ReleaseFast it is a promise
-    // to the optimiser, and reaching it is illegal behaviour.
+    // In safety builds, `unreachable` panics. In ReleaseFast, `unreachable`
+    // is a promise to the optimiser. If the program gets to it, the result
+    // is illegal behaviour.
     const value: u8 = 2;
     switch (value) {
         1, 2, 3 => {},

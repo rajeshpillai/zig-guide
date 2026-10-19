@@ -1,11 +1,11 @@
 ---
 title: Cross-compilation
-description: Every target, out of the box.
+description: All targets are available when you install Zig.
 section: Build System
 order: 72
 ---
 
-Cross-compilation is not a special mode in Zig. It is a flag:
+In Zig, cross-compilation is not a special mode. Cross-compilation is a flag:
 
 ```bash
 zig build-exe main.zig -target x86_64-linux-gnu
@@ -14,8 +14,7 @@ zig build-exe main.zig -target x86_64-windows-gnu
 zig build-exe main.zig -target wasm32-wasi
 ```
 
-You do not install a cross toolchain or assemble a sysroot. Zig ships libc sources
-for the targets it supports and builds what it needs on demand.
+You do not install a cross toolchain, and you do not make a sysroot. Zig includes the libc sources for the targets that it supports. Zig builds the parts that it needs when it needs them.
 
 ```bash
 zig targets       # everything available
@@ -23,7 +22,7 @@ zig targets       # everything available
 
 ## One source file, three platforms
 
-Nothing about the source changes. Only the flag does:
+The source does not change. Only the flag changes:
 
 ```
                  hello.zig
@@ -37,7 +36,7 @@ x86_64-linux-gnu  x86_64-windows-gnu  aarch64-linux-musl
  hello            hello.exe          hello
 ```
 
-Run it on a Linux machine:
+Run this command on a Linux computer:
 
 ```bash
 zig build-exe hello.zig -target x86_64-windows-gnu
@@ -48,10 +47,9 @@ file hello.exe
 hello.exe: PE32+ executable (console) x86-64, for MS Windows
 ```
 
-`file` reads the container format, and it says Windows. The compiler that
-produced it is the same binary you would use for a native build, on a machine
-that has no Windows SDK, MinGW or Wine installed. Swap the triple for
-`aarch64-linux-musl` and `file` reports a statically linked ARM64 ELF instead.
+`file` reads the container format, and the container format is Windows. The compiler that made `hello.exe` is the same binary that you use for a native build. The Linux computer has no Windows SDK, no MinGW and no Wine.
+
+Change the triple to `aarch64-linux-musl`. Then `file` reports a statically linked ARM64 ELF.
 
 ## The triple
 
@@ -65,25 +63,22 @@ wasm32-wasi
 native-native-musl
 ```
 
-Read the three fields as narrowing questions: **architecture** is what
-instructions the CPU understands, **OS** is what the binary asks the system
-for and what container format it comes in, and **ABI** is which C library and
-calling conventions it expects to find once it is running.
+Each of the three fields answers a question, and each question is more specific than the last:
 
-Pay attention to the ABI field. `musl` produces a fully static binary. `gnu`
-links against glibc and inherits its version compatibility rules. So the two
-`x86_64-linux` lines above are two different builds.
+- The **architecture** tells which instructions the CPU understands.
+- The **OS** tells what the binary asks the system for, and the container format of the binary.
+- The **ABI** tells which C library and which calling conventions the binary expects when it runs.
 
-## Targeting a specific CPU
+Be careful with the ABI field. `musl` makes a fully static binary. `gnu` links against glibc and gets the version compatibility rules of glibc. Thus the two `x86_64-linux` lines above are two different builds.
+
+## Build for a specific CPU
 
 ```bash
 zig build-exe main.zig -target x86_64-linux -mcpu=znver3
 zig build-exe main.zig -mcpu=baseline        # maximum portability
 ```
 
-`baseline` is the conservative choice: no assumptions beyond the architecture
-minimum. Naming a specific CPU lets the optimiser use its instructions, at the
-cost of not running on older ones.
+`baseline` is the safe choice. It assumes only the minimum features of the architecture. When you give the name of a specific CPU, the optimiser can use the instructions of that CPU. The cost is that the binary does not run on older CPUs.
 
 ## In `build.zig`
 
@@ -91,44 +86,34 @@ cost of not running on older ones.
 const target = b.standardTargetOptions(.{});
 ```
 
-That exposes `-Dtarget=` to whoever runs your build, so users can
-cross-compile your project without you doing anything else.
+This line gives `-Dtarget=` to each person who runs your build. Thus users can cross-compile your project, and you do not have to do more work.
 
 ## Why this is unusual
 
-If you have cross-compiled C before, you will notice how many steps are
-missing here.
+If you cross-compiled C before, you know the usual steps. Many of those steps are not necessary here.
 
-The traditional route needs a cross toolchain for each target, a sysroot
-containing that platform's headers and libraries, and a build system taught to
-find both. Assembling one takes a day, and keeping several up to date is ongoing
-work. Because of that cost, "we only build on Linux" is a common answer, and CI matrices spend most of their time installing compilers.
+The usual method needs three things:
 
-Zig ships the libc sources for the targets it supports and compiles the parts
-it needs on demand. So the toolchain and the system headers are already inside
-the single binary you downloaded. Building a Windows executable from a Mac is
-the same command as building for yourself, with six more characters.
+- A cross toolchain for each target.
+- A sysroot that contains the headers and libraries of that platform.
+- A build system that can find the toolchain and the sysroot.
+
+To prepare one of these takes a day. To keep several of them up to date is work that does not stop. Because of that cost, many teams decide to build only on Linux. Also, CI matrices use most of their time to install compilers.
+
+Zig includes the libc sources for the targets that it supports, and it compiles the parts that it needs when it needs them. Thus the toolchain and the system headers are already in the single binary that you downloaded. To build a Windows executable on a Mac, use the same command as a native build, with one more flag: `-target x86_64-windows`.
 
 ## What still needs care
 
-Cross-compiling gives you a binary. You still have to test it. It also does
-not remove the platform differences the code has to handle: path separators,
-line endings, the fact that `usize` is 4 bytes on wasm and 8 on your laptop.
-A successful build proves the code compiles for that target. That is most of
-the value, but compiling is not the same as working.
+Cross-compilation gives you a binary. You must still test the binary.
 
-Linking against a system library the target has and your machine does not is
-the other limit. That needs the real headers, and at that point cross-compiling needs extra
-setup.
+Cross-compilation also does not remove the platform differences that the code must handle. Examples are path separators, line endings, and the size of `usize`: 4 bytes on wasm and 8 bytes on your laptop.
 
-## Compiling C too
+A successful build shows that the code compiles for that target. That is most of the value. But code that compiles is not always code that works.
 
-`zig cc` is a drop-in C compiler with the same cross-compilation support, which
-is why some projects adopt Zig purely as a build tool for their existing C.
+The second limit is a system library that the target has and your computer does not have. To link against that library, you need the real headers. Then cross-compilation needs more preparation.
 
-It accepts the flags a C compiler accepts, so it can be dropped into an
-existing `Makefile` or `configure` invocation as `CC=zig cc`, and it brings
-the cross-compilation with it. A C project that could only be built on the
-machine it was written for can usually be built for four platforms after that
-substitution. Its source does not have to change. `zig c++` does the same
-for C++.
+## Compile C too
+
+`zig cc` is a C compiler that can replace your current C compiler, and it has the same cross-compilation support. Thus some projects use Zig only as a build tool for their C code.
+
+`zig cc` accepts the flags that a C compiler accepts. Thus you can put it into a `Makefile` or a `configure` command as `CC=zig cc`, and you get the cross-compilation support with it. Some C projects build only on the type of computer that their authors used. After that change, such a project can usually build for four platforms. The source of the project does not change. `zig c++` does the same for C++.
