@@ -1,8 +1,8 @@
 //! title: logscan
-//! Reads an access log one line at a time and reports status codes, the
-//! slowest endpoints, and the first 504. Give it a path and it reads that
-//! file. Give it nothing and it writes a sample log first, which is what
-//! happens when you press Run.
+//! Reads an access log one line at a time. Reports the status codes, the
+//! slowest endpoints and the first 504. If you give a path, the program reads
+//! that file. If you give no path, the program writes a sample log first.
+//! The Run button gives no path.
 
 const std = @import("std");
 
@@ -27,8 +27,8 @@ pub fn main(init: std.process.Init) !void {
     const file = try dir.openFile(io, path, .{});
     defer file.close(io);
 
-    // The whole program reads through these 64 KiB. A 2 GB file and a 2 KB
-    // file use the same amount of memory for reading.
+    // The program reads all of the file through these 64 KiB. A 2 GB file and
+    // a 2 KB file use the same quantity of memory for the read.
     var buf: [64 * 1024]u8 = undefined;
     var reader = file.reader(io, &buf);
 
@@ -47,8 +47,8 @@ const Line = struct {
     ms: u32,
 };
 
-/// Returns null for a line we cannot use. An aborted request is logged with
-/// `-` where the milliseconds go, and one bad line must not stop the scan.
+/// Returns null for a line that the program cannot use. For an aborted request,
+/// the log has `-` in place of the milliseconds. One bad line must not stop the scan.
 fn parseLine(text: []const u8) ?Line {
     var fields = std.mem.tokenizeScalar(u8, text, ' ');
     const time = fields.next() orelse return null;
@@ -74,7 +74,7 @@ const Report = struct {
     lines: u64 = 0,
     bytes: u64 = 0,
     skipped: u64 = 0,
-    /// One counter per possible status code. No allocation, no hashing.
+    /// One counter for each possible status code. It needs no allocation and no hashing.
     statuses: [600]u64 = @splat(0),
     endpoints: std.StringHashMapUnmanaged(Endpoint) = .empty,
     first_504: [20]u8 = undefined,
@@ -93,7 +93,7 @@ const Report = struct {
     fn scan(r: *Report, in: *Io.Reader) !void {
         while (true) {
             const text = in.takeDelimiter('\n') catch |err| switch (err) {
-                // A line longer than the buffer. Skip it and keep going.
+                // A line that is longer than the buffer. Skip the line and continue.
                 error.StreamTooLong => {
                     r.bytes += try in.discardDelimiterInclusive('\n');
                     r.lines += 1;
@@ -124,8 +124,8 @@ const Report = struct {
 
         const slot = try r.endpoints.getOrPut(r.gpa, line.path);
         if (!slot.found_existing) {
-            // `line.path` points into the reader's buffer, and the next read
-            // overwrites it. The map keeps the key, so it needs its own copy.
+            // `line.path` points into the buffer of the reader, and the next read
+            // writes over those bytes. The map keeps the key, thus the map needs its own copy.
             slot.key_ptr.* = try r.gpa.dupe(u8, line.path);
             slot.value_ptr.* = .{};
         }
@@ -150,8 +150,8 @@ const Report = struct {
         var it = r.endpoints.iterator();
         while (it.next()) |kv| try rows.append(r.gpa, .{ .path = kv.key_ptr.*, .e = kv.value_ptr.* });
 
-        // Slowest first. Ties go by name, so the order never depends on the
-        // hash map's.
+        // Slowest first. If two averages are equal, the name decides. Thus the
+        // order never depends on the order of the hash map.
         std.mem.sort(Row, rows.items, {}, struct {
             fn lessThan(_: void, a: Row, b: Row) bool {
                 if (a.e.average() != b.e.average()) return a.e.average() > b.e.average();
@@ -170,9 +170,9 @@ const Report = struct {
     }
 };
 
-/// A made-up hour of traffic from 22:00 to 23:00. From 22:40 the checkout
-/// endpoint slows down and starts timing out, which is what the report has to
-/// find. The seed is fixed, so every run writes the same file.
+/// An invented hour of traffic from 22:00 to 23:00. From 22:40, the checkout
+/// endpoint becomes slow and some requests time out. The report must find this
+/// change. The seed is fixed, thus each run writes the same file.
 fn writeSampleLog(io: Io, dir: Io.Dir, name: []const u8, count: u32) !void {
     const file = try dir.createFile(io, name, .{});
     defer file.close(io);
@@ -190,8 +190,8 @@ fn writeSampleLog(io: Io, dir: Io.Dir, name: []const u8, count: u32) !void {
     for (0..count) |i| {
         const second: u32 = @intCast(i * 3600 / count);
         const minute = second / 60;
-        // u32, not usize: usize is 64 bits here and 32 bits in wasm, and the
-        // two widths draw different numbers from the same seed.
+        // u32, not usize: usize is 64 bits here and 32 bits in wasm. The two
+        // widths get different numbers from the same seed.
         const p = rand.uintLessThan(u32, paths.len);
 
         var status: u16 = if (rand.uintLessThan(u32, 100) < 2) 404 else 200;
@@ -206,7 +206,7 @@ fn writeSampleLog(io: Io, dir: Io.Dir, name: []const u8, count: u32) !void {
 
         try w.print("2026-10-03T22:{d:0>2}:{d:0>2}Z ", .{ minute, second % 60 });
         try w.print("{s} {s} {d} ", .{ if (p == 2) "POST" else "GET", paths[p], status });
-        // About one request in a thousand was aborted, and has no time.
+        // About one request in a thousand is aborted and has no time.
         if (rand.uintLessThan(u32, 1000) == 0) {
             try w.writeAll("-\n");
         } else {

@@ -1,7 +1,7 @@
 ---
 title: "The 2 GB Log File at 11 PM"
 seoTitle: "Read a 2 GB Log File in Zig with 652 KB of Memory"
-description: "A short story about an on-call engineer, a 2 GB log file, a server where nothing can be installed, and a 274 KB Zig program. Every program in it runs in your browser."
+description: "A short story about an on-call engineer, a 2 GB log file, a server with no installs, and a 274 KB Zig program. Each program in it runs in your browser."
 date: "2026-10-03T21:20+05:30"
 zig: "0.17.0-dev.2056+79a9897cd"
 ---
@@ -10,179 +10,113 @@ import SnippetSource from "../../components/SnippetSource.astro";
 
 ## 10:52 PM
 
-Shivam's phone buzzed on the kitchen table.
+Shivam's phone buzzed on the kitchen table. The alert was the one that nobody wants: **Checkout error rate above 5%.**
 
-It was the alert nobody wants: **Checkout error rate above 5%.**
+Shivam was on call this week. When production breaks at night, the person on call repairs the problem. This week, that person was Shivam.
 
-Shivam was on call this week.
-
-That means when production breaks at night, Shivam is the one who fixes it.
-
-Shivam opened the laptop.
-
-A message from Urvashi in support was already waiting.
+Shivam opened the laptop. A message from Urvashi in support was already there.
 
 > Customers say payment hangs and then fails. Started maybe 20 minutes ago?
 
-"Maybe" was not good enough.
-
-Shivam needed to know which part of the site was slow, and when it started.
+"Maybe" was not sufficient. Shivam had to know which part of the site was slow, and when the problem started.
 
 ## 10:58 PM
 
-Shivam logged in to the web server, `web-03`, and looked at the access log.
+Shivam logged in to the web server, `web-03`, and examined the access log.
 
 ```sh
 $ ls -lh /var/log/shop/access.log
 -rw-r----- 1 shop shop 2.0G Oct  3 22:58 /var/log/shop/access.log
 ```
 
-Two gigabytes.
-
-Fifty million lines, one line for each request.
-
-Each line looked like this:
+The log was two gigabytes: fifty million lines, with one line for each request. Each line had this shape:
 
 ```txt
 2026-10-03T22:41:07Z POST /api/checkout 504 5000
 ```
 
-The time, the method, the path, the status code, and how many milliseconds the request took.
+The fields are the time, the method, the path, the status code, and the duration of the request in milliseconds.
 
 Shivam knew what the report had to show:
 
-- how many requests got each status code,
-- which endpoint was slow,
-- and the time of the first `504`, which means the request timed out.
+- The number of requests for each status code.
+- The endpoint that was slow.
+- The time of the first `504`. A `504` means that the request timed out.
 
-The server had `awk`.
+The server had `awk`. The server did not have Python. And this week, the rules let nobody install software on production servers.
 
-It did not have Python.
+Shivam could write the report in `awk`. But an average for each endpoint, a maximum and "the first 504" make a long `awk` line.
 
-And this week, nobody was allowed to install software on production servers.
-
-The report could be written in `awk`.
-
-But a per-endpoint average, a maximum, and "the first 504" is a long `awk` line.
-
-Shivam wanted something to test on the laptop first, and trust on the server.
-
-So Shivam opened a new file: `logscan.zig`.
+Shivam wanted a program to test on the laptop first. Then Shivam could trust the program on the server. Thus Shivam opened a new file: `logscan.zig`.
 
 ## 11:04 PM: one line at a time
 
-The smallest piece came first: turning one line of text into fields.
+Shivam wrote the smallest part first: a function that splits one line of text into fields.
 
 <SnippetSource name="blog.logscan" decl="parseLine" />
 
-The function returns `?Line`.
+The function returns `?Line`. The `?` means "a `Line`, or `null`".
 
-The `?` means "a `Line`, or `null`".
+Shivam knew that the log had bad lines. When a customer closes the tab in the middle of a request, the server writes `-` in place of the milliseconds.
 
-Shivam knew the log had bad lines in it.
+`parseInt` fails on `-`. Thus `parseLine` returns `null`, and the caller counts the line as skipped. The caller adds one to `skipped` and continues to the next line.
 
-When a customer closes the tab in the middle of a request, the server writes `-` instead of the milliseconds.
+## 11:10 PM: read 2 GB with 64 KiB
 
-`parseInt` fails on `-`.
+The server had less than 1 GB of free memory. Thus Shivam could not read the full file into memory first.
 
-So `parseLine` returns `null`, and the caller counts the line as skipped.
-
-The caller adds one to `skipped` and moves on to the next line.
-
-## 11:10 PM: reading 2 GB with 64 KiB
-
-The server had less than 1 GB of free memory.
-
-So reading the whole file into memory first was not an option.
-
-Shivam gave the reader a buffer of 64 KiB instead:
+Shivam gave the reader a buffer of 64 KiB:
 
 ```zig
 var buf: [64 * 1024]u8 = undefined;
 var reader = file.reader(io, &buf);
 ```
 
-The reader fills the buffer from the file.
+The reader fills the buffer from the file. `takeDelimiter('\n')` returns the next line as a slice of that buffer. When the program uses all of the bytes in the buffer, the reader fills the buffer again.
 
-`takeDelimiter('\n')` returns the next line as a slice of that buffer.
-
-When the buffer is used up, the reader refills it.
-
-The file can be any size.
-
-The memory used for reading stays at 64 KiB.
+The file can be of any size. The memory for the read operation stays at 64 KiB.
 
 <SnippetSource name="blog.logscan" decl="scan" />
 
-There is one more case here.
-
-A line longer than the whole buffer gives `error.StreamTooLong`.
-
-The loop skips that line and goes on.
+The code has one more case. If a line is longer than the full buffer, the reader gives `error.StreamTooLong`. The loop skips that line and continues.
 
 ## 11:17 PM: the bug that almost happened
 
-For each endpoint, Shivam kept a running total in a hash map.
+For each endpoint, Shivam kept a total in a hash map. The first version stored `line.path` as the key.
 
-The first version stored `line.path` as the key.
+Then Shivam stopped. `line.path` is a slice of the reader's buffer. When the reader fills the buffer again, the reader writes new bytes over those bytes.
 
-Then Shivam stopped.
+If the map keeps those slices, each key in the map changes to different text. Nothing reports an error.
 
-`line.path` is a slice of the reader's buffer.
-
-On the next refill, those bytes are overwritten.
-
-Every key in the map would change to some other text, and nothing would report an error.
-
-So the program copies each key the first time it is seen:
+Thus the program copies each key when the key occurs for the first time:
 
 <SnippetSource name="blog.logscan" decl="add" />
 
-In many languages, reading a line gives you a new string that you own.
+In many languages, when you read a line, you get a new string that you own. In Zig, the line is a view into the reader's buffer.
 
-In Zig, the line is a view into the reader's buffer.
-
-That is why reading a line allocates nothing.
-
-It is also why a line you want to keep must be copied.
+For this reason, a read of a line allocates no memory. For the same reason, you must copy a line that you want to keep.
 
 ## 11:24 PM: test it on the laptop
 
-The real log was not on the laptop.
+The real log was not on the laptop. Thus Shivam gave the program a second mode.
 
-So Shivam gave the program a second mode.
+If you give the program no file name, the program writes a sample log of 50,000 lines. Then the program scans that log.
 
-With no file name, it writes a sample log of 50,000 lines, then scans that.
-
-The sample is one hour of made-up traffic.
-
-From 22:40, the checkout endpoint gets slow and starts timing out, like the real one.
+The sample is one hour of invented traffic. From 22:40, the checkout endpoint becomes slow, and some requests time out. The real endpoint did the same.
 
 Press **Run** to see the report.
 
 <Playground name="blog.logscan" />
 
-The program ran in your browser.
+The program ran in your browser. The program wrote a 2 MB file. Then the program read the file again through the 64 KiB buffer.
 
-It wrote a 2 MB file, then read it back through the 64 KiB buffer.
+Look at the checkout row. The average is 699 ms. The number is bad, but not very bad, because the average includes forty normal minutes and twenty slow minutes.
 
-Look at the checkout row.
-
-The average is 699 ms.
-
-That number looks bad, but not terrible.
-
-It mixes forty calm minutes with twenty slow ones.
-
-The last line is the useful one: the first `504` was at 22:40:00.
+The last line gives the useful fact: the first `504` was at 22:40:00.
 
 ## 11:31 PM: one file, no install
 
-Now the program had to run on `web-03`.
-
-The server runs Linux on x86-64.
-
-Shivam's laptop could build for it directly:
+Now the program had to run on `web-03`. The server runs Linux on x86-64. Shivam's laptop could build a program for that server directly:
 
 ```sh
 $ zig build-exe -O ReleaseFast -fstrip -target x86_64-linux-musl logscan.zig
@@ -192,19 +126,13 @@ $ file logscan
 logscan: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped
 ```
 
-`-target` names the machine to build for: x86-64, Linux.
+`-target` gives the machine for the build: x86-64, Linux.
 
-This program does not use a C library at all.
+This program does not use a C library at all. The Zig standard library makes calls to the Linux kernel directly.
 
-Zig's standard library talks to the Linux kernel directly.
+Thus the result is "statically linked": the file needs nothing else on the server. The server does not need a runtime, shared libraries or a package.
 
-So the result is "statically linked": the file needs nothing else on the server.
-
-No runtime, no shared libraries, no package to install.
-
-It was 274 KB.
-
-Shivam copied it over.
+The file was 274 KB. Shivam copied the file to the server.
 
 ```sh
 $ scp logscan web-03:/tmp/
@@ -233,17 +161,13 @@ first 504 at 2026-10-03T22:40:00Z
 6.45 s, 652 KB
 ```
 
-Fifty million lines in about seven seconds.
+The program read fifty million lines in about seven seconds. The full process used 652 KB of memory.
 
-The whole process used 652 KB of memory.
-
-Out of curiosity, Shivam also ran `awk` on the same file, counting only the status codes.
-
-That took about 13 seconds.
+Shivam also ran `awk` on the same file, to compare. The `awk` command counted only the status codes, and it took about 13 seconds.
 
 ## 11:36 PM
 
-Shivam posted the report in the incident channel.
+Shivam put the report in the incident channel.
 
 > Only checkout is slow. Everything else is normal. First timeout at 22:40:00. What shipped around 22:40?
 
@@ -251,17 +175,13 @@ Two minutes later, Urvashi replied.
 
 > Payments team changed the timeout config for the card provider at 22:39.
 
-They rolled the change back at 11:41 PM.
-
-At 11:52 PM, the checkout error rate was back to zero.
+The payments team reverted the change at 11:41 PM. At 11:52 PM, the checkout error rate was zero again.
 
 ## The next morning
 
-Shivam added `logscan.zig` to the team's tools repository.
+Shivam added `logscan.zig` to the tools repository of the team. The program is about 220 lines.
 
-It is about 220 lines.
-
-Anyone on the team can build it for any server with one command, including the ARM machines:
+Each person on the team can build the program for any server with one command. This also works for the ARM machines:
 
 ```sh
 $ zig build-exe -O ReleaseFast -fstrip -target aarch64-linux-musl logscan.zig
@@ -271,39 +191,30 @@ $ zig build-exe -O ReleaseFast -fstrip -target aarch64-linux-musl logscan.zig
 
 The full program is above the Run button.
 
-Press **Copy** and save it as `logscan.zig`.
-
-Then, with [Zig installed](/learn/getting-started/installation/):
+1. Press **Copy**.
+2. Save the program as `logscan.zig`.
+3. If you do not have Zig, [install Zig](/learn/getting-started/installation/).
+4. Run one of these commands:
 
 ```sh
 $ zig run logscan.zig                     # writes access.log and scans it
 $ zig run logscan.zig -- /path/to/your.log
 ```
 
-Your own log will have a different format.
+Your own log will have a different format. Change `parseLine` for that format. The other code stays the same.
 
-Change `parseLine` to match it.
+These chapters give more detail about each part:
 
-Everything else stays the same.
-
-These chapters explain each part in more detail:
-
-- [Reading line by line](/learn/files/read-lines/), including lines longer than the buffer.
-- [Hash maps](/learn/standard-library/hash-maps/), including who owns the keys.
-- [Cross-compilation](/learn/build-system/cross-compilation/), for building for another machine.
+- [Read line by line](/learn/files/read-lines/). This chapter also shows lines that are longer than the buffer.
+- [Hash maps](/learn/standard-library/hash-maps/). This chapter also shows who owns the keys.
+- [Cross-compilation](/learn/build-system/cross-compilation/). This chapter shows how to build for a different machine.
 
 ## About the numbers
 
-Shivam, Urvashi and `web-03` are made up.
+Shivam, Urvashi and `web-03` are not real. The numbers are real.
 
-The numbers are not.
+The 2 GB file is 1,000 copies of the sample log. Each time and size in this post is a measurement from a laptop with an Intel Core i5-1235U. The measurements used the Zig version at the top of this post.
 
-The 2 GB file is the sample log repeated 1,000 times.
+In three runs, `logscan` took between 6.4 and 8.2 seconds. The memory of `logscan` stayed at 652 KB in each run. The output above is from the fastest run.
 
-Every time and size above was measured on a laptop with an Intel Core i5-1235U, using the Zig version shown at the top of this post.
-
-Over three runs, `logscan` took between 6.4 and 8.2 seconds, and its memory stayed at 652 KB every time.
-
-The output above is from the fastest run.
-
-The `awk` command was `awk '{c[$4]++} END{for(k in c) print k, c[k]}'`, which counts status codes and does nothing else.
+The `awk` command was `awk '{c[$4]++} END{for(k in c) print k, c[k]}'`. This command counts status codes and does nothing else.
