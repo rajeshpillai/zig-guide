@@ -1,16 +1,16 @@
 ---
 title: String Primitives
-description: strlen, compare, copy and trim, written out. This is where the off-by-one error happens.
+description: strlen, compare, copy and trim, written out. The off-by-one error occurs in these functions.
 section: Survive the Terminal
 order: 1
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Nothing else in this track can be built until text can be measured, compared,
-copied and trimmed. Everything else depends on those four operations. Writing them out once
-teaches more than reading about them, because three of the four contain a
-well-known mistake.
+The other chapters in this track need four operations on text: measure, compare,
+copy and trim. Write these four functions one time. You learn more from that
+than from a description, because three of the four functions have a well-known
+mistake.
 
 ## The program
 
@@ -18,55 +18,63 @@ well-known mistake.
 
 ## What just happened
 
-**`strLen` walks, and `.len` does not.** Both printed 5. One of them counted
-bytes until it found a zero; the other read a number that was already there.
-On a five-byte greeting the difference costs almost nothing. In a loop it can
-cost a lot:
+**`strLen` walks the string, and `.len` does not.** Both printed 5. `strLen`
+counted bytes until it found a zero. `.len` read a number that the slice
+already holds.
+
+For a five-byte greeting, the difference is almost zero. In a loop, the
+difference can be large:
 
 ```c
 for (int i = 0; i < strlen(s); i++)   /* walks the string on every iteration */
 ```
 
-That is an O(n) job written as O(n²). It is a common performance
-bug in C, and it cannot be written at all with a slice, because there is no
-call to accidentally repeat.
+The loop does an O(n) job with O(n²) work. This is a common performance bug in
+C. You cannot write this bug with a slice, because no call exists that you can
+repeat by accident.
 
-**`strEq` checks the length first.** Comparing contents when the lengths differ
-is wasted work. More importantly, a loop that skips the length check would read
-past the end of the shorter string. `"cat"` against `"cats"` is false in one
-comparison.
+**`strEq` compares the lengths first.** When the lengths are different, a
+comparison of the contents is unnecessary work. More important, a loop without
+the length check reads past the end of the shorter string. `"cat"` against
+`"cats"` is false after one comparison.
 
-**The copy refused instead of truncating.** Six bytes of room took `"hello"`;
-five bytes did not. The check is `src.len + 1 > dest.len`. The `+ 1` is
-there because a 5-byte string needs 6 bytes: the terminator is a byte too. The version that checks `src.len > dest.len` looks
-right, compiles, passes a test with short strings, and writes exactly one byte
-past the end of the buffer.
+**The copy refused the text and did not truncate it.** A buffer of six bytes
+accepted `"hello"`, and a buffer of five bytes did not. The check is
+`src.len + 1 > dest.len`. The `+ 1` is necessary because a 5-byte string needs
+6 bytes: the terminator is also a byte.
 
-That single byte is the classic C buffer overflow. It needs no wild pointer
-and no malicious input. It needs only an off-by-one in a bounds check that
-somebody read twice and approved.
+Another version of the check is `src.len > dest.len`. That version looks
+correct and compiles. It also passes a test with short strings. But it writes
+exactly one byte past the end of the buffer.
 
-**Trimming returned a view.** `"  padded  "` became `"padded"` with nothing
-copied and nothing allocated. The obvious implementation moves the bytes to
-the front, and that work is wasted. The trimmed text is already in the input.
-The function only has to return a slice that covers less of it.
+That one byte is the classic C buffer overflow. It does not need a bad pointer
+or malicious input. It needs only an off-by-one error in a bounds check, after
+a reviewer read the check two times and approved it.
+
+**The trim returned a view.** `"  padded  "` became `"padded"`, and the
+function copied nothing and allocated nothing. The obvious implementation moves
+the bytes to the front, and that work is unnecessary. The trimmed text is
+already in the input. The function only returns a slice that covers a smaller
+part of the input.
 
 ## Check yourself
 
-`strTrim` takes `[]const u8` and returns `[]const u8`. Could it take a
-null-terminated C string and return one?
+`strTrim` takes `[]const u8` and returns `[]const u8`. Can it take a
+null-terminated C string and return a null-terminated C string?
 
-Not without copying the string or writing to it. Trimming the front is fine, since you
-can just point further in. Trimming the back means the string has to end
-earlier, and a C string ends where its zero is. So you would have to write a
-zero over the first trailing space, modifying the caller's data. `strtok`
-does exactly this, and that is why it is so unpleasant to use. A slice can
-describe a shorter piece of the same bytes without touching them. Because of
-this, a slice does not need a terminator.
+Not without a copy of the string or a write to the string. To trim the front is
+easy, because the function can point further into the string. To trim the back,
+the string must end earlier, and a C string ends at its zero byte.
+
+Thus the function must write a zero over the first trailing space, and that
+write changes the data of the caller. `strtok` does exactly this, and this
+behavior makes `strtok` difficult to use. A slice can describe a shorter part
+of the same bytes and not change them. For this reason, a slice does not need
+a terminator.
 
 ## If you know C
 
-You have written all four of these, and probably more than once:
+You wrote these four functions before, possibly more than one time:
 
 ```c
 size_t str_len(const char *s) { size_t i = 0; while (s[i]) i++; return i; }
@@ -74,15 +82,18 @@ int    str_eq(const char *a, const char *b) { return strcmp(a, b) == 0; }
 void   str_copy(char *d, const char *s) { while ((*d++ = *s++)); }   /* no bounds at all */
 ```
 
-The third one is `strcpy`, and it does not know how big the destination is.
-The problem is in the signature, not the implementation: the function is never
-given the size, so it cannot check it. `strncpy` was the fix, and it added its
-own trap. It does not terminate the result when the source is too long. So the
-safer replacement for `strncpy` is `strlcpy`, which is not in the C standard.
+The third function is `strcpy`, and it does not know the size of the
+destination. The problem is in the signature, not in the implementation. The
+caller never gives the size to the function, so the function cannot check the
+size.
 
-That is three attempts at one function. All three are awkward because a
-`char *` is a pointer with no length. Everything above takes a slice, so the
-length is not a separate argument anybody can pass wrongly.
+`strncpy` was the fix, and it added a new problem. It does not terminate the
+result when the source is too long. Thus the safer replacement for `strncpy` is
+`strlcpy`, and `strlcpy` is not in the C standard.
 
-Next: [tokenizing a command line](/learn/terminal/tokenize/), which is the
-first thing a shell has to do.
+That is three attempts at one function. All three are difficult to use because
+a `char *` is a pointer with no length. Each function above takes a slice. Thus
+the length is not a separate argument that a caller can give incorrectly.
+
+Next: [tokenize a command line](/learn/terminal/tokenize/). A shell does this
+step first.

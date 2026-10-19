@@ -1,11 +1,11 @@
 //! title: String Primitives
-//! str_len, str_eq, str_copy, str_trim, written out. The off-by-one lives here.
+//! str_len, str_eq, str_copy, str_trim, written out. The off-by-one error is here.
 
 const std = @import("std");
 
-/// Walk until the zero. This is the function C calls `strlen`, and its cost is
-/// the reason a slice carries its length instead: this is O(n) every time you
-/// ask, and code that asks inside a loop turns an O(n) job into O(n^2).
+/// Walk the string until the zero byte. C calls this function `strlen`. Its
+/// cost is the reason that a slice holds its length. Each call is O(n). A call
+/// inside a loop changes an O(n) job into O(n^2) work.
 fn strLen(s: [*:0]const u8) usize {
     var i: usize = 0;
     while (s[i] != 0) i += 1;
@@ -20,12 +20,12 @@ fn strEq(a: []const u8, b: []const u8) bool {
     return true;
 }
 
-/// Copy `src` into `dest` and terminate it. Returns null when it will not fit,
-/// instead of writing part of it.
+/// Copy `src` into `dest` and terminate the copy. If `src` is too large for
+/// `dest`, return null. Do not write a part of `src`.
 ///
-/// The `+ 1` is for the terminator. A 5-byte string needs 6 bytes of room, and
-/// the version of this that checks `src.len > dest.len` compiles, passes a
-/// casual test, and writes one byte past the end of the buffer.
+/// The `+ 1` is for the terminator. A 5-byte string needs 6 bytes of space.
+/// A version that checks `src.len > dest.len` compiles and passes a simple
+/// test. But that version writes one byte past the end of the buffer.
 fn strCopy(dest: []u8, src: []const u8) ?[:0]u8 {
     if (src.len + 1 > dest.len) return null;
     @memcpy(dest[0..src.len], src);
@@ -37,8 +37,8 @@ fn isSpace(c: u8) bool {
     return c == ' ' or c == '\t' or c == '\n' or c == '\r';
 }
 
-/// Both ends, without moving anything. Trimming does not need a copy: the
-/// answer is a slice of the bytes you already have.
+/// Trim both ends, and do not move a byte. A trim does not need a copy. The
+/// result is a slice of the bytes that you already have.
 fn strTrim(s: []const u8) []const u8 {
     var start: usize = 0;
     var end: usize = s.len;
@@ -60,7 +60,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("strEq(\"cat\",\"cot\") = {}\n", .{strEq("cat", "cot")});
     try out.print("strEq(\"cat\",\"cats\")= {}\n\n", .{strEq("cat", "cats")});
 
-    // Six bytes of room for five bytes of text.
+    // Six bytes of space for five bytes of text.
     var room: [6]u8 = undefined;
     if (strCopy(&room, "hello")) |copied| {
         try out.print("copied \"{s}\" into 6 bytes, terminator at index {d}\n", .{ copied, copied.len });
@@ -70,9 +70,10 @@ pub fn main(init: std.process.Init) !void {
         if (strCopy(&tight, "hello") == null) "refused" else "wrote",
     });
 
-    // Its own buffer. Passing `buf` here aliased the writer's own storage and
-    // the first line of output came out garbled. Both slices carry a length,
-    // so the mistake garbled the output instead of writing past a buffer.
+    // This buffer is separate from `buf`. An earlier version gave `buf` here.
+    // Then `buf` held the data of the writer and the data of `escape`, and
+    // this garbled the first line of output. Both slices hold a length. Thus the
+    // mistake garbled the output, and did not write past the end of a buffer.
     var scratch: [64]u8 = undefined;
     for ([_][]const u8{ "  padded  ", "\tboth\n", "none", "   ", "" }) |sample| {
         try out.print("trim(\"{s}\") -> \"{s}\"\n", .{ escape(sample, &scratch), strTrim(sample) });
@@ -81,7 +82,7 @@ pub fn main(init: std.process.Init) !void {
     try out.flush();
 }
 
-/// Render whitespace visibly so the trimming can be checked by eye.
+/// Show whitespace as visible text, so that you can check the trim by eye.
 fn escape(s: []const u8, scratch: []u8) []const u8 {
     var n: usize = 0;
     for (s) |c| {

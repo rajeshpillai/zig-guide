@@ -1,26 +1,27 @@
 ---
 title: The Read-Eval-Print Loop
-description: Four steps and two ways to stop, which is the part people get wrong.
+description: Four steps and two ways to stop. Programmers often get the stop wrong.
 section: Survive the Terminal
 order: 3
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Read a line. Work out what it means. Print the result. Go back to the start.
-That is the loop every shell, every database prompt and every language REPL
-runs, and it is four lines of code.
+Read a line. Find what the line means. Print the result. Return to the start.
+Each shell, each database prompt and each language REPL runs this loop, and
+the loop is four lines of code.
 
-How the loop ends is less obvious. There are **two** ways, and they are
-completely different. A loop that handles only one of them is broken, and the
-bug is easy to miss before release.
+The end of the loop is less obvious. The loop can end in **two** ways, and the
+two ways are completely different. A loop that handles only one of them has a
+bug, and you can easily miss that bug before a release. The two ways are:
 
-The first is the user asking: they type `quit`. The second is the input
-running out. On a terminal that is Ctrl-D, and in a pipeline it is simply the
-end of the file, which is what happens every time somebody writes `echo
-"help" | yourshell`. A loop that watches for `quit` and nothing else spins
-forever the first time it meets end of input, because the read keeps returning
-an empty result, and an empty result is not `quit`.
+- The user asks the loop to stop: the user types `quit`.
+- The input stops. On a terminal, the user presses Ctrl-D. In a pipeline, the
+  input reaches the end of the file. This occurs each time a person writes
+  `echo "help" | yourshell`.
+
+A loop that looks only for `quit` runs forever at the first end of input. The
+read continues to return an empty result, and an empty result is not `quit`.
 
 ## The program
 
@@ -28,45 +29,45 @@ an empty result, and an empty result is not `quit`.
 
 ## What just happened
 
-**Two sessions, two exits.** The first ended on `quit` and printed `(bye)`. The
-second ran out of input and printed `(end of input)`. Both are normal endings,
-neither is an error, and the code paths are different.
+**Two sessions, two exits.** The first session ended on `quit` and printed
+`(bye)`. The second session came to the end of its input and printed
+`(end of input)`. Both are normal ends, and neither is an error. The code paths
+are different.
 
-**The empty line did nothing and did not stop the loop.** Pressing enter on a
-blank prompt is neither a command nor an error. A REPL that treats it as either
-quickly annoys the user.
+**The empty line did nothing and did not stop the loop.** When a user presses
+Enter at a blank prompt, that is not a command and not an error. A REPL that
+uses either of these two meanings annoys the user quickly.
 
-**An unknown command printed a message and carried on.** This is the difference
-between a REPL and a batch program. A batch program that meets bad input
-should usually stop. A REPL that exits on a typo is unusable. The input is
-the same in both cases. What decides the correct behaviour is whether a person
-is waiting at the prompt.
+**An unknown command printed a message, and the loop continued.** This is the
+difference between a REPL and a batch program. A batch program usually stops
+when it gets bad input. A REPL that exits on a typo is not usable. The input is
+the same in both cases. The correct behavior depends on one question: does a
+person wait at the prompt?
 
-This page can run the loop because of how the loop reads input. The loop reads
-through a `std.Io.Reader`, and here that reader is built over a string instead
-of a terminal. If you change where the reader gets its bytes, the rest of the
-loop stays the same. You test a REPL the same way, and a REPL is otherwise
-awkward to test.
+This page can run the loop because of the way the loop reads input. The loop
+reads through a `std.Io.Reader`, and here the reader gets its bytes from a
+string, not from a terminal. If you change the source of the bytes, the rest
+of the loop stays the same. You test a REPL in the same way. Without this
+method, a REPL is difficult to test.
 
 ## Check yourself
 
-The demo prints `> ` and then echoes the line it just read. A real terminal
-does not do that. Why not, and why does this one have to?
+The demo prints `> ` and then echoes the line that it read. A real terminal
+does not do that. Why not, and why must this demo do it?
 
-Because a terminal echoes what you type as you type it: the characters appear
-because the terminal driver puts them there, not because the program printed
-them. This page has no keyboard, so the input is a string and nothing would
-show it. Echoing the line makes the transcript readable.
+A terminal echoes the characters while you type them. The characters appear
+because the terminal driver shows them, not because the program printed them.
+This page has no keyboard. The input is a string, and nothing shows that
+string. When the demo echoes the line, the transcript is easy to read.
 
-That difference matters in real programs too. A password prompt has to turn
-the terminal's echo *off* before reading. That is a call into the terminal
-driver, separate from the read itself. So reading a password takes more than
-reading a line.
+That difference is also important in real programs. A password prompt must
+turn *off* the echo of the terminal before the read. That is a call to the
+terminal driver, separate from the read. Thus a password read needs more than
+a line read.
 
 ## If you know C
 
-The loop is the same, and the ending is exactly where C makes it easy to get
-wrong:
+The loop is the same. C makes the end of the loop easy to get wrong:
 
 ```c
 while (1) {
@@ -78,21 +79,26 @@ while (1) {
 }
 ```
 
-`read` returning 0 is end of input, and it is not an error. A check for `n < 0`
-alone misses it and loops forever on an empty read. Almost everyone who writes
-a shell makes this mistake at least once.
+When `read` returns 0, the input is at its end, and that is not an error. A
+check for only `n < 0` does not see the end, and the loop runs forever on an
+empty read. Almost each programmer who writes a shell makes this mistake at
+least one time.
 
-The `sizeof buf - 1` is the same off-by-one from the [strings
-chapter](/learn/terminal/strings/), leaving room for the terminator that
-`read` does not write.
+The `sizeof buf - 1` is the same off-by-one as in the [strings
+chapter](/learn/terminal/strings/). It keeps space for the terminator, because
+`read` does not write the terminator.
 
 ## Where this section ends
 
-Three primitives: measure and copy text, split a line into arguments, and loop
-until something stops you. That is everything a shell needs *before* it can
-run a program.
+This section has three primitives:
 
-What comes next needs a real kernel, so it lives in the operating system
-section rather than here. Spawning a process is one chapter, and pipes, where
-the output of one program becomes the input of another, is the next. Neither
-can run on this page, and both say so.
+- Measure and copy text.
+- Split a line into arguments.
+- Loop until something stops the loop.
+
+A shell needs these three primitives *before* it can run a program.
+
+The next steps need a real kernel. Thus they are in the operating system
+section, not here. One chapter starts a process. The chapter after it is about
+pipes, where the output of one program becomes the input of another program.
+Neither chapter can run on this page, and both chapters tell you this.

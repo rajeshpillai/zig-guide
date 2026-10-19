@@ -1,16 +1,16 @@
 //! title: The Read-Eval-Print Loop
-//! Four steps and two ways to stop, which is the part people get wrong.
+//! Four steps and two ways to stop. Programmers often get the stop wrong.
 
 const std = @import("std");
 
 const Action = enum { printed, quit };
 
-/// The "eval" half. Kept separate from the loop so it can be tested without a
-/// terminal, which is also why this page can run at all.
+/// The "eval" half. It is separate from the loop, so that you can test it
+/// without a terminal. For the same reason, this page can run the loop.
 fn eval(line: []const u8, out: *std.Io.Writer) !Action {
     const trimmed = std.mem.trim(u8, line, " \t\r");
 
-    if (trimmed.len == 0) return .printed; // a bare newline is not an error
+    if (trimmed.len == 0) return .printed; // a newline alone is not an error
     if (std.mem.eql(u8, trimmed, "quit")) return .quit;
 
     if (std.mem.startsWith(u8, trimmed, "echo ")) {
@@ -18,23 +18,23 @@ fn eval(line: []const u8, out: *std.Io.Writer) !Action {
     } else if (std.mem.eql(u8, trimmed, "help")) {
         try out.writeAll("echo <text> | help | quit\n");
     } else {
-        // Unknown input is not a reason to exit. A REPL that exits on a typo
-        // is not usable.
+        // Do not exit on unknown input. A REPL that exits on a typo is not
+        // usable.
         try out.print("unknown command: {s}\n", .{trimmed});
     }
     return .printed;
 }
 
-/// The loop. Two exits: the user asks to stop, or the input runs out.
+/// The loop. It has two exits: the user asks to stop, or the input ends.
 fn repl(input: []const u8, out: *std.Io.Writer) !void {
     var reader: std.Io.Reader = .fixed(input);
 
     while (true) {
         try out.writeAll("> ");
 
-        // takeDelimiter returns null at the end of input, which is EOF. On a
-        // terminal that is Ctrl-D, and a loop that only checks for "quit"
-        // spins forever the first time someone presses it.
+        // takeDelimiter returns null at the end of input (EOF). On a terminal,
+        // the user presses Ctrl-D for EOF. A loop that checks only for "quit"
+        // runs forever when a user presses Ctrl-D the first time.
         const line = try reader.takeDelimiter('\n') orelse {
             try out.writeAll("\n(end of input)\n");
             return;

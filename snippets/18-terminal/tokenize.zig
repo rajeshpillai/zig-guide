@@ -1,15 +1,15 @@
 //! title: Tokenizing a Command Line
-//! Turning "ls -la /tmp" into the argv a shell needs, without copying anything.
+//! Change "ls -la /tmp" into the argv that a shell needs, and copy nothing.
 
 const std = @import("std");
 
-/// Split on runs of whitespace. Returns slices of `line`, so nothing is
-/// copied and nothing is allocated, and the result is only valid while `line`
-/// is.
+/// Split on runs of whitespace. The function returns slices of `line`. Thus
+/// it copies nothing and allocates nothing. The result is valid only while
+/// `line` is valid.
 ///
-/// A run of spaces produces no empty argument, which is the opposite of the
-/// rule `cut` needs. A command line is not a delimited record. The spaces
-/// only separate arguments, so `ls   -la` is two arguments.
+/// A run of spaces makes no empty argument. `cut` needs the opposite rule.
+/// A command line is not a delimited record. The spaces only separate the
+/// arguments. Thus `ls   -la` is two arguments.
 fn tokenize(line: []const u8, out: [][]const u8) ![][]const u8 {
     var n: usize = 0;
     var i: usize = 0;
@@ -54,7 +54,8 @@ pub fn main(init: std.process.Init) !void {
         try out.writeAll("\n");
     }
 
-    // The first token is what a shell would exec; the rest are handed to it.
+    // A shell runs the first token with exec. It gives the other tokens to
+    // that program as arguments.
     const args = try tokenize("grep -n main build.zig", &argv);
     try out.print("\ncommand: {s}\n", .{args[0]});
     for (args[1..], 1..) |arg, i| try out.print("  argv[{d}] = {s}\n", .{ i, arg });
