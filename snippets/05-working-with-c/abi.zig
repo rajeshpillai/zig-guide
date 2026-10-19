@@ -4,20 +4,22 @@
 const std = @import("std");
 const expect = std.testing.expect;
 
-// `extern struct` guarantees C layout: declaration order, C padding rules.
+// `extern struct` guarantees the C layout: the order of the declaration, and
+// the C rules for padding.
 const CPoint = extern struct {
     x: i32,
     y: i32,
 };
 
-// `packed struct` is bit-level and backed by an integer, with no padding.
+// `packed struct` has exact bits and no padding. An integer holds the bits.
 const Flags = packed struct {
     a: bool,
     b: bool,
     rest: u6,
 };
 
-// A plain struct may be reordered and padded in any way the compiler chooses.
+// The compiler can change the order of the fields of a plain struct, and add
+// padding in any way that it selects.
 const Loose = struct {
     small: u8,
     big: u64,
@@ -39,7 +41,7 @@ test "packed struct is exactly its bits" {
 }
 
 test "plain structs make no layout promise" {
-    // Zig is free to order these for packing, so do not assume offsets.
+    // Zig can put these fields in any order for packing. Do not assume offsets.
     try expect(@sizeOf(Loose) >= 9);
 }
 
@@ -52,7 +54,7 @@ test "extern union and enum" {
     try expect(@intFromEnum(Colour.green) == 1);
 }
 
-// `callconv(.c)` makes a Zig function callable from C.
+// `callconv(.c)` lets C call a Zig function.
 export fn addFromC(a: c_int, b: c_int) callconv(.c) c_int {
     return a + b;
 }

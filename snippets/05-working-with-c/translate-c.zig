@@ -1,13 +1,13 @@
 //! title: Calling Vendored C
 //! cinclude: calc.h
 //! csource: calc.c
-//! The whole shape at once: a header read by translate-c, a `.c` compiled into
-//! the binary, and Zig calling across with no binding file in between.
+//! The full shape: translate-c reads a header, the build compiles a `.c` file
+//! into the binary, and Zig calls C without a binding file.
 
 const std = @import("std");
 
-// What the removed `@cImport` builtin used to produce. The header is named by
-// the build now, so nothing in this file mentions one.
+// The removed `@cImport` builtin made this module before. Now the build names
+// the header. Thus this file does not name a header.
 const c = @import("c");
 
 pub fn main(init: std.process.Init) !void {
@@ -15,8 +15,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // `calc_add` is an ordinary member of the module. Translating the header is
-    // what makes the name exist; compiling `calc.c` is what makes it link.
+    // `calc_add` is an ordinary member of the module. The translation of the
+    // header makes the name. The compiled `calc.c` lets the name link.
     try out.print("calc_add(2, 3) = {d}\n", .{c.calc_add(2, 3)});
     try out.flush();
 }

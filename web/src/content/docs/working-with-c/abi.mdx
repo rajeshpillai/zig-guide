@@ -1,21 +1,23 @@
 ---
 title: ABI
-description: extern and packed, for layouts you can rely on.
+description: extern and packed, for layouts with a guarantee.
 section: Working with C
 order: 80
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-To pass a struct to C from Zig, declare it `extern struct`, which uses the C
-ABI's field order and padding. `packed struct` gives exact bits with no
-padding, for registers and wire formats.
+To pass a struct from Zig to C, declare it as `extern struct`. An
+`extern struct` uses the field order and padding of the C ABI. A
+`packed struct` gives exact bits with no padding, for registers and wire
+formats.
 
 <Playground name="05-working-with-c.abi" />
 
-A plain Zig `struct` makes **no layout promise**. Fields may be reordered and
-padded however the compiler prefers. That is a feature (it lets the optimiser
-pack things), but it means you cannot hand one to C.
+A plain Zig `struct` makes **no layout promise**. The compiler can put the
+fields in a different order and add padding in any way that it prefers. This
+freedom is a feature, because it lets the optimiser pack the fields. But you
+cannot give a plain `struct` to C.
 
 ## The three layouts
 
@@ -30,27 +32,32 @@ const CPoint = extern struct { x: i32, y: i32 };   // offsets 0 and 4
 const Flags = packed struct { a: bool, b: bool, rest: u6 };  // exactly 8 bits
 ```
 
-A `packed struct` converts to and from its backing integer with `@bitCast`,
-which makes it the natural way to describe hardware registers and protocol
-headers.
+A `packed struct` converts to and from its backing integer with `@bitCast`.
+Thus a `packed struct` is the natural way to describe hardware registers and
+protocol headers.
 
 ## What "ABI" means
 
-The application binary interface is the set of agreements two separately
-compiled pieces of code need in order to call each other. Where a struct's
-fields sit. Which registers hold which arguments. Who cleans up the stack. How
-a name appears in the symbol table. The source language does not say any of
-this. The platform decides it, and both sides have to already agree,
-because by the time they meet there is no type information left to check.
+The application binary interface is a set of agreements. Two pieces of code
+that are compiled separately need these agreements to call each other:
 
-Because nothing is left to check, mistakes here are quiet. A mismatched field offset is not a
-compile error in either language; it is a program that reads the wrong four
-bytes and keeps going.
+- The position of the fields of a struct.
+- The registers that hold each argument.
+- The side that cleans the stack.
+- The form of a name in the symbol table.
 
-## Verifying, not assuming
+The source language does not specify these items. The platform decides them.
+The two sides must agree before they meet, because at that time no type
+information remains to check.
 
-`@sizeOf`, `@offsetOf`, and `@bitSizeOf` are comptime values, so a layout
-assumption can be asserted at compile time:
+Because nothing remains to check, a mistake here makes no noise. An incorrect
+field offset is not a compile error in either language. The result is a
+program that reads the wrong four bytes and continues.
+
+## Verify the layout
+
+`@sizeOf`, `@offsetOf` and `@bitSizeOf` are comptime values. Thus you can
+assert a layout assumption at compile time:
 
 ```zig
 comptime {
@@ -58,36 +65,37 @@ comptime {
 }
 ```
 
-Do this at any real C boundary. It turns a silent mismatch into a build
-failure.
+Add these assertions at each real C boundary. An assertion changes a silent
+mismatch into a build failure.
 
-The stronger version of the same idea is to not hand-write the declaration at
-all. translate-c reads the header and produces the struct, so there is nothing
-to get out of step; see [importing C](/learn/working-with-c/cimport/).
-Hand-written `extern` declarations are for the cases where no header exists,
-and those are exactly the cases that need the assertions.
+A stronger version of the same idea is to not write the declaration by hand.
+translate-c reads the header and makes the struct. Thus the struct and the
+header cannot become different. See [importing C](/learn/working-with-c/cimport/).
+Write an `extern` declaration by hand only when no header exists. Those cases
+are exactly the cases that need the assertions.
 
 ## Bit order is not portable
 
-`packed struct` gives you exact bit positions, which is what a hardware
-register or a protocol header needs. What it does not give you is agreement
-with a C compiler's bitfields. C leaves the ordering of bits within a unit
-implementation-defined, so two compilers can lay out the same header
-differently.
+`packed struct` gives you exact bit positions. A hardware register or a
+protocol header needs exact bit positions. But a `packed struct` does not
+always agree with the bitfields of a C compiler. In C, the order of bits in a
+unit is implementation-defined. Thus two compilers can put the bits of the
+same header in different positions.
 
-For a wire format, that is fine and even an advantage, because you are
-defining the layout rather than matching someone else's. For matching a C
-bitfield exactly, check it against the C compiler you care about rather than
-assuming.
+For a wire format, this is not a problem. It is even an advantage, because
+you define the layout. You do not copy the layout of a different program. If
+you must match a C bitfield exactly, do not assume. Compare the layout with
+the C compiler that you use.
 
-Byte order is a separate question again, and `packed struct` says nothing
-about it. A protocol header read from a socket needs `std.mem.bigToNative` or
-an explicit byte-by-byte decode; `@bitCast` gives you the host's order.
+Byte order is a different question, and `packed struct` says nothing about
+it. A protocol header that you read from a socket needs `std.mem.bigToNative`
+or an explicit decode, one byte at a time. `@bitCast` gives you the byte order
+of the host.
 
 ## Calling conventions
 
-`callconv(.c)` gives a function the C calling convention, and `export` gives
-it an unmangled symbol name:
+`callconv(.c)` gives a function the C calling convention. `export` gives the
+function an unmangled symbol name:
 
 ```zig
 export fn add(a: c_int, b: c_int) callconv(.c) c_int {
@@ -95,30 +103,32 @@ export fn add(a: c_int, b: c_int) callconv(.c) c_int {
 }
 ```
 
-That is all it takes for C to call Zig. Going the other way, declare the C
-function with `extern`:
+C needs nothing more to call Zig. To call C from Zig, declare the C function
+with `extern`:
 
 ```zig
 extern "c" fn abs(n: c_int) c_int;
 ```
 
-`export` does both jobs. It gives the function an unmangled symbol name and
-the C calling convention, so the `callconv(.c)` above spells out what `export`
-already implies. Writing it costs nothing and says what you meant.
-`@export(&add, .{ .name = "add" })` is the case where you supply the
-convention yourself, because it exports a function that keeps whatever
-convention it declared.
+`export` does the two jobs. It gives the function an unmangled symbol name
+and the C calling convention. Thus the `callconv(.c)` above only states what
+`export` already gives. The extra `callconv(.c)` costs nothing, and it shows
+what you intend.
 
-One more thing does not cross the boundary: Zig errors. An `export` function
-returning `!void` has no C representation, so a function meant to be called
-from C returns a status code and keeps its error handling inside.
+With `@export(&add, .{ .name = "add" })`, you must supply the convention
+yourself. `@export` exports a function, and the function keeps the convention
+that it declares.
+
+Zig errors also do not cross the boundary. If an `export` function returns
+`!void`, C has no representation for the return type. Thus a function for C
+callers returns a status code, and keeps its error handling inside.
 
 ## Do not `extern` everything
 
-`extern struct` costs you the packing the optimiser would otherwise do. Use it
-at the boundary, and use ordinary structs inside.
+An `extern struct` stops the packing that the optimiser can do for a plain
+struct. Use `extern struct` at the boundary, and use ordinary structs inside.
 
-It also freezes your layout as part of the interface. A plain struct can gain
-a field with no consequence beyond a recompile. An `extern struct` that C code
-allocates is a promise about size that you cannot change without breaking
-whatever was compiled against it.
+An `extern struct` also makes your layout fixed, as part of the interface. You
+can add a field to a plain struct, and the only result is a recompile. An
+`extern struct` that C code allocates is a promise about size. If you change
+the size, all code that was compiled against the old size breaks.

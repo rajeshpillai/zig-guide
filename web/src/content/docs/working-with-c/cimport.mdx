@@ -1,7 +1,7 @@
 ---
 title: Importing C
 seoTitle: "Zig translate-c: Importing C Headers After @cImport"
-seoDescription: "@cImport was removed from the language. C headers now arrive through b.addTranslateC in the build, imported as an ordinary module. The new shape, the build wiring, and what still does not translate."
+seoDescription: "@cImport is no longer in Zig. C headers now come from b.addTranslateC in the build, as a normal module. The build wiring, and what does not translate."
 description: "translate-c, and calling C without bindings."
 section: Working with C
 order: 83
@@ -9,16 +9,15 @@ order: 83
 
 import Playground from "../../../components/Playground.astro";
 
-Zig reads C headers directly. There is no binding generator and no
-intermediate `.zig` file to maintain.
+Zig reads C headers directly. You do not need a binding generator, and you
+do not maintain an intermediate `.zig` file.
 
-What changed is where the reading happens. It used to be a builtin you called
-from your source. It is now a step in your build.
+The change is the place where Zig reads the header. Before, a builtin in your
+source read the header. Now a step in your build reads the header.
 
 ## `@cImport` is gone
 
-If you are arriving from an older tutorial, this is the line that will not
-compile:
+If you come from an older tutorial, this line does not compile:
 
 ```zig
 // Removed from the language. Every tutorial written before 2026 shows this.
@@ -29,23 +28,23 @@ const c = @cImport({
 });
 ```
 
-On current Zig it fails with `error: invalid builtin function: '@cImport'`.
-`@cInclude` and `@cDefine` went with it.
+On current Zig, the line fails with
+`error: invalid builtin function: '@cImport'`. `@cInclude` and `@cDefine` are
+also removed.
 
-Headers now come through `b.addTranslateC`, which produces an ordinary Zig
-module. You import it by whatever name you gave it:
+Headers now come from `b.addTranslateC`, which makes an ordinary Zig module.
+Import the module by the name that you gave to it:
 
 <Playground
   name="05-working-with-c.libc-from-zig"
-  note="Translates the real stdio.h and string.h and links the host libc, so CI builds and runs it natively. Browser wasm has neither."
+  note="This snippet translates the real stdio.h and string.h and links the host libc. Thus CI builds and runs it natively. Browser wasm has no headers and no libc."
 />
 
-Everything the header declares still appears as a member of `c`. The
-difference is that nothing in the source file names a header any more. The
-build does.
+All declarations of the header are still members of `c`. The difference is
+that the source file does not name a header now. The build names the header.
 
-The translate step takes a single C file as its root, so a project that wants
-several headers writes one that includes them:
+The translate step takes one C file as its root. If a project needs several
+headers, write one header that includes them:
 
 ```c
 // src/c.h
@@ -64,26 +63,26 @@ const translate = b.addTranslateC(.{
 translate.defineCMacro("_GNU_SOURCE", null);
 ```
 
-`defineCMacro` is the replacement for `@cDefine`, and a `null` value means a
-macro defined with no value. `translate.createModule()` is then the module you
-hand to whatever needs it.
+`defineCMacro` replaces `@cDefine`. A `null` value means a macro without a
+value. Then `translate.createModule()` gives the module. Give that module to
+the code that needs it.
 
-In return for the extra step, a C import is now cached and
-configured like any other dependency, instead of being re-translated on every
-compile.
+The extra step has an advantage. The build now caches and configures a C
+import like all other dependencies. The build does not translate the header
+again on each compile.
 
-## Telling the build where to look
+## Tell the build where to look
 
-Three separate jobs, and they live in three places.
+There are three separate jobs, in three places.
 
-The translate step needs to find the headers:
+The translate step must find the headers:
 
 ```zig
 translate.addIncludePath(b.path("vendor/include"));
 translate.linkSystemLibrary("sqlite3", .{});
 ```
 
-The module that calls the C needs libc and the compiled C:
+The module that calls the C code needs libc and the compiled C code:
 
 ```zig
 const module = b.createModule(.{
@@ -96,24 +95,25 @@ const module = b.createModule(.{
 module.linkSystemLibrary("sqlite3", .{});
 ```
 
-Or compile the C yourself. Zig includes a C compiler, so vendoring a
-dependency's sources is a reasonable option:
+Or compile the C code yourself. Zig includes a C compiler. Thus you can copy
+the source files of a dependency into your project:
 
 ```zig
 module.addCSourceFile(.{ .file = b.path("vendor/thing.c"), .flags = &.{"-std=c99"} });
 ```
 
-Note where those methods hang. `addCSourceFile`, `addIncludePath` and
-`linkSystemLibrary` are methods on `std.Build.Module`, not on the executable.
-`exe.linkLibC()` no longer exists at all: libc is `.link_libc = true` in the
-module's options. Code that calls `exe.addIncludePath` or `exe.linkLibC` is
-from the same era as `@cImport` and fails the same way.
+Look at the type that has these methods. `addCSourceFile`, `addIncludePath`
+and `linkSystemLibrary` are methods on `std.Build.Module`, not on the
+executable. `exe.linkLibC()` does not exist now. For libc, set
+`.link_libc = true` in the options of the module. Code that calls
+`exe.addIncludePath` or `exe.linkLibC` is from the same time as `@cImport`. That
+code fails in the same way.
 
-## A whole project, start to finish
+## A full project
 
-The pieces above only make sense together. Here is the smallest project that
-uses all of them: your Zig calling a C function you vendored, with no system
-library involved.
+The parts above have a meaning only together. This is the smallest project
+that uses all of the parts. Your Zig code calls a C function from a C file in
+your project. No system library is necessary.
 
 ```
 project/
@@ -136,17 +136,18 @@ int calc_add(int a, int b);
 int calc_add(int a, int b) { return a + b; }
 ```
 
-`src/main.zig` is a real snippet in this guide, so it is compiled and run on
-every CI push:
+`src/main.zig` is a real snippet in this guide. Thus CI compiles and runs it
+on each push:
 
 <Playground
   name="05-working-with-c.translate-c"
-  note="Translates a vendored header and compiles a vendored .c, both of which need a host C compiler. CI builds and runs it on every push."
+  note="This snippet translates a vendored header and compiles a vendored .c file. The two steps need a host C compiler. CI builds and runs the snippet on each push."
 />
 
-The two C files above are the ones it is built against, sitting beside it in
-`snippets/05-working-with-c/`. The build below is what your own project writes
-by hand; this repo makes the same steps from a marker on the snippet.
+CI builds the snippet against the two C files above. The C files are next to
+the snippet in `snippets/05-working-with-c/`. Your own project writes the
+build below by hand. This repo makes the same steps from a marker on the
+snippet.
 
 ```zig
 // build.zig
@@ -171,12 +172,13 @@ exe.root_module.addCSourceFile(.{ .file = b.path("vendor/calc.c") });
 b.installArtifact(exe);
 ```
 
-One header, so it is the translate step's root directly and no include path is
-needed. Point the root at a header of your own that `#include`s several, and
-`translate.addIncludePath` is what makes those resolve.
+The project has one header. Thus the header is the root of the translate step,
+and no include path is necessary. If the root is your own header that
+`#include`s several headers, `translate.addIncludePath` lets Zig find those
+headers.
 
-Reading the header and compiling the C are separate jobs, and missing
-either one fails differently:
+To read the header and to compile the C code are separate jobs. If you omit
+one job, the failure is different from the failure for the other job:
 
 ```
  vendor/calc.h
@@ -197,56 +199,69 @@ either one fails differently:
    executable
 ```
 
-The translate step is what decides which declarations Zig can see. Point it at
-a header that is not there and you get an error naming the header.
-`addCSourceFile` is what puts the compiled function in the binary. Forget that
-one and the code compiles cleanly and fails at link time with `ld.lld:
-undefined symbol: calc_add`. This is the more confusing of the two errors, so
-learn to recognise it. The line is not from memory: dropping the C file
-from the snippet above produces exactly that line.
+The translate step decides which declarations Zig can see. If the header does
+not exist, the error gives the name of the header.
 
-Swapping the vendored file for a system library changes two lines:
-`linkSystemLibrary("sqlite3", .{})` on the translate step so the header is
-found, and the same call on the module so the library is linked.
+`addCSourceFile` puts the compiled function in the binary. If you forget
+`addCSourceFile`, the code compiles without errors. Then the link fails with
+`ld.lld: undefined symbol: calc_add`. This error is more difficult to
+understand than the other error, so learn to recognise it. The line does not
+come from memory. When the C file is removed from the snippet above, the build gives exactly
+that line.
+
+To use a system library in place of the vendored file, change two lines:
+
+- `linkSystemLibrary("sqlite3", .{})` on the translate step, so that the
+  translate step finds the header.
+- The same call on the module, so that the build links the library.
 
 ## What translates and what does not
 
-Types, functions, and simple `#define` constants translate cleanly.
-**Function-like macros do not**: they are C syntax, not C semantics, and Zig
-cannot always give them meaning. When one matters, reimplement it in Zig.
+Types, functions and simple `#define` constants translate correctly.
+**Function-like macros do not translate correctly.** They are C syntax, not C
+semantics, and Zig cannot always give them a meaning. If you need a
+function-like macro, write it again in Zig.
 
-`zig translate-c header.h` still exists as a command and prints exactly what
-the build step would produce, which is the fastest way to find out what a
-given header becomes.
+The command `zig translate-c header.h` still exists. It prints exactly what
+the build step makes. To see the result for a given header, this command is
+the fastest method.
 
 ## Strings
 
 C strings are `[*c]const u8` and null-terminated. Zig string literals are
-already null-terminated, so passing one to C needs no conversion. Coming back,
-`std.mem.span(ptr)` recovers a slice by scanning for the terminator.
+already null-terminated. Thus you can give a literal to C without a
+conversion. For a C string that comes to Zig, `std.mem.span(ptr)` finds the
+terminator and returns a slice.
 
-## Compared with binding generators
+## Binding generators in other languages
 
-Other languages solve the same problem with a separate tool. Python has ctypes and cffi and a generator; Rust has bindgen; Go has
-cgo with its own dialect of comments. All of them are a separate tool that
-reads the header and emits code in a third file, which then has to be
-regenerated and committed and kept in step.
+Other languages use a separate tool for the same problem:
 
-Zig reads the header as part of the build. The binding is remade whenever the
-header changes, so it cannot drift from the header it was made from. You do not
-commit a generated file or regenerate one by hand.
-Update the C library and a changed signature is a compile error the same day.
+- Python has ctypes, cffi and a generator.
+- Rust has bindgen.
+- Go has cgo, with its own dialect of comments.
 
-Remaking the binding on every build is what lets this guide's X11 chapter link against the real
-system Xlib in CI. Nothing runs, but the header is translated and the calls
-are type-checked, so a change in libX11 turns the build red rather than going
-unnoticed until someone reads the page.
+Each of these tools reads the header and writes code in a third file. You must
+then make that file again, commit it, and keep it the same as the header.
+
+Zig reads the header as part of the build. The build makes the binding again
+when the header changes. Thus the binding is always the same as its header.
+You do not commit a generated file, and you do not make one again by hand. If
+you update the C library, a changed signature is a compile error on the same
+day.
+
+Because the build makes the binding again each time, the X11 chapter of this
+guide can link against the real system Xlib in CI. The X11 snippet does not
+run. But CI translates the header and type-checks the calls. Thus a change in libX11 makes
+the build fail. Without this check, nobody would see the change until a person
+read the page.
 
 ## Error handling across the boundary
 
-C reports failure by return value and by a global `errno`, and neither
-survives translation into anything meaningful. So the wrapper you write around
-a C library is also where its conventions become Zig errors:
+C reports a failure with a return value and with a global `errno`. After
+translation, neither of the two has a useful meaning. Thus the wrapper that you
+write for a C library is also the place where the C conventions become Zig
+errors:
 
 ```zig
 pub fn open(path: [:0]const u8) !Handle {
@@ -256,31 +271,35 @@ pub fn open(path: [:0]const u8) !Handle {
 }
 ```
 
-You write this once for each function. The work is repetitive, and it is all
-the wrapper has to do. In return, the rest of the program uses `try`, and no
-caller has a return code it could forget to check.
+Write a wrapper of this type one time for each function. The work is
+repetitive, and it is all the work that the wrapper must do. In return, the
+rest of the program uses `try`. No caller has a return code that it can
+forget to check.
 
-Ownership is the other half. C libraries have their own rules about who frees
-what, and the wrapper is where those become `defer` and `errdefer` in the Zig
-caller's scope. A handle type with a `deinit` method is usually the right
-shape, so the pairing is visible.
+Ownership is the other half. Each C library has its own rules about who frees
+which memory. In the wrapper, those rules become `defer` and `errdefer` in the
+scope of the Zig caller. Usually, a handle type with a `deinit` method is the
+correct shape, because then you can see the pair of calls.
 
 ## Why the snippets here have no Run button
 
-Both programs above are compiled and run by CI on every push, against the
-compiler named in the footer. Neither will run in your browser.
+CI compiles and runs the two programs above on each push, with the compiler
+that the footer names. Neither program runs in your browser.
 
-Translating a header needs real C headers and a libc for the target, and the
-wasm sandbox these pages execute in has neither. So these two are host builds:
-CI runs them on Linux and diffs their output, and the page shows you the source
-without a Run button rather than shipping a `.wasm` that could not work.
+To translate a header, you need real C headers and a libc for the target. The
+wasm sandbox of these pages has neither. Thus the two programs are host
+builds. CI runs them on Linux and diffs their output. The page shows you the
+source without a Run button. The page does not ship a `.wasm` that cannot
+work.
 
-What is still illustrative is the `build.zig` on this page. Your project writes
-those steps by hand; this repo generates them from a marker on the snippet, so
-the two cannot be the same file. The calls are the same calls, and they are
-compiled on every run of `zig build`, which is what caught the last round of
-drift here.
+Only the `build.zig` on this page is an illustration, not a checked file. Your
+project writes those steps by hand. This repo generates the steps from a
+marker on the snippet. Thus the two cannot be the same file. But the calls
+are the same calls, and each run of `zig build` compiles them. That compile
+found the most recent API changes that broke this page.
 
-For more C that is verified on every run, see [SQLite from
-Zig](/learn/how-to/databases/sqlite-basic/), which links the real libsqlite3,
-and [the X11 chapter](/learn/graphics/on-screen/), which links the real Xlib.
+For more C code that CI verifies on each run, see these chapters:
+
+- [SQLite from Zig](/learn/how-to/databases/sqlite-basic/), which links the
+  real libsqlite3.
+- [The X11 chapter](/learn/graphics/on-screen/), which links the real Xlib.
