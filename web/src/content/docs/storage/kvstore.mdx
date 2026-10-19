@@ -1,103 +1,108 @@
 ---
 title: A Write-Ahead Log
-description: Write down what you are about to do, then do it. Recovery is replaying the note.
+description: Write down what you will do, then do it. Recovery is a replay of the note.
 section: Data and Storage
 order: 4
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The last chapter ended on a problem it could not solve: two files that have to
-agree, and a crash between writing one and the other. This problem is not
-specific to files. It happens with any change that is not a single indivisible
-act.
+The last chapter ended on a problem that it could not solve: two files that
+must agree, and a crash between the two writes. This problem is not specific to
+files. It occurs with each change that is not one indivisible action.
 
-The answer is old and simple. It is used by every database, every journalling
-filesystem and most message queues. **Write down what you are about to do,
-then do it.** If the power goes out before you finish, the note is still there
-when the program restarts, and you do the change again.
+The answer is old and simple. All databases, all journalling filesystems and
+most message queues use it. **Write down what you will do, then do it.** If the
+power fails before you finish, the note is still there when the program starts
+again. Then you do the change again.
 
-That note is a **write-ahead log**. Recovery is reading it.
+That note is a **write-ahead log**. Recovery is a read of the note.
 
 ## The program
 
 <Playground name="20-storage.kvstore" />
 
-## What just happened
+## What the program did
 
-**A clean shutdown replayed all four records.** The in-memory store was rebuilt
-from the log alone. The log is the database. The in-memory store is a fast
-cache of it.
+**A clean shutdown replayed all four records.** The program built the
+in-memory store again from the log alone. The log is the database. The
+in-memory store is a fast cache of the log.
 
-**The crash lost the record that was mid-write, and nothing else.** Truncating
-the log to simulate a power failure left a final line with no newline. Replay
-stopped there, and the first three records were fine. `c` is absent, which is
-correct: that write never completed, so it never happened.
+**The crash lost the record that was in the middle of a write, and nothing
+else.** To simulate a power failure, the program truncated the log. This left
+a last line with no newline. The replay stopped there, and the first three
+records were correct. `c` is absent, and that is correct: that write did not
+complete, thus it did not occur.
 
-A WAL works because of this property. A partially written record at the
-**end** of an append-only file is detectable when the process dies, because a
-record is complete only once its terminator has been written. Nothing before
-it can be affected, because nothing before it was touched.
+A WAL works because of this property. When the process stops, you can find a
+partial record at the **end** of an append-only file. A record is complete only
+after the program writes its terminator. The data before the partial record
+does not change, because no write touched that data.
 
-**The corrupted byte was caught by the checksum, and replay stopped.** The
-newline framing cannot see this. The record has its terminator, but its
-content is wrong. Only the checksum notices.
+**The checksum found the corrupted byte, and the replay stopped.** The newline
+framing cannot see this problem. The record has its terminator, but its content
+is incorrect. Only the checksum sees the problem.
 
-Stopping had a cost. Records three and four were readable and were refused
-anyway. This is deliberate. A log is a **sequence**, and a
-record after a damaged one may depend on the one that was lost. Applying the
-readable remainder gives you a store that never existed at any point in time.
-A store missing its last records is the better outcome. The store built from
-the readable remainder looks correct, and you cannot tell by looking that it
-is wrong.
+The stop had a cost. Records three and four were readable, but the replay
+refused them. This is intentional. A log is a **sequence**, and a record after
+a damaged record can depend on the lost record. If you apply the readable
+records that remain, you get a store that never existed at any time.
+
+A store without its last records is the better result. A store that you build
+from the readable records that are left looks correct, and you cannot see that it
+is incorrect.
 
 ## What this program cannot show you
 
-`fsync`. Writing to a file puts the bytes in the operating system's page
-cache. The kernel writes them to the disk later, at a time it chooses. If the
-power fails in between, the write is gone, and on recovery the log will show
-that it never happened.
+`fsync`. A write to a file puts the bytes in the page cache of the operating
+system. The kernel writes them to the disk later, at a time that it selects. If
+the power fails between these two times, the write is lost. On recovery, the
+log shows that the write did not occur.
 
 `fsync` is the call that says "write this to the disk now, and do not return
-until you have". A WAL without it protects you when your process dies, but not
-when the machine dies. `fsync` is also slow. That is why databases have a
-durability setting, and why the fast setting is fast.
+until the data is on the disk". A WAL without `fsync` protects you when your
+process stops, but not when the computer stops. `fsync` is also slow. For this
+reason, databases have a durability setting, and the fast setting is fast.
 
 This page cannot demonstrate `fsync`, because there is no disk here. The
-mechanism above is complete, but the durability guarantee is not.
+mechanism above is complete, but the durability guarantee is not complete.
 
 ## Check yourself
 
-The log grows forever. Every `set` appends, even to a key written a thousand
-times. What stops a real system from filling the disk?
+The log grows forever. Each `set` appends, also for a key that the program
+wrote a thousand times. In a real system, what prevents a full disk?
 
-A **checkpoint**. Recovery then means loading the last checkpoint and
-replaying only what came after it. That also makes startup fast: without
-checkpoints, a database that has been running for a year replays a year of
-history every time it starts.
+The answer: a **checkpoint**. Then recovery loads the last checkpoint, and
+replays only the records after the checkpoint. A checkpoint also makes the start
+fast. Without checkpoints, a database that ran for a year must replay a year of
+history each time it starts.
 
 This is the same idea as the tombstones from the first chapter, at a larger
-scale. An append-only structure needs a periodic process to reclaim
-what is dead, and in an LSM tree that process is called compaction.
+scale. An append-only structure needs a periodic process to get back the space
+of dead records. In an LSM tree, the name of that process is compaction.
 
 ## If you know C
 
-`write` then `fsync`. The two hazards are ordering and false success.
+In C, the sequence is `write` and then `fsync`. The two hazards are order and
+false success.
 
-Ordering: the log write must reach the disk **before** the change it
-describes. It must come before, not at the same time. If the database file is updated first
-and the machine dies, the log has no record of a change that has already
-happened, and recovery cannot undo it. That is why it is called write-*ahead*.
-If you get the order backwards, the system passes every test and loses data
-the first time the machine dies at the wrong moment.
+**Order:** the log write must get to the disk **before** the change that it
+describes. It must come before the change, not at the same time. Suppose the
+program updates the database file first, and the computer stops. Then the log
+has no record of a change that already occurred, and recovery cannot undo the
+change. For this reason, the name is write-*ahead*.
 
-False success: `fsync` has historically returned success without the data being
-durable on several combinations of filesystem, controller and drive with write
-caching enabled. PostgreSQL has a well-known write-up of discovering that
-error handling on a failed `fsync` also differed by kernel version, in ways
-that could lose data silently. So `fsync` alone does
-not make data durable. The filesystem, the controller and the drive all have
-to keep their promise too.
+If the order is incorrect,
+the system passes each test. Then it loses data the first time that the
+computer stops at the incorrect moment.
 
-Next: a query engine, which is the first thing here that has to decide *how*
-to answer rather than what.
+**False success:** in the past, `fsync` sometimes returned success when the data
+was not durable. This occurred on several combinations of filesystem,
+controller and drive, with write caching on. PostgreSQL has a well-known report
+about a related discovery. The error handling on a failed `fsync` was also
+different in different kernel versions, and some versions could lose data
+silently. Thus `fsync` alone does not make data durable. The filesystem, the
+controller and the drive must also keep their promise.
+
+Next: a query engine. The query engine is the first part here that must decide
+*how* to answer, not only what to answer.

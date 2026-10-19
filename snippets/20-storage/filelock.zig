@@ -2,21 +2,22 @@
 //! native
 //! What a lost update looks like, and the lock that prevents it.
 //!
-//! `//! native` because it needs a real filesystem and real threads. CI builds
-//! it and runs it on the host, so the numbers are produced rather than
-//! described.
+//! The snippet is native because it needs a real filesystem and real threads.
+//! CI builds it and runs it on the host. Thus the program makes the numbers,
+//! and the text does not only describe them.
 //!
-//! Deliberately no `.expected` file. The unlocked total is different on every
-//! run, which is the entire point of the demonstration and also the reason it
-//! cannot be pinned: asserting one value would make the nightly fail on an
-//! unchanged tree. CI runs it and requires exit 0, which is what verifies the
-//! code still compiles and still terminates.
+//! This snippet intentionally has no `.expected` file. The total without a
+//! lock is different on each run. That is the purpose of the demonstration,
+//! and it is also the reason that the build cannot pin the total. If the build
+//! asserted one value, the nightly would fail on a tree with no changes. CI
+//! runs the snippet and requires exit 0. Thus CI verifies that the code still
+//! compiles and still terminates.
 
 const std = @import("std");
 
 const rounds = 200;
 
-/// Read a counter, add one, write it back. That is three steps, and the other
+/// Read a counter, add one, and write it back. That is three steps. The other
 /// writer can change the file between the read and the write.
 fn increment(dir: *std.Io.Dir, io: std.Io, name: []const u8, lock: ?*std.Io.Mutex) void {
     for (0..rounds) |_| {
@@ -75,9 +76,9 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &stdout_writer.interface;
 
-    // Files go in the working directory, with names nothing else uses, and
-    // are removed at the end. A new directory would be one more thing to
-    // remove on every exit path, and this demo does not need one.
+    // The files are in the working directory, with names that no other code
+    // uses. The program removes them at the end. A new directory is one more
+    // thing to remove on each exit path, and this demo does not need one.
     var dir = std.Io.Dir.cwd();
     defer dir.deleteFile(io, "storage-unlocked.tmp") catch {};
     defer dir.deleteFile(io, "storage-locked.tmp") catch {};

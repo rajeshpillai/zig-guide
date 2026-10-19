@@ -1,84 +1,105 @@
 ---
 title: An Append-Only Record Store
-description: Never modify what is written. Deleting is something you add.
+description: Never modify written data. A delete is a record that you add.
 section: Data and Storage
 order: 1
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The simplest database is a file you only ever append to. Writing a record
-means seeking to the end and writing; nothing already on disk is touched.
+The simplest database is a file that you only append to. To write a record,
+seek to the end and write. The write does not touch the data that is already on
+disk.
 
-This rule sounds like a limitation, but it gives three benefits at once. A
-write that crashes half way leaves a partial record at the end, and everything
-before it is untouched. Two readers can read while a writer appends, because
-the bytes they are reading never change under them. And the whole history is
-still there, so "what did this look like on Tuesday" is a question the file
-can answer.
+This rule seems to be a limitation, but it gives three benefits together:
 
-It also creates two problems that every log-structured store has to solve.
-This chapter is about those two problems.
+- A write that crashes in the middle leaves a partial record at the end. All
+  the data before the partial record does not change.
+- Two readers can read while a writer appends, because the bytes that they
+  read never change.
+- The full history stays in the file. Thus the file can answer the question
+  "what did this look like on Tuesday".
+
+The rule also causes two problems, and each log-structured store must solve
+them. This chapter is about those two problems.
 
 ## The program
 
 <Playground name="20-storage.flatdb" />
 
-## What just happened
+## What the program did
 
-**`alice` was written twice and reads back as the second value.** Nothing
-updated the first record. The reader scans forward and keeps the last thing
-said about each key, so "update" is a word for "append something newer". The
-old value is still in the file. That can be a useful audit log, or a leak if
-the old value was a secret.
+**The program wrote `alice` two times, and the read gives the second value.**
+No code updated the first record. The reader scans forward and keeps the last
+record for each key. Thus "update" means "append a newer record".
 
-**`bob` was deleted by adding a record.** The store never modifies the file,
-so it cannot remove anything either. Removal has to be written as a new record. That record is a
-**tombstone**, and every log-structured database has them: LSM trees, Kafka
-topics, Git. For the same reason, deleting from such a store makes the file bigger.
+The old
+value is still in the file. The old value can be a useful audit log. It can
+also be a leak, if the old value was a secret.
 
-**`carol`'s value contained a `|` and a newline, and survived.** The separator
-causes this problem. Choosing `|` as a field separator means a value
-containing `|` splits into two fields, and a value containing a newline
-becomes two records. Neither case causes an error. Both give wrong data on read that looks
-correct.
+**The program deleted `bob` with a new record.** The store never modifies the
+file, thus it also cannot remove data. The store must write a removal as a new
+record. That record is a **tombstone**, and all log-structured databases have
+tombstones: LSM trees, Kafka topics, Git. For the same reason, a delete in such
+a store makes the file larger.
 
-The escape scheme is three rules and had to be designed before the first
-record was written, because changing it later means every existing file is in
-the old format. For this reason, real formats either escape (CSV, doubling quotes),
-or length-prefix (write the byte count, then the bytes, and never scan for a
-delimiter at all). Length prefixing is what [binary
-protocols](/learn/networking/binary-protocols/) do and is the better answer
-whenever the file is not meant to be read by a human.
+**The value for `carol` contained a `|` and a newline, and the value stayed
+correct.** The separator causes this problem. If `|` is the field separator, a
+value that contains `|` becomes two fields. A value that contains a newline
+becomes two records. Neither case gives an error. Both cases give incorrect data
+on read, and the data looks correct.
 
-**Reading one key read the whole file.** Every lookup is a full scan. At five
-records the scan costs almost nothing. At five million it is the entire cost of
-the system. The fix is an index, which is two chapters away.
+The escape scheme has three rules. The design of the scheme had to be complete
+before the program wrote the first record. If you change the scheme later, all
+the files that exist are in the old format. For this reason, real formats use one of
+two methods:
+
+- Escape the data. CSV does this, and doubles the quotes.
+- Put a length prefix on the data. Write the byte count, then the bytes, and
+  never scan for a delimiter.
+
+[Binary protocols](/learn/networking/binary-protocols/) use length prefixes.
+Length prefixes are the better answer when a human does not read the file.
+
+**A read of one key read the full file.** Each lookup is a full scan. With
+five records, the scan costs almost nothing. With five million records, the
+scan is the full cost of the system. The solution is an index, two chapters
+after this one.
 
 ## Check yourself
 
-The store keeps the *last* record for a key. What would have to change for it
-to answer "what was alice's value before she became an architect"?
+The store keeps the *last* record for a key. What must change, so that the
+store can answer "what was the value for alice before she became an architect"?
 
-Almost nothing. The information is already in the file. The reader throws it
-away. Returning a history means collecting matches instead of overwriting a
-variable. Because the history is kept, append-only stores are a natural fit for audit trails, event sourcing, and
-anything where you need to answer "how did we get here". A store that updates
-in place loses this history.
+The answer: almost nothing. The information is already in the file, and the
+reader discards it. To return a history, collect the matches and do not write
+over one variable. Because the store keeps the history, append-only stores are
+a good fit for these uses:
+
+- Audit trails.
+- Event sourcing.
+- All uses where you must answer "how did the data get to this state".
+
+A store that updates data in place loses this history.
 
 ## If you know C
 
-The append is `open(path, O_WRONLY | O_APPEND)` and a `write`, and `O_APPEND`
-does more work than it seems to. It makes the seek-to-end and the write a
-single atomic operation, so two processes appending to the same file cannot
-interleave a record. Without it you would seek, then write, and the next
-chapter's problem arrives immediately.
+The append is `open(path, O_WRONLY | O_APPEND)` and a `write`. `O_APPEND` does
+more work than it seems to do. It makes the seek to the end and the write into
+one atomic operation. Thus two processes that append to the same file cannot
+interleave a record. Without `O_APPEND`, you seek, then you write, and the
+problem of the next chapter occurs immediately.
 
-That atomicity has two limits. A `write` can return having
-written fewer bytes than you asked for, and the rest is a second call that
-another writer can get in front of. On NFS it does not hold at all: the
-protocol has no append, so the client simulates it and the race comes back.
-For this reason, the program builds each record in memory and writes it once.
+That atomic operation has two limits:
 
-Next: [what happens when two writers meet](/learn/storage/filelock/), which is
-the problem `O_APPEND` solved here without being asked.
+- A `write` can return after it wrote fewer bytes than you asked for. The rest
+  of the bytes need a second call, and a different writer can write before that
+  call.
+- On NFS, the guarantee does not apply. The protocol has no append, thus the
+  client simulates the append, and the race occurs again.
+
+For this reason, the program builds each record in memory and writes it one
+time.
+
+Next: [what occurs when two writers meet](/learn/storage/filelock/). `O_APPEND`
+solved that problem here, but the program did not ask it to.

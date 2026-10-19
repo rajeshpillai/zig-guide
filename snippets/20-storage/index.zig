@@ -1,11 +1,11 @@
 //! title: An Index Over the Log
-//! A second structure, derived from the first, that you now have to keep in step.
+//! A second structure, made from the first, that you must now keep in agreement with the first.
 
 const std = @import("std");
 const store = @import("flatdb.zig");
 
-/// Key to byte offset of the most recent record for that key. An index does
-/// not copy the data. It maps each key to where the data is.
+/// Maps a key to the byte offset of the newest record for that key. An index
+/// does not copy the data. It maps each key to the location of the data.
 pub const Index = struct {
     keys: [64][]const u8 = undefined,
     offsets: [64]usize = undefined,
@@ -32,9 +32,9 @@ pub const Index = struct {
     }
 };
 
-/// Rebuild from the log. The index is *derived*: the log holds the true data,
-/// and the index can always be rebuilt from it. So an index can be deleted to
-/// save space, and a corrupt index loses no data.
+/// Build the index again from the log. The index is *derived*: the log holds
+/// the true data, and you can always build the index again from the log. Thus
+/// you can delete an index to save space, and a corrupt index loses no data.
 pub fn build(log: []const u8) !Index {
     var ix: Index = .{};
     var offset: usize = 0;
@@ -47,9 +47,9 @@ pub fn build(log: []const u8) !Index {
         const op = fields.next() orelse break;
         const key = fields.next() orelse break;
 
-        // Tombstones are indexed like anything else. Skipping them would leave
-        // the index pointing at an older live record, so a deleted key would
-        // read back as present.
+        // The index contains tombstones, the same as other records. If the
+        // index ignored them, it would point to an older live record. Then a
+        // deleted key would seem to be present on read.
         _ = op;
         try ix.put(key, offset);
         offset = end + 1;
@@ -57,7 +57,8 @@ pub fn build(log: []const u8) !Index {
     return ix;
 }
 
-/// Read one record, starting at a known offset. Nothing before it is touched.
+/// Read one record from a known offset. The read does not touch the data
+/// before that offset.
 fn readAt(log: []const u8, offset: usize, scratch: []u8) !?[]const u8 {
     const end = std.mem.findScalarPos(u8, log, offset, '\n') orelse log.len;
     var fields = std.mem.splitScalar(u8, log[offset..end], '|');
@@ -77,15 +78,16 @@ pub fn main(init: std.process.Init) !void {
     var file: [4096]u8 = undefined;
     var log: std.Io.Writer = .fixed(&file);
 
-    // Enough records to make the difference visible in the output.
+    // Sufficient records to show the difference in the output.
     var name_buf: [16][8]u8 = undefined;
     var names: [16][]const u8 = undefined;
     for (0..16) |i| {
         names[i] = try std.mem.print(&name_buf[i], "key{d:0>2}", .{i});
         try store.append(&log, .{ .op = .put, .key = names[i], .value = "first" });
     }
-    // Every key written again, so the newest record for each sits in the back
-    // half of the file. A scan has to reach the end to know it has the latest.
+    // Write each key again. Thus the newest record for each key is in the
+    // second half of the file. A scan must get to the end to know that it has
+    // the newest record.
     for (0..16) |i| {
         try store.append(&log, .{ .op = .put, .key = names[i], .value = "second" });
     }
@@ -98,15 +100,15 @@ pub fn main(init: std.process.Init) !void {
         ix.count,
     });
 
-    // Two buffers, not one. Both lookups return slices into whatever they
-    // were handed, so sharing a buffer means the second call silently
-    // rewrites the first answer and the comparison below compares a value
-    // with itself.
+    // Two buffers, not one. Both lookups return slices into the buffer that
+    // they get. If the lookups use the same buffer, the second call silently
+    // writes over the first answer. Then the comparison below compares a
+    // value with itself.
     var scan_buf: [64]u8 = undefined;
     var seek_buf: [64]u8 = undefined;
     const target = "key03";
 
-    // A scan reads everything, because the last record for a key could be the
+    // A scan reads all the data, because the last record for a key can be the
     // last record in the file.
     try out.print("scan for {s}: read {d} bytes\n", .{ target, written.len });
     const scanned = try store.lookup(written, target, &scan_buf);

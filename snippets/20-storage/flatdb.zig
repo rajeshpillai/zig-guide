@@ -1,20 +1,20 @@
 //! title: An Append-Only Record Store
-//! Never modify what is written. Deleting is something you add.
+//! Never modify written data. A delete is a record that you add.
 
 const std = @import("std");
 
-/// One record per line, fields separated by `|`. The separator is the main
-/// design decision. It forces a second decision: what happens when a value
-/// contains `|`.
+/// One record on each line, with `|` between the fields. The separator is
+/// the main design decision. It makes a second decision necessary: what
+/// occurs when a value contains `|`.
 pub const Record = struct {
     op: enum { put, delete },
     key: []const u8,
     value: []const u8,
 };
 
-/// Escape the separator and the newline, so a record can hold either.
-/// Without this a value containing `|` silently becomes two fields, and the
-/// corruption is invisible until something reads it back.
+/// Escape the separator and the newline, so that a record can hold them.
+/// Without this function, a value that contains `|` silently becomes two
+/// fields. You cannot see the corruption until some code reads the value.
 fn writeEscaped(out: *std.Io.Writer, text: []const u8) !void {
     for (text) |c| switch (c) {
         '|' => try out.writeAll("\\p"),
@@ -52,8 +52,8 @@ pub fn append(log: *std.Io.Writer, record: Record) !void {
     try log.writeAll("\n");
 }
 
-/// Read the log forward, keeping the last record for each key. A delete is
-/// written as a record. An append-only file has no other way to express
+/// Read the log forward, and keep the last record for each key. A delete is
+/// a record in the file. An append-only file has no other way to show a
 /// removal.
 pub fn lookup(log: []const u8, key: []const u8, scratch: []u8) !?[]const u8 {
     var result: ?[]const u8 = null;
@@ -87,8 +87,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &stdout_writer.interface;
 
-    // A buffer used in place of the file. Every write is an append. Nothing
-    // here can seek backwards, and this demo works within that limit.
+    // A buffer in place of the file. Each write is an append. No code here
+    // can seek backwards, and this demo stays within that limit.
     var file: [1024]u8 = undefined;
     var log: std.Io.Writer = .fixed(&file);
 

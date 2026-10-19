@@ -1,95 +1,109 @@
 ---
 title: A Query Engine
-description: Parsing asks what. Planning asks how, and that is where a database does its real work.
+description: The parser asks what. The planner asks how, and the planner does the real work of a database.
 section: Data and Storage
 order: 5
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Everything in this section so far has been told exactly what to do. Append
-this record. Look up this key. Replay this log.
+Until now, each part of this section got exact instructions. Append this
+record. Find this key. Replay this log.
 
-A query is different. `SELECT name FROM people WHERE id = 3` says **what** you want and
-says nothing about how to get it. Something has to decide whether to look at
-one row or all of them, and that decision is not in the query.
+A query is different. `SELECT name FROM people WHERE id = 3` says **what** you
+want, and says nothing about how to get it. Some part of the engine must
+decide if it examines one row or all rows. The query does not contain that
+decision.
 
-So a query engine has two halves. A parser, which turns text into a structure,
-and a **planner**, which turns that structure into a strategy.
+Thus a query engine has two halves:
+
+- A parser, which changes text into a structure.
+- A **planner**, which changes that structure into a strategy.
 
 ## The program
 
 <Playground name="20-storage.minidb" />
 
-## What just happened
+## What the program did
 
-**The same query ran two ways and gave the same answer.** `WHERE id = 3` with
-an index examined 1 row. Without one it examined 8. The result and the SQL
-were the same, and the second run did eight times the work. Nothing in the query changed, because the
-query never said how.
+**The same query ran in two ways and gave the same answer.** With an index,
+`WHERE id = 3` examined 1 row. Without an index, it examined 8 rows. The result
+and the SQL were the same, and the second run did eight times the work. The
+query did not change, because the query never said how.
 
-Declarative languages are designed this way. The same design makes them
-frustrating: you cannot see the cost by reading the code. For this reason,
-every database has an EXPLAIN command. The two lines this program prints,
-the plan and the rows examined, are the two lines you spend most of your time
-looking at when something is slow.
+Declarative languages have this design. The same design also causes a problem:
+you cannot see the cost when you read the code. For this reason,
+all databases have an EXPLAIN command. This program prints two lines: the plan
+and the rows examined. When a query is slow, you spend most of your time on
+those two lines.
 
-**`WHERE role = engineer` scanned, because `role` is not indexed.** The planner
-is one comparison: is the filtered column the one the index is on? A real
-planner asks the same question and then asks a second one, covered below.
+**`WHERE role = engineer` used a scan, because `role` has no index.** The
+planner is one comparison: is the filtered column the column of the index? A
+real planner asks the same question, and then asks a second question. The
+section below describes the second question.
 
 **The parser is a sequence of expectations, not a precedence climb.** The
-grammar is fixed, so parsing is: expect `SELECT`, take a word, expect `FROM`,
-take a word. Compare that with the [recursive descent
-parser](/learn/tiny-lang/parser/) in the language section, which needed one
-function per precedence level because arithmetic nests. SQL's `WHERE` clause
-nests too, once it grows `AND`, `OR` and parentheses, and at that point this
-parser becomes that parser.
+grammar is fixed. Thus the parse is: expect `SELECT`, take a word, expect
+`FROM`, take a word. Compare that with the [recursive descent
+parser](/learn/tiny-lang/parser/) in the language section.
 
-**Four malformed queries were rejected, including `DELETE`.** The parser has no
-special rule against deleting. It expects the word `SELECT` and got something
-else. For a grammar this size, that is a fair way to reject a query, and it is
-what "SQL subset" means.
+That parser needed
+one function for each precedence level, because arithmetic nests. The SQL
+`WHERE` clause also nests when it gets `AND`, `OR` and parentheses. At that
+point, this parser becomes that parser.
 
-## The question this planner does not ask
+**The parser rejected four malformed queries, and one of them was a
+`DELETE`.** The parser has no special rule against a delete. It expected the
+word `SELECT` and got a different word. For a grammar of this size, that is a
+fair way to reject a query, and that is the meaning of "SQL subset".
 
-Given an index on `role`, should `WHERE role = engineer` use it?
+## The question that this planner does not ask
 
-Probably not. Three of eight rows match, so an index lookup means three jumps
-into the table plus reading the index, against one straight pass that reads
-every row in order. Disks and caches strongly prefer the straight pass.
+Suppose there is an index on `role`. Must `WHERE role = engineer` use it?
 
-Real planners decide this with **statistics**: roughly how many rows match
-this value, how big is the table, how expensive is a random read against a
-sequential one. These statistics are why EXPLAIN output has numbers in it, and
-why databases have a command to refresh them. They are also why a query that
-was fast last month can become slow after the data changes, without anybody
-changing the query.
+Probably not. Three of eight rows match. Thus an index lookup needs three
+jumps into the table and a read of the index. A scan is one straight pass that
+reads each row in order. Disks and caches strongly prefer the straight pass.
 
-An index is faster only *for selective filters*, and a planner without
-statistics cannot tell whether a filter is selective.
+Real planners make this decision with **statistics**:
+
+- Approximately how many rows match this value?
+- How large is the table?
+- How expensive is a random read, compared with a sequential read?
+
+Because of these statistics, EXPLAIN output has numbers in it, and databases
+have a command to refresh the statistics. Also because of statistics, a query
+that was fast last month can become slow after the data changes, and no person
+changed the query.
+
+An index is faster only *for selective filters*. A planner without statistics
+cannot know if a filter is selective.
 
 ## Check yourself
 
-The planner picks the index for `WHERE id = 3` because `id` is indexed. What
-would it have to know to handle `WHERE id = 3 AND role = engineer`?
+The planner selects the index for `WHERE id = 3`, because `id` has an index.
+What must the planner know to handle `WHERE id = 3 AND role = engineer`?
 
-That either condition alone can drive the plan, and that the other one becomes
-a filter applied afterwards. So it must choose: use the `id` index and check
-`role` on the single row it finds, or scan and check both. It should pick the
-first. The reason is that `id` is more selective.
+The answer: each condition alone can control the plan, and then the other
+condition becomes a filter after the lookup. Thus the planner must select one
+of two plans:
 
-With two indexes the choice gets harder. With a join it becomes the main
-problem of query optimisation: the number of possible plans grows
-factorially with the number of tables, so planners search instead of
-listing every plan. The search is why the same query can produce a different plan on a
-different day.
+- Use the `id` index, and check `role` on the one row that it finds.
+- Scan, and check both conditions.
 
-## Where this section ends
+The planner must select the first plan, because `id` is more selective.
 
-These five chapters built append-only records, a lock, an index, a
-write-ahead log and a query planner, the parts every database has.
+With two indexes, the choice is more difficult. With a join, the choice becomes
+the main problem of query optimisation. The number of possible plans grows
+factorially with the number of tables. Thus planners search, and do not make a
+list of all plans. Because of the search, the same query can get a different
+plan on a different day.
 
-If you would rather use one of these than build it, the database recipes talk
-to SQLite, Redis and PostgreSQL from Zig, and the ORM builds the layer that
-sits above them.
+## The end of this section
+
+These five chapters built append-only records, a lock, an index, a write-ahead
+log and a query planner. All databases have these parts.
+
+If you prefer to use one of these parts and not to build it, the database
+recipes connect to SQLite, Redis and PostgreSQL from Zig. The ORM builds the
+layer above them.

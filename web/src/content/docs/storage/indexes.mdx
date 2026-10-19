@@ -1,95 +1,104 @@
 ---
 title: An Index Over the Log
-description: A second structure, derived from the first, that you now have to keep in sync.
+description: A second structure, made from the first, that you must now keep in agreement with the first.
 section: Data and Storage
 order: 3
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Reading one key from the append-only store reads the whole file. It has to:
-the newest record for a key could be the last record written, so a scan cannot
-stop early without risking a stale answer.
+A read of one key from the append-only store reads the full file. The read must
+do this. The newest record for a key can be the last record in the file. Thus
+a scan cannot stop early, because then the answer can be stale.
 
-An index fixes that. It is usually described as something that makes lookups
-fast, but that description hides what it is. An index is a **second data
-structure**, built from the first, holding no data of its own. It maps a key to
-*where* the record is. The rest of this chapter follows from those two facts.
+An index solves that problem. People usually describe an index as a thing that
+makes lookups fast, but that description hides what an index is. An index is a
+**second data structure**. A program builds it from the first, and it holds no data of
+its own. It maps a key to the *location* of the record. The rest of this
+chapter comes from those two facts.
 
 ## The program
 
 <Playground name="20-storage.index" />
 
-## What just happened
+## What the program did
 
-**528 bytes read became 16.** The answer is the same, and the index went
-straight to offset 307. That offset is in the back half of the file. The demo
-is built to show this case. Every key was written twice, so the newest record is
-nowhere near the first one, and a scan cannot know it is done until it reaches
-the end.
+**The read became 16 bytes, not 528 bytes.** The answer is the same, and the
+index went directly to offset 307. That offset is in the second half of the
+file. The demo shows this case intentionally. The program wrote each key two
+times. Thus the newest record is far from the first record, and a scan cannot
+know that it is complete until it gets to the end.
 
 **The index holds offsets, not values.** It has 16 entries for 32 records. The
-index answers "where", and the log still answers "what". Because it stores only
-offsets, an index over a terabyte of records can fit in memory.
+index answers "where", and the log still answers "what". Because the index
+stores only offsets, an index over a terabyte of records can fit in memory.
 
-**It can be rebuilt from the log.** `build` walks the file once and reconstructs
-the whole thing. The index is derived data and the log is the source of truth.
-This has three consequences. A corrupt index is an inconvenience, not data
-loss. An index can be dropped to reclaim space. And adding a
-new index to an existing database means a full scan once.
+**You can build the index again from the log.** `build` reads the file one time
+and makes the full index again. The index is derived data, and the log is the
+source of truth. This has three results:
 
-**Tombstones are indexed too.** Skipping delete records would leave the index
-pointing at an older live record, and a deleted key would read back as
-present. The comment in the code says so, because skipping them looks like an
-optimisation.
+- A corrupt index is an inconvenience, not a loss of data.
+- You can delete an index to get the space back.
+- To add a new index to a database that exists, you need one full scan.
 
-## What it costs
+**The index also contains tombstones.** If the index ignored delete records,
+it would point to an older live record. Then a deleted key would seem to be
+present on read. The comment in the code states this, because to ignore
+tombstones looks like an optimisation.
 
-Every write now does two things. The record is appended and the index is
-updated. If the index is on disk, that is a second write for every write you
-asked for. This is called **write amplification**. It is why a table with six
-indexes is slow to insert into: you asked for one write and the disk does
-seven.
+## The cost of an index
 
-Every storage engine makes this trade. Reads get faster in proportion to how
-much you index. Writes get slower in the same proportion. No configuration
-avoids it. You can only choose whether reads or writes pay the cost.
+Each write now does two things. The store appends the record, and it updates
+the index. If the index is on disk, each write that you asked for needs a
+second write. The name of this effect is **write amplification**. For this
+reason, an insert into a table with six indexes is slow. You asked for one
+write, and the disk does seven.
+
+Each storage engine makes this trade. Reads become faster in proportion to the
+quantity that you index. Writes become slower in the same proportion. No
+configuration prevents this. You can only select if reads or writes pay the
+cost.
 
 ## Check yourself
 
-This index is a linear scan over 16 entries, which is not obviously better
-than scanning the log. When does it start to matter, and what replaces it?
+This index is a linear scan over 16 entries, and that is not clearly better
+than a scan of the log. When does the index start to be important, and what
+replaces the linear scan?
 
-It already matters, because the entries are in memory and the log is on disk.
-Memory is several orders of magnitude faster than disk, before you compare the
-algorithms at all. What replaces the linear scan depends on the question. A hash
-map if you only ever look up one exact key. A B-tree if you also need ranges,
-ordering, or "the next 50 keys after this one", because a hash map scatters
-neighbouring keys and a B-tree keeps them adjacent.
+The answer: the index is already important, because the entries are in memory
+and the log is on disk. Memory is several orders of magnitude faster than disk,
+before you compare the algorithms. The replacement for the linear scan depends
+on the question:
 
-For this reason, relational databases almost always index with B-trees: `WHERE
-id = 7` is served fine by either, and `ORDER BY id LIMIT 50` is only served by
-one. The structure itself is in [the data structures
-section](/learn/data-structures/bst/), which builds a search tree and then
-shows how sorted input makes it as tall as a list, so every lookup walks every
-node.
+- Use a hash map if each lookup uses only one exact key.
+- Use a B-tree if you also need ranges, order, or "the next 50 keys after this
+  one". A hash map scatters keys that are near each other, and a B-tree keeps
+  them adjacent.
+
+For this reason, relational databases almost always use B-trees for indexes.
+Both structures serve `WHERE id = 7` well, but only one structure serves
+`ORDER BY id LIMIT 50`. [The data structures
+section](/learn/data-structures/bst/) explains the structure. That section
+builds a search tree. Then it shows how sorted input makes the tree as tall as
+a list, and then each lookup walks each node.
 
 ## If you know C
 
-The index in memory is a hash table you wrote or one from a library. The hard
-case is when it no longer fits in memory. Then it goes on disk, and every
-design decision changes.
+In C, the index in memory is a hash table that you wrote, or a hash table from a
+library. The difficult case is when the index is too large for memory. Then the
+index goes on disk, and each design decision changes.
 
-An on-disk index is read a block at a time, because the disk has no smaller
-unit. So the structure has to be shaped around the block size. The block size is
-why B-trees have a high branching factor, and why binary trees are not used on
-disk. A binary tree with a million keys is 20 levels and 20 reads. A B-tree
-with 200 keys per block is three.
+The program reads an on-disk index one block at a time, because the disk has no
+smaller unit. Thus the shape of the structure must follow the block size. The
+block size is the reason that B-trees have a high branching factor, and the
+reason that disks do not use binary trees. A binary tree with a million keys
+has 20 levels, and needs 20 reads. A B-tree with 200 keys in each block needs
+three.
 
-C also makes you face another fact: the offsets are only valid for
-the file they came from. If you store the index in its own file, you have two
-files that must agree. A crash between writing one and the other leaves them
-inconsistent. Fixing that is the next chapter.
+C also makes you see another fact: the offsets are valid only for the file that
+they came from. If you store the index in its own file, you have two files that
+must agree. A crash between the two writes makes the two files inconsistent.
+The next chapter solves that problem.
 
-Next: [a write-ahead log](/learn/storage/kvstore/), which is how two files that
-must agree survive losing power between them.
+Next: [a write-ahead log](/learn/storage/kvstore/). With a write-ahead log, two
+files that must agree stay correct after a power loss between the two writes.
