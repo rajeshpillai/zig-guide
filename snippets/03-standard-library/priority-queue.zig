@@ -20,7 +20,7 @@ test "min-heap: pop returns the smallest" {
     try pq.push(gpa, 10);
     try pq.push(gpa, 20);
 
-    try expect(pq.peek().? == 10); // look without removing
+    try expect(pq.peek().? == 10); // read the top value, but do not remove it
     try expect(pq.pop().? == 10);
     try expect(pq.pop().? == 20);
     try expect(pq.pop().? == 30);
@@ -33,7 +33,7 @@ const Job = struct {
 };
 
 fn urgentFirst(_: void, a: Job, b: Job) Order {
-    // Reverse the comparison to get a max-heap.
+    // Reverse the comparison to make a max-heap.
     return std.math.order(b.priority, a.priority);
 }
 
@@ -61,7 +61,7 @@ test "iteration order is not sorted order" {
     defer pq.deinit(gpa);
     try pq.pushSlice(gpa, &.{ 5, 1, 4, 2, 3 });
 
-    // The backing array is a heap, not a sorted list. Only pop is ordered.
+    // The storage array is a heap, not a sorted list. Only pop gives an order.
     var sum: u32 = 0;
     var it = pq.iterator();
     while (it.next()) |v| sum += v;

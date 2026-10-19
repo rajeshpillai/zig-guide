@@ -1,64 +1,46 @@
 ---
 title: Random Numbers
-description: Seeded generators, passed explicitly.
+description: Seeded generators that you give to your code as arguments.
 section: Standard Library
 order: 52
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig's random number generators are `std.Random.DefaultPrng`, fast and seedable
-for tests and simulations, and `std.Random.DefaultCsprng`, the secure one for
-tokens and keys.
+Zig has two random number generators:
+
+- `std.Random.DefaultPrng` is fast, and you can give it a seed. Use it for tests and simulations.
+- `std.Random.DefaultCsprng` is the secure generator. Use it for tokens and keys.
 
 <Playground name="03-standard-library.random-numbers" />
 
-There is no global `rand()`. You create a generator, seed it, and pass its
-`Random` interface where it is needed. Allocators and I/O are passed in the
-same way.
+Zig has no global `rand()`. You create a generator, give it a seed, and give its `Random` interface to the code that needs it. Code gets allocators and I/O in the same way.
 
 ```zig
 var prng = std.Random.DefaultPrng.init(seed);
 const random = prng.random();
 ```
 
-There are two values here, and they do different jobs. `prng` is the generator and owns the
-state, so it has to be a `var` and has to outlive everything using it.
-`random` is the interface: a pointer to that state plus a function pointer,
-the same shape as `Allocator`. Functions take the interface, never the
-generator. So a function that needs randomness can be handed a real generator
-in production and a fixed-seed one in a test, without knowing the difference.
+The two values in this code do different work. `prng` is the generator, and it owns the state. Thus `prng` must be a `var`, and it must exist longer than all the code that uses it.
 
-## Seeding
+`random` is the interface. It is a pointer to that state and a function pointer, the same shape as `Allocator`. Functions take the interface, never the generator. Thus you can give a real generator to a function in production, and a generator with a fixed seed in a test. The function does not know the difference.
 
-A fixed seed gives a reproducible sequence, which is what you want in tests.
-For real unpredictability the entropy has to come from the operating system,
-and on master that arrives through the `Io` interface like every other thing
-that can block:
+## Seeds
+
+A fixed seed gives a sequence that is the same each time. Tests need that. For values that nobody can predict, the entropy must come from the operating system. On master, the entropy comes through the `Io` interface, as all other operations that can block do:
 
 ```zig
 var source: std.Random.IoSource = .{ .io = io };
 const random = source.interface();
 ```
 
-`std.Random.DefaultCsprng` is the cryptographically secure generator, and is
-what to use for tokens, keys, or anything an attacker should not predict.
-`DefaultPrng` is fast, not secure. Do not use it for secrets.
+`std.Random.DefaultCsprng` is the cryptographically secure generator. Use it for tokens, keys, and all other values that an attacker must not predict. `DefaultPrng` is fast, but it is not secure. Do not use it for secrets.
 
-If you have seen `std.crypto.random` in older code or tutorials, that is what
-these replaced. There is no longer a global secure generator. The same change
-removed global stdout: the capability is passed in, not imported.
+Older code and tutorials use `std.crypto.random`. These generators replaced it. Zig no longer has a global secure generator. The same change removed the global stdout. Code now gets the capability as an argument, and does not import it.
 
-The difference between the two generators is not statistical quality.
-`DefaultPrng` passes statistical tests fine. The problem is that its internal
-state can be reconstructed from a modest number of outputs, so an
-attacker who sees a few session tokens can compute the next one. The secure
-generator is built so that observing output tells you nothing about the state.
+The difference between the two generators is not statistical quality. `DefaultPrng` passes statistical tests. The problem is that a small number of outputs is sufficient to calculate its internal state again. Thus an attacker who sees a few session tokens can calculate the next token. The design of the secure generator makes sure that its output tells you nothing about the state.
 
-A fixed seed is a feature in tests. It is better than no randomness at all,
-because a seeded generator explores inputs a hand-written test would not,
-while still failing the same way every time. When a seeded test fails, print
-the seed, and the failure is reproducible forever.
+In tests, a fixed seed is a useful feature. A seeded generator is better than no random values at all. It tries inputs that a hand-written test does not try, and it still fails in the same way each time. When a seeded test fails, print the seed. Then you can make the failure occur again at any time.
 
 ## Ranges
 
@@ -69,25 +51,19 @@ the seed, and the failure is reproducible forever.
 | `uintLessThan(T, hi)` | `0..hi` |
 | `float(T)` | `[0, 1)` |
 
-These handle modulo bias properly. `random.int(u8) % 6` does not, and skews
-toward low values.
+These functions prevent modulo bias. `random.int(u8) % 6` does not prevent it, and its results are more frequently low values.
 
-`shuffle` permutes a slice in place.
+`shuffle` changes the order of a slice in place.
 
-The bias is small, but it is real, and it is easy to work out. There are 256
-values a `u8` can take and 6 outcomes wanted. 256 is not a multiple of 6, so
-four of the outcomes get 43 chances and two get 42. A dice roll biased by 2%
-is fine in a game and a problem in a simulation you are drawing conclusions
-from. You do no extra work to avoid it: the standard library functions already
-reject and redraw the values that would skew the result.
+The bias is small, but it is real, and you can calculate it. A `u8` has 256 possible values, and the code wants 6 outcomes. 256 is not a multiple of 6. Thus four of the outcomes get 43 chances, and two outcomes get 42.
 
-## Other things on the interface
+A dice roll with a bias of 2% is acceptable in a game. It is a problem in a simulation that you use to make conclusions. You do no extra work to prevent the bias. The standard library functions already reject the values that cause the bias, and draw a new value.
 
-`boolean()` for a coin flip, `weightedIndex` for picking from a distribution,
-`enumValue(T)` for a random tag of an enum. `bytes(buf)` fills a slice, which
-is how you generate an identifier or test payload in one call.
+## Other functions on the interface
 
-For picking a random element of a slice, `uintLessThan(usize, s.len)` is the
-correct spelling. Write it instead of `int(usize) % s.len`, for the reason
-above. It also fails loudly on an empty slice instead of
-dividing by zero.
+- `boolean()` gives the result of a coin flip.
+- `weightedIndex` selects an index from a distribution.
+- `enumValue(T)` gives a random tag of an enum.
+- `bytes(buf)` fills a slice. Use it to make an identifier or a test payload in one call.
+
+To select a random element of a slice, the correct call is `uintLessThan(usize, s.len)`. Use it and not `int(usize) % s.len`, for the reason above. Also, on an empty slice, `uintLessThan` fails, and the failure is easy to see. It does not divide by zero.

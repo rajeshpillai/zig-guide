@@ -9,17 +9,17 @@ const expectEqualStrings = std.testing.expectEqualStrings;
 test "parseInt" {
     try expect(try std.fmt.parseInt(i32, "-42", 10) == -42);
 
-    // Base 0 reads the prefix like a Zig literal: 0x, 0o, 0b, or decimal.
+    // Base 0 reads the prefix as a Zig literal does: 0x, 0o, 0b, or decimal.
     try expect(try std.fmt.parseInt(u32, "0xff", 0) == 255);
     try expect(try std.fmt.parseInt(u32, "0b1010", 0) == 10);
 
-    // Underscore separators are accepted, like Zig literals.
+    // The function accepts underscore separators, as Zig literals do.
     try expect(try std.fmt.parseInt(u32, "1_000_000", 10) == 1_000_000);
 }
 
 test "parse failures are errors, not zeros" {
     try expectError(error.InvalidCharacter, std.fmt.parseInt(u8, "12a", 10));
-    // The target type bounds the parse: 300 does not fit in a u8.
+    // The target type sets the limit: 300 is too large for a u8.
     try expectError(error.Overflow, std.fmt.parseInt(u8, "300", 10));
 }
 
@@ -32,8 +32,8 @@ test "parseFloat" {
 test "hex" {
     const bytes = [_]u8{ 0xde, 0xad, 0xbe, 0xef };
 
-    // bytesToHex returns a fixed-size array: the length is known at
-    // compile time from the input, so no allocator is needed.
+    // bytesToHex returns an array of fixed size. The input gives the length
+    // at compile time, thus the function needs no allocator.
     const hex = std.fmt.bytesToHex(bytes, .lower);
     try expectEqualStrings("deadbeef", &hex);
 
@@ -56,7 +56,7 @@ test "base64" {
 }
 
 test "url_safe base64 for tokens and file names" {
-    // standard base64 emits + and /, which break URLs and paths.
+    // Standard base64 emits + and /. These characters break URLs and paths.
     const bytes = [_]u8{ 0xfb, 0xff };
     var buf: [8]u8 = undefined;
     try expectEqualStrings("+/8=", std.base64.standard.Encoder.encode(&buf, &bytes));

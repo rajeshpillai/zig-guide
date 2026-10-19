@@ -1,5 +1,5 @@
 //! title: Hash Maps
-//! Key-value storage, also unmanaged by default.
+//! Key-value storage. The maps are also unmanaged by default.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -19,7 +19,7 @@ test "string keys" {
 
 test "auto hash for simple keys" {
     const gpa = std.testing.allocator;
-    // AutoHashMap derives hashing and equality from the key type.
+    // AutoHashMap gets the hash and equality functions from the key type.
     var map: std.AutoHashMapUnmanaged(u32, []const u8) = .empty;
     defer map.deinit(gpa);
 
@@ -33,7 +33,7 @@ test "getOrPut avoids hashing twice" {
     defer counts.deinit(gpa);
 
     for ([_][]const u8{ "a", "b", "a" }) |word| {
-        // One lookup instead of a get followed by a put.
+        // One lookup, not a get and then a put.
         const entry = try counts.getOrPut(gpa, word);
         if (!entry.found_existing) entry.value_ptr.* = 0;
         entry.value_ptr.* += 1;

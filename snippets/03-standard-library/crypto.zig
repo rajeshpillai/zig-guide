@@ -8,7 +8,7 @@ test "sha256" {
     var digest: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash("abc", &digest, .{});
 
-    // The well-known SHA-256 of "abc".
+    // The SHA-256 of "abc", a well-known test value.
     var hex: [64]u8 = undefined;
     const text = try std.mem.print(&hex, "{x}", .{digest});
     try expect(std.mem.startsWith(u8, text, "ba7816bf"));
@@ -30,7 +30,8 @@ test "incremental hashing" {
 test "compare secrets in constant time" {
     const a = [_]u8{ 1, 2, 3 };
     const b = [_]u8{ 1, 2, 3 };
-    // `std.mem.eql` short-circuits, which leaks how much matched via timing.
+    // `std.mem.eql` stops at the first difference. Thus its duration shows
+    // how many bytes matched.
     try expect(std.crypto.timing_safe.eql([3]u8, a, b));
 }
 
@@ -42,8 +43,7 @@ test "hmac" {
 }
 
 test "password hashing is deliberately slow" {
-    // bcrypt/scrypt/argon2 are the right tools for passwords; a bare hash
-    // is not. They are omitted from this runnable example precisely because
-    // they are designed to take a long time.
+    // Use bcrypt, scrypt or argon2 for passwords. Do not use a bare hash.
+    // This example does not run them, because they are slow by design.
     try expect(@hasDecl(std.crypto.pwhash, "argon2"));
 }

@@ -7,8 +7,8 @@ const expect = std.testing.expect;
 test "iterate lines with takeDelimiter" {
     var reader: std.Io.Reader = .fixed("line one\nline two\n");
 
-    // `takeDelimiter` consumes the delimiter and returns null at the end,
-    // which is what you want for a line loop.
+    // `takeDelimiter` consumes the delimiter and returns null at the end.
+    // A line loop needs this behaviour.
     var count: usize = 0;
     while (try reader.takeDelimiter('\n')) |line| {
         count += 1;
@@ -23,9 +23,9 @@ test "the Exclusive variant leaves the delimiter behind" {
     const first = try reader.takeDelimiterExclusive('\n');
     try expect(std.mem.eql(u8, first, "line one"));
 
-    // The '\n' has NOT been consumed, so the next call sees it immediately
-    // and returns an empty slice. Use `takeDelimiter` to loop over lines,
-    // or `toss(1)` to step past the delimiter yourself.
+    // The first call did NOT consume the '\n'. Thus the next call sees the
+    // '\n' immediately and returns an empty slice. To loop over lines, use
+    // `takeDelimiter`. Or call `toss(1)` to skip the delimiter.
     const second = try reader.takeDelimiterExclusive('\n');
     try expect(second.len == 0);
 

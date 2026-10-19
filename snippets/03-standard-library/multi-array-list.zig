@@ -20,8 +20,8 @@ test "append structs, read fields as plain slices" {
     try monsters.append(gpa, .{ .hp = 25, .x = 3.0, .y = 4.0 });
     try monsters.append(gpa, .{ .hp = 40, .x = 5.0, .y = 6.0 });
 
-    // items(.hp) is a real []u32: every hp value, contiguous in memory.
-    // A loop that only touches hp never loads x or y into cache.
+    // items(.hp) is a real []u32. All the hp values are next to each other
+    // in memory. A loop that uses only hp does not load x or y into the cache.
     var total: u32 = 0;
     for (monsters.items(.hp)) |hp| total += hp;
     try expect(total == 75);
@@ -34,7 +34,7 @@ test "get and set reassemble the struct" {
     defer monsters.deinit(gpa);
     try monsters.append(gpa, .{ .hp = 10, .x = 1.0, .y = 2.0 });
 
-    const m = monsters.get(0); // gathers one element from all three arrays
+    const m = monsters.get(0); // collects one element from the three arrays
     try expect(m.hp == 10 and m.x == 1.0);
 
     monsters.set(0, .{ .hp = 99, .x = 0.0, .y = 0.0 });
@@ -49,7 +49,7 @@ test "mutate one column in place" {
     try monsters.append(gpa, .{ .hp = 10, .x = 0, .y = 0 });
     try monsters.append(gpa, .{ .hp = 20, .x = 0, .y = 0 });
 
-    // The slice is live storage, not a copy.
+    // The slice is the real storage. It is not a copy.
     for (monsters.items(.hp)) |*hp| hp.* += 5;
     try expect(monsters.get(0).hp == 15);
     try expect(monsters.get(1).hp == 25);
@@ -62,7 +62,8 @@ test "cache the slice when touching several fields" {
     defer monsters.deinit(gpa);
     try monsters.append(gpa, .{ .hp = 1, .x = 3.0, .y = 4.0 });
 
-    // Each items() call recomputes field pointers; slice() does it once.
+    // Each items() call calculates the field pointers again. slice() does
+    // that work one time.
     const s = monsters.slice();
     const xs = s.items(.x);
     const ys = s.items(.y);

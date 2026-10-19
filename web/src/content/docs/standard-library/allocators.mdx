@@ -1,74 +1,64 @@
 ---
 title: Allocators
 seoTitle: "Zig Allocators: Memory Passed as a Value"
-seoDescription: "Zig has no global allocator and no garbage collector. Anything needing heap memory takes an std.mem.Allocator, so a signature says whether it allocates."
-description: Explicit memory management, passed as a value.
+seoDescription: "Zig has no global allocator and no garbage collector. Code that needs heap memory takes an std.mem.Allocator, so you see each allocation."
+description: Explicit memory management, with the allocator given as a value.
 section: Standard Library
 order: 20
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig has no global allocator and no garbage collector. Anything that needs heap
-memory takes an `std.mem.Allocator` parameter, which means you can always see,
-from the signature alone, whether a function allocates.
+Zig has no global allocator and no garbage collector. All code that needs heap memory takes an `std.mem.Allocator` parameter. Thus the signature of a function always shows if the function allocates.
 
 <Playground name="03-standard-library.allocators" />
 
-## Choosing an allocator
+## Select an allocator
 
-The `Allocator` interface is one type, but the strategy behind it is yours to
-pick:
+The `Allocator` interface is one type, but you select the strategy behind the interface:
 
-| Allocator | Frees when | Good for |
+| Allocator | Frees memory | Use for |
 | --- | --- | --- |
-| `ArenaAllocator` | `deinit()`, all at once | Request handlers, compilers, anything phase-shaped |
-| `FixedBufferAllocator` | never (bump pointer) | Embedded, hot loops, no-heap contexts |
-| `SafeAllocator` | per-`free`, with leak detection | Development builds |
-| `std.testing.allocator` | per-`free`, fails the test on leak | Tests |
+| `ArenaAllocator` | at `deinit()`, all at the same time | Request handlers, compilers, all work that occurs in phases |
+| `FixedBufferAllocator` | never (bump pointer) | Embedded code, hot loops, code that has no heap |
+| `SafeAllocator` | at each `free`, with leak detection | Development builds |
+| `std.testing.allocator` | at each `free`, and the test fails on a leak | Tests |
 
-The arena fits more programs than you might expect. If your program does a
-unit of work and then throws everything away, an arena turns hundreds of
-`free` calls into a single `deinit`. It also removes a whole category of leak.
+The arena is correct for more programs than most people expect. Some programs do one unit of work and then discard all of the memory. For such a program, an arena changes hundreds of `free` calls into one `deinit`. An arena also removes a full category of leak.
 
-## `defer` is what makes this bearable
+## `defer` makes this easy to manage
 
 ```zig
 const numbers = try allocator.alloc(u32, 10);
 defer allocator.free(numbers);
 ```
 
-`defer` runs at scope exit, on every path, including early `return` and error
-returns. Zig code writes the `free` on the line directly *after* the `alloc`,
-so you see the pair together.
+`defer` runs when the scope ends. It runs on all paths, and an early `return` and an error return are two of these paths. In Zig code, the `free` is on the line directly *after* the `alloc`. Thus you see the two calls together.
 
-Note the test above uses `std.testing.allocator`: if a test leaks, the test
-fails. Leak checking is the default in tests. You do not have to remember to
-run a separate tool.
+The test above uses `std.testing.allocator`. If a test leaks memory, the test fails. Tests check for leaks by default. You do not have to remember to run a separate tool.
 
-## The operations you reach for
+## The usual operations
 
-| Call | Gives you | Pair with |
+| Call | Gives you | Use with |
 | --- | --- | --- |
 | `alloc(T, n)` | a `[]T` of `n` items | `free` |
 | `create(T)` | a `*T`, one value | `destroy` |
 | `dupe(T, slice)` | an owned copy of `slice` | `free` |
-| `realloc(slice, n)` | the slice resized, contents kept | `free` |
+| `realloc(slice, n)` | the slice with a new size, contents kept | `free` |
 
-`create` and `destroy` are the single-value pair, for a linked-list node or a
-struct that outlives its stack frame; `alloc`/`free` are for slices. `dupe` is
-how you keep a string whose original is about to disappear, the fix for the
-dangling-key problem the Hash Maps chapter warns about. `realloc` may return a
-new pointer, so always reassign: `slice = try allocator.realloc(slice, n)`.
+Each pair has a different use:
 
-## `SafeAllocator` was `DebugAllocator` was `GeneralPurposeAllocator`
+- Use `create` and `destroy` for one value. Examples are a node in a linked list, and a struct that must live longer than its stack frame.
+- Use `alloc` and `free` for slices.
+- Use `dupe` to keep a string when the original string will soon disappear. This is the fix for the dangling key that the Hash Maps chapter tells you about.
 
-The leak-checking allocator has been renamed twice. If you arrived from an
-older tutorial looking for `std.heap.GeneralPurposeAllocator`, it became
-`std.heap.DebugAllocator`, and on current master it is
-`std.heap.SafeAllocator`. Both older names still resolve.
+`realloc` can return a new pointer. Thus always assign the result again: `slice = try allocator.realloc(slice, n)`.
 
-The second rename changed the shape, not just the spelling:
+## `SafeAllocator` has two older names
+
+The name of the allocator that checks for leaks changed two times. An older tutorial can use `std.heap.GeneralPurposeAllocator`. That name changed to `std.heap.DebugAllocator`, and on current master the name is `std.heap.SafeAllocator`. The two older names still resolve.
+
+The second change also changed the shape of the type, not only its name:
 
 ```zig
 // DebugAllocator: comptime config, backing allocator implied,
@@ -86,9 +76,10 @@ defer std.debug.assert(safe.deinit() == 0);
 const allocator = safe.allocator();
 ```
 
-The new name says "safe" instead of "debug" because the checks are useful
-outside a development build. It panics on a double free, on a free through the
-wrong allocator, and on most writes after free. You pay for it in
-code size: swapping the five data-structure programs on this site over added
-about 14 KB to each `.wasm`. When you do not want the bookkeeping, use
-`std.heap.smp_allocator` or an arena.
+The new name says "safe" and not "debug", because the checks are also useful outside a development build. The allocator panics in these conditions:
+
+- a double free
+- a free through the wrong allocator
+- most writes after a free
+
+The cost is code size. On this site, five programs about data structures changed to `SafeAllocator`, and each `.wasm` became about 14 KB larger. If you do not want this bookkeeping, use `std.heap.smp_allocator` or an arena.

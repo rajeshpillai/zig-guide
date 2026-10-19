@@ -1,6 +1,6 @@
 //! title: String Recipes
-//! Padding, runtime concatenation, and the std.mem and std.ascii calls the
-//! Strings chapter left out.
+//! Padding, runtime concatenation, and the std.mem and std.ascii calls that
+//! the Strings chapter does not show.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -9,25 +9,25 @@ const expectEqualStrings = std.testing.expectEqualStrings;
 test "pad a string into a column" {
     var buf: [64]u8 = undefined;
 
-    // There is no lpad or rjust. You pad by giving {s} a width.
-    // Right is the default for every type, strings included.
+    // There is no lpad or rjust. To pad a string, give {s} a width.
+    // Right alignment is the default for all types, and strings too.
     try expectEqualStrings("[     zig]", try std.mem.print(&buf, "[{s:8}]", .{"zig"}));
     try expectEqualStrings("[zig     ]", try std.mem.print(&buf, "[{s:<8}]", .{"zig"}));
     try expectEqualStrings("[  zig   ]", try std.mem.print(&buf, "[{s:^8}]", .{"zig"}));
 
-    // The fill byte goes before the alignment character.
+    // Put the fill byte before the alignment character.
     try expectEqualStrings("[.....zig]", try std.mem.print(&buf, "[{s:.>8}]", .{"zig"}));
 
-    // Width is a minimum, never a truncation: a value wider than the field is
-    // printed whole and pushes the column out.
+    // The width is a minimum. It never truncates. If a value is wider than
+    // the field, the formatter prints the full value and the column grows.
     try expectEqualStrings("[abcdefghij]", try std.mem.print(&buf, "[{s:>3}]", .{"abcdefghij"}));
 }
 
 test "the width can come from a value" {
     var buf: [64]u8 = undefined;
 
-    // [1] takes the width from argument 1 rather than the format string, which
-    // is what you need when the column is as wide as the longest row.
+    // [1] takes the width from argument 1, not from the format string. Use it
+    // when the column must be as wide as the longest row.
     const width: usize = 7;
     try expectEqualStrings("....zig", try std.mem.print(&buf, "{s:.>[1]}", .{ "zig", width }));
 }
@@ -35,8 +35,8 @@ test "the width can come from a value" {
 test "padding counts bytes, not characters" {
     var buf: [64]u8 = undefined;
 
-    // Writer.alignBuffer computes `width - buffer.len`, and len is bytes. The
-    // e-acute costs two bytes, so this row gets one fewer space than it needs.
+    // Writer.alignBuffer calculates `width - buffer.len`, and len counts bytes.
+    // The e-acute is two bytes. Thus this row gets one space less than it needs.
     const accented = try std.mem.print(&buf, "{s:>8}", .{"héllo"});
     try expect(accented.len == 8); // eight bytes
     try expect(try std.unicode.utf8CountCodepoints(accented) == 7); // seven columns
@@ -46,14 +46,15 @@ test "padding counts bytes, not characters" {
     try expect(plain.len == 8);
     try expect(try std.unicode.utf8CountCodepoints(plain) == 8);
 
-    // Same spec, same byte count, two different widths on screen. A table of
-    // names stops lining up as soon as one of them has an accent in it.
+    // The spec is the same and the byte count is the same, but the two widths
+    // on screen are different. A table of names loses its alignment when one
+    // name has an accent.
 }
 
 test "concat is ++ with an allocator" {
     const gpa = std.testing.allocator;
 
-    // ++ only works when both sides are known at compile time.
+    // ++ works only when the compiler knows the two sides at compile time.
     const parts: []const []const u8 = &.{ "usr", "local", "bin" };
     const joined = try std.mem.concat(gpa, u8, parts);
     defer gpa.free(joined);
@@ -69,8 +70,8 @@ test "concat is ++ with an allocator" {
 test "measure the format before you allocate" {
     const gpa = std.testing.allocator;
 
-    // count runs the formatter against a writer that discards, so the length is
-    // exact. You do not guess a size and grow the buffer later.
+    // count runs the formatter with a writer that discards its output. Thus
+    // the length is exact. You do not guess a size and grow the buffer later.
     const size = std.fmt.count("{d}:{d:0>2}", .{ 7, 5 });
     try expect(size == 4);
 
@@ -80,8 +81,8 @@ test "measure the format before you allocate" {
 }
 
 test "replace without allocating" {
-    // replacementSize sizes the destination; replace fills it and returns how
-    // many substitutions it made, which replaceOwned does not tell you.
+    // replacementSize gives the size of the destination. replace fills it and
+    // returns the number of substitutions. replaceOwned does not give you that.
     const input = "a-b-c";
     var buf: [16]u8 = undefined;
 
@@ -94,18 +95,18 @@ test "replace without allocating" {
 }
 
 test "case-insensitive search" {
-    // findIgnoreCase, not indexOfIgnoreCase: that one was removed rather than
-    // renamed, so old code that calls it no longer compiles.
+    // Use findIgnoreCase, not indexOfIgnoreCase. Zig removed indexOfIgnoreCase
+    // and did not rename it. Thus old code that calls it does not compile.
     try expect(std.ascii.findIgnoreCase("Build.ZIG", "zig").? == 6);
     try expect(std.ascii.startsWithIgnoreCase("Build.zig", "BUILD"));
     try expect(std.ascii.endsWithIgnoreCase("Build.zig", ".ZIG"));
 
-    // orderIgnoreCase sorts without allocating a lowercased copy first.
+    // orderIgnoreCase sorts, and it does not allocate a lowercase copy first.
     try expect(std.ascii.orderIgnoreCase("apple", "Banana") == .lt);
 }
 
 test "classify a byte" {
-    // A validator trim cannot express: every byte has to be a digit or a dash.
+    // trim cannot do this check: each byte must be a digit or a dash.
     const ok = for ("2026-07-30") |c| {
         if (!std.ascii.isDigit(c) and c != '-') break false;
     } else true;
@@ -121,7 +122,7 @@ test "build a string then take ownership of it" {
     const gpa = std.testing.allocator;
 
     // ArrayList has no writer() on master. Writer.Allocating is the growable
-    // buffer you print into, and toOwnedSlice hands the memory to the caller.
+    // buffer that you print into. toOwnedSlice gives the memory to the caller.
     var out: std.Io.Writer.Allocating = .init(gpa);
     defer out.deinit();
 

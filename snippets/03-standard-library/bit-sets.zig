@@ -1,11 +1,11 @@
 //! title: Bit Sets and Enum Collections
-//! A set of small integers in a few machine words, and maps keyed by enums.
+//! A set of small integers in a few machine words, and maps with enum keys.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
 test "static bit set" {
-    // 64 bits, stored inline. No allocator is needed.
+    // 64 bits, stored inline. An allocator is not necessary.
     var seen: std.bit_set.Static(64) = .empty;
 
     seen.set(3);
@@ -14,7 +14,7 @@ test "static bit set" {
     try expect(!seen.isSet(4));
     try expect(seen.count() == 2);
 
-    // Iterates set bit indices in ascending order.
+    // Gives the indices of the set bits in ascending order.
     var it = seen.iterator(.{});
     try expect(it.next().? == 3);
     try expect(it.next().? == 40);
@@ -59,7 +59,7 @@ test "EnumSet: a bit set keyed by an enum" {
 const Light = enum { red, yellow, green };
 
 test "EnumArray: one value per enum tag, no optionals" {
-    // Every key exists; initialization must cover all of them.
+    // Each key exists. The initialization must give a value for each key.
     var durations = std.EnumArray(Light, u32).init(.{
         .red = 30,
         .yellow = 5,

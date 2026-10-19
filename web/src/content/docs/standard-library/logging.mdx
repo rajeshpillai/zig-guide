@@ -1,36 +1,29 @@
 ---
 title: Logging
 seoTitle: "Zig Logging: std.log Levels and Scopes"
-seoDescription: "std.log gives four levels and per-scope filtering, all resolved at compile time. Set the level at the root, and the calls below it compile to nothing."
-description: One log function, chosen at the root and known at compile time.
+seoDescription: "std.log has four levels and a filter for each scope, all resolved at compile time. Set the level at the root. The calls below it compile to nothing."
+description: One log function, selected at the root and known at compile time.
 section: Standard Library
 order: 55
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `std.log` is the logging API, and its level is set once, in
-`std_options` in the root source file. A call below that level is compiled out
-rather than skipped at run time.
+In Zig, `std.log` is the logging API. You set its level one time, in `std_options` in the root source file. The compiler removes a call below that level. The call is not skipped at run time.
 
 <Playground name="03-standard-library.logging" />
 
-## Four levels, tagged by scope
+## Four levels, with a scope tag
 
-`std.log` gives you `debug`, `info`, `warn`, and `err`. Each takes a
-compile-time format string and its arguments, the same shape as everywhere
-else. `std.log.scoped(.name)` returns the same four functions but tags every
-line with a subsystem, so a reader (or a filter) can tell where a message came
-from. The default scope is `.default`.
+`std.log` gives you `debug`, `info`, `warn`, and `err`. Each function takes a compile-time format string and its arguments. This is the same shape as in all other places.
 
-The output above is the standard formatter writing to stderr. In your browser
-the playground shows stdout and stderr together, which is why you see the log
-lines at all.
+`std.log.scoped(.name)` returns the same four functions, but each line gets a tag with a subsystem name. Thus a reader (or a filter) can see the source of a message. The default scope is `.default`.
 
-## The level is set at the root, and it is a compile-time gate
+The output above comes from the standard formatter, which writes to stderr. In your browser, the playground shows stdout and stderr together. For this reason, you can see the log lines.
 
-The whole configuration lives in one declaration read from the **root** of the
-program:
+## You set the level at the root, and the level is a compile-time gate
+
+The full configuration is in one declaration. Zig reads the declaration from the **root** of the program:
 
 ```zig
 pub const std_options: std.Options = .{
@@ -41,26 +34,17 @@ pub const std_options: std.Options = .{
 };
 ```
 
-Two things follow from "root," and both cause mistakes:
+The word "root" has two results, and both cause mistakes:
 
-- It must be in the root source file (the one with `main`). A `pub const
-  std_options` in a library file, or in a `zig test` file, is **ignored**:
-  the test runner is the root there, not your file. That is exactly why this
-  chapter's snippet is a program rather than a test.
-- A call below the active level is compiled *out*, not skipped at run time.
-  `std.log.debug` in a release build costs nothing because it is not there.
-  `std.log.logEnabled(level, scope)` reports this, and is itself
-  comptime-known.
+- The declaration must be in the root source file (the file with `main`). Zig **ignores** a `pub const
+  std_options` in a library file or in a `zig test` file. In a test, the test runner is the root, not your file. For exactly this reason, the snippet in this chapter is a program and not a test.
+- The compiler removes each call below the active level. The call is not skipped at run time. `std.log.debug` in a release build costs nothing, because the call is not in the build. `std.log.logEnabled(level, scope)` tells you the result, and its value is also known at comptime.
 
-`log_scope_levels` caps individual subsystems: above, `.noisy` is quiet until
-`warn` even though the global level is `.debug`. Raise or lower one area
-without touching the rest.
+`log_scope_levels` sets a maximum level for each subsystem. In the example above, `.noisy` prints nothing below `warn`, but the global level is `.debug`. Make the level of one area higher or lower, and do not change the other areas.
 
-## Replacing the formatter
+## Replace the formatter
 
-`std.Options.logFn` is the single function every message passes through.
-Override it to change the format, add timestamps, route to a file, or emit
-structured JSON:
+Each message goes through one function: `std.Options.logFn`. Override this function to change the format, add timestamps, send the messages to a file, or emit structured JSON:
 
 ```zig
 pub const std_options: std.Options = .{
@@ -77,6 +61,4 @@ fn myLogFn(
 }
 ```
 
-Every message passes through this one function, so a whole program's logging
-changes in one place. Libraries that call `std.log` get the change too, with
-no code of their own.
+Each message goes through this one function. Thus you change the logging of a full program in one place. Libraries that call `std.log` also get the change, and they need no code of their own.

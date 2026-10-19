@@ -1,5 +1,5 @@
 //! title: Formatting
-//! Compile-time checked format strings.
+//! Format strings that the compiler checks.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -24,7 +24,7 @@ test "common specifiers" {
 test "width, alignment and fill" {
     var buf: [64]u8 = undefined;
 
-    // {[fill][align][width]}: align is <, ^ or >.
+    // {[fill][align][width]}: the align value is <, ^ or >.
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{42}), "   42"));
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:<5}", .{42}), "42   "));
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:^5}", .{42}), " 42  "));
@@ -34,24 +34,24 @@ test "width, alignment and fill" {
 test "a width makes a signed integer carry its sign" {
     var buf: [64]u8 = undefined;
 
-    // The same width against three types. A literal is `comptime_int` and
-    // prints bare. The tests above depend on that.
+    // The same width with three types. A literal is `comptime_int`, and it
+    // prints with no sign. The tests above depend on this result.
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{42}), "   42"));
 
-    // A signed value prints a leading `+` once a width is given. The sign
-    // belongs to the number, so the fill goes in front of it rather than
+    // When you give a width, a signed value prints a `+` in front. The sign
+    // is part of the number. Thus the fill goes in front of the sign, not
     // between the sign and the digits.
     const signed: i32 = 42;
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{signed}), "  +42"));
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:<5}", .{signed}), "+42  "));
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:0>5}", .{signed}), "00+42"));
 
-    // An unsigned value has no sign to print, so a width pads as expected.
+    // An unsigned value has no sign. Thus a width adds the expected padding.
     const unsigned: u32 = 42;
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d:5}", .{unsigned}), "   42"));
 
-    // Drop the width and the `+` goes away, which is why this is easy to
-    // miss until a column of numbers is being lined up.
+    // Without the width, the `+` does not appear. For this reason, you
+    // usually see the problem only when you align a column of numbers.
     try expect(std.mem.eql(u8, try std.mem.print(&buf, "{d}", .{signed}), "42"));
 }
 

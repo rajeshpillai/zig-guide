@@ -1,29 +1,21 @@
 ---
 title: String Recipes
-description: Padding, runtime concatenation, and the std.mem and std.ascii calls the Strings chapter left out.
+description: Padding, runtime concatenation, and the std.mem and std.ascii calls that the Strings chapter does not show.
 section: Standard Library
 order: 35
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig pads a string by giving it a width in the format spec, as in `{s:<8}`, and
-joins strings at run time with `std.mem.concat`, which takes an allocator.
-Case-insensitive search is `std.ascii.findIgnoreCase`.
+To pad a string in Zig, give it a width in the format spec, as in `{s:<8}`. To join strings at runtime, use `std.mem.concat`, which takes an allocator. For a case-insensitive search, use `std.ascii.findIgnoreCase`.
 
 <Playground name="03-standard-library.string-recipes" />
 
 ## Padding is a spec, not a function
 
-There is no `lpad`, no `rjust`, no `String.padStart`. You pad by giving `{s}`
-a width, and the grammar is the one
-[Formatting](/learn/standard-library/formatting/) sets out:
-`{[fill][align][width]}`. What changes for a string is the default and what
-the width is counted in.
+Zig has no `lpad`, no `rjust` and no `String.padStart`. To pad a string, give `{s}` a width. The grammar is the one that [Formatting](/learn/standard-library/formatting/) shows: `{[fill][align][width]}`. For a string, two things are different: the default, and the unit of the width.
 
-Right is the default for every type, so `{s:8}` puts the spaces *before* the
-text. This is unexpected if you come from a language where strings left-align
-and numbers right-align. Say which one you want:
+Right alignment is the default for all types. Thus `{s:8}` puts the spaces *before* the text. This can surprise you if you know a language where strings align left and numbers align right. Write the alignment that you want:
 
 ```zig
 "{s:8}"     // "     zig"
@@ -32,55 +24,39 @@ and numbers right-align. Say which one you want:
 "{s:.>8}"   // ".....zig"
 ```
 
-Width is a minimum. A value wider than the field is printed whole and pushes
-the column out. Formatting never truncates for you.
+The width is a minimum. If a value is wider than the field, the formatter prints the full value, and the column becomes wider. The formatter never truncates a value.
 
-## The width can be a value
+## The width counts bytes, not characters
 
-Nothing decodes the value first, and the standard library says so in its own
-docs: alignment "is not Unicode-aware; appropriate only when used with raw
-bytes or ASCII." A table of names lines up until one of them has an accent in
-it. Counting what a reader would call a character is a separate problem, and
-[Unicode Recipes](/learn/standard-library/unicode-recipes/) is where it lives.
+The formatter does not decode the value first. The standard library says this in its own docs: alignment "is not Unicode-aware; appropriate only when used with raw bytes or ASCII."
 
-## Joining at runtime
+A table of names stays aligned until one of the names has an accent. To count what a reader calls a character is a different problem. [Unicode Recipes](/learn/standard-library/unicode-recipes/) shows how to solve it.
 
-`++` is a compile-time operator. When the pieces are only known while the
-program runs, `std.mem.concat` is the equivalent and it takes an allocator.
-`joinZ` puts a separator between the parts and a null terminator on the end,
-for handing the result to a C API.
+## Join at runtime
 
-When you would rather size the buffer yourself, `std.fmt.count` runs the
-formatter against a writer that discards its output, and returns the exact
-length. Then you make one allocation of the right size instead of guessing.
+`++` is a compile-time operator. When the program knows the parts only at runtime, use `std.mem.concat`. It does the same work, and it takes an allocator. `joinZ` puts a separator between the parts and a null terminator at the end. Use it when you give the result to a C API.
 
-## Replacing without an allocator
+If you prefer to calculate the buffer size yourself, use `std.fmt.count`. It runs the formatter with a writer that discards its output, and it returns the exact length. Then you make one allocation of the correct size, and you do not guess.
 
-`std.mem.replaceOwned` is the convenient form and it allocates. The pair
-underneath it does not: `replacementSize` tells you how big the result will
-be, and `replace` fills memory you already have. `replace` also returns how
-many substitutions it made, which the owned version throws away.
+## Replace without an allocator
 
-## Ignoring case, carefully
+`std.mem.replaceOwned` is the easy form, and it allocates. The two functions below it do not allocate:
 
-`std.ascii` has the whole family: `startsWithIgnoreCase`,
-`endsWithIgnoreCase`, `findIgnoreCase`, and `orderIgnoreCase` for sorting
-without allocating a lowercased copy first.
+- `replacementSize` tells you the size of the result.
+- `replace` fills memory that you already have.
 
-`findIgnoreCase` replaced a removed function. There used to be an
-`indexOfIgnoreCase`, and it was removed outright. Code written against the old
-name fails to compile instead of quietly working. The `std.mem` search family
-went the other way: its old names survive as aliases.
+`replace` also returns the number of substitutions that it made. The owned version does not give you that number.
 
-All of it stops at byte 127.
+## Ignore case, with care
+
+`std.ascii` has the full family of functions: `startsWithIgnoreCase`, `endsWithIgnoreCase`, `findIgnoreCase`, and `orderIgnoreCase`. Use `orderIgnoreCase` to sort, because it does not allocate a lowercase copy first.
+
+`findIgnoreCase` replaced a function that Zig removed. An older version had `indexOfIgnoreCase`, and Zig removed it fully. Thus code that uses the old name does not compile. It does not continue to work silently. The `std.mem` search functions are different: their old names still exist as aliases.
+
+All of these functions stop at byte 127.
 
 ## When you want a String type
 
-`std.mem` and `std.ascii` give you bytes and a set of functions over them, and
-nothing that behaves like a string class. If that shape is what you are after,
-[zig-string](https://github.com/JakubSzark/zig-string) is a UTF-8 aware
-`String` with the methods you would expect, MIT licensed and still maintained.
+`std.mem` and `std.ascii` give you bytes and a set of functions that operate on them. They do not give you a type that behaves like a string class. If you want that shape, [zig-string](https://github.com/JakubSzark/zig-string) is a UTF-8 aware `String` with the usual methods. It has the MIT license, and its author still maintains it.
 
-It is a dependency, not part of `std`, and on this site that matters. Every
-snippet on this site is compiled and run against Zig master nightly, and
-an external library tracks the compiler on its own schedule.
+It is a dependency, not part of `std`, and on this site that difference is important. Each night, CI compiles and runs each snippet on this site against Zig master. An external library follows the compiler on its own schedule.

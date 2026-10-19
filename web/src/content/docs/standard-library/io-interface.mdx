@@ -1,81 +1,59 @@
 ---
 title: The Io Interface
 seoTitle: "Zig std.Io: The Interface Every Blocking Call Takes"
-seoDescription: "Any operation that can block takes an std.Io parameter, so nothing blocks without the caller knowing. One interface, and the caller chooses what implements it."
-description: Anything that can block takes an Io; the caller picks how.
+seoDescription: "Each operation that can block takes an std.Io parameter. Thus nothing blocks secretly. One interface, and the caller selects its implementation."
+description: Each operation that can block takes an Io. The caller selects how the Io works.
 section: Standard Library
 order: 15
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Modern Zig has one idea running through its whole standard library: any
-operation that can block, reading a file, opening a socket, sleeping, reading
-the clock, takes an `std.Io` parameter. Nothing blocks behind your back, the
-same way nothing allocates behind your back. If a function's signature has no
-`Io`, it cannot do I/O.
+Modern Zig has one idea in all of its standard library. Each operation that can block takes an `std.Io` parameter. Examples are a file read, a socket open, a sleep, and a clock read.
+
+Nothing blocks secretly, as nothing allocates secretly. If the signature of a function has no `Io`, the function cannot do I/O.
 
 <Playground name="03-standard-library.io-interface" />
 
 ## What `Io` is
 
-`std.Io` is an interface: a pointer plus a vtable, exactly the shape of
-`std.mem.Allocator`. The vtable holds function pointers for the primitive
-operations, reading, writing, waiting, scheduling, and a concrete
-implementation fills them in. The standard one is `std.Io.Threaded`, backed by
-a real thread pool; [Choosing an Io](/learn/concurrency/choosing-an-io/)
-covers the others and when you would swap. It is the same dependency-injection
-pattern the allocator uses, applied to blocking instead of to memory. So this
-chapter sits next to [Allocators](/learn/standard-library/allocators/). Once
-you know the two, most of the standard library follows the same pattern.
+`std.Io` is an interface: a pointer and a vtable. This is exactly the shape of `std.mem.Allocator`. The vtable holds function pointers for the primitive operations: read, write, wait and schedule. A concrete implementation supplies these pointers.
 
-## Where an `Io` comes from
+The standard implementation is `std.Io.Threaded`, and a real thread pool is behind it. [Choosing an Io](/learn/concurrency/choosing-an-io/) tells you about the other implementations, and when to change to one of them.
 
-You almost never construct one. It arrives at the top of your program and you
-thread it downward:
+The allocator uses the same dependency-injection pattern for memory, and `Io` uses it for blocking. For this reason, this chapter is next to [Allocators](/learn/standard-library/allocators/). When you know the two interfaces, you know the pattern of most of the standard library.
 
-| Context | The `Io` you use |
+## The source of an `Io`
+
+You almost never make an `Io` yourself. The `Io` arrives at the top of your program, and you pass it down to the functions that need it:
+
+| Context | The `Io` that you use |
 | --- | --- |
-| `main` | `init.io`, a field on the `std.process.Init` passed to `main` |
+| `main` | `init.io`, a field on the `std.process.Init` that `main` receives |
 | A test | `std.testing.io` |
-| A library function | whatever the caller hands you: take `io: std.Io` |
+| A library function | the `Io` that the caller gives you: take `io: std.Io` |
 
-A function that needs to block does not reach for a global. It accepts an `Io`
-and passes it to the calls that block. `std.Io.Dir.readFile`,
-`std.Io.Clock.Timestamp.now` and `Io.Mutex.lock` all take one as their first
-argument for that reason.
+A function that must block does not use a global value. It accepts an `Io`, and it gives the `Io` to the calls that block. For this reason, `std.Io.Dir.readFile`,
+`std.Io.Clock.Timestamp.now` and `Io.Mutex.lock` all take an `Io` as their first argument.
 
-## Why route everything through one interface
+## The reason for one interface
 
-Every I/O call now has this parameter. It gives two benefits.
+Each I/O call now has this parameter. The parameter gives two benefits.
 
-**The signature shows what the function does.** A function that takes an `Io`
-may block. A function that does not take one cannot block. You can see a
-function's effects from its type, without reading its documentation. The
-allocator parameter gives you the same guarantee for memory.
+**The signature shows what the function does.** A function that takes an `Io` can block. A function that does not take an `Io` cannot block. The type of a function shows its effects, and you do not have to read its documentation. The allocator parameter gives you the same guarantee for memory.
 
-**The caller chooses the execution model.** Because blocking goes *through* the
-interface, the interface can also schedule it. `io.async` starts a task. On
-`Io.Threaded` it runs on another thread. Hand the same code an event-loop `Io`
-and the identical call suspends a coroutine instead. The function being called
-never changes. This is Zig's answer to the "function coloring" problem. There
-is no separate `async` version of `readFile`. There is one function, and it
-does whatever the `Io` it was given does.
+**The caller selects the execution model.** Each blocking operation goes *through* the interface, thus the interface can also schedule it. `io.async` starts a task. On `Io.Threaded`, the task runs on a different thread. If you give the same code an event-loop `Io`, the identical call suspends a coroutine. The called function never changes.
 
-The [Concurrency](/learn/concurrency/async-future-group/) chapter builds on this
-with `async` and `Group`, and
-[Cancellation](/learn/concurrency/cancellation/) with stopping a task
-once it is running. [Readers and
+This is the answer of Zig to the "function coloring" problem. No separate `async` version of `readFile` exists. There is one function, and it does what the given `Io` does.
+
+The [Concurrency](/learn/concurrency/async-future-group/) chapter adds `async` and `Group` to this idea. [Cancellation](/learn/concurrency/cancellation/) shows how to stop a task that runs. [Readers and
 Writers](/learn/standard-library/readers-and-writers/),
 [Filesystem](/learn/standard-library/filesystem/) and
-[Time](/learn/standard-library/time/) are each one corner of the same
-interface.
+[Time](/learn/standard-library/time/) each show one part of the same interface.
 
-## If you are arriving from an older Zig
+## If you used an older version of Zig
 
-This is the change nicknamed *"writergate"* (Zig 0.15) and its follow-on work.
-Code that once wrote `std.fs.cwd().openFile(...)` or `std.time.timestamp()`
-with no `Io` in sight now routes through `std.Io.Dir` and `std.Io.Clock`. The
-free-standing, globally-available I/O functions are gone; the [migration
-page](/learn/getting-started/coming-from-older-zig/) lists the specific
-renames.
+This change came in Zig 0.15, and more work on it came later. Older code wrote `std.fs.cwd().openFile(...)` or `std.time.timestamp()` with no `Io`. Now the same code goes through `std.Io.Dir` and `std.Io.Clock`.
+
+The global I/O functions without an `Io` parameter are gone. The [migration
+page](/learn/getting-started/coming-from-older-zig/) gives a list of the specific renames.

@@ -1,79 +1,55 @@
 ---
 title: MultiArrayList
 seoTitle: "Zig MultiArrayList: Struct of Arrays"
-seoDescription: "MultiArrayList holds the same elements an ArrayList would, but gives each field of the struct its own array. Same API, and a different shape in memory."
-description: Struct of arrays, laid out for the cache.
+seoDescription: "MultiArrayList holds the same elements as an ArrayList, but gives each field its own array. The API is the same, and the memory layout is different."
+description: A struct of arrays, with a memory layout that helps the cache.
 section: Standard Library
 order: 25
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-`std.MultiArrayList(T)` is Zig's struct-of-arrays container. It takes whole
-structs through `append` like an `ArrayList(T)`, and `items(.field)` returns
-one field of every element as its own slice.
+`std.MultiArrayList(T)` is the struct-of-arrays container in Zig. Like an `ArrayList(T)`, it takes full structs through `append`. The call `items(.field)` returns one field of all the elements as a separate slice.
 
 <Playground name="03-standard-library.multi-array-list" />
 
-## Same API, transposed storage
+## The same API with a different storage
 
-Ten monsters with `hp`, `x`, and `y` become three arrays of ten, not ten
-structs side by side. You still `get` whole structs back. You only see the
-separate arrays when you ask for one field.
+Ten monsters with `hp`, `x` and `y` become three arrays of ten values. They do not become ten structs next to each other. `get` still gives you full structs. You see the separate arrays only when you ask for one field.
 
-The two layouts have names, and books and papers use them.
-`ArrayList` is an array of structs, "AoS". `MultiArrayList` is a struct of
-arrays, "SoA". The data is identical. Only the order of the bytes in memory
-differs.
+The two layouts have names, and books and papers use these names:
 
-## Why bother
+- `ArrayList` is an array of structs, "AoS".
+- `MultiArrayList` is a struct of arrays, "SoA".
 
-`items(.hp)` hands you a real `[]u32`: every hp value packed together. A loop
-that sums hp touches only that array, so the CPU loads no `x` or `y` bytes it
-will not use. When one field is hot and the struct is wide, the loop streams
-exactly the bytes it needs instead of pulling the whole struct through the
-cache. It is also what makes bulk field updates vectorize.
+The data is the same in the two layouts. Only the order of the bytes in memory is different.
 
-The cache line gives the numbers. Memory arrives from RAM in 64-byte blocks,
-whether you wanted 64 bytes or 4. Summing one `u32` field of a
-64-byte struct in AoS layout fetches 64 bytes to use 4, so fifteen sixteenths of
-the memory bandwidth is wasted. In SoA layout the same loop uses every byte it
-fetches. On a large array this accounts for the whole difference, and
-optimising the loop body cannot recover it.
+## Why use it
 
-There is a second benefit: the field arrays are separately typed and densely
-packed, so `@Vector` operations and the auto-vectoriser can work on them. A
-loop over a field of a struct array cannot vectorise because the values are not
-adjacent.
+`items(.hp)` gives you a real `[]u32`, with all the hp values next to each other. A loop that adds the hp values reads only that array. Thus the CPU loads no `x` or `y` bytes that it does not use.
+
+When a program uses one field frequently and the struct is wide, this loop reads only the bytes that it needs. It does not move the full struct through the cache. This layout also lets the compiler vectorize changes to one field of all the elements.
+
+The cache line gives the numbers. Memory comes from RAM in 64-byte blocks. The block size is the same when you need 64 bytes and when you need only 4. Take a 64-byte struct in AoS layout, and a loop that adds one `u32` field. The loop gets 64 bytes to use 4 bytes, thus fifteen sixteenths of the memory bandwidth is lost.
+
+In SoA layout, the same loop uses all the bytes that it gets. On a large array, the layout causes all of the difference. Optimisation of the loop body cannot recover that difference.
+
+The layout has a second benefit. Each field array has one type, and its values are next to each other. Thus `@Vector` operations and the auto-vectoriser can operate on them. A loop over one field of an array of structs cannot vectorise, because the values are not adjacent.
 
 ## The costs
 
-`get` and `set` gather or scatter across the separate arrays, so touching a
-whole element is slightly more work than with a plain `ArrayList`. Reach for
-`MultiArrayList` when you iterate columns far more than you handle whole rows.
+`get` and `set` collect or distribute the values across the separate arrays. Thus an operation on a full element is slightly more work than with a plain `ArrayList`. Use `MultiArrayList` when you iterate over columns much more frequently than you use full rows.
 
-When several fields are needed in one pass, call `slice()` once and pull each
-`items(.field)` from it. Each bare `items()` call recomputes the field
-pointers. `slice()` does that work once. As with every list here,
-those slices are invalidated by the next append.
+When a loop needs several fields, call `slice()` one time and get each `items(.field)` from the result. Each separate `items()` call calculates the field pointers again. `slice()` does that work one time. As with each list in this guide, the next append makes those slices invalid.
 
-The other cost is readability, and it is real. Field access becomes
-`s.items(.hp)[i]` instead of `list.items[i].hp`. Code that mostly deals in
-whole entities reads worse for no gain. Choose this layout after measuring,
-and only for the few arrays in a program that are both large and hot.
+The other cost is readability, and that cost is real. Field access becomes `s.items(.hp)[i]` and not `list.items[i].hp`. Code that usually works with full entities becomes more difficult to read, and it gets no benefit. Select this layout after you measure. Use it only for the few arrays in a program that are both large and frequently used.
 
-It also only works on structs whose fields are known: `MultiArrayList` uses the
-same comptime reflection everything else here does, walking the field list of
-`T` to generate the arrays. So `.hp` is checked at compile time, and a typo is
-a build error instead of a runtime lookup.
+`MultiArrayList` also works only on structs with known fields. It uses the same comptime reflection as the other containers in this guide. It walks the field list of `T` and makes the arrays from that list. Thus the compiler checks `.hp` at compile time. A typo is a build error, and not a lookup at runtime.
 
-## Where it shows up
+## Where programs use it
 
-Anywhere the array is large and the access pattern is columnar. Game entity
-systems are the canonical example, which is where the term "SoA" comes from.
-Compilers are another: Zig's own compiler stores its abstract syntax tree this
-way, because the passes over it walk one field of every node at a time.
+Programs use it where the array is large and the code reads it one column at a time. Game entity systems are the usual example, and the term "SoA" comes from them.
 
-If you are storing thousands of small records and iterating them field by field,
-this is the container. If you are storing a few dozen of anything, use an
-`ArrayList` and spend the attention elsewhere.
+Compilers are another example. The Zig compiler stores its abstract syntax tree in this layout, because each pass over the tree walks one field of all the nodes.
+
+If you store thousands of small records and iterate over them one field at a time, use this container. If you store a few dozen items, use an `ArrayList` and put your attention on other parts of the program.

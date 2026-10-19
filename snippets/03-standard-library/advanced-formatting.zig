@@ -8,9 +8,9 @@ const Point = struct {
     x: i32,
     y: i32,
 
-    // A `format` method taking `*std.Io.Writer` is used by the `{f}`
-    // specifier. Older Zig passed a fmt string and options too; that
-    // signature no longer applies.
+    // The `{f}` specifier uses a `format` method that takes a
+    // `*std.Io.Writer`. Older Zig also gave a fmt string and options to the
+    // method. That signature no longer applies.
     pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print("({d}, {d})", .{ self.x, self.y });
     }
@@ -33,13 +33,14 @@ test "{t} prints an enum tag name" {
 test "{any} falls back to a structural dump" {
     var buf: [128]u8 = undefined;
     const text = try std.mem.print(&buf, "{any}", .{[_]u8{ 1, 2, 3 }});
-    // Exact spelling is not contractual, but it contains the elements.
+    // The exact text can change, but the text contains the elements.
     try expect(std.mem.find(u8, text, "1") != null);
 }
 
 test "format strings are checked at compile time" {
-    // Passing the wrong number of arguments, or a specifier the type does
-    // not support, is a compile error, not a runtime error.
+    // The wrong number of arguments is a compile error, not a runtime
+    // error. A specifier that the type does not support is also a compile
+    // error.
     var buf: [32]u8 = undefined;
     const ok = try std.mem.print(&buf, "{d} {s}", .{ 1, "two" });
     try expect(std.mem.eql(u8, ok, "1 two"));

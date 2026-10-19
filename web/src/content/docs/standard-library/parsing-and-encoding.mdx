@@ -7,62 +7,44 @@ order: 34
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `std.fmt.parseInt(T, text, base)` converts a string to an integer and
-returns an error when the text is not a number or does not fit in `T`. Bytes
-become hex with `std.fmt.bytesToHex` and base64 with the codecs in
-`std.base64`.
+In Zig, `std.fmt.parseInt(T, text, base)` changes a string into an integer. It returns an error when the text is not a number, or when the number is too large for `T`. `std.fmt.bytesToHex` changes bytes into hex, and the codecs in `std.base64` change bytes into base64.
 
 <Playground name="03-standard-library.parsing-and-encoding" />
 
-## Parsing is fallible, and says so
+## A parse can fail, and the type shows it
 
-`std.fmt.parseInt` returns an error union, so a bad character or an
-out-of-range value is a value you handle, never a silent zero. The target type
-is the bound: `parseInt(u8, "300", 10)` is `error.Overflow` because 300 does
-not fit. Passing base `0` reads the prefix the way a Zig literal would: `0x`,
-`0o`, `0b`, or decimal, underscores allowed.
+`std.fmt.parseInt` returns an error union. Thus a bad character or a value out of range is a value that you must handle. It is never a silent zero.
 
-Report the two errors differently to a user.
-`error.InvalidCharacter` means the text was not a number at all.
-`error.Overflow` means it was a number and the type is too small. A config
-parser that says "port must be a number" for `70000` is unhelpful, and the
-error already told you which it was.
+The target type sets the limit. `parseInt(u8, "300", 10)` gives `error.Overflow`, because 300 is too large for a `u8`. With base `0`, the function reads the prefix as a Zig literal does: `0x`, `0o`, `0b`, or decimal. The function also accepts underscores.
 
-Because the target type does the bounds checking, you write no separate range
-validation. The check cannot disagree with the field it feeds, because the
-field's type *is* the range. Parsing into `u16`
-for a port number rejects 70000 without a line of code.
+Give a user a different report for each of the two errors:
 
-`parseFloat` accepts the usual decimal and scientific forms plus `inf` and
-`nan`.
+- `error.InvalidCharacter` means that the text was not a number.
+- `error.Overflow` means that the text was a number, but the type is too small.
 
-Both parse the *whole* string, so trailing whitespace or a stray newline is an
-error rather than being ignored. Trim first with `std.mem.trim` when the input
-comes from a file or a terminal, which is nearly always.
+A config parser that says "port must be a number" for `70000` does not help the user. The error already told you which problem occurred.
+
+The target type does the bounds check, thus you do not write a separate range check. The check cannot disagree with the field that gets the value, because the type of the field *is* the range. A parse into `u16` for a port number rejects 70000, and you write no code for that check.
+
+`parseFloat` accepts the usual decimal and scientific forms. It also accepts `inf` and `nan`.
+
+The two functions parse the *full* string. Thus whitespace at the end or an unwanted newline causes an error. The function does not ignore the whitespace. When the input comes from a file or a terminal, remove the whitespace first with `std.mem.trim`. Input usually comes from one of these two places.
 
 ## Hex
 
-`bytesToHex` returns a fixed-size array, not a slice, because the output
-length is known from the input at compile time. That means no allocator and no
-failure path. `hexToBytes` goes the other way into a caller-provided buffer.
+`bytesToHex` returns an array of fixed size, not a slice. The reason is that the input gives the output length at compile time. Thus the function needs no allocator, and it cannot fail. `hexToBytes` does the opposite operation into a buffer that the caller supplies.
 
-It takes a case argument, `.lower` or `.upper`, so there is no ambiguity about
-what a digest will look like. Decoding accepts either.
+The function takes a case argument, `.lower` or `.upper`. Thus the format of a digest is always clear. The decoder accepts the two cases.
 
-Because the return is an array rather than a slice, take a reference when
-passing it somewhere that wants `[]const u8`. A temporary needs a `const`
-binding first, since otherwise there is nothing to point at.
+The return value is an array and not a slice. Thus, when a function needs a `[]const u8`, give it a reference to the array. A temporary value needs a `const` binding first, because without the binding there is nothing for the pointer to point at.
 
-For formatting bytes inline rather than converting them, `{x}` on a byte slice
-does the same job directly inside a `print`.
+If you want to format the bytes in the output and not change them into a different value, use `{x}` on a byte slice. The format specifier does the same work directly in a `print`.
 
-## base64: pick the alphabet for the destination
+## base64: select the alphabet for the destination
 
-`std.base64.standard` uses `+` and `/`, which are fine in a MIME body and
-wrong in a URL or a file name. `std.base64.url_safe` swaps them for `-` and
-`_`. Both expose an `Encoder` and a `Decoder`; decoding is fallible because
-the input might not be valid base64. Size the destination with
-`Decoder.calcSizeForSlice` before decoding.
+`std.base64.standard` uses `+` and `/`. These characters are correct in a MIME body, but they are incorrect in a URL or a file name. `std.base64.url_safe` uses `-` and `_` in place of them.
+
+Each codec has an `Encoder` and a `Decoder`. The decoder can fail, because the input can be invalid base64. Before you decode, calculate the size of the destination with `Decoder.calcSizeForSlice`.
 
 | Codec | Emits | Use for |
 | --- | --- | --- |
@@ -70,16 +52,14 @@ the input might not be valid base64. Size the destination with
 | `url_safe` | `A-Za-z0-9-_` | URLs, file names, tokens |
 | `*_no_pad` | above, no `=` | fixed-width IDs |
 
-People often skip the sizing step, and a wrong guess does not fail loudly. On
-the encoding side, `Encoder.calcSize(n)` gives the exact output length, which
-is 4 bytes for every 3 input bytes, rounded up and padded. On the decoding
-side, `calcSizeForSlice` inspects the padding to give the exact answer, and
-`calcSizeUpperBound` gives a safe over-estimate when you want to allocate
-before looking. Both return an error for input that cannot be valid base64 at
-all.
+People frequently do not calculate the size, and an incorrect guess does not cause a clear failure. Use these functions:
 
-`encodeWriter` writes straight to a `std.Io.Writer`, so encoding a large
-payload into a response needs no intermediate buffer.
+- To encode, use `Encoder.calcSize(n)`. It gives the exact output length: 4 bytes for each 3 input bytes, rounded up and padded.
+- To decode, use `calcSizeForSlice`. It examines the padding and gives the exact answer.
+- To allocate before you examine the input, use `calcSizeUpperBound`. It gives a safe value that can be too large.
 
-Base64 is not encryption and not compression. It makes arbitrary bytes safe to
-put in a text field, and it costs a third more space to do it.
+The two decoder functions return an error for input that cannot be valid base64.
+
+`encodeWriter` writes directly to a `std.Io.Writer`. Thus, when you encode a large payload into a response, you need no buffer between the two steps.
+
+Base64 is not encryption, and it is not compression. It makes any bytes safe in a text field, and the result is one third larger.

@@ -1,29 +1,29 @@
 //! title: Logging
-//! std.log routes every message through one replaceable function.
+//! std.log sends each message through one function that you can replace.
 
 const std = @import("std");
 
-// `std_options` is read from the root of the program at compile time, so it
-// only takes effect here because this snippet is an executable (a `zig test`
-// file is not the root, and its std_options would be ignored). Setting the
-// level to .debug compiles in every level; a release build drops the chatty
-// ones by default. A per-scope cap overrides the global level for one area.
+// Zig reads `std_options` from the root of the program at compile time. The
+// declaration has an effect here only because this snippet is an executable.
+// A `zig test` file is not the root, and Zig ignores its std_options. The
+// level .debug compiles in each level. By default, a release build removes
+// the lower levels. A maximum for one scope overrides the global level.
 pub const std_options: std.Options = .{
     .log_level = .debug,
     .log_scope_levels = &.{
-        .{ .scope = .noisy, .level = .warn }, // .noisy logs only from warn up
+        .{ .scope = .noisy, .level = .warn }, // .noisy logs only at warn and higher
     },
 };
 
-// A scoped logger tags every line with its subsystem, so you can raise or
-// lower one area without touching the rest.
+// A scoped logger puts the subsystem name on each line. Thus you can make the
+// level of one area higher or lower, and not change the other areas.
 const net = std.log.scoped(.net);
 
 pub fn main(init: std.process.Init) void {
     _ = init;
 
-    // Every level goes to stderr through std.options.logFn. Each call is
-    // compiled in or out by the configured level, not gated at run time.
+    // Each level goes to stderr through std.options.logFn. The configured
+    // level decides at compile time if each call is in the build.
     std.log.debug("resolving host", .{});
     std.log.info("connected in {d}ms", .{12});
     std.log.warn("slow response, retrying", .{});
@@ -31,8 +31,8 @@ pub fn main(init: std.process.Init) void {
 
     net.info("scoped line, tagged (net)", .{});
 
-    // logEnabled is comptime-known, so an unused level costs nothing at all.
-    std.debug.assert(std.log.logEnabled(.debug, .default)); // on, we set .debug
+    // logEnabled is known at comptime. Thus an unused level costs nothing.
+    std.debug.assert(std.log.logEnabled(.debug, .default)); // on, because the level is .debug
     std.debug.assert(!std.log.logEnabled(.info, .noisy)); // capped at .warn
     std.debug.assert(std.log.logEnabled(.warn, .noisy));
 }

@@ -1,32 +1,29 @@
 ---
 title: Formatting
 seoTitle: "Zig Formatting: Format Strings, Specifiers and Printing"
-seoDescription: "Format strings are checked at compile time, so the wrong argument count is a compile error. The specifiers, and where each print function sends its output."
-description: Format strings checked at compile time.
+seoDescription: "The compiler checks format strings, so the wrong argument count is a compile error. The specifiers, and where each print function sends its output."
+description: Format strings that the compiler checks.
 section: Standard Library
 order: 32
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A format string is a string known at compile time, with one `{}` placeholder
-per argument.
-`{d}` prints a number, `{s}` a string, and `{any}` anything else. The
-compiler checks the placeholders against the arguments, so a mismatch is a
-compile error rather than wrong output at runtime.
+A format string is a string that is known at compile time. It has one `{}` placeholder for each argument. `{d}` prints a number, `{s}` prints a string, and `{any}` prints all other values.
+
+The compiler checks the placeholders against the arguments. Thus a mismatch is a compile error, not wrong output at runtime.
 
 <Playground name="03-standard-library.formatting" />
 
-## Where the output goes
+## The destination of the output
 
 | Function | Writes to |
 | --- | --- |
-| `std.mem.print` | a buffer you supply (no allocation) |
-| `allocator.print` | fresh memory (caller frees) |
+| `std.mem.print` | a buffer that you supply (no allocation) |
+| `allocator.print` | new memory (the caller frees it) |
 | `writer.print` | any writer |
 
-`std.mem.print` returns a slice of the part it filled, and fails with
-`error.NoSpaceLeft` rather than truncating.
+`std.mem.print` returns a slice of the part that it filled. If the buffer is too small, it fails with `error.NoSpaceLeft`. It does not truncate the text.
 
 ## Specifiers
 
@@ -41,7 +38,7 @@ compile error rather than wrong output at runtime.
 
 ## Width, alignment, precision
 
-The form is `{[fill][align][width]}`, with `<` `^` `>` for alignment:
+The form is `{[fill][align][width]}`. For alignment, use `<`, `^` or `>`:
 
 ```zig
 "{d:5}"     // "   42"  (right by default for numbers)
@@ -51,17 +48,14 @@ The form is `{[fill][align][width]}`, with `<` `^` `>` for alignment:
 "{d:.2}"    // "3.14"
 ```
 
-Right is the default for every type, strings included, and this often causes
-mistakes: `{s:8}` puts the padding before the text, not after. Lining up a column
-of strings has three more rules to it, and they are in [String
-Recipes](/learn/standard-library/string-recipes/).
+Right alignment is the default for each type, also for strings. This often causes mistakes: `{s:8}` puts the padding before the text, not after the text. A column of strings has three more rules for alignment. [String
+Recipes](/learn/standard-library/string-recipes/) gives these rules.
 
-Escape a literal brace by doubling it: `{{` and `}}`.
+To write a literal brace, write it two times: `{{` and `}}`.
 
 ## A width makes a signed integer show its sign
 
-Those outputs are what a literal gives you, and a literal is `comptime_int`.
-Give the same width to a signed value and a `+` appears in front of it:
+The outputs above are the result of a literal, and a literal is `comptime_int`. If you give the same width to a signed value, a `+` appears in front of the value:
 
 ```zig
 const signed: i32 = 42;
@@ -71,21 +65,17 @@ const signed: i32 = 42;
 "{d}"      // "42"     no width, no sign
 ```
 
-An unsigned value has nothing to sign, so `{d:5}` on a `u32` pads to `"   42"`
-the way the table above says. The `+` counts towards the width, and the fill
-goes in front of it rather than between the sign and the digits, which is what
-turns `00042` into `00+42`.
+An unsigned value has no sign. Thus `{d:5}` on a `u32` adds padding to `"   42"`, as the table above shows.
 
-The bug this causes survives a review. The format string is right and the type
-is right, and the column is simply one character narrower than the numbers
-going into it. It shows up when a heading stops lining up with a table printed
-from an `i64`, and the fix is a cast to the unsigned type when the value
-cannot be negative.
+The `+` is part of the width. The fill goes in front of the `+`, not between the sign and the digits. For this reason, `00042` becomes `00+42`.
+
+A review usually does not find the bug that this causes. The format string is correct and the type is correct. The column is only one character narrower than the numbers in the column.
+
+You see the bug when a heading does not align with a table that the program printed from an `i64`. If the value cannot be negative, the fix is a cast to the unsigned type.
 
 ## `bufPrint` and `allocPrint` moved
 
-If you have written any Zig before, you know the first two rows of that table
-as `std.fmt.bufPrint` and `std.fmt.allocPrint`:
+If you wrote Zig before, you know the first two rows of the table as `std.fmt.bufPrint` and `std.fmt.allocPrint`:
 
 ```zig
 // older tutorials
@@ -97,19 +87,15 @@ const text = try std.mem.print(&buf, "{d}", .{42});
 const owned = try gpa.print("{d}", .{42});
 ```
 
-Both old names still resolve, and the error sets are the same ones:
-`std.fmt.BufPrintError` is now defined as `std.mem.PrintError`.
+The two old names still resolve, and the error sets are the same. Now the definition of `std.fmt.BufPrintError` is `std.mem.PrintError`.
 
-The buffer version moved to `std.mem` because filling a slice is a slice
-operation. The allocating version became `Allocator.print`, a method sitting
-next to `alloc` and `dupe`. Neither new name says "print into a buffer" the
-way `bufPrint` did, and `Allocator.print` does not look like it allocates. So
-read the receiver rather than the verb. `mem` means you supplied the memory;
-an allocator means you own the result and have to free it.
+The buffer version moved to `std.mem`, because a function that fills a slice is a slice operation. The version that allocates became `Allocator.print`, a method next to `alloc` and `dupe`.
 
-## Checked at compile time
+The new names do not say "print into a buffer" as `bufPrint` did. Also, `Allocator.print` does not look like a function that allocates. Thus read the receiver, not the verb:
 
-The format string is a comptime parameter, so the argument count and each
-specifier are validated against the argument types during compilation. A `{d}`
-pointed at a string does not compile. There is no runtime format-string
-failure mode to worry about.
+- `mem` means that you supplied the memory.
+- An allocator means that you own the result, and you must free it.
+
+## The compiler checks the format string
+
+The format string is a comptime parameter. Thus the compiler checks the argument count and each specifier against the argument types. A `{d}` for a string does not compile. A format string cannot fail at runtime.

@@ -1,5 +1,5 @@
 //! title: Filesystem
-//! All filesystem APIs take an `Io` since 0.16.
+//! From 0.16, all filesystem APIs take an `Io`.
 
 const std = @import("std");
 
@@ -11,8 +11,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout = std.Io.File.stdout().writerStreaming(io, &buf_out);
     const out = &stdout.interface;
 
-    // `std.fs.cwd()` is now `std.Io.Dir.cwd()`, and every operation that
-    // touches the disk takes the io instance explicitly.
+    // `std.fs.cwd()` is now `std.Io.Dir.cwd()`. Each operation that uses
+    // the disk takes the io instance explicitly.
     var dir = std.Io.Dir.cwd();
 
     // Create, write, close.
@@ -24,16 +24,16 @@ pub fn main(init: std.process.Init) !void {
     try writer.interface.writeAll("written by zig\n");
     try writer.interface.flush();
 
-    // Read the whole thing back.
+    // Read the full file again.
     const contents = try dir.readFileAlloc(io, "example.txt", gpa, .limited(1 << 20));
     defer gpa.free(contents);
     std.debug.assert(std.mem.eql(u8, contents, "written by zig\n"));
     try out.print("read back {d} bytes\n", .{contents.len});
 
-    // Walk a directory. The entry count is whatever happens to be in the
-    // working directory, so count only the one file this program created:
-    // anything derived from the directory's real contents would differ
-    // between your machine and the build that verified this page.
+    // Walk a directory. The number of entries depends on the contents of
+    // the working directory. Thus count only the one file that this program
+    // created. A value from the real contents of the directory can be
+    // different on your machine and on the build that verified this page.
     var iterable = try dir.openDir(io, ".", .{ .iterate = true });
     defer iterable.close(io);
     var it = iterable.iterate();
@@ -47,6 +47,7 @@ pub fn main(init: std.process.Init) !void {
     try out.flush();
 }
 
-// This runs in wasm. Both runners give the program an empty directory as its
-// working directory: a temp directory in CI, a directory in memory in your
-// browser. So `Dir.cwd()` holds only the file this program creates.
+// This program runs in wasm. The two runners give the program an empty
+// directory as its working directory. In CI, it is a temporary directory. In
+// your browser, it is a directory in memory. Thus `Dir.cwd()` holds only the
+// file that this program creates.

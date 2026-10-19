@@ -1,24 +1,21 @@
 ---
 title: JSON
 seoTitle: "Zig JSON: parseFromSlice, Stringify and Owned Memory"
-seoDescription: "parseFromSlice maps JSON onto your own struct using its field names, and the result owns every allocation it made. Parsing into real types, and back out."
-description: Parsing into real types, and back out again.
+seoDescription: "parseFromSlice puts JSON into your own struct by its field names, and the result owns each allocation that it made. Parse into real types, and write back."
+description: Parse JSON into real types, and write the types back as JSON.
 section: Standard Library
 order: 41
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-`std.json.parseFromSlice` parses JSON into your own Zig struct, matching
-object keys to field names, and `std.json.Stringify.value` writes a value back
-out as JSON to any writer.
+`std.json.parseFromSlice` parses JSON into your own Zig struct. It matches the object keys to the field names. `std.json.Stringify.value` writes a value as JSON to any writer.
 
 <Playground name="03-standard-library.json" />
 
-## Parsing into a struct
+## Parse into a struct
 
-`parseFromSlice(T, gpa, text, .{})` maps JSON onto your type using its field
-names. The result owns every allocation it made:
+`parseFromSlice(T, gpa, text, .{})` puts JSON into your type by the field names of the type. The result owns each allocation that it made:
 
 ```zig
 const parsed = try std.json.parseFromSlice(Config, gpa, text, .{});
@@ -26,25 +23,17 @@ defer parsed.deinit();
 parsed.value.port;
 ```
 
-Note `parsed.value`: the payload lives behind the owner so a single `deinit`
-frees the whole tree. Strings in `parsed.value` point into that arena, so they
-die with it; duplicate anything you need to outlive the parse.
+Look at `parsed.value`. The payload is behind the owner, thus one `deinit` frees the full tree. The strings in `parsed.value` point into that arena, thus they become invalid with the arena. If a value must live longer than the parse, duplicate the value.
 
-This arrangement solves a problem every JSON library has. A parsed document is a tree of small allocations with
-no single owner, and freeing it correctly means walking it. Zig's answer is to
-allocate the whole tree from an arena held by the `Parsed(T)` wrapper.
-`deinit` is then one call that releases everything at once and cannot miss a
-node.
+This design solves a problem that each JSON library has. A parsed document is a tree of small allocations with no single owner. To free the tree correctly, you must walk the tree.
 
-The cost is that the lifetime is all or nothing. Holding onto one string from
-the document keeps nothing alive, because the arena is gone after `deinit`.
-You are left with a dangling slice. Copy what you need out, or keep the whole
-`Parsed` alive for as long as any part of it is in use.
+The Zig solution is to allocate the full tree from an arena in the `Parsed(T)` wrapper. Then `deinit` is one call that releases all of the memory at the same time, and it cannot miss a node.
 
-## How types map
+The cost is that the lifetime is all or nothing. If you keep one string from the document, the string does not keep the arena alive. After `deinit`, the arena is gone, and you have a dangling slice. Copy out the values that you need. Or keep the full `Parsed` alive while you use any part of it.
 
-The mapping is decided at compile time from your struct, which is where the
-validation comes from.
+## How the types map to JSON
+
+The compiler decides the mapping from your struct at compile time. The validation comes from this mapping.
 
 | Zig | JSON |
 | --- | --- |
@@ -56,54 +45,47 @@ validation comes from.
 | an enum | a string equal to a tag name |
 | a tagged union | an object with one key, the tag name |
 
-An integer field given a JSON value that does not fit is an error rather than
-a truncation. A string given where a number was expected is an error naming
-the field. You write none of these checks. They are generated from the struct
-definition, so they always match the struct.
+If a JSON value is too large for an integer field, the result is an error, not a truncation. A string in the place of a number is an error that gives the name of the field.
 
-## Missing and unknown fields
+You write none of these checks. The compiler makes them from the struct definition. Thus the checks always match the struct.
 
-A field with a default is optional in the input. An **unknown** field is an
-error by default:
+## Absent fields and unknown fields
+
+A field with a default is optional in the input. By default, an **unknown** field is an error:
 
 ```zig
 error.UnknownField
 ```
 
-That default catches typos in config files. Turn it off only when consuming a payload you do not fully model:
+This default finds typos in config files. Turn off the default only when you consume a payload that you do not model fully:
 
 ```zig
 .{ .ignore_unknown_fields = true }
 ```
 
-The distinction to keep straight is between a field that may be absent and a
-field that may be null. `?u16` with no default accepts `null` but still
-requires the key to be present. `u16 = 8080` accepts the key being missing.
-`?u16 = null` accepts both. Say which one you mean. Otherwise a config file
-may silently take a default that should have been rejected.
+Know the difference between a field that can be absent and a field that can be null:
 
-## When the shape is not known
+- `?u16` with no default accepts `null`, but the key must be present.
+- `u16 = 8080` accepts an absent key.
+- `?u16 = null` accepts the two conditions.
 
-Parse into `std.json.Value` for a dynamic tree, then walk `.object`, `.array`,
-`.integer`, `.string`, and friends. Prefer a concrete struct where you can:
-you get validation and field names checked at compile time.
+Say which one you mean. If you do not, a config file can get a default value without a report, when the parser must reject the file.
 
-`std.json.Value` is a tagged union, so walking it is a `switch` and the
-exhaustiveness check applies. The usual middle ground is to model the parts
-you care about as a struct and give one field the type `std.json.Value` for
-the part you are passing through untouched.
+## When you do not know the shape
 
-For input too large to hold in memory, `std.json.Scanner` is the streaming
-form: it emits tokens as it reads, so a multi-gigabyte document can be
-processed with a fixed buffer. It is more work to use, so use it only when the
-document does not fit in memory.
+For a dynamic tree, parse into `std.json.Value`. Then walk `.object`, `.array`,
+`.integer`, `.string`, and the other fields. When possible, use a concrete struct. Then the compiler checks the field names, and you get validation.
 
-## Writing
+`std.json.Value` is a tagged union. Thus a walk of the tree is a `switch`, and the exhaustiveness check applies.
 
-`std.json.Stringify.value(x, .{}, &writer)` serialises to any writer. Pair it
-with `std.Io.Writer.Allocating` to produce a string.
+A usual compromise is a struct for the parts that are important to you. Give one field the type `std.json.Value` for the part that you pass through without change.
 
-Options control the shape of the output: `.whitespace = .indent_2` for
-something a person will read, the default for something a machine will. Since
-it writes to any `std.Io.Writer`, serialising straight to a file or a socket
-costs no intermediate string.
+For input that is too large for memory, use `std.json.Scanner`. This is the streaming form. It emits tokens while it reads. Thus a fixed buffer can process a document of many gigabytes. `std.json.Scanner` is more difficult to use. Thus use it only when the document does not fit in memory.
+
+## Write JSON
+
+`std.json.Stringify.value(x, .{}, &writer)` serialises a value to any writer. To make a string, use it with `std.Io.Writer.Allocating`.
+
+Options control the shape of the output. Use `.whitespace = .indent_2` for output that a person will read. Use the default for output that a machine will read.
+
+The function writes to any `std.Io.Writer`. Thus it can serialise directly to a file or a socket, without an intermediate string.

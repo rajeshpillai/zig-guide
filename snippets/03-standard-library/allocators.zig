@@ -1,5 +1,5 @@
 //! title: Allocators
-//! Zig never allocates behind your back; you pass an `Allocator` explicitly.
+//! Zig does not allocate memory secretly. You give an `Allocator` to the code.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -19,7 +19,7 @@ test "arena frees everything at once" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    // No individual `free` needed; `deinit` reclaims it all.
+    // It is not necessary to free each value. `deinit` frees all of them.
     for (0..100) |_| _ = try allocator.alloc(u8, 64);
 }
 
@@ -36,7 +36,7 @@ test "fixed buffer needs no heap at all" {
 test "create and destroy a single value" {
     const allocator = std.testing.allocator;
 
-    // alloc/free is for slices; create/destroy is for one value.
+    // Use alloc/free for slices. Use create/destroy for one value.
     const node = try allocator.create(Node);
     defer allocator.destroy(node);
 
@@ -52,7 +52,7 @@ const Node = struct {
 test "dupe copies a slice into owned memory" {
     const allocator = std.testing.allocator;
 
-    // A common use: keep a copy of a string whose original may go away.
+    // A common use: keep a copy of a string when the original can disappear.
     const owned = try allocator.dupe(u8, "borrowed");
     defer allocator.free(owned);
     try expect(std.mem.eql(u8, owned, "borrowed"));
@@ -62,21 +62,22 @@ test "resize in place, or realloc to move" {
     const allocator = std.testing.allocator;
 
     var slice = try allocator.alloc(u8, 4);
-    // realloc keeps the contents and may return a new pointer.
+    // realloc keeps the contents. It can return a new pointer.
     slice = try allocator.realloc(slice, 8);
     defer allocator.free(slice);
     try expect(slice.len == 8);
 }
 
 test "SafeAllocator catches leaks in a real program" {
-    // In a program you own the allocator; this is what std.testing.allocator
-    // wraps for you. It has been renamed twice: GeneralPurposeAllocator, then
-    // DebugAllocator, now SafeAllocator. It takes the allocator it draws pages
-    // from, and `deinit` returns how many allocations were never freed.
+    // In a program, you own the allocator. std.testing.allocator wraps this
+    // allocator for you. The name changed two times: GeneralPurposeAllocator,
+    // then DebugAllocator, and now SafeAllocator. The function `init` takes
+    // the allocator that supplies the pages. `deinit` returns the number of
+    // allocations that the program did not free.
     var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
     defer std.debug.assert(safe.deinit() == 0);
     const allocator = safe.allocator();
 
     const data = try allocator.alloc(u8, 16);
-    allocator.free(data); // omit this and deinit reports .leak
+    allocator.free(data); // without this line, deinit returns 1
 }

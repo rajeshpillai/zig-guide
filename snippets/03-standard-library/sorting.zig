@@ -28,8 +28,8 @@ test "sort structs with a custom comparator" {
         .{ .name = "a", .age = 10 },
         .{ .name = "b", .age = 20 },
     };
-    // The `{}` is the context argument: a value passed to every comparison,
-    // useful when the ordering depends on something external.
+    // The `{}` is the context argument. The sort gives this value to each
+    // comparison. It is useful when the order depends on external data.
     std.mem.sort(Person, &people, {}, byAge);
     try expect(people[0].age == 10);
 }
@@ -54,10 +54,10 @@ test "binary search a sorted slice" {
     try expect(index.? == 3);
 }
 
-test "sort is not stable; sortUnstable is faster" {
+test "sortUnstable is not stable, and it does less work" {
     var numbers = [_]u8{ 4, 2, 6 };
     // `std.mem.sort` is stable. When equal elements are interchangeable,
-    // `sortUnstable` avoids the extra work.
+    // `sortUnstable` does not do the extra work.
     std.mem.sortUnstable(u8, &numbers, {}, std.sort.asc(u8));
     try expect(numbers[0] == 2);
 }

@@ -1,90 +1,58 @@
 ---
 title: Unicode Recipes
-description: Truncate on a character boundary, decode one codepoint, and cross to UTF-16.
+description: Truncate on a character boundary, decode one codepoint, and convert to UTF-16.
 section: Standard Library
 order: 36
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-To truncate a UTF-8 string in Zig without cutting a character in half, walk
-`nextCodepointSlice` and stop before the slice that would pass the limit.
-Conversion to and from UTF-16 is `std.unicode.utf8ToUtf16LeAlloc` and
-`utf16LeToUtf8Alloc`.
+To truncate a UTF-8 string in Zig without a cut through a character, walk `nextCodepointSlice`. Stop before the slice that goes past the limit. To convert to and from UTF-16, use `std.unicode.utf8ToUtf16LeAlloc` and `utf16LeToUtf8Alloc`.
 
 <Playground name="03-standard-library.unicode-recipes" />
 
 ## Length from the first byte
 
-UTF-8 puts the sequence length in the leading byte, so one character can be
-decoded without scanning forward to find where the next one starts.
-`utf8ByteSequenceLength` reads it, and `utf8Decode2`, `utf8Decode3` or
-`utf8Decode4` turns those bytes into a `u21`.
+UTF-8 puts the sequence length in the lead byte. Thus you can decode one character, and you do not have to scan forward to find the start of the next character. `utf8ByteSequenceLength` reads the length. `utf8Decode2`, `utf8Decode3` or `utf8Decode4` changes those bytes into a `u21`.
 
-The length is in the name because each of those takes a fixed-size array.
-There used to be one `utf8Decode` taking a slice, and it is deprecated. It
-asserted that the length matched the leading byte, and had no way to tell you
-when it did not. Asking for the length first and then decoding that many bytes
-is the same work with the mistake designed out.
+The length is in the name because each of those functions takes an array of fixed size. An older version had one `utf8Decode` that took a slice, and that function is now deprecated. It asserted that the length matched the lead byte, and it could not tell you when the length did not match. The new way is to get the length first and then decode that number of bytes. It is the same work, and the design prevents the mistake.
 
-Handing it a continuation byte returns `error.Utf8InvalidStartByte`, the check
-you want when an index came from arithmetic rather than an iterator.
-`utf8CodepointSequenceLength` is the mirror on the encode side: ask how many
-bytes a codepoint needs before you size the buffer.
+If you give `utf8ByteSequenceLength` a continuation byte, it returns `error.Utf8InvalidStartByte`. You want this check when an index comes from arithmetic and not from an iterator. `utf8CodepointSequenceLength` does the opposite work for the encoder. Use it to get the number of bytes that a codepoint needs, before you calculate the size of the buffer.
 
-## Cutting a string safely
+## Cut a string safely
 
-The [Unicode](/learn/standard-library/unicode/) chapter says to iterate
-codepoint slices and stop at the last full character. This is that function,
-written out: walk `nextCodepointSlice`, keep a running end offset, and stop
-before the first slice that would push you past the limit.
+The [Unicode](/learn/standard-library/unicode/) chapter says to iterate over codepoint slices and stop at the last full character. This chapter shows that function:
 
-The naive `s[0..max]` produces invalid UTF-8 whenever the cut lands mid
-character. Nothing fails at the cut. The failure surfaces wherever those bytes
-are decoded, possibly in another program.
+1. Walk `nextCodepointSlice`.
+2. Keep the end offset of the characters so far.
+3. Stop before the first slice that would put the end past the limit.
 
-## Which character is byte 7 in
+The simple `s[0..max]` gives invalid UTF-8 when the cut is in the middle of a character. Nothing fails at the cut. The failure occurs where code decodes those bytes, possibly in a different program.
 
-There is no std helper for this, so you write it. Continuation bytes all match
-`0b10xxxxxx`, so walking back while `(b & 0xC0) == 0x80` lands on the start
-byte of the character you were inside.
+## Which character contains byte 7
 
-You can remember this rule instead of looking it up. A UTF-8 character is at
-most four bytes, and the format was designed so this walk is always short and never ambiguous.
+The standard library has no helper for this, thus you must write it. All continuation bytes match `0b10xxxxxx`. Thus, walk back while `(b & 0xC0) == 0x80`. The walk stops on the start byte of the character that contains the byte.
 
-## Peeking, and views that cannot fail
+You can remember this rule, and you do not need to look for it. A UTF-8 character is a maximum of four bytes. The design of the format makes sure that this walk is always short and never ambiguous.
 
-`Utf8Iterator.peek(n)` returns the bytes of the next `n` characters and leaves
-the cursor where it was, which is what a parser needs before it commits to a
-branch.
+## Look ahead, and views that cannot fail
 
-`Utf8View.initComptime` validates during compilation. A literal needs no
-`try`, and a malformed one is a compile error rather than a runtime path you
-have to handle.
+`Utf8Iterator.peek(n)` returns the bytes of the next `n` characters, and does not move the cursor. A parser needs this before it selects a branch.
 
-## Bytes you did not validate
+`Utf8View.initComptime` validates the bytes during compilation. A literal needs no `try`. A malformed literal is a compile error, not a runtime path that you must handle.
 
-`std.unicode.fmtUtf8` prints ill-formed input with U+FFFD substituted for the
-bad sequences instead of returning an error. A log line almost always wants
-this. When you are debugging bad input, you still need to see it printed.
+## Bytes that you did not validate
 
-## UTF-16 is the Windows story
+`std.unicode.fmtUtf8` prints ill-formed input with U+FFFD in place of the bad sequences. It does not return an error. A log line almost always needs this behaviour. When you debug bad input, you still need to see the input in the output.
 
-Windows paths are UTF-16, so `utf8ToUtf16LeAlloc` and `utf16LeToUtf8Alloc` are
-the boundary every cross-platform program crosses. The unit counts differ from
-the byte counts. Because of that difference, the conversion is explicit and
-never automatic.
+## UTF-16 is for Windows
+
+Windows paths are UTF-16. Thus each cross-platform program uses `utf8ToUtf16LeAlloc` and `utf16LeToUtf8Alloc` at that boundary. The counts of UTF-16 units are different from the byte counts. Because of that difference, the conversion is explicit and never automatic.
 
 ## What std does not do
 
-There is no grapheme-cluster support, no display width, no case folding, no
-normalization, and no case mapping past ASCII. A hand-written loop cannot fill
-this gap. `é` can be one codepoint or two, and the two forms compare unequal.
-Deciding they are the same string needs the Unicode tables. Those
-tables are large, they change with each Unicode revision, and they belong in a
-library.
+The standard library has no support for grapheme clusters, no display width, no case folding, no normalization, and no case mapping above ASCII. A hand-written loop cannot solve this problem.
 
-[zg](https://codeberg.org/atman/zg) by Sam Atman is the one to reach for. It
-splits the work into separate modules (graphemes, display width, letter
-casing, case folding, normalization, word breaks, scripts, emoji) so a program
-only pays for the tables it actually uses. Codeberg is upstream, not a mirror.
+`é` can be one codepoint or two codepoints, and the two forms are not equal. To decide that they are the same string, you need the Unicode tables. Those tables are large, and they change with each Unicode revision. They belong in a library.
+
+[zg](https://codeberg.org/atman/zg) by Sam Atman is the library to use. It divides the work into separate modules: graphemes, display width, letter case, case folding, normalization, word breaks, scripts, and emoji. Thus a program pays only for the tables that it uses. Codeberg is the upstream, not a mirror.

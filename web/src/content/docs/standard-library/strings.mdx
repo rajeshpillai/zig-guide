@@ -2,31 +2,26 @@
 title: Strings
 seoTitle: "Zig Strings: []const u8, Compare, Split and Join"
 seoDescription: "Zig has no string type. A string is a byte slice, so == does not compile; std.mem.eql compares content. Search, trim, split and join in std.mem."
-description: Search, trim, split, join. All of it lives in std.mem.
+description: Search, trim, split, join. All of these functions are in std.mem.
 section: Standard Library
 order: 30
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, a string is a `[]const u8`, and searching, trimming, splitting and
-joining are free functions in `std.mem`, such as `std.mem.find`,
-`std.mem.trim` and `std.mem.splitScalar`.
+In Zig, a string is a `[]const u8`. The functions that search, trim, split and join strings are free functions in `std.mem`, for example `std.mem.find`, `std.mem.trim` and `std.mem.splitScalar`.
 
 <Playground name="03-standard-library.strings" />
 
 ## There is no string type
 
-A string is `[]const u8`: a slice of bytes. That means you cannot compare two
-strings with `==`. The compiler rejects `==` on slices. Content comparison is `std.mem.eql(u8, a, b)`. To put two strings in order,
-`std.mem.order(u8, a, b)` returns `.lt`, `.eq` or `.gt`. Everything else you would
-expect from a string class is a free function in `std.mem` that works on any
-slice type. Because they work on any slice, each call names the element type
-first.
+A string is `[]const u8`, a slice of bytes. Thus you cannot compare two strings with `==`, because the compiler rejects `==` on slices. To compare the contents, use `std.mem.eql(u8, a, b)`. To put two strings in order, use `std.mem.order(u8, a, b)`, which returns `.lt`, `.eq` or `.gt`.
+
+All the other functions that you expect from a string class are free functions in `std.mem`. They work on all slice types. For this reason, each call gives the element type first.
 
 ## `indexOf` is now `find`
 
-The search functions were renamed during the 0.17 development series:
+Zig renamed the search functions in the 0.17 development series:
 
 ```zig
 // older tutorials
@@ -38,42 +33,40 @@ std.mem.find(u8, haystack, needle);
 std.mem.findScalarLast(u8, path, '.');
 ```
 
-The whole family moved the same way: `indexOfScalar` to `findScalar`,
-`indexOfAny` to `findAny`, `indexOfPos` to `findPos`, `lastIndexOf` to
-`findLast`, `indexOfNone` to `findNone`.
+All the functions in the family changed in the same way:
 
-The old names are still there, as one-line aliases marked `Deprecated` in
-`std/mem.zig`. Code written against them compiles and behaves identically.
-Nothing fails, so a guide could teach the old spelling for another year and
-never find out.
+- `indexOfScalar` became `findScalar`.
+- `indexOfAny` became `findAny`.
+- `indexOfPos` became `findPos`.
+- `lastIndexOf` became `findLast`.
+- `indexOfNone` became `findNone`.
+
+The old names still exist, as one-line aliases with the `Deprecated` mark in `std/mem.zig`. Code that uses the old names compiles and behaves in the same way. Nothing fails. Thus a guide can teach the old names for another year, and the authors do not see the problem.
 
 ## split or tokenize
 
-The two look interchangeable until the input has consecutive delimiters:
+The two functions look interchangeable until the input has two delimiters next to each other:
 
 | Input `"a,,b"` with `,` | Yields |
 | --- | --- |
 | `splitScalar` | `"a"`, `""`, `"b"` |
 | `tokenizeScalar` | `"a"`, `"b"` |
 
-`split` preserves empty fields, which is what CSV-shaped data needs.
-`tokenize` collapses runs of delimiters, which is what whitespace needs. Both
-have `Any` and `Sequence` variants: `splitAny` treats the delimiter string as
-a set of single bytes, `splitSequence` matches it whole.
+`split` keeps empty fields. CSV-shaped data needs this behaviour. `tokenize` treats a sequence of delimiters as one delimiter. Whitespace needs this behaviour.
+
+The two functions have `Any` and `Sequence` variants:
+
+- `splitAny` uses each byte of the delimiter string as a separate delimiter.
+- `splitSequence` matches the full delimiter string.
 
 ## What allocates and what does not
 
-`trim`, `split`, and `tokenize` return views into the original bytes. They do
-not copy, so the result is only valid as long as the original. `join`, `replaceOwned`,
-and `std.ascii.allocLowerString` build new strings, so they take an allocator
-and you own the result.
+`trim`, `split`, and `tokenize` return views into the original bytes. They do not copy. Thus the result is valid only while the original is valid.
+
+`join`, `replaceOwned`, and `std.ascii.allocLowerString` make new strings. Thus they take an allocator, and you own the result.
 
 ## ASCII only
 
-`std.ascii` stops at byte 127. Case mapping beyond that needs Unicode tables
-the standard library does not ship. See the Unicode chapter for what it does
-give you.
+`std.ascii` stops at byte 127. Case mapping above byte 127 needs Unicode tables, and the standard library does not include these tables. The Unicode chapter shows what the standard library gives you.
 
-Case-insensitive search, padding a column, joining at runtime and replacing
-without an allocator are in [String
-Recipes](/learn/standard-library/string-recipes/).
+[String Recipes](/learn/standard-library/string-recipes/) shows a case-insensitive search, padding for a column, a join at runtime, and a replace without an allocator.

@@ -6,7 +6,7 @@ const expect = std.testing.expect;
 const expectEqualStrings = std.testing.expectEqualStrings;
 
 test "compare content, not pointers" {
-    // The compiler rejects == on slices, so compare content with eql.
+    // The compiler rejects == on slices. Thus compare the contents with eql.
     try expect(std.mem.eql(u8, "zig", "zig"));
     try expect(std.mem.startsWith(u8, "build.zig", "build"));
     try expect(std.mem.endsWith(u8, "build.zig", ".zig"));
@@ -21,22 +21,22 @@ test "search" {
 }
 
 test "trim strips a set of bytes, not a pattern" {
-    // The second slice is the set of bytes to remove from the ends.
+    // The second slice is the set of bytes to remove from the two ends.
     try expectEqualStrings("data", std.mem.trim(u8, "  data\n", " \n"));
     try expectEqualStrings("data  ", std.mem.trimStart(u8, "  data  ", " "));
     try expectEqualStrings("  data", std.mem.trimEnd(u8, "  data  ", " "));
 }
 
 test "split keeps empty fields, tokenize skips them" {
-    // split: one entry per delimiter. "a,,b" has three fields, one empty.
-    // Right for CSV-shaped input where an empty field means something.
+    // split: one entry for each field. "a,,b" has three fields, and one field
+    // is empty. Use split for CSV-shaped input, where an empty field has a meaning.
     var fields = std.mem.splitScalar(u8, "a,,b", ',');
     try expectEqualStrings("a", fields.next().?);
     try expectEqualStrings("", fields.next().?);
     try expectEqualStrings("b", fields.next().?);
     try expect(fields.next() == null);
 
-    // tokenize: runs of delimiters collapse. Right for whitespace.
+    // tokenize: a sequence of delimiters counts as one. Use it for whitespace.
     var words = std.mem.tokenizeScalar(u8, "  one  two ", ' ');
     try expectEqualStrings("one", words.next().?);
     try expectEqualStrings("two", words.next().?);
@@ -56,7 +56,7 @@ test "join and replace return new memory" {
 }
 
 test "case functions are ASCII-only on purpose" {
-    // Real case mapping needs Unicode tables the std library does not ship.
+    // Real case mapping needs Unicode tables. The std library does not include them.
     try expect(std.ascii.eqlIgnoreCase("Zig", "zIG"));
 
     const gpa = std.testing.allocator;

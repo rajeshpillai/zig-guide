@@ -1,15 +1,13 @@
 ---
 title: Sorting
-description: In-place sorts with an explicit comparator.
+description: In-place sorts with a comparator that you supply.
 section: Standard Library
 order: 50
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `std.mem.sort` sorts a slice in place, stably, using a less-than
-function you pass, and `std.mem.sortUnstable` is the version that gives up
-stability for less work.
+In Zig, `std.mem.sort` sorts a slice in place. The sort is stable, and it uses a less-than function that you supply. `std.mem.sortUnstable` is not stable, but it does less work.
 
 <Playground name="03-standard-library.sorting" />
 
@@ -17,31 +15,21 @@ stability for less work.
 std.mem.sort(T, slice, context, lessThanFn);
 ```
 
-For simple orderings the comparator is provided: `std.sort.asc(T)` and
-`std.sort.desc(T)`.
+For simple orders, the standard library supplies the comparator: `std.sort.asc(T)` and `std.sort.desc(T)`.
 
-The sort is in place and needs no allocator, which is why it takes a slice
-rather than a list: it rearranges what is already there. Sorting the contents
-of an `ArrayList` means sorting `list.items`.
+The sort is in place and needs no allocator. Thus it takes a slice and not a list, because it changes the order of the elements that are already there. To sort the contents of an `ArrayList`, sort `list.items`.
 
 ## The context argument
 
-That third parameter is passed to every comparison. It is `{}` (the void
-value) when the ordering depends only on the elements. It becomes useful when
-the comparison needs something external, such as sorting indices by the values
-they point at:
+The sort gives the third parameter to each comparison. The parameter is `{}` (the void value) when the order depends only on the elements. The parameter is useful when the comparison needs external data. An example is a sort of indices by the values that they point at:
 
 ```zig
 std.mem.sort(usize, &indices, values, byReferencedValue);
 ```
 
-The context parameter is what saves you from reaching for a global.
+With the context parameter, you do not need a global variable.
 
-The pattern has more uses than it first seems. Sorting an array of
-indices, rather than the data itself, gives you several orderings of one
-dataset without copying it. It is also how you sort something too large to
-move around cheaply. The context is whatever the comparator needs to do its
-job.
+The pattern has more uses than you can see at first. Sort an array of indices, and not the data. Then you get several orders of one dataset, and you do not copy the data. You can also use it to sort data that is too large to move cheaply. The context is the data that the comparator needs for its work.
 
 ## Stable or not
 
@@ -50,23 +38,17 @@ job.
 | `std.mem.sort` | yes | equal elements keep their relative order |
 | `std.mem.sortUnstable` | no | less work; prefer when elements are interchangeable |
 
-Stability matters when you sort by one key and want a previous sort by another
-key preserved within ties.
+Stability is important when you sort by one key after an earlier sort by a different key. For equal elements, stability keeps the earlier order.
 
-Multi-key ordering is built out of that. Sort by the least significant key
-first, then by the most significant, and stability preserves the earlier work
-inside each group. Sort by name, then by department, and each department's
-entries are still in name order. Do the same with `sortUnstable` and the
-second sort scrambles the first.
+A sort by more than one key uses this property. Sort by the least significant key first, then by the most significant key. Stability keeps the result of the earlier sort in each group.
 
-When elements are fully interchangeable, such as plain integers, you cannot
-see the difference stability makes. Then `sortUnstable` is the better choice:
-it does less work and uses no extra memory.
+For example, sort by name, then by department. The entries of each department are still in name order. If you do the same with `sortUnstable`, the second sort destroys the order from the first sort.
+
+Sometimes elements are fully interchangeable, for example plain integers. Then you cannot see the effect of stability. In that case `sortUnstable` is the better choice, because it does less work and uses no extra memory.
 
 ## Comparators as anonymous structs
 
-Zig has no closures, so a one-off comparator is usually written as a struct
-literal with a function in it:
+Zig has no closures. Thus a comparator that you use one time is usually a struct literal with a function in it:
 
 ```zig
 std.mem.sort([]const u8, &words, {}, struct {
@@ -76,25 +58,17 @@ std.mem.sort([]const u8, &words, {}, struct {
 }.lessThan);
 ```
 
-`std.mem.order` returns `.lt` / `.eq` / `.gt`, which is also what
-`std.sort.binarySearch` wants.
+`std.mem.order` returns `.lt`, `.eq` or `.gt`. `std.sort.binarySearch` also uses this type of result.
 
-The comparator has to be a strict "less than". Returning true for equal
-elements breaks the ordering the algorithm assumes, and the result is not
-merely mis-sorted: it can read out of bounds in an unchecked build. When
-comparing on several fields, compare the first, and only fall through to the
-second when the first is equal.
+The comparator must be a strict "less than". If it returns true for equal elements, it breaks the order that the algorithm expects. Then the result is not only in an incorrect order. In an unchecked build, the sort can read out of bounds.
 
-## Searching what you sorted
+To compare on several fields, compare the first field. Compare the second field only when the first fields are equal.
 
-`std.sort.binarySearch` finds an element in an already-sorted slice, and takes
-a three-way comparison rather than a less-than, because it needs to know which
-half to keep. `std.sort.isSorted` checks the invariant, and it is a cheap
-assertion to put in a test.
+## Search a sorted slice
 
-Two related functions help when you do not need the whole thing ordered.
-`std.sort.lowerBound` and `upperBound` find insertion points, which is what a
-"how many are below this threshold" query wants. And when you only need the
-largest few, sorting everything is the wrong algorithm; a [priority
-queue](/learn/standard-library/priority-queue/) keeps the top *k* without
-touching the rest.
+`std.sort.binarySearch` finds an element in a slice that is already sorted. It takes a three-way comparison and not a less-than, because it must know which half to keep. `std.sort.isSorted` checks the invariant. It is a cheap assertion to put in a test.
+
+Two related functions help when you do not need all the elements in order:
+
+- `std.sort.lowerBound` and `upperBound` find insertion points. A query such as "how many are below this threshold" needs these functions.
+- When you need only the few largest elements, a full sort is the wrong algorithm. A [priority queue](/learn/standard-library/priority-queue/) keeps the top *k* and does not touch the other elements.

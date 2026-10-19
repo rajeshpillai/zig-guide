@@ -1,91 +1,62 @@
 ---
 title: Bit Sets and Enum Collections
-description: A set of small integers in a word, and containers keyed by enums.
+description: A set of small integers in a word, and containers with an enum as the key.
 section: Standard Library
 order: 26
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-`std.bit_set.Static(N)` stores a set of the integers `0..N` as bits, with no
-allocator. `EnumSet`, `EnumArray` and `EnumMap` turn an enum into a set, a
-table with a value for every tag, or a map with values for some tags.
+`std.bit_set.Static(N)` stores a set of the integers `0..N` as bits, with no allocator. `EnumSet`, `EnumArray` and `EnumMap` change an enum into one of three containers:
+
+- a set
+- a table with a value for each tag
+- a map with values for some tags
 
 <Playground name="03-standard-library.bit-sets" />
 
 ## A set that fits in registers
 
-Older code calls it `std.StaticBitSet`. The bits are stored inline. Inside,
-it is a single integer when `N` is small enough, and an array of words
-otherwise. The API is the same either way: `set`, `unset`, `isSet`, `count`.
-When the size is only known at run time, use `std.bit_set.DynamicManaged`,
-which does take an allocator.
+Older code calls this type `std.StaticBitSet`. The type stores the bits inline. When `N` is small, the type is one integer. When `N` is larger, the type is an array of words. The API is the same for the two layouts: `set`, `unset`, `isSet`, `count`.
 
-Union and intersection are single instructions on the backing words, so
-`unionWith` and `intersectWith` are cheap. `findFirstSet` and the ascending
-`iterator` let you walk membership without scanning every index.
+If you know the size only at run time, use `std.bit_set.DynamicManaged`. This type takes an allocator.
 
-## Containers keyed by an enum
+Union and intersection are single instructions on the backing words. Thus `unionWith` and `intersectWith` are cheap. With `findFirstSet` and the ascending `iterator`, you can find the members without a scan of each index.
 
-Three types turn an enum into a container, and the difference is what happens
-to keys you did not set:
+## Containers with an enum as the key
 
-| Type | Holds | Missing key |
+Three types change an enum into a container. The difference between them is the result for a key that you did not set:
+
+| Type | Holds | A key that you did not set |
 | --- | --- | --- |
 | `EnumSet(E)` | membership only | not present |
-| `EnumArray(E, V)` | a `V` for every tag | cannot happen: all set at init |
+| `EnumArray(E, V)` | a `V` for each tag | not possible: init sets all keys |
 | `EnumMap(E, V)` | a `V` for some tags | `get` returns null |
 
-`EnumArray` is total by construction, so its `get` returns `V`, not `?V`, and
-the compiler forces you to supply every field at initialization. Use it for
-lookup tables that must cover the whole enum, like a duration per traffic
-light state. `EnumMap` is the partial version, for when a missing key means something.
-All three are backed by the same bit-set machinery, so they are compact and
-allocation-free.
+An `EnumArray` always has a value for each tag. Thus its `get` returns `V`, not `?V`. The compiler makes you supply each field at initialization. Use `EnumArray` for lookup tables that must cover the full enum, for example a duration for each state of a traffic light.
 
-This is the main reason to use `EnumArray`: it must cover every tag. Adding a
-tag to the enum turns every `EnumArray` initialiser into a compile error
-naming the missing case. An exhaustive `switch` gives the same guarantee, for
-the same reason. A `HashMap` keyed by the enum would have compiled and
-returned null at runtime.
+`EnumMap` is the partial version. Use it when the absence of a key has a meaning. The three types use the same bit-set machinery. Thus they are compact, and they do not allocate.
 
-## What this replaces
+The coverage of each tag is the main reason to use `EnumArray`. When you add a tag to the enum, each `EnumArray` initialiser becomes a compile error. The error gives the name of the tag that has no value. An exhaustive `switch` gives the same guarantee, for the same reason. A `HashMap` with the enum as the key compiles, and it returns null at runtime.
 
-The pattern these types replace is a `[]bool`, or an array of booleans. The
-difference is a factor of eight in memory, plus the ability to do set
-operations in one instruction instead of a loop.
+## What these types replace
 
-Concretely: tracking which of 256 opcodes are implemented costs 32 bytes as a
-bit set and 256 bytes as an array of `bool`. At that size neither matters. At
-sixty-four thousand flags, the bit set is 8 KB and sits in L1 on most
-machines. The array of `bool` is 64 KB and does not. "Is any of these set"
-goes from a scan to a handful of `or`s.
+These types replace a `[]bool`, or an array of booleans. The bit set uses eight times less memory. Also, it does a set operation in one instruction, not in a loop.
 
-The other thing it replaces is the hand-rolled `flags: u32` with named
-constants and manual `&` and `|`. That works, and it is what C does. But the
-bit positions live in comments, nothing stops you testing the wrong one, and
-printing the set means writing a formatter. `EnumSet` gives the same layout
-with names the compiler checks.
+For example, take a record of which of 256 opcodes have an implementation. As a bit set, the record costs 32 bytes. As an array of `bool`, it costs 256 bytes. At that size, the difference is not important.
 
-## Iterating
+At sixty-four thousand flags, the bit set is 8 KB, and it stays in L1 on most machines. The array of `bool` is 64 KB, and it does not stay in L1. A test for "is any of these set" changes from a scan to a small number of `or` operations.
 
-`iterator()` yields the indices that are set, in ascending order, skipping
-runs of zeroes a word at a time instead of testing every index. For a sparse
-set over a large range, the loop then takes time in proportion to the number
-of members, not to the size of the whole range.
+These types also replace a `flags: u32` that you write by hand, with named constants and manual `&` and `|`. That method works, and C uses it. But the bit positions are only in comments. Nothing stops a test of the wrong bit. To print the set, you must write a formatter. `EnumSet` gives the same layout, with names that the compiler checks.
 
-`findFirstSet` returns the lowest member. That is what a free-list allocator
-wants: the bit set is the map of what is available, and the first set bit is
-the block to hand out. `toggleAll`, `unionWith`, `intersectWith` and
-`differenceWith` complete the set algebra.
+## Iterate over a set
 
-## Sizing
+`iterator()` gives the indices of the set bits, in ascending order. It does not test each index. It skips a word of zeroes in one step. Take a sparse set over a large range. The time of the loop is proportional to the number of members, not to the size of the range.
 
-Because `std.bit_set.Static(N)` stores its bits inline, the type is copyable
-and has no pointers inside. It can live in a struct field or be returned by
-value. That makes it the default choice.
+`findFirstSet` returns the lowest member. A free-list allocator needs this operation. The bit set is the map of the available blocks, and the first set bit is the next block to give out. `toggleAll`, `unionWith`, `intersectWith` and `differenceWith` complete the set algebra.
 
-`DynamicManaged` is for when `N` is decided at run time, and it takes an
-allocator and needs a `deinit`. Before using it, ask whether you really have
-no upper bound. A static set sized to a generous maximum is usually both
-simpler and smaller than a heap allocation and a pointer.
+## Select a size
+
+`std.bit_set.Static(N)` stores its bits inline. Thus you can copy the type, and it has no pointers inside. It can be a struct field, and a function can return it by value. For these reasons, it is the default choice.
+
+`DynamicManaged` is for an `N` that the program decides at run time. It takes an allocator, and it needs a `deinit`. Before you use it, make sure that you really have no upper limit. Usually, a static set with a large maximum size is simpler and smaller than a heap allocation and a pointer.

@@ -1,25 +1,19 @@
 ---
 title: Command-Line Arguments
-description: Reading argv and the environment through std.process.
+description: How to read argv and the environment through std.process.
 section: Standard Library
 order: 43
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A Zig program reads its command-line arguments from `init.minimal.args`, the
-`std.process.Args` inside the `std.process.Init` that `main` receives, and its
-environment from `init.environ_map`. The standard library has no argument
-parser, so the flag loop is yours to write.
+`main` receives a `std.process.Init`. A Zig program reads its command-line arguments from `init.minimal.args`, which is the `std.process.Args` inside that value. The program reads its environment from `init.environ_map`. The standard library has no argument parser, thus you write the loop for the flags.
 
 <Playground name="03-standard-library.command-line" />
 
-## Where the real arguments come from
+## The source of the real arguments
 
-Your `main` receives a `std.process.Init` (the same value that carries `io`,
-`gpa`, and the arena). Its `minimal.args` field is a `std.process.Args`, and
-`iterate` turns it into an iterator whose `next` yields each argument as a
-`[:0]const u8`:
+Your `main` receives a `std.process.Init`. This is the same value that holds `io`, `gpa`, and the arena. Its `minimal.args` field is a `std.process.Args`. `iterate` changes the field into an iterator. The `next` method of the iterator gives each argument as a `[:0]const u8`:
 
 ```zig
 pub fn main(init: std.process.Init) !void {
@@ -33,72 +27,53 @@ pub fn main(init: std.process.Init) !void {
 }
 ```
 
-The snippet above uses `Args.IteratorGeneral`, which parses a fixed string
-with the identical `next` shape. That is what lets it run in your browser: the
-WASI sandbox has no argv of its own, so a real iterator would come back empty.
-The parsing logic you write is the same either way.
+The snippet above uses `Args.IteratorGeneral`. This iterator parses a fixed string, and its `next` has the identical shape. For this reason, the snippet can run in your browser. The WASI sandbox has no argv of its own, thus a real iterator returns nothing. The parse logic that you write is the same for the two iterators.
 
-## Parsing is yours to write
+## You write the parser
 
-There is no `argparse` in the standard library. For a small tool, the loop in
-the snippet is usually all you need: match a flag, and pull the next token
-when it takes a value. The first argument is always the program path, so skip
-it before parsing. Reach for a package (see the Build System section) only
-when you want subcommands, help text, and typed conversion.
+The standard library has no `argparse`. For a small tool, the loop in the snippet is usually sufficient. Compare each argument to a flag. If the flag takes a value, get the next token.
+
+The first argument is always the program path. Thus skip the first argument before you parse. Use a package (see the Build System section) only when you need subcommands, help text, and typed conversion.
 
 ## Environment variables
 
-`init.environ_map` is a `std.process.Environ.Map` built from the real
-environment. It behaves like the other maps in this section: `get` returns an
-optional, `contains` a bool. Because absence is normal for an environment
-variable, `get` returning `null` is the case you handle, not an error.
+`init.environ_map` is a `std.process.Environ.Map`. The program makes this map from the real environment. It works like the other maps in this section: `get` returns an optional, and `contains` returns a bool.
 
-## Spawning other programs
+An environment variable is often absent, and that is normal. Thus a `null` from `get` is a usual case that you handle, not an error.
 
-The reverse direction, running a subprocess, is `std.process.Child`. Like
-everything that touches the outside world it takes an `Io`, and it lets you
-wire up the child's stdin, stdout, and stderr or capture its output. It needs
-a real OS process, so it is not something the browser sandbox can demonstrate.
+## Start other programs
+
+To run a subprocess, use `std.process.Child`. Like all code that uses the outside world, `std.process.Child` takes an `Io`. You can connect the stdin, stdout, and stderr of the child, or you can capture its output. A child needs a real OS process. Thus the browser sandbox cannot show an example.
 
 ## Conventions to follow
 
-Your own loop has to follow these conventions, because users expect them:
+Users expect these conventions, thus your loop must follow them:
 
-- `-v` is a short flag, `--verbose` is its long form, and both should work.
-- `--output=file` and `--output file` are both common. Accepting only one
-  annoys somebody.
-- Combined short flags, `-abc` meaning `-a -b -c`, are expected of anything
-  resembling a Unix tool.
-- `--` ends the options. Everything after it is a positional argument even if it
-  starts with a dash, which is the only way to name a file called `-r`.
-- `-` on its own conventionally means standard input, not a file.
+- `-v` is a short flag, and `--verbose` is its long form. Both forms must work.
+- `--output=file` and `--output file` are both common. If you accept only one form, you annoy some users.
+- Users expect combined short flags in a tool similar to a Unix tool. For example, `-abc` means `-a -b -c`.
+- `--` ends the options. Each argument after it is a positional argument, also if it starts with a dash. This is the only way to give the name of a file called `-r`.
+- By convention, `-` alone means standard input, not a file.
 
-None of this is hard, and all of it is easy to leave out. Decide up front
-which of these you support, so you do not find the gap from a bug report.
+None of these conventions is difficult, and it is easy to forget each of them. Decide at the start which conventions you support. Then a bug report does not tell you about the gap.
 
-## Failing well
+## Fail correctly
 
-A command-line program's error handling is its user interface. Three rules
-cover most of it.
+The error reports of a command-line program are its user interface. Three rules cover most of it.
 
-Write errors to stderr, not stdout. Anything that might be piped into another
-program has to keep its output stream clean. A diagnostic mixed into the data
-becomes a bug in a shell pipeline that is hard to find.
+First, write errors to stderr, not to stdout. Another program can read the output through a pipe. Thus the output stream must contain only the data. A diagnostic in the data becomes a bug in a shell pipeline, and that bug is difficult to find.
 
-Exit non-zero on failure. Returning an error from `main` does that for you and
-prints the error name plus a return trace in a debug build. When you want a
-specific status, `std.process.exit(2)` sets one, and the convention is 0 for
-success, 1 for a normal failure, 2 for a usage error.
+Second, exit with a non-zero status on failure. When `main` returns an error, Zig does this for you. In a debug build, Zig also prints the error name and a return trace. To set a specific status, use `std.process.exit(2)`. By convention, 0 is success, 1 is a normal failure, and 2 is a usage error.
 
-Say what was wrong and what to do about it. "invalid argument" is a worse
-message than "unknown option --outpt (did you mean --output?)", and the
-difference is a few lines in the loop that already knows which token failed.
+Third, tell the user what was wrong and what to do. "invalid argument" is a worse message than "unknown option --outpt (did you mean --output?)". The loop already knows which token failed. Thus the better message costs only a few lines.
 
 ## Arguments are untrusted input
 
-Everything on the command line came from outside the program. A number is a
-`parseInt` that can fail, a path may not exist, a count may be enormous. Check
-the value where it enters, and convert it into a type that carries the
-constraint. The rest of the program then deals with a `u16` port rather than a
-string somebody typed. See [parsing and
+All data on the command line came from outside the program:
+
+- A number is a `parseInt` that can fail.
+- A path can be absent.
+- A count can be very large.
+
+Check the value where it enters the program. Then convert it into a type that holds the constraint. The rest of the program then uses a `u16` port and not a string that somebody typed. See [parsing and
 encoding](/learn/standard-library/parsing-and-encoding/).

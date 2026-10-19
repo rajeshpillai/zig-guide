@@ -7,39 +7,29 @@ order: 53
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, a SHA-256 digest is one call to `std.crypto.hash.sha2.Sha256.hash`,
-and secrets such as MACs and tokens are compared with
-`std.crypto.timing_safe.eql` rather than `std.mem.eql`. Passwords go through
-`std.crypto.pwhash`, not a plain hash.
+In Zig, a SHA-256 digest is one call to `std.crypto.hash.sha2.Sha256.hash`. To compare secrets such as MACs and tokens, use `std.crypto.timing_safe.eql`, not `std.mem.eql`. For passwords, use `std.crypto.pwhash`, not a plain hash.
 
 <Playground name="03-standard-library.crypto" />
 
-Zig ships a substantial crypto library in `std.crypto` (hashes, AEADs, key
-exchange, signatures) with no external dependency.
+Zig includes a large crypto library in `std.crypto`. The library has hashes, AEADs, key exchange and signatures, and it has no external dependency.
 
-In most languages, doing anything cryptographic means linking OpenSSL or
-something like it. That adds a build dependency, a version to track, and a
-large amount of C. In Zig the crypto code is in the
-standard library, written in Zig, and it cross-compiles wherever your program
-does.
+In most languages, cryptography means that you link OpenSSL or a similar library. That adds a build dependency, a version to monitor, and a large quantity of C. In Zig, the crypto code is in the standard library, and the code is Zig code. It cross-compiles to each target that your program compiles to.
 
-## Picking the right tool
+## Select the correct tool
 
-The names are dense. This table shows which problem each one solves.
+The names are difficult to learn. This table shows which problem each tool solves.
 
-| You want | Use | Not |
+| You want | Use | Do not use |
 | --- | --- | --- |
-| A fingerprint of some data | `Sha256`, `Blake3` | anything with "MD" or "SHA1" in it |
-| To prove data came from someone with the key | `hmac`, or an AEAD | a plain hash of key ++ data |
-| To encrypt *and* detect tampering | `aead` (`ChaCha20Poly1305`, `Aes256Gcm`) | a bare cipher |
-| To store a password | `pwhash` (argon2) | any of the above |
-| Fast hashing for a hash map | `std.hash` | `std.crypto` |
+| A fingerprint of some data | `Sha256`, `Blake3` | a hash with "MD" or "SHA1" in its name |
+| Proof that the data came from a person with the key | `hmac`, or an AEAD | a plain hash of key ++ data |
+| Encryption, *and* detection of changes to the data | `aead` (`ChaCha20Poly1305`, `Aes256Gcm`) | a bare cipher |
+| A stored password | `pwhash` (argon2) | any of the tools above |
+| A fast hash for a hash map | `std.hash` | `std.crypto` |
 
-The last row is easy to get wrong. `std.hash` holds non-cryptographic hashes
-like Wyhash. They are much faster, and they are what a hash table wants.
-`std.crypto.hash` is for when an attacker must not be able to find two inputs
-with the same output. A crypto hash in a hash table is slow. A
-non-cryptographic hash where an attacker is involved is unsafe.
+Be careful with the last row. `std.hash` holds non-cryptographic hashes, for example Wyhash. They are much faster, and a hash table needs them.
+
+Use `std.crypto.hash` when an attacker must not find two inputs with the same output. A crypto hash in a hash table is slow. A non-cryptographic hash is unsafe when an attacker can affect the data.
 
 ## One-shot and incremental
 
@@ -52,13 +42,9 @@ hasher.update(part2);
 hasher.final(&digest);
 ```
 
-Both produce the same digest; use the incremental form when the input arrives
-in pieces or is too large to hold at once.
+The two forms make the same digest. Use the incremental form when the input arrives in parts, or when the input is too large to hold in memory.
 
-The digest is a fixed-size array, `[32]u8` for SHA-256, and it is raw bytes
-rather than hex. Printing it needs `{x}` or `std.fmt.bytesToHex`, and
-comparing it against a hex string from elsewhere means converting one side,
-not eyeballing the two.
+The digest is an array of fixed size: `[32]u8` for SHA-256. It contains raw bytes, not hex. To print it, use `{x}` or `std.fmt.bytesToHex`. To compare it with a hex string from a different source, convert one side. Do not compare the two values by eye.
 
 ## Constant-time comparison
 
@@ -66,39 +52,29 @@ not eyeballing the two.
 std.crypto.timing_safe.eql([32]u8, a, b)
 ```
 
-`std.mem.eql` returns as soon as it finds a difference, so how long it took
-reveals how many bytes matched. For MACs, tokens, and password hashes that is
-a real attack. Use the timing-safe form for anything secret.
+`std.mem.eql` returns when it finds the first difference. Thus its duration shows how many bytes matched. For MACs, tokens, and password hashes, this is a real attack. Use the timing-safe form for all secret data.
 
-The attack is easier to believe once you see the shape of it. An attacker who
-can submit guesses and measure the response time submits tokens differing in
-the first byte. When one takes marginally longer, they have learned that byte,
-and they move to the second. That turns 256^32 guesses into 32 × 256, which is
-a few thousand. The timing-safe version compares every byte every time and
-combines the results, so the duration says nothing.
+The steps of the attack make the danger clear:
+
+1. The attacker sends tokens, and measures the time of each response.
+2. The tokens are different only in the first byte.
+3. One token takes slightly longer. Thus the attacker knows the first byte.
+4. The attacker does the same for the second byte, and then for each next byte.
+
+Thus 256^32 guesses become 32 × 256 guesses, which is a few thousand. The timing-safe version compares each byte on each call, and combines the results. Thus the duration gives no information.
 
 ## Passwords are a different problem
 
-Do not hash passwords with SHA-256. `std.crypto.pwhash` provides argon2,
-bcrypt, and scrypt, which are deliberately slow and salted. That slowness is
-the feature: it is what makes an offline guessing attack expensive.
+Do not hash passwords with SHA-256. `std.crypto.pwhash` supplies argon2, bcrypt, and scrypt. These functions are slow on purpose, and they use a salt. The slow speed is the feature: it makes an offline attack with many guesses expensive.
 
-SHA-256 is designed to be fast, and commodity hardware computes billions per
-second. A leaked table of SHA-256 password hashes is a table of passwords
-within hours. Argon2 is tuned so that one hash takes a measurable fraction of
-a second and a set amount of memory. Your login endpoint computes one hash per
-login, so the cost is small. An attacker needs millions of guesses, so the cost
-multiplies by millions.
+SHA-256 is fast by design. Usual hardware calculates billions of SHA-256 hashes each second. If a table of SHA-256 password hashes leaks, an attacker can get the passwords in some hours.
 
-The salt is the other half. It is stored next to the hash, in the clear. Its
-job is to make sure two users with the same password get different hashes, so
-one precomputed table cannot crack both. `pwhash` handles generating and
-encoding it, which is the main reason to use it rather than assembling the
-pieces.
+Argon2 has settings so that one hash takes a measurable part of a second and a set quantity of memory. Your login endpoint calculates one hash for each login, thus the cost is small. An attacker needs millions of guesses, thus the attacker's cost is millions of times larger.
 
-## What this page is not
+The salt is the other half. The program stores the salt next to the hash, in the clear. The salt makes sure that two users with the same password get different hashes. Thus one precomputed table cannot crack the two hashes. `pwhash` makes and encodes the salt. This is the main reason to use `pwhash` and not to assemble the parts yourself.
 
-Enough to design a protocol. Knowing the API for an AEAD does not tell you how
-to choose a nonce, and choosing one badly breaks the whole construction. Use a
-reviewed protocol where one exists, and treat `std.crypto` as the
-implementation of primitives rather than as advice about how to combine them.
+## The limits of this page
+
+This page does not give you enough information to design a protocol. The API for an AEAD does not tell you how to select a nonce. A bad nonce breaks the full construction.
+
+Use a reviewed protocol when one exists. `std.crypto` gives implementations of primitives. It does not tell you how to combine them.

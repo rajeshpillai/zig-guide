@@ -7,31 +7,21 @@ order: 24
 
 import Playground from "../../../components/Playground.astro";
 
-`std.PriorityQueue(T, Context, compareFn)` is Zig's binary heap. `push` and
-`pop` are O(log n), and `pop` returns the element the comparator ranks first,
-or `null` when the queue is empty.
+`std.PriorityQueue(T, Context, compareFn)` is the binary heap in Zig. `push` and `pop` are O(log n). `pop` returns the element that the comparator puts first, or `null` when the queue is empty.
 
 <Playground name="03-standard-library.priority-queue" />
 
-## The comparator lives in the type
+## The comparator is part of the type
 
-`std.PriorityQueue(T, Context, compareFn)` bakes the ordering into the type
-itself, the same shape `std.sort` uses. The function returns a
-`std.math.Order`: return `.lt` when the first argument should pop before the
-second. So the comparator reads like "which comes first," and swapping its two
-arguments turns a min-heap into a max-heap.
+`std.PriorityQueue(T, Context, compareFn)` puts the order into the type. `std.sort` uses the same shape. The function returns a `std.math.Order`. Return `.lt` when the first argument must pop before the second argument.
 
-The `Context` parameter is `void` when the comparison needs nothing external.
-Give it a real type to compare against runtime data, for example distances
-against a target you only know at run time; pass the value through
-`initContext`.
+Thus the comparator answers the question "which comes first". If you swap its two arguments, a min-heap becomes a max-heap.
 
-Putting the comparator in the type rather than in a field is what makes every
-comparison a direct call the optimiser can inline. It also means two queues
-with different orderings are different types, so one cannot be passed where
-the other is expected.
+The `Context` parameter is `void` when the comparison needs no external data. To compare against runtime data, give the parameter a real type. An example is distances to a target that you know only at runtime. Give the value to the queue through `initContext`.
 
-## It is unmanaged, like the rest
+The comparator is in the type and not in a field. Thus each comparison is a direct call that the optimiser can inline. Also, two queues with different orders are different types. You cannot use one of them where the code expects the other.
+
+## It is unmanaged, as the other containers are
 
 ```zig
 var q: std.PriorityQueue(u32, void, ascU32) = .empty;
@@ -41,45 +31,34 @@ try q.push(gpa, 30);
 const smallest = q.pop();     // ?u32
 ```
 
-`.empty` to create, allocator to every method that can allocate, and `pop`
-returns an optional so the empty case is in the type. If you find code calling
-`init(allocator, {})` with `add` and `removeOrNull`, that is the older managed
-shape. The methods are `push` and `pop` now, and the allocator is passed per
-call.
+The rules are the same as for the other containers:
 
-`pushSlice` adds several at once, and `count` and `capacity` report the
-obvious things. `update(old, new)` replaces an element and restores the heap
-order, which is what a Dijkstra implementation needs when it finds a shorter
-path to a node already in the queue.
+- Use `.empty` to create the queue.
+- Give the allocator to each method that can allocate.
+- `pop` returns an optional, thus the empty case is in the type.
 
-## What it is good at
+Older code calls `init(allocator, {})` and uses `add` and `removeOrNull`. That is the older managed shape. Now the methods are `push` and `pop`, and you give the allocator to each call.
 
-`push` and `pop` are O(log n); `peek` is O(1). Use it when you repeatedly need
-the current best element out of a changing set. A scheduler pulling the most
-urgent job. Dijkstra pulling the nearest node. A merge of sorted streams.
+`pushSlice` adds several elements in one call. `count` gives the number of elements, and `capacity` gives the size of the storage. `update(old, new)` replaces an element and makes the heap order correct again. A Dijkstra implementation needs `update` when it finds a shorter path to a node that is already in the queue.
 
-The shape to look for is interleaving. If everything is added and then
-everything is removed, sorting once is faster and simpler. The heap wins when
-pushes and pops are mixed, because it never pays to fully order the elements
-it has not reached yet.
+## When to use it
 
-It is also the right structure for "the largest k of n" when n is large. Push
-everything and keep the heap capped at k. You have then used memory
-proportional to k, rather than sorting n items to throw most of them away.
+`push` and `pop` are O(log n), and `peek` is O(1). Use the queue when you must get the current best element from a set that changes again and again. Examples:
+
+- A scheduler gets the most urgent job.
+- Dijkstra gets the nearest node.
+- A merge of sorted streams gets the next value.
+
+Look for pushes and pops that occur in a mixed sequence. If the code adds all the elements and then removes all of them, one sort is faster and simpler. The heap is better when the code mixes pushes and pops. It never spends work to put the elements in full order before it must use them.
+
+The heap is also the correct structure for "the largest k of n" when n is large. Push all the items, and keep the heap at a maximum size of k. Then the memory that you use is proportional to k. You do not sort n items and then discard most of them.
 
 ## What it is not
 
-The backing storage is a heap, not a sorted array. `iterator` walks that
-storage in heap order, which is not sorted order. Only `pop` gives you
-elements in priority sequence. If you need everything sorted once, an
-`ArrayList` plus `std.sort` is the better fit; the queue is worth using when
-insertions and removals are interleaved.
+The storage is a heap, not a sorted array. `iterator` walks that storage in heap order, and heap order is not sorted order. Only `pop` gives you the elements in priority order.
 
-It is also not stable. Two elements the comparator calls equal come out in
-whatever order the heap produces, and that order can change when unrelated
-elements are inserted. When ties need to break by insertion time, put a
-sequence number in the element and compare it as a second key.
+If you must sort all the elements one time, an `ArrayList` and `std.sort` are a better choice. Use the queue when the code mixes insertions and removals.
 
-Nor is it a queue in the FIFO sense, despite the name. If what you want is
-"first in, first out", that is a [queue](/learn/concurrency/queues/) and
-it is O(1) rather than O(log n).
+The queue is also not stable. Two elements that the comparator calls equal come out in the order that the heap gives. That order can change when you insert other elements. If ties must break by the time of insertion, put a sequence number in the element. Compare the sequence number as a second key.
+
+The name has the word "queue", but it is not a FIFO queue. If you want "first in, first out", use a [queue](/learn/concurrency/queues/). A queue is O(1) and not O(log n).

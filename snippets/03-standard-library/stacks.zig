@@ -1,5 +1,5 @@
 //! title: Stacks
-//! An ArrayList used from one end, plus the linked-list option.
+//! An ArrayList used from one end, and a fixed buffer with no allocator.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -37,7 +37,7 @@ test "pop returns null when empty" {
 }
 
 test "a bounded stack needs no allocator at all" {
-    // For a known maximum, a fixed buffer avoids the heap entirely.
+    // When you know the maximum, a fixed buffer does not use the heap.
     var buffer: [8]u32 = undefined;
     var len: usize = 0;
 

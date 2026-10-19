@@ -1,5 +1,5 @@
 //! title: JSON
-//! Parsing into real types, and serialising back out.
+//! Parse into real types, and serialise the types back to JSON.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -7,7 +7,7 @@ const expect = std.testing.expect;
 const Config = struct {
     name: []const u8,
     port: u16,
-    debug: bool = false, // defaults cover missing fields
+    debug: bool = false, // a default applies when the field is absent
 };
 
 test "parse into a struct" {
@@ -16,7 +16,7 @@ test "parse into a struct" {
         \\{ "name": "server", "port": 8080 }
     ;
 
-    // The parse result owns its allocations; deinit frees them all at once.
+    // The parse result owns its allocations. deinit frees all of them.
     const parsed = try std.json.parseFromSlice(Config, gpa, text, .{});
     defer parsed.deinit();
 
@@ -35,7 +35,8 @@ test "unknown fields are rejected by default" {
         std.json.parseFromSlice(Config, gpa, text, .{}),
     );
 
-    // Opt out when the payload may carry fields you do not model.
+    // Turn off the check when the payload can have fields that you do
+    // not model.
     const lenient = try std.json.parseFromSlice(Config, gpa, text, .{
         .ignore_unknown_fields = true,
     });

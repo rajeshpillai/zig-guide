@@ -1,11 +1,11 @@
 //! title: Iterators
-//! A convention, not an interface: any struct with `next()`.
+//! A convention, not an interface: each struct with `next()`.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
-// Zig has no Iterator trait. A type is iterable if it has `next()` returning
-// an optional, because that is what `while (it.next()) |x|` needs.
+// Zig has no Iterator trait. A type is iterable if it has a `next()` that
+// returns an optional, because `while (it.next()) |x|` needs exactly that.
 const Countdown = struct {
     remaining: u32,
 
@@ -51,12 +51,12 @@ test "tokenize on any of several separators" {
 }
 
 test "window a slice, overlapping or not" {
-    // advance < size overlaps.
+    // If advance < size, the windows overlap.
     var windows = std.mem.window(u8, "abcd", 2, 1);
     try expect(std.mem.eql(u8, windows.next().?, "ab"));
     try expect(std.mem.eql(u8, windows.next().?, "bc"));
 
-    // advance == size gives non-overlapping blocks. There is no std.mem.chunk.
+    // If advance == size, the blocks do not overlap. There is no std.mem.chunk.
     var blocks = std.mem.window(u8, "abcd", 2, 2);
     try expect(std.mem.eql(u8, blocks.next().?, "ab"));
     try expect(std.mem.eql(u8, blocks.next().?, "cd"));
