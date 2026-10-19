@@ -1,5 +1,5 @@
 //! title: Hello World
-//! Prints to stdout using the `Io` instance handed to `main`.
+//! Prints to stdout through the `Io` instance that `main` receives.
 
 const std = @import("std");
 

@@ -1,5 +1,5 @@
 //! title: Buffered Stdout
-//! Since 0.15 ("writergate") writers are buffered and you must `flush`.
+//! From 0.15 ("writergate"), writers have a buffer, and you must call `flush`.
 
 const std = @import("std");
 
@@ -11,6 +11,6 @@ pub fn main(init: std.process.Init) !void {
     try out.print("{s} v{d}.{d}\n", .{ "zig", 0, 16 });
     for (0..3) |i| try out.print("  line {d}\n", .{i});
 
-    // Nothing is written until the buffer is drained.
+    // The writer writes nothing until `flush` empties the buffer.
     try out.flush();
 }

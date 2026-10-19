@@ -1,5 +1,5 @@
 //! title: Zig 0.17
-//! The new shapes on master since 0.16.0, each one printing what it does.
+//! The new shapes on master after 0.16.0. Each shape prints what it does.
 //! deprecated: std.fmt.allocPrint
 //! deprecated: std.fmt.bufPrint
 

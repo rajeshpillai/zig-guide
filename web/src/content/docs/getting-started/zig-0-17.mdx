@@ -1,8 +1,8 @@
 ---
 title: What Changed in Zig 0.17
 seoTitle: "Zig 0.17: What Changed Since 0.16, With Working Code"
-seoDescription: "Every change between Zig 0.16.0 and 0.17 master that breaks or changes everyday code: ** removed, @typeInfo reworked, errdefer capture gone, lowercase build modes."
-description: The changes between 0.16.0 and master, checked on both compilers.
+seoDescription: "The changes between Zig 0.16.0 and 0.17 master that break or change everyday code: ** removed, @typeInfo changed, errdefer capture gone, lowercase build modes."
+description: The changes between 0.16.0 and master, checked on the two compilers.
 section: Getting Started
 order: 4
 ---
@@ -10,43 +10,25 @@ order: 4
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Zig 0.17 has not been released yet.
+Zig 0.17 is not released yet. Master calls itself `0.17.0-dev`, and this guide uses that compiler.
 
-Master calls itself `0.17.0-dev`, and that's the compiler this guide is built with.
+This page gives a list of the changes between the 0.16.0 release and master. The list includes the changes that have an effect on everyday code: the language, the parts of `std` that most programs use, and `build.zig`. The list does not include compiler internals, OS ports and changes to the linker.
 
-This page lists what changed between the 0.16.0 release and master.
+No person announced a release date, thus this page does not give a date. Master continues to change, and the list can change before 0.17.0 ships.
 
-It covers the changes you will hit in everyday code: the language, the parts of `std` most programs use, and `build.zig`.
+[Coming from an Older Zig](/learn/getting-started/coming-from-older-zig/) explains the larger changes from before 0.16, for example the buffered writers and the `Init` parameter of `main`. This page explains only the last step.
 
-It leaves out compiler internals, OS ports and changes to the linker.
+## The checks on this page
 
-Nobody has announced a release date, so this page doesn't guess one.
-
-Master keeps moving, and the list can still change before 0.17.0 ships.
-
-[Coming from an Older Zig](/learn/getting-started/coming-from-older-zig/) covers the bigger jumps from before 0.16, such as the buffered writers and `main` taking an `Init`.
-
-This page covers only the last step.
-
-## How this page was checked
-
-The program below runs every new shape on this page.
-
-CI compiles and runs it against master every night, like every other snippet here.
-
-It uses the new names throughout, so 0.16.0 refuses to compile it.
+The program below runs each new shape on this page. Each night, CI compiles and runs the program against master, as it does for each other snippet on this site. The program uses only the new names, thus 0.16.0 cannot compile it.
 
 <Playground name="01-getting-started.zig-0-17" />
 
-The "0.16.0" blocks are different.
+The "0.16.0" blocks are different. They contain 0.16.0 code, and most of them do not compile now. Thus they cannot have a Run button.
 
-They are 0.16.0 code, and most of them no longer compile, so they can't have a Run button.
+On 2026-09-25, the author compiled each of these blocks with the two compilers, `0.16.0` and `0.17.0-dev.2056`. The error messages below come from that run.
 
-We compiled each one with both compilers on 2026-09-25, against `0.16.0` and `0.17.0-dev.2056`.
-
-The error messages quoted below come from that run.
-
-## At a glance
+## Summary
 
 | What | 0.16.0 | Master | Old code |
 | --- | --- | --- | --- |
@@ -55,21 +37,19 @@ The error messages quoted below come from that run.
 | Error capture on cleanup | `errdefer \|err\|` | `catch \|err\|` and return | fails |
 | C headers | `@cImport` | `b.addTranslateC` | fails |
 | Build mode | `builtin.mode == .Debug` | `builtin.optimize == .debug` | fails on `==` |
-| Leak-checking allocator | `DebugAllocator(.{})` | `SafeAllocator` | compiles, deprecated |
+| Allocator that finds leaks | `DebugAllocator(.{})` | `SafeAllocator` | compiles, deprecated |
 | Format into memory | `std.fmt.bufPrint`, `allocPrint` | `std.mem.print`, `Allocator.print` | compiles, deprecated |
 | Empty bit set | `.initEmpty()` | `.empty` | fails |
 | Last item of a list | `getLast()` | `last()` | compiles, deprecated |
 | `containsAtLeastScalar` | count, then element | element, then count | **compiles, gives a different answer** |
-| Passing args to `zig build run` | `b.args` | `run_cmd.addPassthruArgs()` | fails |
+| Arguments to `zig build run` | `b.args` | `run_cmd.addPassthruArgs()` | fails |
 | Custom build steps | `makeFn` | a tool run with `addRunArtifact` | fails |
 
-The last column is the one to read first.
+Read the last column first:
 
-"Fails" is the easy case, because the compiler finds every one of them for you.
-
-"Compiles, deprecated" keeps working for now.
-
-The `containsAtLeastScalar` row is the one to search your code for by hand.
+- "Fails" is the easy condition, because the compiler finds each of these changes for you.
+- "Compiles, deprecated" continues to work for now.
+- For the `containsAtLeastScalar` row, you must search your code yourself.
 
 ## `**` is gone
 
@@ -80,27 +60,19 @@ const rule = "-" ** 12;
 
 <SnippetSource name="01-getting-started.zig-0-17" decl="repeat" />
 
-Master no longer reads `**` as one operator.
-
-It sees two `*` signs, so the error talks about something else:
+Master does not read `**` as one operator now. Master sees two `*` signs, thus the error is about a different problem:
 
 ```
 error: binary operator '*' has whitespace on one side, but not the other
 ```
 
-If you see that message on a line with `**`, this is the cause.
-
-`++` for joining two arrays still works.
+If you see that message on a line with `**`, the removal of `**` is the cause. `++` still joins two arrays.
 
 → [Arrays](/learn/language-basics/arrays/)
 
 ## `@typeInfo` returns parallel arrays
 
-In 0.16.0, a struct's `@typeInfo` held one `fields` array.
-
-Each element had a `name`, a `type` and a default value.
-
-Master splits that into separate arrays that line up by index.
+In 0.16.0, the `@typeInfo` of a struct had one `fields` array. Each element had a `name`, a `type` and a default value. Master divides that array into separate arrays. The arrays agree by index.
 
 ```zig
 // 0.16.0
@@ -115,7 +87,7 @@ inline for (@typeInfo(Point).@"struct".fields) |f| {
 error: no field named 'fields' in struct 'lang.Type.Struct'
 ```
 
-The same split happened to every kind of type:
+Each kind of type has the same change:
 
 | Kind | 0.16.0 | Master |
 | --- | --- | --- |
@@ -127,23 +99,15 @@ The same split happened to every kind of type:
 | function | `.params[i].type` | `.param_types[i]` |
 | error set | `.error_set.?[i].name` | `.error_set.error_names.?[i]` |
 
-A default value is now read with `field_attrs[i].defaultValue(T)`.
+To read a default value now, use `field_attrs[i].defaultValue(T)`.
 
-The helpers in `std.meta` changed too.
-
-`std.meta.fields(T)` is now a compile error that says `deprecated in favor of @typeInfo`.
-
-`std.meta.Int` and `std.meta.Tuple` are gone.
-
-Use the `@Int` and `@Tuple` builtins, which already existed in 0.16.0.
+The helpers in `std.meta` also changed. `std.meta.fields(T)` is now a compile error with the text `deprecated in favor of @typeInfo`. `std.meta.Int` and `std.meta.Tuple` are gone. Use the `@Int` and `@Tuple` builtins. These builtins were already in 0.16.0.
 
 → [Enums](/learn/language-basics/enums/) · [Inline Loops](/learn/language-basics/inline-loops/)
 
 ## `errdefer |err|` is gone
 
-`errdefer` could capture the error that was on its way out.
-
-That capture has been removed.
+In 0.16.0, `errdefer` could capture the error that the function returned. Master removed that capture.
 
 ```zig
 // 0.16.0
@@ -154,9 +118,11 @@ errdefer |err| std.log.err("parse failed: {t}", .{err});
 error: expected block or expression, found '|'
 ```
 
-Plain `errdefer` without a capture still works.
+Plain `errdefer` without a capture still works. When you need the error itself, do these steps where the error occurs:
 
-When you need the error itself, catch it where it happens, do the work, and return it:
+1. Catch the error.
+2. Do the work.
+3. Return the error.
 
 <SnippetSource name="01-getting-started.zig-0-17" decl="parseLogged" />
 
@@ -164,31 +130,25 @@ When you need the error itself, catch it where it happens, do the work, and retu
 could not parse "300": Overflow
 ```
 
-The function still returns the same error to its caller.
-
-The only change is where you write the handling.
+The function still returns the same error to its caller. The only change is the location of the code that handles the error.
 
 → [Errors](/learn/language-basics/errors/) · [Defer](/learn/language-basics/defer/)
 
 ## `@cImport` is gone
 
-`@cImport`, `@cInclude`, `@cDefine` and `@cUndef` have all been removed.
+Master removed `@cImport`, `@cInclude`, `@cDefine` and `@cUndef`.
 
 ```
 error: invalid builtin function: '@cImport'
 ```
 
-C headers are now translated by the build system.
+Now the build system translates C headers. `b.addTranslateC` reads the header, and your code imports the result as it imports each other module.
 
-`b.addTranslateC` reads the header, and your code imports the result like any other module.
-
-→ [Importing C](/learn/working-with-c/cimport/) shows the whole setup, with snippets checked against master.
+→ [Importing C](/learn/working-with-c/cimport/) shows the full configuration, with snippets that CI checks against master.
 
 ## Build modes are lowercase
 
-The four modes are now `.debug`, `.safe`, `.fast` and `.small`.
-
-The type is `std.lang.Optimize`, and you read the current one from `builtin.optimize`.
+The four modes are now `.debug`, `.safe`, `.fast` and `.small`. The type is `std.lang.Optimize`. To get the current mode, read `builtin.optimize`.
 
 ```zig
 // 0.16.0
@@ -201,33 +161,26 @@ error: no field named 'Debug' in enum 'lang.Optimize'
 
 <SnippetSource name="01-getting-started.zig-0-17" decl="describe" />
 
-Not every old spelling fails.
+Not all of the old names fail. These forms still compile, through aliases for the old names:
 
-A `switch` with `.Debug` or `.ReleaseFast` prongs still compiles, and so does `const o: std.builtin.OptimizeMode = .ReleaseFast`.
+- A `switch` with `.Debug` or `.ReleaseFast` prongs.
+- `const o: std.builtin.OptimizeMode = .ReleaseFast`.
 
-Both work through aliases kept for the rename.
+A comparison with `==` does not compile. Thus you will see the error at an `if` on the build mode.
 
-A comparison with `==` does not, so an `if` on the build mode is where you'll see the error.
+`builtin.mode` itself still works. The std source marks it for removal after 0.18.0.
 
-`builtin.mode` itself still works, and the std source marks it for removal after 0.18.0.
-
-`build.zig` has the same change: `if (optimize == .ReleaseFast)` fails, and `if (optimize == .fast)` works.
-
-On the command line, `-O fast` and `-Doptimize=fast` are accepted, and the old spellings still work.
+`build.zig` has the same change. `if (optimize == .ReleaseFast)` fails, and `if (optimize == .fast)` works. On the command line, Zig accepts `-O fast` and `-Doptimize=fast`, and the old names also still work.
 
 → [Build Modes](/learn/build-system/build-modes/)
 
 ## `std.builtin` is now `std.lang`
 
-`std.builtin.Type` is `std.lang.Type`, `std.builtin.Endian` is `std.lang.Endian`, and so on.
+`std.builtin.Type` is `std.lang.Type`, `std.builtin.Endian` is `std.lang.Endian`, and the other declarations have the same change. For now, the old name is an alias. The std source marks the alias for removal after 0.17.0.
 
-The old name is an alias for now, and the std source says it will be removed after 0.17.0.
+The target fields also moved. `builtin.os.tag` is `builtin.target.os.tag`. `builtin.cpu`, `builtin.abi` and `builtin.object_format` moved in the same way.
 
-The target fields moved too.
-
-`builtin.os.tag` is `builtin.target.os.tag`, and `builtin.cpu`, `builtin.abi` and `builtin.object_format` moved the same way.
-
-`std.gpu` was renamed to `std.spirv`, with no alias.
+`std.gpu` has the new name `std.spirv`, and there is no alias.
 
 ## Allocators and formatting
 
@@ -240,25 +193,15 @@ BufferFirstAllocator gave 16 bytes
 leaks: 0
 ```
 
-Four changes are in that function.
+That function shows four changes.
 
-`DebugAllocator` is now `SafeAllocator`.
+`DebugAllocator` is now `SafeAllocator`. It takes its backing allocator as an argument. `deinit()` returns the number of leaks, not `.ok` or `.leak`. The old name still compiles as an alias.
 
-It takes its backing allocator as an argument, and `deinit()` returns the number of leaks instead of `.ok` or `.leak`.
+`std.fmt.allocPrint` is now `Allocator.print`, thus you call `gpa.print`. `std.fmt.bufPrint` is now `std.mem.print`. The two old names are aliases.
 
-The old name still compiles as an alias.
+`std.heap.stackFallback` is gone, and there is no alias. `BufferFirstAllocator` does the same work. It gives memory from your buffer until the buffer is full. Then it gets memory from the backing allocator.
 
-`std.fmt.allocPrint` is now `Allocator.print`, so you call `gpa.print`.
-
-`std.fmt.bufPrint` is now `std.mem.print`.
-
-Both old names are aliases.
-
-`std.heap.stackFallback` is gone, with no alias.
-
-`BufferFirstAllocator` does the same job: it hands out memory from your buffer until the buffer runs out, then asks the backing allocator.
-
-A few smaller ones were removed outright:
+Master also removed some smaller declarations, with no alias:
 
 | 0.16.0 | Master |
 | --- | --- |
@@ -279,60 +222,38 @@ last: 15
 at least three sixes: true
 ```
 
-Bit sets lost `initEmpty()` and `initFull()`.
-
-Declare the type and write `.empty` or `.full`, which also worked in 0.16.0.
+Bit sets do not have `initEmpty()` and `initFull()` now. Declare the type and write `.empty` or `.full`. These two forms also worked in 0.16.0.
 
 ```
 error: struct 'bit_set.Integer(64)' has no member named 'initEmpty'
 ```
 
-The error names `Integer`, not `Static`, because a small `Static` set is an `Integer` set underneath.
+The error names `Integer`, not `Static`. The reason is that a small `Static` set is an `Integer` set internally.
 
-The bit set types were renamed as well.
+The bit set types also have new names. `StaticBitSet` is `std.bit_set.Static`, and `DynamicBitSetUnmanaged` is `std.bit_set.Dynamic`. The old names are aliases.
 
-`StaticBitSet` is `std.bit_set.Static`, and `DynamicBitSetUnmanaged` is `std.bit_set.Dynamic`.
+`std.EnumSet` also lost `initEmpty()` and `initFull()`.
 
-The old names are aliases.
+`ArrayList.getLast()` and `getLastOrNull()` are now one method, `last()`. This method returns an optional. `DoublyLinkedList.pop()` is now `popLast()`. The two old names are aliases.
 
-`std.EnumSet` lost `initEmpty()` and `initFull()` the same way.
-
-`ArrayList.getLast()` and `getLastOrNull()` are now one method, `last()`, which returns an optional.
-
-`DoublyLinkedList.pop()` is now `popLast()`.
-
-Both old names are aliases.
-
-`ArrayHashMap.setKey` no longer allocates, so it lost its allocator argument.
+`ArrayHashMap.setKey` does not allocate now. Thus it does not have an allocator argument.
 
 → [Set Operations on the Cheap](/learn/how-to/bitsets/) · [Stacks](/learn/standard-library/stacks/)
 
-## The one the compiler won't catch
+## The change that the compiler does not find
 
-`std.mem.containsAtLeastScalar` swapped its last two arguments.
-
-In 0.16.0 it took the count, then the element.
-
-On master it takes the element, then the count.
+`std.mem.containsAtLeastScalar` has its last two arguments in the opposite order now. In 0.16.0, it took the count, then the element. On master, it takes the element, then the count.
 
 ```zig
 // 0.16.0: "is there at least 1 copy of 5?"
 std.mem.containsAtLeastScalar(usize, &.{ 5, 5, 1 }, 1, 5)
 ```
 
-On 0.16.0 that call returns `true`.
+On 0.16.0, that call returns `true`. On master, the same call asks "are there at least 5 copies of 1?" and returns `false`.
 
-On master the same call asks "are there at least 5 copies of 1?" and returns `false`.
+The two arguments are integers, thus the two orders are correct types. There is no error and no deprecation warning. If your code calls this function, examine each call yourself.
 
-Both arguments are integers, so both orders type-check.
-
-There is no error and no deprecation warning.
-
-If your code calls this function, check every call by hand.
-
-In 0.16.0 there was also a `containsAtLeastScalar2` with the new order.
-
-Master removed it, so code that had already switched to it fails to compile, which is the easy case.
+In 0.16.0, there was also a `containsAtLeastScalar2` with the new order. Master removed it. Thus code that already uses `containsAtLeastScalar2` does not compile, and that is the easy condition.
 
 ## Other `std` moves
 
@@ -354,29 +275,19 @@ Master removed it, so code that had already switched to it fails to compile, whi
 @fromBackingInt(2) = green
 ```
 
-`@divCeil` divides and rounds up.
+`@divCeil` divides and rounds up. Like `@divTrunc`, it assumes that the divisor is never zero. If you want an error instead, `std.math.divCeil` is still available.
 
-Like `@divTrunc`, it assumes you never divide by zero.
+`@backingInt` reads the integer below an enum or a packed struct. `@fromBackingInt` does the opposite operation. For those types, these builtins do the work of `@intFromEnum`, `@enumFromInt` and `@bitCast`. The old builtins still work, and the master language reference marks them deprecated.
 
-`std.math.divCeil` is still there when you want an error back instead.
-
-`@backingInt` reads the integer under an enum or a packed struct.
-
-`@fromBackingInt` goes the other way.
-
-They cover what `@intFromEnum`, `@enumFromInt` and `@bitCast` did for those types.
-
-The old builtins still work, and the master language reference marks them deprecated.
-
-`@bitCast` can now also produce an enum, which 0.16.0 refused.
+`@bitCast` can now also make an enum. 0.16.0 did not accept that.
 
 ## `build.zig`
 
-A project made with `zig init` on 0.16.0 fails here, before the compiler reaches any of your own code.
+A project from `zig init` on 0.16.0 fails on master. It fails before the compiler gets to your own code.
 
 ### `zig build run -- args`
 
-The generated `build.zig` passed command-line arguments like this:
+The generated `build.zig` passed command-line arguments in this way:
 
 ```zig
 // 0.16.0
@@ -387,7 +298,7 @@ if (b.args) |args| run_cmd.addArgs(args);
 error: no field named 'args' in struct 'Build'
 ```
 
-Master's `zig init` now writes one line instead:
+On master, `zig init` writes this one line:
 
 ```zig
 run_cmd.addPassthruArgs();
@@ -397,27 +308,23 @@ run_cmd.addPassthruArgs();
 
 `b.build_root`, `b.install_path`, `b.install_prefix`, `b.cache_root`, `b.pathFromRoot()` and `b.getInstallPath()` are gone.
 
-The project root is now `b.root`.
-
-Settings like `verbose` and `release_mode` moved to `b.graph`.
+The project root is now `b.root`. Settings such as `verbose` and `release_mode` moved to `b.graph`.
 
 ### Custom steps
 
-In 0.16.0 you could write a step in Zig with `makeFn`, and it ran inside the build runner.
+In 0.16.0, you could write a step in Zig with `makeFn`, and the step ran in the build runner. That feature is gone.
 
-That's gone.
-
-`build.zig` now only describes the build.
-
-A separate process reads that description and runs the steps.
+Now `build.zig` only describes the build. A separate process reads that description and runs the steps.
 
 ```
 error: no field named 'id' in struct 'Build.Step.StepOptions'
 ```
 
-There is no direct replacement for a custom `makeFn`.
+There is no direct replacement for a custom `makeFn`. Do these steps:
 
-Write the work as a small Zig program, build it with `b.addExecutable`, and run it with `b.addRunArtifact`.
+1. Write the work as a small Zig program.
+2. Build the program with `b.addExecutable`.
+3. Run the program with `b.addRunArtifact`.
 
 ### Renames that still compile
 
@@ -433,23 +340,17 @@ Write the work as a small Zig program, build it with `b.addExecutable`, and run 
 
 ### Flags
 
-`zig build` no longer accepts `--global-cache-dir`, `--zig-lib-dir` or `--build-runner`.
+`zig build` does not accept `--global-cache-dir`, `--zig-lib-dir` or `--build-runner` now. `--zig-lib=<path>` replaces `--zig-lib-dir`. Look for these flags in your CI scripts.
 
-`--zig-lib=<path>` replaces `--zig-lib-dir`.
+### The parts that did not change
 
-Check your CI scripts for these.
-
-### What stayed the same
-
-Most of a normal `build.zig` compiles unchanged.
-
-`b.createModule`, `b.addExecutable` with `root_module`, `b.addTest`, `b.addRunArtifact`, `b.option`, `b.standardTargetOptions` and `b.standardOptimizeOption` all work as they did.
+Most of a normal `build.zig` compiles without a change. `b.createModule`, `b.addExecutable` with `root_module`, `b.addTest`, `b.addRunArtifact`, `b.option`, `b.standardTargetOptions` and `b.standardOptimizeOption` all work as before.
 
 → [Zig Build](/learn/build-system/zig-build/)
 
-## What didn't change
+## What did not change
 
-We compared the public declarations of these between 0.16.0 and master, and found no difference:
+For each item in this list, a comparison of the public declarations in 0.16.0 and in master found no difference:
 
 - `std.json`
 - `std.Thread`
@@ -457,10 +358,6 @@ We compared the public declarations of these between 0.16.0 and master, and foun
 - the reader and writer on `std.Io.File`
 - `std.process.Init`
 
-The bigger changes, such as `main` taking `std.process.Init`, the buffered writers, the filesystem moving onto `Io` and the unmanaged `ArrayList`, all happened before 0.16.0.
+The larger changes occurred before 0.16.0. For example, `main` started to take `std.process.Init`, the writers got a buffer, the filesystem functions moved onto `Io`, and `ArrayList` became unmanaged. `std.mem.find` also replaced `indexOf` before 0.16.0.
 
-So did `std.mem.find` replacing `indexOf`.
-
-If your code already builds on 0.16.0, none of those will affect you.
-
-[Coming from an Older Zig](/learn/getting-started/coming-from-older-zig/) covers them.
+If your code already builds on 0.16.0, those changes have no effect on your code. [Coming from an Older Zig](/learn/getting-started/coming-from-older-zig/) explains them.

@@ -1,12 +1,12 @@
-//! title: Printing with std.debug.print
+//! title: Print with std.debug.print
 //! norun
-//! The shape older tutorials teach, kept compiled so CI fails if master drops it.
+//! The shape that older tutorials teach. CI compiles it, thus CI fails if master removes it.
 
 const std = @import("std");
 
-// Two separate old habits in four lines: the parameterless `main`, and printing
-// through `std.debug.print`. Both still work on current master, and they are
-// independent of each other.
+// These four lines have two separate old habits: a `main` with no parameter,
+// and output through `std.debug.print`. The two habits still work on current
+// master, and each habit is independent of the other.
 pub fn main() !void {
     std.debug.print("Hello, World!\n", .{});
 }

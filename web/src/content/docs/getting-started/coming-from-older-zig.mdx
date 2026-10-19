@@ -2,30 +2,20 @@
 title: Coming from an Older Zig
 seoTitle: "Zig Migration Guide: Writergate, Io and Unmanaged Containers"
 seoDescription: "Code written for a tagged release will not build on Zig master. What changed and what it looks like now: buffered writers, Io, and unmanaged containers."
-description: What changed between the last stable releases and the master this guide targets.
+description: The changes between the last stable releases and the master that this guide uses.
 section: Getting Started
 order: 3
 ---
 
-This guide targets **Zig master**: the version in the footer is the compiler
-that actually compiled and ran every snippet here. If you are on a tagged
-release, some of this code will not build for you.
+This guide uses **Zig master**. The version in the footer is the compiler that compiled and ran each snippet on this site. If you use a tagged release, some of this code does not build for you.
 
-There is no separate guide for each release. Instead, this page gives you the
-**delta**: what changed, what it looks like now, and which chapter covers it.
-That is usually what you need.
+This site has no separate guide for each release. This page gives you the **delta**. For each change, the page shows what changed, the current shape, and the chapter that explains it. Usually, that is the information that you need.
 
-If your code already builds on 0.16.0, [What Changed in Zig
-0.17](/learn/getting-started/zig-0-17/) covers only the last step, and says
-which old code still compiles and which does not.
+If your code already builds on 0.16.0, read [What Changed in Zig 0.17](/learn/getting-started/zig-0-17/). That page explains only the last step. It also tells you which old code still compiles and which old code does not compile.
 
 <aside>
 
-**Why the old code below is not runnable.** Every other snippet on this site has
-a Run button because CI compiled and executed it. The "before" examples here
-show old code that *cannot* compile on current Zig, so they are shown as
-plain code. The "after" side is verified, in the chapter
-each one links to.
+**Why you cannot run the old code below.** Each other snippet on this site has a Run button, because CI compiled and ran it. The "before" examples on this page show old code that *cannot* compile on current Zig. Thus this page shows them as plain code. CI checks the "after" side in the chapter that each example links to.
 
 </aside>
 
@@ -44,13 +34,13 @@ each one links to.
 | `addExecutable` | source file directly | `root_module` |
 | Search in `std.mem` | `indexOf`, `indexOfScalar` | `find`, `findScalar` |
 | Format into memory | `std.fmt.bufPrint`, `allocPrint` | `std.mem.print`, `Allocator.print` |
-| Leak-checking allocator | `GeneralPurposeAllocator`, then `DebugAllocator` | `std.heap.SafeAllocator` |
+| Allocator that finds leaks | `GeneralPurposeAllocator`, then `DebugAllocator` | `std.heap.SafeAllocator` |
 
 ---
 
 ## `main` takes an argument
 
-This change breaks the first program you write.
+This change breaks the first program that you write.
 
 ```zig
 // before
@@ -66,13 +56,11 @@ pub fn main(init: std.process.Init) !void {
 }
 ```
 
-`init.io` is an **`Io` instance**: the same idea as `Allocator`, applied to
-anything that can block. There is no global stdout. Your code writes only
-through an `Io` that it was given.
+`init.io` is an **`Io` instance**. It uses the same idea as `Allocator`, and applies the idea to all operations that can block. There is no global stdout. Your code writes only through an `Io` that a caller gives to it.
 
 → [Hello World](/learn/getting-started/hello-world/)
 
-## Writers are buffered ("writergate", 0.15)
+## Writers have a buffer ("writergate", 0.15)
 
 ```zig
 // before: appeared immediately
@@ -89,9 +77,7 @@ try out.print("{d}\n", .{42});
 try out.flush();          // ← forget this and you get no output at all
 ```
 
-The buffer belongs to the *interface*, so you supply it, and nothing is
-allocated behind your back. A missing `flush` is a common problem when you
-follow an older tutorial.
+The buffer is part of the *interface*. Thus you supply the buffer, and Zig does no hidden allocation. If you use an older tutorial, a common problem is that the code does not call `flush`.
 
 → [Readers and Writers](/learn/standard-library/readers-and-writers/)
 
@@ -110,8 +96,7 @@ const file = try dir.openFile(io, "data.txt", .{});
 defer file.close(io);
 ```
 
-The rule is the same everywhere: anything that touches the disk takes the `io`
-instance.
+The rule is the same in all of the standard library: each operation on the disk takes the `io` instance.
 
 → [Filesystem](/learn/standard-library/filesystem/)
 
@@ -127,10 +112,7 @@ const dashes = "-" ** 5;
 const dashes: [5]u8 = @splat('-');
 ```
 
-The error message here is misleading. `**` is no longer a token at all. The
-compiler reports **"binary operator `*` has whitespace on one side, but not
-the other"**. That message does not tell you that `**` was removed. `++`
-concatenation is unaffected.
+The error message for this change is not clear. `**` is not a token now. The compiler reports **"binary operator `*` has whitespace on one side, but not the other"**. The message does not tell you that `**` is gone. The change has no effect on `++` concatenation.
 
 → [Arrays](/learn/language-basics/arrays/)
 
@@ -150,9 +132,7 @@ defer list.deinit(gpa);
 try list.append(gpa, 'a');
 ```
 
-You type more, but you can see the allocator at every call that can fail.
-The same change applies to `StringHashMapUnmanaged` and
-`AutoHashMapUnmanaged`.
+You type more code, but you can see the allocator at each call that can fail. The same change applies to `StringHashMapUnmanaged` and `AutoHashMapUnmanaged`.
 
 → [ArrayList](/learn/standard-library/arraylist/) · [Hash
 Maps](/learn/standard-library/hash-maps/)
@@ -173,15 +153,9 @@ try mutex.lock(io);
 defer mutex.unlock(io);
 ```
 
-`lock` can fail only because it can be *cancelled*.
+The only cause of a failure in `lock` is a *cancel* operation.
 
-Seven declarations went the same way, and none of them is deprecated or
-aliased: `Mutex`, `RwLock`, `Semaphore`, `Condition`, `ResetEvent`,
-`WaitGroup` and `Pool` are not on `std.Thread` any more. Everything that waits
-now takes an `Io` and lives under `std.Io`. `std.Thread.spawn` stayed, along
-with the four other calls that are about an OS thread. Structured concurrency
-with `io.async` and `Io.Group` is the better default, and it works on targets
-with no threads at all.
+Seven declarations had the same change, and none of them has a deprecated alias. `Mutex`, `RwLock`, `Semaphore`, `Condition`, `ResetEvent`, `WaitGroup` and `Pool` are not on `std.Thread` now. Each declaration that waits now takes an `Io` and is in `std.Io`. `std.Thread.spawn` did not move, and the four other calls for an OS thread also did not move. Structured concurrency with `io.async` and `Io.Group` is the better default. It also works on targets that have no threads.
 
 → [Coming from `std.Thread`](/learn/concurrency/coming-from-std-thread/) ·
 [Threads](/learn/concurrency/threads/) ·
@@ -206,8 +180,7 @@ pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
 }
 ```
 
-And it is **no longer invoked by `{}`**; you must ask for it with `{f}`. `{t}`
-prints an enum tag name or error name.
+Also, **`{}` does not call the `format` method now**. To call it, use `{f}`. `{t}` prints the name of an enum tag or of an error.
 
 → [Advanced Formatting](/learn/standard-library/advanced-formatting/)
 
@@ -226,9 +199,7 @@ info.field_names[2];
 info.field_values[2];
 ```
 
-This change is recent. It landed between `0.17.0-dev.644` and `dev.1441`.
-Across about 800 commits of compiler updates, it was the only break in all 53
-snippets this guide had at the time.
+This change is recent. It came into master between `0.17.0-dev.644` and `dev.1441`. At that time, this guide had 53 snippets. Across approximately 800 commits of compiler updates, this change was the only one that broke a snippet.
 
 → [Enums](/learn/language-basics/enums/)
 
@@ -262,11 +233,7 @@ const exe = b.addExecutable(.{
 
 ## Renames that still compile
 
-Everything above fails with a compile error. The changes in this group do not.
-The old names are still present as aliases marked `Deprecated` in the
-standard library source. Code that uses them builds and runs exactly as it
-did. So a tutorial, including this one, can use an old name and nothing
-reports it.
+Each change above causes a compile error. The changes in this group do not cause an error. The old names are still in the standard library source, as aliases with the `Deprecated` mark. Code that uses the old names builds and runs exactly as before. Thus a tutorial can use an old name, and no tool reports it. This rule also applies to this tutorial.
 
 ```zig
 // before
@@ -286,14 +253,9 @@ var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
 var seen: std.bit_set.Static(64) = .empty;
 ```
 
-The whole `indexOf` family moved to `find`. `Allocator.print` is the
-allocating formatter. `SafeAllocator` also changed shape: it takes its backing
-allocator as an argument, and `deinit()` returns a leak count rather than
-`.ok` or `.leak`.
+All of the `indexOf` functions moved to `find`. `Allocator.print` is the formatter that allocates. `SafeAllocator` also has a different shape. It takes its backing allocator as an argument, and `deinit()` returns a leak count, not `.ok` or `.leak`.
 
-Every snippet on this site is checked against the list of names the standard
-library marks deprecated, on the same run that compiles it. Without that
-check, this guide would not have found these renames.
+The run that compiles each snippet on this site also compares the snippet with the deprecated names in the standard library. Without that check, this guide would not find these new names.
 
 → [Strings](/learn/standard-library/strings/) ·
 [Formatting](/learn/standard-library/formatting/) ·
@@ -301,13 +263,13 @@ check, this guide would not have found these renames.
 
 ---
 
-## If you are staying on a release
+## If you stay on a release
 
-You do not need to upgrade in a hurry. A tagged release is the right choice
-for most work. This guide tracks master so that its code matches the current
-language.
+You do not need to upgrade quickly. For most work, a tagged release is the correct choice. This guide uses master, thus its code agrees with the current language.
 
-Use this page to translate: read the chapter for the concept, then change the
-syntax back to your release. The *ideas* (explicit allocators, errors as
-values, exhaustive switches, `defer`, comptime) have not changed at all. They
-are the parts to focus on.
+Use this page to translate the code:
+
+1. Read the chapter for the concept.
+2. Change the syntax to the syntax of your release.
+
+The *ideas* did not change: explicit allocators, errors as values, exhaustive switches, `defer` and comptime. Put your attention on these ideas.
