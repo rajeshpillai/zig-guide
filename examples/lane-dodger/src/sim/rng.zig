@@ -1,11 +1,12 @@
 //! A small PCG32 generator.
 //!
-//! The game carries its own random numbers rather than calling into std. The
-//! reason is reproducibility: a seed plus a list of inputs has to replay to the
-//! byte-identical run, both so the tests below can assert on exact scores and
-//! so a bad run can be reported as a seed instead of a video. std's generators
-//! are free to change their algorithm between releases, and this repo tracks
-//! Zig master. Thirty lines here buys a sequence that cannot move underneath us.
+//! The game has its own random numbers, and does not call into std. The
+//! reason is reproducibility. A seed and a list of inputs must replay to a run
+//! that is identical to the byte. Then the tests below can assert exact
+//! scores, and a player can report a bad run as a seed and not as a video. The
+//! generators in std can change their algorithm between releases, and this
+//! repo tracks Zig master. These thirty lines give a sequence that std cannot
+//! change.
 
 const std = @import("std");
 
@@ -14,8 +15,8 @@ const Rng = @This();
 state: u64,
 inc: u64,
 
-/// `stream` picks one of 2^63 distinct sequences. Two worlds with the same seed
-/// and different streams do not correlate.
+/// `stream` selects one of 2^63 different sequences. Two worlds with the same
+/// seed and different streams do not correlate.
 pub fn init(seed: u64, stream: u64) Rng {
     var self: Rng = .{ .state = 0, .inc = (stream << 1) | 1 };
     _ = self.next();
@@ -32,8 +33,8 @@ pub fn next(self: *Rng) u32 {
     return std.math.rotr(u32, xorshifted, rot);
 }
 
-/// Uniform in `[0, bound)`, rejecting the biased tail rather than taking a
-/// modulus of it. `bound` must be non-zero.
+/// Uniform in `[0, bound)`. The function rejects the biased tail, and does not
+/// take a modulus of it. `bound` must not be zero.
 pub fn below(self: *Rng, bound: u32) u32 {
     std.debug.assert(bound != 0);
     const threshold = (@as(u32, 0) -% bound) % bound;
@@ -48,8 +49,8 @@ pub fn float(self: *Rng) f32 {
     return @as(f32, @floatFromInt(self.next() >> 8)) * 0x1p-24;
 }
 
-/// True with probability `p`. Clamped, so a difficulty curve that overshoots
-/// is saturating rather than undefined.
+/// True with probability `p`. The function clamps `p`. Thus, if a difficulty
+/// curve goes past the limits, the result saturates and is not undefined.
 pub fn chance(self: *Rng, p: f32) bool {
     if (p <= 0) return false;
     if (p >= 1) return true;

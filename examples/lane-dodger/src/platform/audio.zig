@@ -1,15 +1,20 @@
 //! The audio device, and the sounds the game plays on it.
 //!
-//! Everything here is optional at runtime. A machine with no sound card, a CI
-//! runner with no ALSA, a browser tab that has not been clicked in yet: all of
-//! those leave `ready` false, and every call below turns into nothing. A game
-//! that refuses to start because it could not open a mixer is a worse game than
-//! a silent one.
+//! All of this file is optional at runtime. In these cases, `ready` stays
+//! false, and each call below does nothing:
 //!
-//! This is also the only place that knows sound exists. The simulation reports
-//! that a coin was collected; `main.zig` turns that into particles, screen
-//! shake and a note. None of them can change the outcome of the run, which is
-//! the property that made it safe to add sound to a finished game.
+//! - A machine with no sound card.
+//! - A CI runner with no ALSA.
+//! - A browser tab that nobody clicked yet.
+//!
+//! A game that does not start because it cannot open a mixer is worse than a
+//! silent game.
+//!
+//! This file is also the only place that knows that sound exists. The
+//! simulation reports that the player collected a coin. `main.zig` changes
+//! that report into particles, screen shake and a note. None of these can
+//! change the result of the run. Because of this property, it was safe to add
+//! sound to a game that was already complete.
 
 const std = @import("std");
 const rl = @import("rl");
@@ -18,14 +23,16 @@ const synth = @import("../audio/synth.zig");
 
 const Cue = enum { coin, near_miss, lane, crash, start };
 
-/// One sound plus a few aliases of it, played round robin.
+/// One sound and a few aliases of it, played round robin.
 ///
-/// raylib restarts a sound that is already playing, so a single handle can only
-/// ever make one note. Coins arrive in quick succession, and with one handle
-/// each coin sound would cut off the one before. The aliases fix this: they
-/// share the sample data and have their own playback position.
+/// If a sound already plays, raylib starts that sound again from the start.
+/// Thus one handle can make only one note at a time. Coins arrive quickly, one
+/// after the other. With one handle, each coin sound would stop the sound of
+/// the previous coin. The aliases fix this problem. They use the same sample
+/// data, and each alias has its own playback position.
 const Voice = struct {
-    /// Four is enough for the fastest run of coins the spacing allows.
+    /// Four is sufficient for the fastest series of coins that the spacing
+    /// allows.
     const max_aliases = 4;
 
     sounds: [max_aliases]rl.Sound = undefined,
@@ -41,8 +48,8 @@ const Voice = struct {
             .channels = 1,
             .data = @ptrCast(scratch.ptr),
         };
-        // raylib converts and copies the frames into its own buffer, so the
-        // scratch array is free to be reused for the next sound.
+        // raylib converts the frames and copies them into its own buffer. Thus
+        // the code can use the scratch array again for the next sound.
         var voice: Voice = .{ .count = @min(aliases, max_aliases) };
         voice.sounds[0] = rl.LoadSoundFromWave(wave);
         for (1..voice.count) |i| voice.sounds[i] = rl.LoadSoundAlias(voice.sounds[0]);
@@ -64,15 +71,16 @@ pub const Audio = struct {
     muted: bool = false,
     voices: std.EnumArray(Cue, Voice) = .initFill(.{}),
 
-    /// Opens the device and renders every sound into it. Safe to call when
-    /// there is no device; `ready` stays false and everything else no-ops.
+    /// Opens the device and renders each sound into it. You can safely call
+    /// this function when no device exists. Then `ready` stays false, and all
+    /// other calls do nothing.
     pub fn init(seed: u64) Audio {
         var audio: Audio = .{};
         rl.InitAudioDevice();
         if (!rl.IsAudioDeviceReady()) return audio;
         audio.ready = true;
 
-        // One buffer, reused: `LoadSoundFromWave` copies.
+        // One buffer for all sounds, because `LoadSoundFromWave` copies.
         var scratch: [synth.max_samples]i16 = undefined;
         const table = .{
             .{ Cue.coin, synth.coin, 4 },
@@ -91,7 +99,8 @@ pub const Audio = struct {
 
     pub fn deinit(self: *Audio) void {
         if (!self.ready) return;
-        // Aliases first: they borrow the original's sample data.
+        // Unload the aliases first, because they use the sample data of the
+        // original.
         var it = self.voices.iterator();
         while (it.next()) |entry| {
             const voice = entry.value;
@@ -114,15 +123,16 @@ pub const Audio = struct {
         self.voices.getPtr(which).play(volume, pitch);
     }
 
-    /// The one entry point the game uses. Takes the same events the particles
-    /// and the screen shake take.
+    /// The one entry point that the game uses. It takes the same events as the
+    /// particles and the screen shake.
     pub fn onEvent(self: *Audio, event: sim.Event) void {
         switch (event) {
             .coin => |c| {
-                // Each combo step raises the pitch of one recording, so there
-                // are not eight recordings.
-                // A semitone is 2^(1/12); this is a little under one per step,
-                // so a full combo lands about a fifth above where it started.
+                // Each combo step increases the pitch of the one coin sound.
+                // Thus the game does not need eight coin sounds.
+                // A semitone is 2^(1/12). This value is a little less than one
+                // semitone for each step. Thus a full combo ends approximately
+                // a fifth above its start.
                 const step = std.math.pow(f32, 2.0, @as(f32, @floatFromInt(c.combo - 1)) / 14.0);
                 self.cue(.coin, 0.85, step);
             },

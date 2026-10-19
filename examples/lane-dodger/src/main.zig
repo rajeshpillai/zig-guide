@@ -1,11 +1,14 @@
-//! Window, loop, and the wiring between them and the game.
+//! The window, the loop, and the connections between them and the game.
 //!
-//! The interesting part is the loop. Real time arrives in whatever lumps the
-//! display and the scheduler produce; the simulation only ever advances in
-//! fixed 1/120 s ticks. Leftover time is carried in an accumulator and shows up
-//! as `alpha`, which the renderer uses to draw between the last two ticks. So
-//! the game plays identically on a 60 Hz laptop and a 165 Hz monitor, and a
-//! dropped frame costs smoothness rather than changing the physics.
+//! The important part is the loop. Real time arrives in parts of different
+//! sizes, from the display and the scheduler. The simulation moves forward
+//! only in fixed ticks of 1/120 s. An accumulator keeps the leftover time, and
+//! the leftover time becomes `alpha`. The renderer uses `alpha` to draw
+//! between the last two ticks.
+//!
+//! Thus the game plays identically on a 60 Hz laptop and a 165 Hz monitor. A
+//! dropped frame makes the motion less smooth, but it does not change the
+//! physics.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -22,9 +25,10 @@ const build_options = @import("build_options");
 const config = sim.config;
 const bot = sim.bot;
 
-/// Largest real-time step we will believe. Past this the game was paused, the
-/// laptop was asleep, or a breakpoint was hit. Running ten seconds of ticks at
-/// once to catch up would kill the player before they could react.
+/// The largest real-time step that the loop accepts. A larger step means that
+/// the game was paused, the laptop was asleep, or a breakpoint stopped the
+/// program. If the loop ran ten seconds of ticks at one time to recover the
+/// time, the player would die before the player could react.
 const max_frame_time: f32 = 0.25;
 
 const Shake = struct {
@@ -47,8 +51,8 @@ const Shake = struct {
     }
 };
 
-/// Turn what the simulation reported into what the player sees and feels.
-/// Nothing here can change the outcome of the run.
+/// Change the reports from the simulation into what the player sees and
+/// feels. No code here can change the result of the run.
 fn react(
     world: *const sim.World,
     system: *particles.System,
@@ -79,7 +83,7 @@ fn react(
     };
 }
 
-/// Advance a world by whole ticks, reacting to what each one reports.
+/// Move a world forward by whole ticks, and react to the report of each tick.
 fn advance(
     world: *sim.World,
     system: *particles.System,
@@ -97,18 +101,19 @@ fn advance(
     }
 }
 
-/// Everything a frame needs, in one place.
+/// All the data that a frame needs, in one place.
 ///
-/// This is a struct instead of local variables in `main` because on the web the
-/// browser owns the loop. Emscripten calls a function once per animation frame
-/// and never returns into our code, so there is nowhere for a `while` loop to
-/// live and nothing for locals to live in. Because "one frame" is separate
-/// from "keep doing frames", the same game runs under our own loop and under
-/// the browser's.
+/// This is a struct and not local variables in `main`, because on the web the
+/// browser owns the loop. Emscripten calls a function one time for each
+/// animation frame, and never returns into this code. Thus a `while` loop has
+/// no place to live, and local variables have no place to live. "One frame" is
+/// separate from "run frames continuously". Thus the same game runs under the
+/// loop in `main` and under the loop of the browser.
 const Game = struct {
     world: sim.World,
-    /// The title screen plays itself. Same rules, same generator, driven by
-    /// the policy the tests use to prove the course is fair.
+    /// The title screen plays itself. It has the same rules and the same
+    /// generator. The policy that the tests use to prove that the course is
+    /// fair controls it.
     demo: sim.World,
     system: particles.System,
     shake: Shake,
@@ -133,7 +138,7 @@ const Game = struct {
         return fresh;
     }
 
-    /// True once the headless smoke run has done its frames.
+    /// True when the headless smoke run completed its frames.
     fn finished(self: *const Game) bool {
         const limit = build_options.auto_frames orelse return false;
         return self.frames >= limit;
@@ -150,37 +155,40 @@ const Game = struct {
 
         if (auto_frames == null) {
             self.latch.poll();
-            // Mute is a platform concern, not a rule of the game, so it never
-            // reaches the simulation.
+            // Mute is a function of the platform, and not a rule of the game.
+            // Thus mute never gets to the simulation.
             if (rl.IsKeyPressed(rl.KEY_M)) self.audio.toggleMute();
         }
         const attract = self.world.phase == .ready;
 
         if (attract) {
-            // Keep the demo alive so the title screen never stays on a crash.
+            // Keep the demo alive. Then the title screen never stays on a crash.
             if (self.demo.phase == .dead and self.demo.death_time >= config.death_hold) {
                 self.demo.start();
             }
             var demo_accumulator = self.accumulator;
             // The attract mode is silent. If the title screen played a sound
-            // every time the bot took a coin, people would mute the game.
+            // each time that the bot took a coin, people would turn off the
+            // sound of the game.
             advance(&self.demo, &self.system, &self.shake, null, &demo_accumulator, null);
-            // The player's world still needs the confirm press.
+            // The world of the player still needs the confirm press.
             while (self.accumulator >= config.tick_dt) {
                 self.accumulator -= config.tick_dt;
                 self.world.step(self.latch.take());
-                // The start chime belongs to the player's world, not the demo.
+                // The start chime is part of the world of the player, and not
+                // part of the demo.
                 for (self.world.events.slice()) |event| self.audio.onEvent(event);
                 self.world.events.reset();
             }
             if (self.world.phase == .playing) {
-                // The player's run starts: clear the demo's particles and shake.
+                // The run of the player starts. Clear the particles and the
+                // shake of the demo.
                 self.system.clear();
                 self.shake.amount = 0;
             }
         } else if (auto_frames != null and demo_mode == .crash) {
-            // Nobody steers, so the first block ends the run and the game over
-            // screen is what gets photographed.
+            // Nobody steers. Thus the first block stops the run, and the
+            // screenshot shows the game over screen.
             while (self.accumulator >= config.tick_dt) {
                 self.accumulator -= config.tick_dt;
                 self.world.step(.none);
@@ -215,8 +223,9 @@ const Game = struct {
     }
 };
 
-/// On the web this outlives `main`, which returns immediately once the browser
-/// takes over the loop. A local would be gone by the first frame.
+/// On the web, this variable lives longer than `main`. `main` returns
+/// immediately when the browser takes control of the loop. A local variable
+/// would not exist at the first frame.
 var game: Game = undefined;
 
 const web = builtin.target.os.tag == .emscripten;
@@ -231,9 +240,10 @@ fn webFrame() callconv(.c) void {
     game.frame();
 }
 
-/// Emscripten links the program with `emcc`, and emcc wants a C `main`. Zig's
-/// own `main` is reached through std's start code, which a static library does
-/// not carry, so on the web the entry point is exported by hand.
+/// Emscripten links the program with `emcc`, and emcc needs a C `main`. The
+/// start code of std calls the Zig `main`, and a static library does not
+/// contain that start code. Thus on the web, this code exports the entry point
+/// by hand.
 fn cMain(argc: c_int, argv: [*c][*c]u8) callconv(.c) c_int {
     _ = argc;
     _ = argv;
@@ -250,39 +260,39 @@ pub fn main() void {
 }
 
 fn run() void {
-    // A resizable window on the desktop, and deliberately not on the web.
+    // A resizable window on the desktop, and intentionally not on the web.
     //
-    // raylib's web resize callback sets the canvas backing store to
-    // `window.innerWidth` by `window.innerHeight`: the whole browser window,
-    // not the element the canvas occupies. On a page where the canvas
-    // is one column of a chapter, the buffer ends up several times wider than
-    // the box it is displayed in. The letterbox here then centres the field
-    // inside that buffer and CSS shrinks the result, so the game renders as a
-    // narrow strip down the middle. Leaving the flag off keeps the buffer the
-    // size `InitWindow` asked for, and the page scales it with CSS.
+    // The web resize callback of raylib sets the canvas backing store to
+    // `window.innerWidth` by `window.innerHeight`. That is the full browser
+    // window, and not the element of the canvas. On a page where the canvas is
+    // one column of a chapter, the buffer becomes several times wider than its
+    // box. The letterbox then centres the field in that buffer, and CSS makes
+    // the result smaller. Thus the game shows as a narrow strip in the middle.
+    // Without the flag, the buffer keeps the size from `InitWindow`, and the
+    // page scales it with CSS.
     const resizable = if (web) 0 else rl.FLAG_WINDOW_RESIZABLE;
     rl.SetConfigFlags(rl.FLAG_VSYNC_HINT | rl.FLAG_MSAA_4X_HINT | resizable);
     rl.SetTraceLogLevel(rl.LOG_WARNING);
     rl.InitWindow(540, 960, "Lane Dodger");
     if (!web) rl.SetWindowMinSize(320, 480);
 
-    // Entropy is the platform's job, not the simulation's. raylib seeds its
-    // own generator from the clock during InitWindow. This is the only place
-    // where a new run gets randomness. Everything after the seed is exactly
-    // reproducible.
+    // Entropy is the job of the platform, and not of the simulation. raylib
+    // seeds its own generator from the clock during InitWindow. This is the
+    // only place where a new run gets random values. After the seed, all of
+    // the run is exactly reproducible.
     //
-    // Sixteen bits at a time: raylib computes its range as `max - min + 1` in
-    // an int, so asking for the whole of i32 overflows, and signed overflow is
-    // undefined behaviour in C.
+    // Sixteen bits at a time. raylib calculates its range as `max - min + 1`
+    // in an int. Thus a request for the full range of i32 overflows, and
+    // signed overflow is undefined behaviour in C.
     var seed: u64 = 0;
     for (0..4) |_| seed = (seed << 16) | @as(u64, @intCast(rl.GetRandomValue(0, 0xFFFF)));
 
     game = .init(seed);
 
     if (web) {
-        // Hands the loop to the browser and does not come back. Passing 0 for
-        // the frame rate means "use requestAnimationFrame", which is the only
-        // way to be in step with the display.
+        // Gives the loop to the browser and does not return. A frame rate of
+        // 0 means "use requestAnimationFrame". That is the only way to stay in
+        // step with the display.
         emscripten_set_main_loop(webFrame, 0, 1);
         return;
     }

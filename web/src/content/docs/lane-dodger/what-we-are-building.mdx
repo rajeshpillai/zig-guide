@@ -1,7 +1,7 @@
 ---
 title: A Game You Can Test
 seoTitle: "A Zig raylib Game You Can Test Without Opening a Window"
-description: A three lane endless runner you can play here, and the one rule that makes the rest testable.
+description: A three lane endless runner that you can play here, and the one rule that lets you test the rest.
 section: Lane Dodger
 order: 10
 ---
@@ -9,55 +9,56 @@ order: 10
 import LaneDodger from "../../../components/LaneDodger.astro";
 import GameSource from "../../../components/GameSource.astro";
 
-Press Play. Arrow keys or `A` and `D` change lane. Space starts a run. `M`
-mutes the sound.
+Press Play. To change lane, use the arrow keys or `A` and `D`. Space starts a
+run. `M` stops the sound.
 
 <LaneDodger caption="The same build that runs on the desktop, compiled to WebAssembly." />
 
-Three lanes. Blocks come at you. Coins add to the score. The game keeps getting
-faster until you lose. A run lasts about half a minute.
+The game has three lanes. Blocks move toward you. Coins add to the score. The
+game becomes faster until you lose. A run lasts approximately half a minute.
 
-## Games are hard to test
+## Games are difficult to test
 
-A game's behaviour sits inside a loop that reads the keyboard, talks to
-a GPU and runs sixty times a second. None of those three belongs in a test.
+The behaviour of a game is inside a loop. The loop reads the keyboard, sends
+commands to a GPU and runs sixty times each second. A test must not contain any
+of these three things.
 
-So most small games have no tests. They get tuned by playing them. The
-difficulty becomes whatever the person doing the tuning could handle that week.
+Thus most small games have no tests. The developer plays the game and adjusts
+it. The difficulty becomes the level that the developer could play that week.
 
-This game has fifty-five tests, and none of them needs a window.
+This game has fifty-five tests. No test needs a window.
 
-## One rule makes that possible
+## One rule makes the tests possible
 
-The rules of the game live in one module. That module does not import raylib, a
-windowing library, or a clock. It never allocates. It turns a seed and a list of
-inputs into a list of states.
+The rules of the game are in one module. That module does not import raylib, a
+library for windows, or a clock. The module never allocates. It changes a seed
+and a list of inputs into a list of states.
 
 <GameSource file="src/sim/sim.zig" decl="Input" />
 
-Everything else reads from that state. The renderer draws the world. The audio
-plays a note when something happens. Neither one can change the outcome of a
-run.
+All other code reads from that state. The renderer draws the world. The audio
+code plays a note when an event occurs. The renderer and the audio code cannot
+change the result of a run.
 
-The [networking chapters](/learn/networking/) are built the same way, with
-protocol code that parses from a `Reader` instead of a socket. Code that only
-runs inside the whole program does not get tested.
+The [networking chapters](/learn/networking/) use the same design. Their
+protocol code parses from a `Reader` and not from a socket. If code runs only
+inside the full program, nobody tests that code.
 
-## What the tests actually do
+## What the tests do
 
-A bot plays the course for four minutes of game time at every seed. It must
-never crash. If the generator can produce a row nobody could get through, this
-test finds it. It also found a bug in the bot: it was steering into blocks whose
-centres had passed the player, but whose bodies had not.
+A bot plays the course for four minutes of game time at each seed. The bot must
+never crash. If the generator can make a row that nobody can pass, this test
+finds the row. The test also found a bug in the bot. The bot steered into blocks
+whose centres were behind the player but whose bodies were not.
 
-The same bot runs again with a delay in front of it. The delay stands in for
-human reaction time, and the test checks the average run length. A machine with
-no reaction time surviving a course says nothing about whether a person can play
-it. This is the test that caught a difficulty curve that stopped rising after
-sixty seconds. A good player never lost.
+The same bot runs again with a delay before each action. The delay is a model of
+human reaction time. The test checks the average length of a run. A machine with
+no reaction time can survive a course, but that result does not tell you if a
+person can play the course. This test found a difficulty curve that stopped its
+increase after sixty seconds. A good player never lost.
 
-A third test runs two worlds from one seed and one script of inputs, and
-compares them on every tick.
+A third test runs two worlds from one seed and one script of inputs. The test
+compares the two worlds on each tick.
 
 ## Where the code is
 
@@ -70,30 +71,31 @@ src/
   main.zig    window and the fixed timestep loop
 ```
 
-The whole project is on GitHub under
+The full project is on GitHub at
 [examples/lane-dodger](https://github.com/rajeshpillai/zig-guide/tree/main/examples/lane-dodger).
-Every code block in these chapters carries the path it came from, and that path
-links to the file. The blocks are read off disk when this page is built, so a
-chapter cannot end up describing a function that was deleted months ago.
+Each code block in these chapters shows the path of its file, and the path is a
+link to the file. The build of this page reads the blocks from disk. Thus a
+chapter cannot describe a function that somebody deleted months ago.
 
-The chapters cover the whole game, in the order you would build it.
+The chapters explain the full game, in the order that you would build it.
 
 ## The chapters
 
 - [Vendoring raylib](/learn/lane-dodger/the-build/): how to add raylib to a Zig
-  project, and why the dependency here is its C rather than its build script.
-- [The world](/learn/lane-dodger/the-world/): the field, the player's two
-  positions, and the order of work inside a tick.
+  project. Also, why this project depends on the C of raylib and not on its
+  build script.
+- [The world](/learn/lane-dodger/the-world/): the field, the two positions of
+  the player, and the order of work in a tick.
 - [The loop](/learn/lane-dodger/the-loop/): a fixed timestep, and why `step`
-  takes no `dt`.
+  has no `dt` parameter.
 - [Handles](/learn/lane-dodger/entities/): a pool of entities that never
-  allocates, referred to by handles rather than pointers.
-- [Drawing it](/learn/lane-dodger/drawing/): field units onto a window, the
-  road, and a particle system with no raylib in it.
-- [Input](/learn/lane-dodger/input/): presses latched once a frame and handed to
-  exactly one tick.
-- [Difficulty](/learn/lane-dodger/fair-by-design/): row spacing derived from
-  what is possible, not tuned until it feels right.
-- [Sound](/learn/lane-dodger/sound/): five effects, no audio files.
-- [Build it from scratch](/learn/lane-dodger/build-it/): the order to write the
-  files in, and the two points where you can stop and check.
+  allocates. The code refers to an entity by a handle and not by a pointer.
+- [Drawing it](/learn/lane-dodger/drawing/): field units on a window, the road,
+  and a particle system that does not use raylib.
+- [Input](/learn/lane-dodger/input/): the game records key presses one time in
+  each frame and gives them to exactly one tick.
+- [Difficulty](/learn/lane-dodger/fair-by-design/): the space between rows comes
+  from what is possible. Nobody adjusted it by feel.
+- [Sound](/learn/lane-dodger/sound/): five effects, and no audio files.
+- [Build it from scratch](/learn/lane-dodger/build-it/): the order in which to
+  write the files, and the two points where you can stop and check your work.

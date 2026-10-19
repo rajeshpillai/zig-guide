@@ -1,14 +1,14 @@
 //! The rules of the game, and nothing else.
 //!
 //! This module imports no graphics, no window, no clock and no allocator. It is
-//! a pure function from (seed, sequence of inputs) to (sequence of states), and
-//! that is the whole design. Every test in this file plays the real game; none
-//! of them opens a window. The renderer in `src/render` reads this state and
-//! draws it, and is free to do so at any frame rate, or not at all.
+//! a pure function from (seed, sequence of inputs) to (sequence of states).
+//! That is the full design. Each test in this file plays the real game, and no
+//! test opens a window. The renderer in `src/render` reads this state and
+//! draws it. The renderer can do this at any frame rate, or not at all.
 //!
-//! The same idea is why the networking chapters of this guide parse from a
-//! `Reader` rather than a socket. A rule you can only exercise by running the
-//! whole program is a rule you will not exercise.
+//! For the same reason, the networking chapters of this guide parse from a
+//! `Reader` and not from a socket. If you can test a rule only when you run
+//! the full program, you will not test that rule.
 
 const std = @import("std");
 
@@ -17,9 +17,9 @@ pub const Rng = @import("rng.zig");
 pub const bot = @import("bot.zig");
 const pool = @import("pool.zig");
 
-/// Re-exported because it is not specific to the simulation. The renderer
-/// keeps its particles in one of these, and particles are not part of the
-/// simulation.
+/// This module exports the pool again, because the pool is not specific to the
+/// simulation. The renderer keeps its particles in a pool, and particles are
+/// not part of the simulation.
 pub const Pool = pool.Pool;
 
 pub const Kind = enum { block, coin };
@@ -28,31 +28,32 @@ pub const Entity = struct {
     kind: Kind,
     lane: u8,
     y: f32,
-    /// Position at the end of the previous tick, so the renderer can
-    /// interpolate between ticks instead of showing the simulation's stair-step.
+    /// The position at the end of the previous tick. Thus the renderer can
+    /// interpolate between ticks, and does not show the steps of the
+    /// simulation.
     y_prev: f32,
-    /// Blocks: has this one drawn level with the player yet? Near misses are
-    /// scored once, on the tick it happens.
+    /// For blocks: true when this block became level with the player. A near
+    /// miss gives points one time, on the tick when it occurs.
     passed: bool = false,
 };
 
-/// 48 slots is comfortably more than the field can hold: the tightest row
-/// spacing at the highest speed puts about 9 rows on screen, of at most 3
-/// entities each.
+/// 48 slots are much more than the field can hold. At the smallest row
+/// spacing and the highest speed, about 9 rows are on the screen. Each row has
+/// a maximum of 3 entities.
 pub const EntityPool = pool.Pool(Entity, 48);
 pub const Handle = EntityPool.Handle;
 
 pub const Phase = enum {
-    /// Title screen, waiting for the first input.
+    /// The title screen. The game waits for the first input.
     ready,
     playing,
-    /// Crashed. The world keeps drifting so the crash looks like an event rather
-    /// than a freeze, but the player no longer steers.
+    /// After a crash. The world continues to move slowly. Thus the crash looks
+    /// like an event and not like a freeze. But the player cannot steer now.
     dead,
 };
 
 /// Edge-triggered: each field means "pressed during this tick", not "held".
-/// A held key must not slide the player across the board.
+/// A key that the player holds must not slide the player across the board.
 pub const Input = struct {
     left: bool = false,
     right: bool = false,
@@ -61,9 +62,9 @@ pub const Input = struct {
     pub const none: Input = .{};
 };
 
-/// What the simulation did this tick, for the parts of the program that react
-/// to it: particles, screen shake, sound. The simulation does not know those
-/// exist, which is why adding a sound cannot change the physics.
+/// What the simulation did in this tick. The parts of the program that react
+/// to it read this: particles, screen shake, sound. The simulation does not
+/// know that those parts exist. Thus a new sound cannot change the physics.
 pub const Event = union(enum) {
     started,
     lane_changed: struct { from: u8, to: u8 },
@@ -76,9 +77,9 @@ pub const Event = union(enum) {
 pub const EventBuffer = struct {
     items: [32]Event = undefined,
     len: usize = 0,
-    /// Events lost to a full buffer. Never nonzero in practice; asserted in
-    /// the tests, because a silently truncated event stream would show up as
-    /// occasional missing particles and nothing else.
+    /// The events that a full buffer lost. In practice, this count is always
+    /// zero. The tests assert it, because a lost event gives no error. The
+    /// only symptom would be some particles that do not appear.
     dropped: usize = 0,
 
     pub fn push(self: *EventBuffer, event: Event) void {
@@ -100,11 +101,12 @@ pub const EventBuffer = struct {
 };
 
 pub const Player = struct {
-    /// The lane being steered towards. Changes the instant a key is pressed.
+    /// The lane that the player steers toward. It changes immediately when the
+    /// player presses a key.
     lane: u8,
-    /// Where the player actually is. Slides towards the lane centre, so a
-    /// change of mind mid-slide works, and so clipping a block while crossing
-    /// is a real crash.
+    /// Where the player really is. It slides toward the lane centre. Thus the
+    /// player can change direction during a slide. Also, if the player touches
+    /// a block during a slide, the result is a real crash.
     x: f32,
     x_prev: f32,
 };
@@ -118,18 +120,18 @@ pub const World = struct {
     player: Player,
     events: EventBuffer,
 
-    /// Seconds of play in the current run.
+    /// The seconds of play in the current run.
     time: f32,
-    /// Units scrolled in the current run.
+    /// The units that the world moved in the current run.
     distance: f32,
-    /// Units until the next row is laid down.
+    /// The units until the game puts down the next row.
     to_next_row: f32,
-    /// Seconds since the crash.
+    /// The seconds since the crash.
     death_time: f32,
 
     score: u32,
-    /// Score from coins and near misses. Distance score is derived, so that
-    /// rounding cannot make the total drift.
+    /// The score from coins and near misses. The code calculates the distance
+    /// score from `distance`. Thus rounding cannot make the total drift.
     bonus: u32,
     combo: u32,
     coins: u32,
@@ -158,7 +160,7 @@ pub const World = struct {
         return w;
     }
 
-    /// Clear the field and start a run. `best` and `seed` survive.
+    /// Clear the field and start a run. `best` and `seed` do not change.
     fn resetRun(w: *World) void {
         const start_lane: u8 = config.lane_count / 2;
         w.entities.clear();
@@ -179,20 +181,21 @@ pub const World = struct {
     }
 
     pub fn start(w: *World) void {
-        // A new run advances the stream rather than reusing the seed, so the
-        // second run of a session is not a replay of the first.
+        // A new run moves the stream forward, and does not use the seed again.
+        // Thus the second run of a session is not a replay of the first run.
         w.rng = .init(w.seed, w.rng.next());
         w.resetRun();
         w.events.push(.started);
     }
 
-    /// Advance one fixed tick.
+    /// Move the world forward by one fixed tick.
     ///
-    /// There is deliberately no `dt` parameter. A variable timestep would make
-    /// the same inputs produce different runs on different machines, which
-    /// costs the replay tests below and, in a game scored on survival time,
-    /// makes a slow frame a gameplay advantage. The caller accumulates real
-    /// time and calls this a whole number of times; `src/main.zig` shows how.
+    /// This function has no `dt` parameter, on purpose. With a variable
+    /// timestep, the same inputs would give different runs on different
+    /// machines. Then the replay tests below could not work. Also, in a game
+    /// that gives points for survival time, a slow frame would become an
+    /// advantage. The caller collects real time and calls this function a
+    /// whole number of times. `src/main.zig` shows how.
     pub fn step(w: *World, input: Input) void {
         switch (w.phase) {
             .ready => if (input.confirm) w.start(),
@@ -238,8 +241,9 @@ pub const World = struct {
     fn movePlayer(w: *World, dt: f32) void {
         w.player.x_prev = w.player.x;
         const target = config.laneCenter(w.player.lane);
-        // Constant speed rather than an ease, so two lanes cost exactly twice
-        // one lane. The fairness budget in config.zig depends on that.
+        // A constant speed, and not a slow start and stop. Thus two lanes cost
+        // exactly two times one lane. The fairness budget in config.zig needs
+        // that.
         const rate = config.lane_w / config.lane_change_time;
         const delta = target - w.player.x;
         const max_move = rate * dt;
@@ -266,7 +270,8 @@ pub const World = struct {
             }
 
             if (e.y > config.despawn_y) {
-                // A coin still alive at the bottom of the field was not taken.
+                // If a coin is still alive at the bottom of the field, the
+                // player did not collect it.
                 if (e.kind == .coin) {
                     w.combo = 0;
                     w.events.push(.coin_missed);
@@ -276,7 +281,7 @@ pub const World = struct {
         }
     }
 
-    /// Movement only, for the crash animation: no scoring, no near misses.
+    /// Only movement, for the crash animation. No points and no near misses.
     fn driftEntities(w: *World) void {
         const moved = w.speed() * config.tick_dt * 0.35;
         var it = w.entities.iterator();
@@ -350,9 +355,10 @@ pub const World = struct {
     fn spawnRow(w: *World) void {
         const d = w.difficulty();
 
-        // Shuffle the lanes, then block a prefix of them. Blocking a prefix of
-        // a shuffle is what guarantees the blocked lanes are distinct, and the
-        // count is capped below `lane_count`, so a free lane always remains.
+        // Shuffle the lanes, then block a prefix of them. Because the code
+        // blocks a prefix of a shuffle, the blocked lanes are always
+        // different. The count is always less than `lane_count`. Thus a free
+        // lane always remains.
         var lanes: [config.lane_count]u8 = undefined;
         for (&lanes, 0..) |*lane, i| lane.* = @intCast(i);
         var i: usize = lanes.len;
@@ -379,10 +385,10 @@ pub const World = struct {
             });
         }
 
-        // The coin goes in a lane this row leaves open. This keeps the row
-        // fair, and it also teaches the player: when a row blocks two of three
-        // lanes, the coin is sitting in the one gap, so following the coins is
-        // the same thing as playing correctly.
+        // The coin goes in a lane that this row leaves open. This keeps the
+        // row fair, and it also teaches the player. When a row blocks two of
+        // three lanes, the coin is in the one gap. Thus, if the player follows
+        // the coins, the player plays correctly.
         const free = lanes[blocked..];
         if (free.len > 0 and w.rng.chance(config.coin_chance)) {
             const lane = free[w.rng.below(@intCast(free.len))];
@@ -395,7 +401,7 @@ pub const World = struct {
         }
     }
 
-    /// Difficulty in `[0, 1]`, from seconds survived.
+    /// The difficulty in `[0, 1]`, from the seconds of survival.
     pub fn difficulty(w: *const World) f32 {
         return difficultyAt(w.time);
     }
@@ -404,13 +410,14 @@ pub const World = struct {
         return speedAt(w.time);
     }
 
-    /// Distance to leave before the next row.
+    /// The distance before the next row.
     ///
-    /// The gap is a duration, but it is laid down as a distance, and the world
-    /// speeds up while a row is in flight. Spacing rows by the *current* speed
-    /// would therefore deliver them slightly faster than intended, and the
-    /// error is worst exactly where the margin is thinnest. So the gap is
-    /// computed from the speed the row will have when it arrives.
+    /// The gap is a duration, but the game puts it down as a distance. The
+    /// world becomes faster while a row moves down the field. If the code
+    /// spaced the rows with the *current* speed, the rows would arrive a
+    /// little faster than intended. The error is largest exactly where the
+    /// margin is smallest. Thus the code calculates the gap from the speed
+    /// that the row will have when it arrives.
     fn rowGapUnits(w: *const World) f32 {
         const flight = (config.player_y - config.spawn_y) / w.speed();
         const arrival = w.time + flight;
@@ -427,25 +434,28 @@ pub fn speedAt(time: f32) f32 {
     return lerp(config.speed_start, config.speed_max, difficultyAt(time));
 }
 
-/// Seconds a row spends level with the player, during which they cannot cross
-/// its lane. Falls as the world speeds up.
+/// The seconds that a row is level with the player. During this time, the
+/// player cannot cross the lane of the row. The value becomes smaller when the
+/// world becomes faster.
 pub fn blockedSeconds(speed: f32) f32 {
     return 2 * (config.player_half_h + config.block_half_h) / speed;
 }
 
-/// The tightest row spacing that is still winnable at this speed: enough time
-/// to cross the whole board, plus the time the current row spends sitting on
-/// top of the player. Below this the game is impossible, however open the rows
-/// look.
+/// The smallest row spacing that a player can still survive at this speed. It
+/// is the time to cross the full board, plus the time that the current row is
+/// level with the player. Below this value, the game is impossible, however
+/// open the rows look.
 pub fn fairnessFloor(speed: f32) f32 {
     return 2 * config.lane_change_time + blockedSeconds(speed);
 }
 
-/// Seconds between rows, decaying towards the floor without ever reaching it.
+/// The seconds between rows. The value decays toward the minimum, and never
+/// gets to it.
 ///
-/// Difficulty therefore rises for as long as anyone keeps playing, and the
-/// margin above unwinnable is a named constant rather than an accident of two
-/// hand-tuned endpoints agreeing with a third.
+/// Thus the difficulty increases for as long as a person plays. The margin
+/// above the impossible spacing is a named constant. It does not come by
+/// chance from two endpoints that a person selected and a third number that
+/// agrees with them.
 pub fn rowGapSeconds(speed: f32, time: f32) f32 {
     const floor = fairnessFloor(speed) + config.gap_safety;
     const decay = std.math.exp(-time / config.gap_tau);

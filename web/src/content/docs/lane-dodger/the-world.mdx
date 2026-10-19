@@ -1,60 +1,66 @@
 ---
 title: The World
 seoTitle: "A Zig Game World: Lanes, Field Units and One Fixed Tick"
-description: A field measured in its own units, a player that slides between lanes, and the order the tick does things in.
+description: A field with its own units, a player that slides between lanes, and the order of the work in a tick.
 section: Lane Dodger
 order: 30
 ---
 
 import GameSource from "../../../components/GameSource.astro";
 
-The simulation never works in pixels. It works in a fixed field of 360 by 640
-units, and the renderer maps that onto whatever the window happens to be.
+The simulation never uses pixels. It uses a fixed field of 360 by 640 units. The
+renderer maps the field onto the window, whatever the size of the window.
 
 <GameSource file="src/sim/config.zig" decl="field_w" />
 
-Two things follow. Resizing the window cannot change the difficulty, because a
-wider window does not show more road. And a test can assert that a block is at
-`y = 520` without opening anything.
+This design has two results:
 
-Three lanes divide the width, so a lane is 120 units across.
+- A change to the size of the window cannot change the difficulty, because a
+  wider window does not show more road.
+- A test can assert that a block is at `y = 520`, and the test opens nothing.
+
+The three lanes divide the width. Thus a lane is 120 units wide.
 
 <GameSource file="src/sim/config.zig" decl="laneCenter" />
 
-So `laneCenter(0)` is 60, `laneCenter(1)` is 180 and `laneCenter(2)` is 300.
-Those three numbers are the only x positions anything ever settles at.
+Thus `laneCenter(0)` is 60, `laneCenter(1)` is 180 and `laneCenter(2)` is 300.
+These three numbers are the only x positions where an object stops.
 
-The player sits at a fixed height near the bottom. The world comes to them.
+The player is at a fixed height near the bottom. The world moves toward the
+player.
 
 <GameSource file="src/sim/config.zig" decl="player_y" />
 
 ## The player has two positions
 
-One is the lane being steered towards. The other is where the body actually is.
+One position is the lane that the player steers toward. The other position is
+where the body of the player really is.
 
 <GameSource file="src/sim/sim.zig" decl="Player" />
 
-`lane` changes the instant a key is pressed. `x` slides towards the centre of
-that lane over `lane_change_time`. They disagree for about a tenth of a second
-after every press, and that gap is what gives the game its feel.
+`lane` changes immediately when the player presses a key. `x` slides toward the
+centre of that lane during `lane_change_time`. After each press, the two values
+are different for approximately a tenth of a second. That difference gives the
+game its feel.
 
 <GameSource file="src/sim/config.zig" decl="lane_change_time" />
 
-The slide runs at constant speed rather than easing in and out.
+The slide has a constant speed. It does not start slowly or stop slowly.
 
 <GameSource file="src/sim/sim.zig" decl="movePlayer" />
 
-Easing would look smoother. It would also make two lanes cost less than twice
-one lane, and [the spacing rule](/learn/lane-dodger/fair-by-design/) is built on
-two lanes costing exactly twice one. Constant speed looks less smooth, but it
-keeps the spacing rule correct.
+A slide that starts and stops slowly looks smoother. But with that slide, a move
+of two lanes costs less than two times a move of one lane.
+[The spacing rule](/learn/lane-dodger/fair-by-design/) needs a move of two lanes
+to cost exactly two times a move of one lane. A constant speed looks less smooth,
+but it keeps the spacing rule correct.
 
-Because `x` is continuous, the player really occupies the space between
-lanes. Clipping a block while sliding counts as a crash.
+Because `x` is continuous, the player really occupies the space between lanes.
+If the player touches a block during a slide, the game counts a crash.
 
-## Everything else in the field
+## The other objects in the field
 
-Blocks and coins are the same shape of thing, separated by a tag.
+Blocks and coins have the same shape of data. A tag tells them apart.
 
 <GameSource file="src/sim/sim.zig" decl="Entity" />
 
@@ -65,60 +71,67 @@ Blocks and coins are the same shape of thing, separated by a tag.
 
 <GameSource file="src/sim/sim.zig" decl="World" fields />
 
-`seed` and `best` survive a restart. Everything else is cleared. `score` is
-derived rather than accumulated: distance points are recomputed from
-`distance` every tick, and only coins and near misses add into `bonus`. Adding a
-fraction of a point a hundred and twenty times a second would drift.
+`seed` and `best` stay after a restart. The restart clears all other fields. The
+game calculates `score` again on each tick, and does not add to it. The distance
+points come from `distance` on each tick. Only coins and near misses add to
+`bonus`. If the game added a fraction of a point 120 times each second, the
+total would drift.
 
-## The order inside a tick
+## The order in a tick
 
 <GameSource file="src/sim/sim.zig" decl="stepPlaying" />
 
-Written out, a tick does this:
+A tick does these steps:
 
-1. Move the target lane if a press arrived.
-2. Slide `x` towards that lane at constant speed.
-3. Move every entity down by `speed * dt`.
-4. Score a near miss the first time a block reaches player height.
-5. Destroy anything below the field. A missed coin resets the combo.
-6. Spawn a row if the gap has been travelled.
-7. Test the player box against every entity box.
-8. Recompute the score as bonus plus distance.
+1. If a press arrived, move the target lane.
+2. Slide `x` toward that lane at a constant speed.
+3. Move each entity down by `speed * dt`.
+4. When a block first gets to the height of the player, give points for a near
+   miss.
+5. Destroy each object below the field. A coin that the player did not collect
+   sets the combo to zero.
+6. If the world moved the full gap, spawn a row.
+7. Test the box of the player against the box of each entity.
+8. Calculate the score again as the bonus plus the distance.
 
-The order is not arbitrary. The player moves first, then the world moves, then
-they are tested against each other. Testing collisions before moving the world
-would let a block pass through the player on the tick it arrives.
+The order has a reason. First the player moves, then the world moves, then the
+tick tests the player against the world. If the tick tested collisions before
+the world moved, a block could move through the player on the tick when the
+block arrives.
 
 `steer` reads the input and moves the target lane by one.
 
 <GameSource file="src/sim/sim.zig" decl="steer" />
 
-One press moves one lane, and the clamp keeps the player on the board. Pressing
-twice quickly sets a target two lanes away, and `movePlayer` slides there
+One press moves the target one lane. The clamp keeps the player on the board. Two
+fast presses set a target that is two lanes away. Then `movePlayer` slides there
 continuously.
 
 ## Collision
 
 <GameSource file="src/sim/sim.zig" decl="collide" />
 
-Both tests are axis-aligned box overlaps.
+Both tests look for an overlap of two boxes whose sides are parallel to the
+axes.
 
 <GameSource file="src/sim/sim.zig" decl="overlaps" />
 
-A block ends the run. A coin adds to the combo, pays out, and is destroyed. The
-combo is capped, and it resets when a coin falls off the bottom uncollected.
+A block stops the run. A coin adds to the combo, gives points, and the game
+destroys the coin. The combo has a maximum. The combo goes to zero when a coin
+falls off the bottom and the player did not collect it.
 
-## Randomness the game owns
+## The game has its own random numbers
 
-The world carries its own generator.
+The world has its own generator.
 
 <GameSource file="src/sim/rng.zig" decl="next" />
 
-Thirty lines of PCG32 instead of a call into the standard library. The reason is
-reproducibility. A seed plus a list of inputs has to replay to the identical
-run, so the replay test can assert on exact scores and a bad run can be reported
-as a seed rather than a video. Standard library generators are free to change
-algorithm between releases, and this guide tracks Zig master.
+The generator is thirty lines of PCG32, and not a call into the standard
+library. The reason is reproducibility. A seed and a list of inputs must replay
+to the identical run. Then the replay test can assert exact scores. A player
+can report a bad run as a seed and not as a video. The standard library can
+change the algorithm of its generators between releases, and this guide tracks
+Zig master.
 
-Each run advances the stream rather than reusing the seed, so the second game of
-a session is not a replay of the first.
+Each run moves the stream forward and does not use the seed again. Thus the
+second game of a session is not a replay of the first game.

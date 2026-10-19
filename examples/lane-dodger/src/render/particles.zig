@@ -1,13 +1,14 @@
 //! Sparks, dust and score pops.
 //!
-//! Particles are presentation. The simulation does not know they exist: it
-//! reports that a coin was collected, and this decides that means eight amber
-//! dots flying outwards. That separation is what lets the feel of the game be
-//! changed without any risk of changing the game, and it is why the whole
-//! system reads sim events and never touches sim state.
+//! Particles are presentation. The simulation does not know that particles
+//! exist. The simulation reports that the player collected a coin, and this
+//! file changes that report into ten amber dots that fly outward. Because of
+//! this separation, you can change the feel of the game with no risk to the
+//! rules of the game. For the same reason, the particle system reads sim
+//! events and never changes sim state.
 //!
-//! It reuses the same pool as the entities, which is the point of writing the
-//! pool generically. There is no allocator here either.
+//! The particle system uses the same pool as the entities. That is the reason
+//! that the pool is generic. This file also has no allocator.
 
 const std = @import("std");
 const sim = @import("sim");
@@ -21,11 +22,11 @@ pub const Particle = struct {
     y: f32,
     vx: f32,
     vy: f32,
-    /// Seconds remaining, counted down to zero.
+    /// The seconds that remain. The value decreases to zero.
     life: f32,
     life_max: f32,
     size: f32,
-    /// Units per second squared, applied to vy.
+    /// Units per second squared. The update adds it to vy.
     gravity: f32,
     color: Color,
 
@@ -54,8 +55,9 @@ pub const System = struct {
         return self.pool.live;
     }
 
-    /// Oldest wins: when the pool is full, new particles are dropped. Nobody
-    /// sees a dropped spark, but a frame that stalls to make room is visible.
+    /// The oldest particles stay. When the pool is full, the system drops new
+    /// particles. Nobody sees a spark that is not there, but a frame that stops
+    /// to make space is visible.
     fn emit(self: *System, p: Particle) void {
         _ = self.pool.create(p);
     }
@@ -100,7 +102,7 @@ pub const System = struct {
         }
     }
 
-    /// A wider, slower, heavier burst for the crash.
+    /// A wider, slower and heavier burst, for the crash.
     pub fn debris(self: *System, x: f32, y: f32) void {
         for (0..28) |_| {
             const angle = (self.rng.float() - 0.5) * std.math.pi * 1.6 - std.math.pi / 2.0;
@@ -120,7 +122,8 @@ pub const System = struct {
         }
     }
 
-    /// A short horizontal smear behind the player when they commit to a lane.
+    /// A short horizontal smear behind the player, when the player moves to a
+    /// new lane.
     pub fn dust(self: *System, x: f32, y: f32, direction: f32) void {
         for (0..6) |_| {
             const life = 0.18 + self.rng.float() * 0.16;
@@ -138,7 +141,7 @@ pub const System = struct {
         }
     }
 
-    /// Two vertical streaks marking a block that went by close.
+    /// Two vertical streaks that mark a block that moved past near the player.
     pub fn graze(self: *System, x: f32, y: f32) void {
         for (0..8) |_| {
             const life = 0.25 + self.rng.float() * 0.2;
@@ -172,7 +175,8 @@ test "a full pool drops particles instead of misbehaving" {
     for (0..200) |_| system.burst(10, 10, 16, palette.coin, 100);
     try std.testing.expect(system.live() <= System.capacity);
 
-    // And it still runs and drains cleanly afterwards.
+    // After that, the system still runs, and all the particles expire
+    // correctly.
     var elapsed: f32 = 0;
     while (elapsed < 3) : (elapsed += 1.0 / 60.0) system.update(1.0 / 60.0);
     try std.testing.expectEqual(@as(u16, 0), system.live());

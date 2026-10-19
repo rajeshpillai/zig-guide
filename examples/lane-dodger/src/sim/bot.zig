@@ -1,53 +1,57 @@
 //! A policy that plays the game.
 //!
-//! This exists for two reasons. It drives the attract mode behind the title
-//! screen, so the game demonstrates itself. More importantly it is how the
-//! course generator is tested: a level designer can promise that every row
-//! leaves a gap, but the promise that matters is that a player can actually
-//! reach the gap in the time available, at every speed on the ramp. That is a
-//! claim about four constants interacting, and the honest way to check it is to
-//! play the game for an hour and see. The tests do, at every seed, in about a
-//! second.
+//! The bot has two purposes. First, it controls the attract mode behind the
+//! title screen, thus the game shows itself. Second, and more important, the
+//! tests use the bot to test the course generator. A level designer can
+//! promise that each row leaves a gap. But the important promise is that a
+//! player can really get to the gap in the available time, at each speed on
+//! the ramp.
 //!
-//! The bot reasons about where the player physically *is*, never about which
-//! lane they are steering towards. Those differ for `lane_change_time` after
-//! every press, and a bot that confuses them will happily slide its body
-//! through a block it believes it has already dodged.
+//! That is a claim about how four constants act together. The correct way to
+//! check it is to play the game for an hour and see the result. The tests do
+//! this at each seed, in about a second.
+//!
+//! The bot uses the physical position of the player, and never the lane that
+//! the player steers toward. The two are different for `lane_change_time`
+//! after each press. If a bot confuses them, the bot slides its body through a
+//! block that it thinks it already passed.
 
 const std = @import("std");
 const sim = @import("sim.zig");
 const config = @import("config.zig");
 
-/// Vertical half-span within which a block and the player overlap. A block is
-/// dangerous from `+reach` ahead of the player until `-reach` behind: using
-/// only the block's own half-height here is the off-by-one-body bug that the
-/// fairness test found.
+/// The vertical half-span in which a block and the player overlap. A block is
+/// dangerous from `+reach` in front of the player to `-reach` behind the
+/// player. If this value used only the half-height of the block, the result
+/// would be the off-by-one-body bug that the fairness test found.
 const reach = config.player_half_h + config.block_half_h;
 
-/// Horizontal overlap between player and block, in lanes. A slide from lane 0
-/// to lane 2 clips anything sitting within this much of the path.
+/// The horizontal overlap between the player and a block, in lanes. A slide
+/// from lane 0 to lane 2 touches each object that is this near to the path.
 const sweep = (config.player_half_w + config.block_half_w) / config.lane_w;
 
-/// Refuse a crossing that would finish this close to the deadline.
+/// Do not start a move across the board that would end this near to the
+/// deadline.
 const margin = config.lane_change_time * 0.3;
 
 const max_rows = 16;
 
 const Row = struct {
-    /// Rows are laid down at a single y and advance together, so y identifies
-    /// a row exactly.
+    /// The game puts down a row at one y, and the blocks of a row move
+    /// together. Thus y identifies a row exactly.
     y: f32,
-    /// Seconds until this row begins to overlap the player.
+    /// The seconds until this row starts to overlap the player.
     seconds: f32,
     blocked: [config.lane_count]bool,
     coin_lane: ?u8,
 };
 
 const View = struct {
-    /// Lanes with a block level with the player right now. Entering one is an
-    /// immediate crash, and crossing one is the same crash a moment later.
+    /// The lanes that have a block level with the player now. A move into one
+    /// of these lanes is an immediate crash. A move across one of these lanes
+    /// is the same crash a moment later.
     blocked_now: [config.lane_count]bool,
-    /// The next row that has not arrived yet, and the one after it.
+    /// The next row that did not arrive yet, and the row after it.
     next: ?Row,
     after: ?Row,
 };
@@ -97,8 +101,8 @@ fn look(w: *const sim.World) View {
         }
     }
 
-    // The two soonest rows are all the lookahead this game needs: the spacing
-    // rule guarantees the board can be crossed between any two of them.
+    // This game needs to look ahead only two rows. The spacing rule makes sure
+    // that the player can cross the board between any two rows.
     for (rows[0..count]) |row| {
         if (view.next == null or row.seconds < view.next.?.seconds) {
             view.after = view.next;
@@ -110,12 +114,14 @@ fn look(w: *const sim.World) View {
     return view;
 }
 
-/// Where the player's body actually is, as a continuous lane coordinate.
+/// The real position of the body of the player, as a continuous lane
+/// coordinate.
 fn position(w: *const sim.World) f32 {
     return w.player.x / config.lane_w - 0.5;
 }
 
-/// Would sliding from `from` to `to` clip a block that is level with us?
+/// True if a slide from `from` to `to` touches a block that is level with the
+/// player.
 fn pathClear(from: f32, to: f32, blocked_now: [config.lane_count]bool) bool {
     const lo = @min(from, to) - sweep;
     const hi = @max(from, to) + sweep;
@@ -127,7 +133,7 @@ fn pathClear(from: f32, to: f32, blocked_now: [config.lane_count]bool) bool {
     return true;
 }
 
-/// The lane the bot wants to be in.
+/// The lane where the bot wants to be.
 pub fn targetLane(w: *const sim.World) u8 {
     const current = w.player.lane;
     const pos = position(w);
@@ -153,14 +159,15 @@ pub fn targetLane(w: *const sim.World) u8 {
         }
 
         var cost = distance;
-        // Prefer somewhere that is still good one row later, so the bot is not
-        // forever solving the problem it just created.
+        // Prefer a lane that is still good one row later. Then the bot does
+        // not always have to solve the problem that it just made.
         if (view.after) |after| {
             if (after.blocked[lane]) cost += 1.5;
         }
-        // Take a coin when it is on the way and there is comfortable time.
-        // The bot limits how hard it chases coins: a missed dodge ends the run,
-        // and a missed coin only costs a multiplier.
+        // Take a coin when the coin is on the path and the time is
+        // sufficient. The bot limits its effort for coins. A dodge that fails
+        // stops the run, but a coin that the bot does not get costs only a
+        // multiplier.
         if (view.next) |next| {
             if (next.coin_lane == lane and next.seconds > travel * 2) cost -= 0.5;
         }
@@ -170,15 +177,15 @@ pub fn targetLane(w: *const sim.World) u8 {
         }
     }
 
-    // Nothing safe is reachable. The spacing rule in config.zig is supposed to
-    // make this impossible and the tests check that. But if the policy
-    // panicked here, a tuning mistake would crash the program.
+    // The bot cannot get to a safe lane. The spacing rule in config.zig must
+    // make this impossible, and the tests check that. But if the policy
+    // panicked here, a bad adjustment would crash the program.
     return best orelse current;
 }
 
-/// One tick of input. Lane changes are edge-triggered and take effect
-/// immediately, so stepping one lane per tick converges in a few ticks and the
-/// slide itself is what takes real time.
+/// One tick of input. Lane changes are edge-triggered and have an effect
+/// immediately. Thus a step of one lane in each tick gets to the target in a
+/// few ticks. The slide itself is the part that takes real time.
 pub fn play(w: *const sim.World) sim.Input {
     switch (w.phase) {
         .ready => return .{ .confirm = true },
@@ -245,9 +252,10 @@ test "the bot refuses a move it cannot finish in time" {
 }
 
 test "the bot will not slide into a block that is still level with it" {
-    // The regression that the fairness test caught: a block whose centre is
-    // behind the player's centre can still be overlapping it. Treating it as
-    // passed makes the bot steer straight into its side.
+    // The regression that the fairness test found. A block whose centre is
+    // behind the centre of the player can still overlap the player. If the bot
+    // thinks that the block is behind it, the bot steers into the side of the
+    // block.
     var w: sim.World = .init(1);
     w.start();
     w.entities.clear();
@@ -255,7 +263,7 @@ test "the bot will not slide into a block that is still level with it" {
     _ = w.entities.create(.{
         .kind = .block,
         .lane = beside,
-        // Behind the player's centre, but well inside the overlap band.
+        // Behind the centre of the player, but well inside the overlap band.
         .y = config.player_y + reach * 0.8,
         .y_prev = config.player_y + reach * 0.8,
     });
@@ -266,8 +274,9 @@ test "the bot will not cross a lane that is level with a block" {
     var w: sim.World = .init(1);
     w.start();
     w.entities.clear();
-    // Player in lane 0, middle lane occupied right now, far lane empty.
-    // Reaching it means sliding through the block.
+    // The player is in lane 0. A block is in the middle lane now. The far lane
+    // is empty. To get to the far lane, the player must slide through the
+    // block.
     w.player = .{ .lane = 0, .x = config.laneCenter(0), .x_prev = config.laneCenter(0) };
     _ = w.entities.create(.{
         .kind = .block,

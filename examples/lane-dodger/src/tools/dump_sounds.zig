@@ -1,9 +1,10 @@
-//! Write the game's sound effects out as `.wav` files, for listening to
-//! without launching the game.
+//! Write the sound effects of the game to `.wav` files. Then you can listen to
+//! them, and you do not have to start the game.
 //!
-//! Tuning a sound by rebuilding a game, starting a run and crashing into a
-//! block on purpose is a slow loop. `zig build sounds` writes them to
-//! `zig-out/sounds/` instead, where any player will open them.
+//! To adjust a sound in the game, you must build the game again, start a run
+//! and hit a block on purpose. That takes a long time for each change. Thus
+//! `zig build sounds` writes the sounds to `zig-out/sounds/`, where any audio
+//! player can open them.
 
 const std = @import("std");
 const synth = @import("synth");
@@ -25,9 +26,9 @@ pub fn main(init: std.process.Init) !void {
     var stdout = std.Io.File.stdout().writerStreaming(io, &out_buffer);
     const out = &stdout.interface;
 
-    // The build passes the output directory, so the step is cache-correct:
-    // the files are an output of the run, and nothing is written into the
-    // source tree.
+    // The build gives the output directory to the program. Thus the step is
+    // correct for the cache. The files are an output of the run, and the
+    // program writes nothing into the source tree.
     var args = init.minimal.args.iterate();
     _ = args.next();
     const target_dir = args.next() orelse return error.MissingOutputDirectory;

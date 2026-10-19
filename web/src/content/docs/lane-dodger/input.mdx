@@ -1,65 +1,70 @@
 ---
 title: Input
 seoTitle: "raylib Input in Zig: Latching a Key Press to Exactly One Tick"
-description: Presses latched once per frame and handed to exactly one tick, and why a held key must not cross the board.
-seoDescription: "Reading raylib key presses in Zig and latching each one to exactly one simulation tick, so a held key cannot cross the board and a press is never handed to two ticks."
+description: The game latches presses one time in each frame and gives each press to exactly one tick. A held key must not cross the board.
+seoDescription: "How to read raylib key presses in Zig and latch each press to exactly one tick. A held key cannot cross the board, and no press goes to two ticks."
 section: Lane Dodger
 order: 70
 ---
 
 import GameSource from "../../../components/GameSource.astro";
 
-The simulation runs at a fixed 120 Hz. The window runs at whatever the display
-does. Those do not divide evenly, so a rendered frame may owe the simulation
-zero ticks, or one, or three.
+The simulation runs at a fixed 120 Hz. The window runs at the rate of the
+display. The two rates do not divide evenly. Thus a rendered frame can need zero
+ticks, one tick, or three ticks from the simulation.
 
-A press has to reach exactly one of them. If a press is dropped, the game
-ignores the player. If it is repeated, one tap crosses three lanes.
+A press must get to exactly one of these ticks:
+
+- If the game drops a press, the game ignores the player.
+- If the game gives a press to more than one tick, one tap moves the player
+  across three lanes.
 
 <GameSource file="src/platform/input.zig" decl="Latch" />
 
-`poll` runs once per rendered frame, before the tick loop. `take` hands the
-latched presses to one tick and clears them.
+`poll` runs one time in each rendered frame, before the tick loop. `take` gives
+the latched presses to one tick and clears them.
 
 ## Why the fields are booleans and not key states
 
-`IsKeyPressed` is true on the frame a key goes down and false while it is held.
-That is the behaviour the game wants. A held `D` should move one lane, not slide
-across the board at a hundred lanes a second.
+`IsKeyPressed` is true on the frame when a key goes down. It is false while the
+key stays down. The game needs that behaviour. If the player holds `D`, the
+player must move one lane. The player must not slide across the board at a
+hundred lanes each second.
 
-The simulation says so in its own type:
+The simulation states this rule in its own type:
 
 <GameSource file="src/sim/sim.zig" decl="Input" />
 
-And a test holds the compiler to it:
+A test checks the rule:
 
 <GameSource file="src/sim/tests.zig" decl="a held direction moves exactly one lane" />
 
-## A frame that owes no ticks
+## A frame that needs no ticks
 
-If a frame produces no ticks, `take` is never called and the latch keeps its
-presses for the next frame. A tap between two ticks is remembered rather than
-lost.
+If a frame makes no ticks, nothing calls `take`. The latch keeps its presses for
+the next frame. Thus the game remembers a tap between two ticks, and does not
+lose it.
 
-If a frame produces three ticks, the first gets the press and the other two get
-nothing. This works because `take` clears the latch.
+If a frame makes three ticks, the first tick gets the press. The other two ticks
+get nothing. This works because `take` clears the latch.
 
 ## Touch
 
-The same poll reads the mouse, and splits the window down the middle.
+The same poll reads the mouse. It divides the window into a left half and a
+right half.
 
-Tapping the left half steers left, tapping the right half steers right, and
-either counts as the confirm that starts a run. That is all the control a phone
-needs. It took one extra branch in `poll`, because the simulation already works
-in lanes and not in keys.
+A tap on the left half steers left. A tap on the right half steers right. A tap
+on either half is also the confirm that starts a run. A phone needs only these
+controls. The touch input needed only one more branch in `poll`, because the
+simulation already uses lanes and not keys.
 
 ## What the platform layer does not do
 
-Mute is a keypress, and it never reaches the simulation:
+Mute is a key press, and the key press never gets to the simulation:
 
 ```zig
 if (rl.IsKeyPressed(rl.KEY_M)) self.audio.toggleMute();
 ```
 
-Mute only affects the audio device. Nothing in `sim/` knows sound exists, and a
+Mute changes only the audio device. No code in `sim/` knows that sound exists. A
 mute key inside the simulation would change that.

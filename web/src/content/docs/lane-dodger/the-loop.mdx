@@ -1,14 +1,14 @@
 ---
 title: The Loop Takes No dt
 seoTitle: "Zig Game Loop: Fixed Timestep, Accumulator, and No dt"
-description: A fixed timestep, an accumulator, interpolation for the leftover, and the split needed for the browser build.
+description: A fixed timestep, an accumulator, interpolation for the leftover time, and the split that the browser build needs.
 section: Lane Dodger
 order: 40
 ---
 
 import GameSource from "../../../components/GameSource.astro";
 
-The obvious game loop reads the clock and hands the elapsed time to the world.
+The usual game loop reads the clock and gives the elapsed time to the world.
 
 ```zig
 while (running) {
@@ -18,60 +18,64 @@ while (running) {
 }
 ```
 
-That causes three problems.
+This loop causes three problems.
 
-**The same inputs stop producing the same run.** `dt` is whatever the machine
-delivered. A 60 Hz laptop and a 165 Hz monitor step the world differently.
-Adding 1/60 sixty times does not give the same number as adding 1/165 one
-hundred and sixty-five times.
+**The same inputs do not give the same run.** The value of `dt` is the time that
+the machine gave. A 60 Hz laptop and a 165 Hz monitor move the world in
+different steps. If you add 1/60 sixty times, the result is not the same number
+as when you add 1/165 one hundred and sixty-five times.
 
-**A slow frame becomes an advantage.** This game scores survival. A frame that
-takes 50 ms advances the world 50 ms in one jump. Collision is tested at the
-ends of that jump rather than through it. If the game stutters, the player can
-pass through a block.
+**A slow frame becomes an advantage.** The score in this game measures survival.
+A frame that takes 50 ms moves the world 50 ms forward in one jump. The game
+tests for collision at the two ends of that jump, and not between them. If the
+game stops for a moment, the player can move through a block.
 
-**Nothing replays.** To report a crash, you have to record a video of it. A seed
-and a list of keypresses will not reproduce it on another machine.
+**No run can replay.** To report a crash, you must record a video of the crash.
+A seed and a list of key presses do not make the same crash on a different
+machine.
 
 ## Fixed steps
 
-`step` takes no `dt`. It advances one tick, always the same size.
+`step` has no `dt` parameter. It moves the world forward by one tick, and a tick
+always has the same size.
 
 <GameSource file="src/sim/sim.zig" decl="step" />
 
-There is no way to call it wrong. A caller who wants half a tick cannot get one.
-A caller who wants ten ticks calls it ten times.
+A caller cannot use `step` incorrectly. A caller cannot get half a tick. To get
+ten ticks, a caller calls `step` ten times.
 
-The tick rate is 120 Hz, which is above every common refresh rate, so the
-simulation is never what makes the game look choppy.
+The tick rate is 120 Hz. This rate is more than each common refresh rate. Thus
+the simulation is never the cause when the motion of the game looks rough.
 
 ## The accumulator
 
-Real time arrives in uneven chunks. The loop saves it and spends it one tick at
-a time.
+Real time arrives in parts of different sizes. The loop saves the time and uses
+it one tick at a time.
 
 <GameSource file="src/main.zig" decl="advance" />
 
-Input goes to the first tick of the frame and is empty for the rest. Presses are
-edge triggered. Handing one press to three ticks would cross three lanes on a
-single tap.
+The input goes to the first tick of the frame. The input for the other ticks is
+empty. A key press is an edge trigger. If one press went to three ticks, one tap
+would move the player across three lanes.
 
-A frame is clamped before it reaches the accumulator.
+The loop clamps the frame time before the time goes into the accumulator.
 
 <GameSource file="src/main.zig" decl="max_frame_time" />
 
-Without that clamp, a paused game or a laptop waking from sleep can hand the
-loop ten seconds at once. That is 1200 ticks. Running them takes long enough to
-produce another large `dt`, which produces more ticks. The game stops responding
-instead of skipping forward. The usual name for this is the spiral of death.
+Without the clamp, the loop can get ten seconds at one time. A paused game or a
+laptop that wakes from sleep can cause this. Ten seconds is 1200 ticks. The time
+to run these ticks gives another large `dt`, and that `dt` gives more ticks. The
+game stops and does not respond, and it does not move forward. The usual name for
+this problem is the spiral of death.
 
-## The leftover
+## The leftover time
 
-After the tick loop there is always less than one tick of time left over.
-Ignoring it makes the game step visibly at 120 Hz on a 165 Hz display.
+After the tick loop, some time always remains, and this time is less than one
+tick. If the renderer ignores this time, the game moves in visible steps at 120
+Hz on a 165 Hz display.
 
-So the renderer is told how far into the next tick it is. It draws between the
-last two states.
+Thus the loop tells the renderer how far it is into the next tick. The renderer
+draws between the last two states.
 
 ```zig
 const alpha = self.accumulator / config.tick_dt;
@@ -79,27 +83,27 @@ const alpha = self.accumulator / config.tick_dt;
 
 <GameSource file="src/render/draw.zig" decl="lerp" />
 
-Drawing between states is why `Entity` carries a `y_prev` that no rule ever reads. It is not
-simulation state. The renderer needs it to draw a frame that falls between two
-ticks.
+Because the renderer draws between states, `Entity` has a `y_prev` field that no
+rule reads. `y_prev` is not simulation state. The renderer needs it to draw a
+frame between two ticks.
 
 ## One frame, not a loop
 
-On the desktop the loop is a `while`. In a browser it cannot be. Emscripten
-calls a function once per animation frame and never returns into your code. A
-`while` loop cannot run there, and its local variables would have nowhere to
-live.
+On the desktop, the loop is a `while` loop. In a browser, the loop cannot be a
+`while` loop. Emscripten calls a function one time for each animation frame, and
+Emscripten never returns into your code. A `while` loop cannot run there, and its
+local variables have no place to live.
 
-So "one frame" and "keep doing frames" are separate. `Game` is a struct with a
-`frame` method. Only the caller differs.
+Thus the code keeps "one frame" separate from "run frames continuously". `Game`
+is a struct with a `frame` method. Only the caller is different.
 
 <GameSource file="src/main.zig" decl="main" />
 
-The game state is a file scope variable rather than a local.
-`emscripten_set_main_loop` never returns, so a local in `main` would be gone by
-the first frame.
+The game state is a variable at file scope, and not a local variable.
+`emscripten_set_main_loop` never returns. Thus a local variable in `main` does not
+exist when the first frame starts.
 
-Make the split even for a game that will never ship to a browser. A frame you
-can call once can also be called six hundred times, with a bot at the controls
-and no window open. That is how
-[the difficulty tests](/learn/lane-dodger/fair-by-design/) work.
+Use this split also for a game that you never put in a browser. If you can call a
+frame one time, you can also call it six hundred times. A bot can be at the
+controls, with no open window. [The difficulty tests](/learn/lane-dodger/fair-by-design/)
+use this method.

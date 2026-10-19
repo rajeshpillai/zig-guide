@@ -1,7 +1,8 @@
 //! Colours, as plain data.
 //!
-//! No raylib in here, so the particle system that uses these stays testable
-//! without a window. `draw.zig` converts to raylib's colour type at the edge.
+//! This file has no raylib. Thus you can test the particle system that uses
+//! these colours without a window. `draw.zig` converts them to the colour type
+//! of raylib at the edge.
 
 pub const Color = struct {
     r: u8,

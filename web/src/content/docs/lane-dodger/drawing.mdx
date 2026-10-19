@@ -1,101 +1,110 @@
 ---
 title: Drawing It
 seoTitle: "Drawing with raylib in Zig: Field Units, the Road and Particles"
-description: Field units mapped onto a window, the road, the entities, and a particle system that holds no raylib types.
-seoDescription: "Drawing a Zig raylib game: mapping field units onto a window, painting the road and the entities, and a particle system that holds no raylib types so it stays testable."
+description: Field units mapped onto a window, the road, the entities, and a particle system that contains no raylib types.
+seoDescription: "How to draw a Zig raylib game: map field units to a window, paint the road and entities, and keep raylib out of the particles."
 section: Lane Dodger
 order: 60
 ---
 
 import GameSource from "../../../components/GameSource.astro";
 
-The simulation works in a fixed 360 by 640 field. The window is whatever size
-the reader dragged it to. One struct maps between them.
+The simulation uses a fixed field of 360 by 640. The window can have any size
+that the reader gives it. One struct maps between the field and the window.
 
 <GameSource file="src/render/draw.zig" decl="View" />
 
-The scale is the smaller of the two ratios, so the field is letterboxed. A wider
-window gets bars on the sides. It does not get more road.
+The scale is the smaller of the two ratios. Thus the renderer letterboxes the
+field. A
+wider window gets bars on the sides. It does not get more road.
 
-If the view stretched to fill the window, a wide window would show blocks
-earlier, and a player could gain an advantage by resizing.
+If the view filled the window, a wide window would show blocks earlier. Then a
+player could get an advantage when the player changes the size of the window.
 
-`shake_x` and `shake_y` are added at the end of the transform, so screen shake
-moves the whole field and costs nothing anywhere else.
+The transform adds `shake_x` and `shake_y` at the end. Thus the screen shake
+moves the full field, and it costs nothing in other places.
 
 ## A frame
 
 <GameSource file="src/render/draw.zig" decl="frame" />
 
-The order is back to front: road, entities, particles, player, HUD. The world is
-read and never written. Nothing in this file can change the outcome of a run.
+The order is from back to front: road, entities, particles, player, HUD. This
+file reads the world and never writes it. No code in this file can change the
+result of a run.
 
 ## The road
 
 <GameSource file="src/render/draw.zig" decl="drawRoad" />
 
-The dashes scroll with the distance travelled. They are the only thing on screen
-that shows speed when the field happens to be empty, and the field is empty more
-often than you would think in the first few seconds.
+The dashes move with the distance that the player travelled. When the field is
+empty, the dashes are the only thing on the screen that shows the speed. In the
+first few seconds, the field is empty more frequently than you think.
 
 ## The entities
 
 <GameSource file="src/render/draw.zig" decl="drawEntities" />
 
-Each entity is drawn between its last two positions, using the `alpha` the
-[loop](/learn/lane-dodger/the-loop/) hands down. Without that the game visibly
-steps at 120 Hz on a faster display.
+The renderer draws each entity between its last two positions. It uses the
+`alpha` value that the [loop](/learn/lane-dodger/the-loop/) gives it. Without
+`alpha`, the game moves in visible steps at 120 Hz on a faster display.
 
-The coin spin is a squash on the width rather than a rotation. It bottoms out at
-55 percent, so the coin never disappears. An earlier version swept the full
-range, so the coin turned edge on and vanished for a few frames. Players do not
-go for a coin they cannot see.
+The coin spin makes the width smaller, and it does not rotate the coin. The
+minimum width is 55 percent, thus the coin is always visible. An earlier version
+used the full range. Then the coin turned its edge to the player and was not
+visible for a few frames. Players do not try to get a coin that they cannot see.
 
 ## The player
 
 <GameSource file="src/render/draw.zig" decl="drawPlayer" />
 
-The lean is computed from the distance between the target lane and the actual
-position, which is exactly the gap
-[the previous chapter](/learn/lane-dodger/the-world/) described. It costs three
-lines. It is most of what makes the movement look deliberate.
+The renderer calculates the lean from the distance between the target lane and
+the actual position. That distance is exactly the gap that
+[the previous chapter](/learn/lane-dodger/the-world/) described. The lean costs
+three lines. The lean is the main reason that the movement looks deliberate.
 
 ## Colours are plain data
 
 <GameSource file="src/render/palette.zig" decl="Color" />
 
-That file has no raylib types. `draw.zig` converts at the edge:
+The palette file has no raylib types. `draw.zig` converts the colours at the
+edge:
 
 <GameSource file="src/render/draw.zig" decl="color" />
 
-The reason is the particle system below. It needs colours, and keeping raylib
-out of it is what lets it be tested without a window.
+The reason is the particle system below. The particle system needs colours. When
+raylib stays out of the particle system, you can test the particle system
+without a window.
 
 ## Particles
 
-Particles are presentation. The simulation reports that a coin was collected.
-The particle system turns that into ten amber dots flying outwards.
+The particles are presentation. The simulation reports that the player collected
+a coin. The particle system changes that report into ten amber dots that fly
+outward.
 
 <GameSource file="src/render/particles.zig" decl="System" />
 
-It uses the same [pool](/learn/lane-dodger/entities/) the entities use, with a
-different element type and a capacity of 256.
+The particle system uses the same [pool](/learn/lane-dodger/entities/) as the
+entities, with a different element type and a capacity of 256.
 
-A full pool drops new particles. It does not stall a frame to make room,
-because a stalled frame is visible and a missing spark is not.
+A full pool drops new particles. It does not stop a frame to make space. A
+player can see a stopped frame, but cannot see a spark that is not there.
 
 <GameSource file="src/render/particles.zig" decl="burst" />
 
-Because none of this touches raylib, the behaviour is checked headlessly:
-particles expire and free their slots, a full pool stays inside capacity, and
-gravity pulls them down.
+None of this code uses raylib. Thus the tests check the behaviour without a
+window:
+
+- Particles expire and free their slots.
+- A full pool stays inside its capacity.
+- Gravity pulls the particles down.
 
 ## Text over a moving field
 
-The HUD sits at the top of the field, which is exactly where blocks enter. The
-score spends part of every run on top of a bright red rectangle.
+The HUD is at the top of the field, and the blocks enter at exactly that
+position. During each run, the score is on top of a bright red rectangle for some
+of the time.
 
 <GameSource file="src/render/draw.zig" decl="shadowed" />
 
-A one pixel shadow is cheaper than reserving a strip of the playfield for the
-HUD, and it keeps the whole field playable.
+A shadow of one pixel costs less than a strip of the field that only the HUD
+uses. The shadow also keeps the full field available for play.

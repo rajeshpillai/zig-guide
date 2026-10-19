@@ -1,10 +1,10 @@
-//! Everything that touches raylib.
+//! All the code that uses raylib.
 //!
-//! Reads the world, draws it, and never writes to it. The simulation works in a
-//! fixed 360x640 field; `View` maps that onto whatever the window happens to
-//! be, letterboxed, so the visible playfield is identical at every window size.
-//! A game that gave a wider window more warning of oncoming blocks would be a
-//! game where resizing is a strategy.
+//! This file reads the world and draws it, and never writes to it. The
+//! simulation uses a fixed 360x640 field. `View` maps that field onto the
+//! window, whatever its size, with letterbox bars. Thus the visible field is
+//! identical at each window size. If a wider window showed the blocks earlier,
+//! a change to the window size would be a strategy.
 
 const std = @import("std");
 const rl = @import("rl");
@@ -57,8 +57,8 @@ pub const View = struct {
     }
 };
 
-/// Interpolate between the last two simulation ticks. Without this the game
-/// visibly steps at 120 Hz on a 144 Hz display.
+/// Interpolate between the last two simulation ticks. Without this, the game
+/// moves in visible steps at 120 Hz on a 144 Hz display.
 fn lerp(previous: f32, current: f32, alpha: f32) f32 {
     return previous + (current - previous) * alpha;
 }
@@ -68,10 +68,11 @@ pub fn frame(
     system: *particles.System,
     view: View,
     alpha: f32,
-    /// Total distance scrolled, used only to animate the road stripes.
+    /// The total distance that the road moved. Only the animation of the road
+    /// stripes uses it.
     scroll: f32,
-    /// False behind the title screen, where the score on show would be the
-    /// attract mode's rather than the player's.
+    /// False behind the title screen. There, the visible score would be the
+    /// score of the attract mode, and not the score of the player.
     show_hud: bool,
 ) void {
     rl.ClearBackground(color(palette.background));
@@ -91,7 +92,7 @@ fn drawRoad(view: View, scroll: f32) void {
     );
     rl.DrawRectangleRec(road, color(palette.road));
 
-    // Lane separators.
+    // The lines between the lanes.
     for (1..config.lane_count) |i| {
         const lane_x = view.x(@as(f32, @floatFromInt(i)) * config.lane_w);
         rl.DrawRectangleV(
@@ -101,8 +102,8 @@ fn drawRoad(view: View, scroll: f32) void {
         );
     }
 
-    // Dashes scrolling down each separator, so speed is visible even when the
-    // field happens to be empty.
+    // Dashes move down each line. Thus the speed is visible also when the
+    // field is empty.
     const period: f32 = 80;
     const offset = @mod(scroll, period);
     for (1..config.lane_count) |i| {
@@ -144,10 +145,11 @@ fn drawEntities(world: *const sim.World, view: View, alpha: f32) void {
                 rl.DrawRectangleRounded(gloss, 1, 6, color(palette.block_top));
             },
             .coin => {
-                // A slow spin, faked by squashing the width. The squash bottoms
-                // out at 55%: a coin that turns fully edge-on disappears for a
-                // few frames, and a player does not go for a coin they cannot
-                // see.
+                // A slow spin. The code makes the width smaller, and does not
+                // really rotate the coin. The minimum width is 55%. A coin that
+                // turns its full edge to the player is not visible for a few
+                // frames. A player does not try to get a coin that the player
+                // cannot see.
                 const spin = 0.55 + 0.45 * @abs(@cos(cy * 0.028));
                 const half_w = config.coin_half * spin;
                 rl.DrawEllipse(
@@ -173,8 +175,8 @@ fn drawPlayer(world: *const sim.World, view: View, alpha: f32) void {
     const cx = lerp(world.player.x_prev, world.player.x, alpha);
     const cy = config.player_y;
 
-    // Tilt into the turn. The tilt shows where the player means to go, and
-    // makes the slide look steered instead of pulled.
+    // Tilt toward the turn. The tilt shows where the player wants to go. It
+    // makes the slide look like a steered movement, and not like a pull.
     const drift = (config.laneCenter(world.player.lane) - cx) / config.lane_w;
     const lean = std.math.clamp(drift, -1, 1) * config.player_half_w * 0.55;
 
@@ -184,7 +186,8 @@ fn drawPlayer(world: *const sim.World, view: View, alpha: f32) void {
     const nose: rl.Vector2 = .{ .x = view.x(cx + lean), .y = view.y(cy - config.player_half_h) };
     const left: rl.Vector2 = .{ .x = view.x(cx - config.player_half_w), .y = view.y(cy + config.player_half_h) };
     const right: rl.Vector2 = .{ .x = view.x(cx + config.player_half_w), .y = view.y(cy + config.player_half_h) };
-    // raylib wants counter-clockwise winding or the triangle is culled.
+    // raylib needs counter-clockwise winding. If not, raylib culls the
+    // triangle.
     rl.DrawTriangle(nose, left, right, color(palette.player));
 
     const core: rl.Vector2 = .{ .x = view.x(cx + lean * 0.5), .y = view.y(cy) };
@@ -206,7 +209,8 @@ fn drawParticles(system: *particles.System, view: View) void {
     }
 }
 
-/// raylib takes C strings, so text is formatted into one here, at that boundary.
+/// raylib takes C strings. Thus this function formats the text into a C string
+/// here, at that boundary.
 pub fn fmtZ(buffer: []u8, comptime template: []const u8, args: anytype) [*:0]const u8 {
     const written = std.mem.printSentinel(buffer, template, args, 0) catch return "?";
     return written.ptr;
@@ -234,10 +238,11 @@ fn drawHud(world: *const sim.World, view: View) void {
 
 /// Text with a hard drop shadow.
 ///
-/// The HUD sits over the top of the field, which is exactly where blocks enter,
-/// so the score spends part of every run on top of a bright red rectangle. A
-/// shadow is cheaper than reserving a strip of the playfield for the HUD, and
-/// keeps the whole field playable.
+/// The HUD is at the top of the field, and the blocks enter at exactly that
+/// position. Thus, during each run, the score is on top of a bright red
+/// rectangle for some of the time. A shadow costs less than a strip of the
+/// field that only the HUD uses. The shadow also keeps the full field
+/// available for play.
 fn shadowed(text: [*:0]const u8, px: i32, py: i32, size: i32, c: palette.Color) void {
     const offset = @max(@divTrunc(size, 14), 1);
     rl.DrawText(text, px + offset, py + offset, size, color(palette.background.alpha(0.75)));
@@ -266,7 +271,7 @@ fn drawTextRight(text: [*:0]const u8, view: View, fx: f32, fy: f32, size: f32, c
     );
 }
 
-/// Centred overlay text, used by the title and game over screens.
+/// Centred overlay text, for the title screen and the game over screen.
 pub fn centred(text: [*:0]const u8, view: View, fy: f32, size: f32, c: palette.Color) void {
     const size_px: i32 = @intFromFloat(view.len(size));
     const pixels = rl.MeasureText(text, size_px);
@@ -279,10 +284,10 @@ pub fn centred(text: [*:0]const u8, view: View, fy: f32, size: f32, c: palette.C
     );
 }
 
-/// A dark panel behind overlay text. The attract mode keeps playing under the
-/// title, so a block or a coin can move straight through a line of text.
-/// Dimming the whole field is not enough. Text becomes hard to read under a
-/// bright shape at full opacity, whatever the average brightness is.
+/// A dark panel behind overlay text. The attract mode continues to play under
+/// the title. Thus a block or a coin can move through a line of text. A darker
+/// field is not sufficient. Text is difficult to read under a bright shape at
+/// full opacity, whatever the average brightness is.
 pub fn panel(view: View, top: f32, bottom: f32, amount: f32) void {
     const inset: f32 = 14;
     const box: rl.Rectangle = .{

@@ -1,58 +1,62 @@
-//! Sound effects, generated rather than loaded.
+//! Sound effects that the game generates, and does not load.
 //!
-//! There are no `.wav` files in this repository and there is not going to be.
-//! Six short blips are a few hundred lines of arithmetic, and writing them out
-//! means the sounds are diffable, tunable by changing a number, and free of the
-//! licensing question that comes with every sample pack. It also keeps the
-//! whole game a text tree, which is the same reason the graphics are shapes and
-//! not sprites.
+//! This repository has no `.wav` files, and it will not have them. Five short
+//! sounds are a few hundred lines of arithmetic. As code, you can diff the
+//! sounds, and you can adjust a sound when you change a number. Also, the code
+//! has no licence question, and each sample pack has one. The full game stays
+//! a tree of text files. For the same reason, the graphics are shapes and not
+//! sprites.
 //!
-//! Like the particle system, this holds no raylib types. It fills a buffer with
-//! 16-bit samples and stops. `platform/audio.zig` is what hands that buffer to
-//! an audio device, and the tests below check the waveforms without one.
+//! Like the particle system, this file contains no raylib types. It fills a
+//! buffer with 16-bit samples and stops. `platform/audio.zig` gives that buffer
+//! to an audio device. The tests below check the waveforms without an audio
+//! device.
 
 const std = @import("std");
 const sim = @import("sim");
 
 const Rng = sim.Rng;
 
-/// Enough for short sounds whose highest frequencies are a few kilohertz, and
-/// half the memory of 44.1k.
+/// Sufficient for short sounds whose highest frequencies are a few kilohertz.
+/// It uses half the memory of 44.1k.
 pub const sample_rate: u32 = 22_050;
 
-/// The longest clip is the crash, which runs on for most of a second because
-/// the falling triad is part of it rather than a second cue.
+/// The longest clip is the crash. It lasts for most of a second, because the
+/// descending triad is part of the crash and not a second sound.
 pub const max_samples: usize = 24_576;
 
 pub const Shape = enum { sine, triangle, square, noise };
 
-/// One oscillator with an envelope. Sounds are built by stacking a few.
+/// One oscillator with an envelope. A sound is a stack of a few layers.
 pub const Layer = struct {
     shape: Shape,
-    /// Frequency at the start and end of the layer, swept exponentially so the
-    /// slide is even in pitch rather than in hertz. Ignored by `noise`.
+    /// The frequency at the start and at the end of the layer. The sweep is
+    /// exponential. Thus the slide is even in pitch, and not in hertz. `noise`
+    /// ignores these values.
     from: f32,
     to: f32,
-    /// Seconds. `delay` staggers layers, which is how the arpeggios are made.
+    /// Seconds. `delay` starts a layer later than the others. The arpeggios
+    /// use `delay`.
     duration: f32,
     delay: f32 = 0,
     gain: f32 = 0.5,
-    /// Seconds of fade in. Never zero: a waveform that begins at full
-    /// amplitude begins with a step, and a step is a click.
+    /// The seconds of fade in. Never zero. A waveform that starts at full
+    /// amplitude starts with a step, and a step is a click.
     attack: f32 = 0.004,
-    /// Decay shape. 1 is a straight line to silence, higher is a sharper
-    /// initial drop and a longer tail.
+    /// The shape of the decay. 1 is a straight line to silence. A higher value
+    /// gives a faster drop at the start and a longer tail.
     curve: f32 = 2.5,
-    /// One-pole low pass, 1 for none. Takes the fizz off the noise burst.
+    /// A one-pole low pass. 1 means no filter. It removes the high hiss from
+    /// the noise burst.
     lowpass: f32 = 1,
 };
 
-/// Render `layers` into `out`, returning the number of samples written.
+/// Render `layers` into `out`. Returns the number of samples that it wrote.
 ///
-/// The envelope reaches exactly zero at both ends of every layer. This prevents
-/// clicks. A clip that starts or stops partway up a waveform produces a
-/// discontinuity, and a discontinuity is a click that is far louder and more
-/// annoying than the sound it is attached to.
+/// The envelope is exactly zero at the two ends of each layer. This prevents
+/// clicks. If a clip starts or stops at a point above zero on a waveform, the
+/// clip makes a discontinuity. A discontinuity is a click, and the click is
+/// much louder and more unpleasant than its sound.
 pub fn render(layers: []const Layer, out: []i16, seed: u64) usize {
     var total: f32 = 0;
     for (layers) |layer| total = @max(total, layer.delay + layer.duration);
@@ -78,7 +82,7 @@ pub fn render(layers: []const Layer, out: []i16, seed: u64) usize {
             const t = @as(f32, @floatFromInt(i)) / @as(f32, sample_rate);
             const progress = @as(f32, @floatFromInt(i)) / @as(f32, @floatFromInt(length));
 
-            // Exponential sweep: even in pitch rather than in hertz.
+            // An exponential sweep is even in pitch, and not in hertz.
             const frequency = layer.from * std.math.pow(f32, layer.to / layer.from, progress);
             phase += std.math.tau * frequency / @as(f32, sample_rate);
             if (phase > std.math.tau) phase -= std.math.tau;
@@ -98,8 +102,8 @@ pub fn render(layers: []const Layer, out: []i16, seed: u64) usize {
         }
     }
 
-    // Soft clip rather than hard: stacked layers overshoot, and tanh bends the
-    // peaks instead of cutting them flat.
+    // A soft clip, and not a hard clip. Layers on top of each other go past
+    // the limit. tanh bends the peaks, and does not cut them flat.
     for (window, 0..) |value, i| {
         const shaped = std.math.tanh(value);
         out[i] = @intFromFloat(std.math.clamp(shaped, -1, 1) * 32_600);
@@ -116,8 +120,9 @@ fn envelope(t: f32, layer: Layer) f32 {
     return std.math.pow(f32, decayed, layer.curve);
 }
 
-/// The six sounds the game makes. Pitch for the combo steps is applied at
-/// playback rather than baked in, so there is one coin sound and not eight.
+/// The five sounds of the game. The pitch for the combo steps changes at
+/// playback, and is not part of the samples. Thus the game has one coin sound
+/// and not eight.
 pub const coin: []const Layer = &.{
     .{ .shape = .triangle, .from = 900, .to = 1350, .duration = 0.085, .gain = 0.55 },
     .{ .shape = .sine, .from = 1800, .to = 2700, .duration = 0.07, .gain = 0.22 },
@@ -133,12 +138,12 @@ pub const lane: []const Layer = &.{
     .{ .shape = .sine, .from = 420, .to = 300, .duration = 0.05, .gain = 0.14, .curve = 3 },
 };
 
-/// Impact, then a falling triad.
+/// An impact, then a descending triad.
 ///
-/// One event, one sound. The alternative was to play the thud on the crash and
-/// the sting when the retry prompt appears, which means the game has to
-/// remember whether it has played the sting yet, for a run it has already lost.
-/// Layers take a delay, so the pause is in the waveform instead.
+/// One event, one sound. The alternative was two sounds. The thud would play
+/// at the crash, and the sting would play when the retry prompt appears. Then
+/// the game must record if it played the sting yet, for a run that is already
+/// lost. A layer can have a delay. Thus the pause is in the waveform.
 pub const crash: []const Layer = &.{
     .{ .shape = .noise, .from = 1, .to = 1, .duration = 0.45, .gain = 0.5, .lowpass = 0.12, .curve = 2 },
     .{ .shape = .square, .from = 220, .to = 55, .duration = 0.4, .gain = 0.28, .curve = 1.6 },
@@ -148,7 +153,7 @@ pub const crash: []const Layer = &.{
     .{ .shape = .triangle, .from = 349, .to = 349, .duration = 0.3, .delay = 0.6, .gain = 0.34, .curve = 1.8 },
 };
 
-/// A rising third, played when a run begins.
+/// An ascending third. The game plays it when a run starts.
 pub const start: []const Layer = &.{
     .{ .shape = .triangle, .from = 523, .to = 523, .duration = 0.09, .gain = 0.4 },
     .{ .shape = .triangle, .from = 659, .to = 659, .duration = 0.09, .delay = 0.075, .gain = 0.4 },
@@ -171,15 +176,16 @@ test "every sound fits its buffer and makes a sound" {
         const written = render(layers, &buffer, 1);
         try testing.expect(written > 0);
         try testing.expect(written <= max_samples);
-        // Loud enough to hear.
+        // Sufficiently loud to hear.
         try testing.expect(peak(buffer[0..written]) > 8_000);
     }
 }
 
 test "no sound begins or ends with a click" {
-    // A clip that starts or stops partway up a waveform is a step change, and a
-    // step change is a click that is louder and more irritating than the effect
-    // it is attached to. The envelope is what prevents it, at both ends.
+    // If a clip starts or stops at a point above zero on a waveform, the clip
+    // has a step change. A step change is a click, and the click is louder and
+    // more unpleasant than its effect. The envelope prevents the click, at the
+    // two ends.
     var buffer: [max_samples]i16 = undefined;
     for (all, 0..) |layers, index| {
         const written = render(layers, &buffer, 2);
@@ -195,8 +201,8 @@ test "no sound begins or ends with a click" {
 }
 
 test "nothing clips flat against the rail" {
-    // Soft clipping bends the peaks. Hard clipping cuts them flat, which shows
-    // up as a run of identical maximum samples.
+    // A soft clip bends the peaks. A hard clip cuts them flat. A flat peak is
+    // a series of identical maximum samples.
     var buffer: [max_samples]i16 = undefined;
     for (all, 0..) |layers, index| {
         const written = render(layers, &buffer, 3);
@@ -213,8 +219,8 @@ test "nothing clips flat against the rail" {
     }
 }
 
-/// Zero crossings per second: a rough pitch estimate. It is good enough to
-/// tell a high chime from a low thud.
+/// Zero crossings each second. This is an approximate estimate of pitch. It is
+/// sufficient to tell a high chime from a low thud.
 fn brightness(samples: []const i16, rate: u32) f32 {
     var crossings: usize = 0;
     for (samples[1..], 0..) |s, i| {
@@ -225,10 +231,10 @@ fn brightness(samples: []const i16, rate: u32) f32 {
 }
 
 test "the sounds sit in the right places against each other" {
-    // The exact frequencies are a design choice and may change. The order must
-    // not change: the crash is the low, long, loud one and the lane tick is the
-    // short quiet one. If that order were reversed, one second of listening
-    // would show it, but a diff would not.
+    // The exact frequencies are a design decision, and they can change. The
+    // order must not change. The crash is the low, long and loud sound. The
+    // lane tick is the short and quiet sound. If that order changed, you would
+    // hear it in one second, but a diff would not show it.
     var buffer: [max_samples]i16 = undefined;
 
     const written_coin = render(coin, &buffer, 7);
@@ -244,16 +250,16 @@ test "the sounds sit in the right places against each other" {
 
     // The coin is a chime and the crash is a thud.
     try testing.expect(coin_hz > crash_hz * 2);
-    // The coin sits in the band it is swept across.
+    // The coin is in the band of its sweep.
     try testing.expect(coin_hz > 800 and coin_hz < 1600);
 
-    // The crash is the longest thing the game plays, and the loudest.
+    // The crash is the longest sound of the game, and the loudest.
     try testing.expect(written_crash > written_coin * 4);
     try testing.expect(crash_peak >= coin_peak);
 
-    // The lane tick is the shortest, and must be quieter than a pickup: it
-    // fires on every input, and if an input sound is as loud as a reward
-    // sound, players mute the game.
+    // The lane tick is the shortest sound, and it must be quieter than a
+    // pickup. It plays on each input. If an input sound is as loud as a reward
+    // sound, players turn off the sound of the game.
     try testing.expect(written_lane < written_coin);
     try testing.expect(lane_peak < coin_peak);
 }
@@ -296,7 +302,7 @@ test "a delayed layer starts silent" {
         .{ .shape = .sine, .from = 800, .to = 800, .duration = 0.05, .delay = 0.1 },
     }, &buffer, 4);
     try testing.expect(written > 0);
-    // Nothing at all before the delay elapses.
+    // No sound before the end of the delay.
     const silent_until = @as(usize, @intFromFloat(0.09 * @as(f32, sample_rate)));
     for (buffer[0..silent_until]) |s| try testing.expectEqual(@as(i16, 0), s);
 }

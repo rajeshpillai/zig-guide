@@ -1,28 +1,31 @@
 const std = @import("std");
 
-/// raylib's C sources, vendored by `fetch-raylib.sh` at a pinned commit.
+/// The C sources of raylib. `fetch-raylib.sh` vendors them at a pinned commit.
 const raylib_root = "vendor/raylib/src";
 
-/// Which screen a headless `-Dframes` run should end up on. CI can then take a
-/// screenshot of the title and the game over screen with nobody at the
-/// keyboard, which lets CI check what the game draws.
+/// The screen that a headless `-Dframes` run shows at its end. Thus CI can take
+/// a screenshot of the title and of the game over screen with nobody at the
+/// keyboard. With these screenshots, CI checks what the game draws.
 pub const Demo = enum { title, play, crash };
 
-/// raylib is built differently for a desktop window and for a canvas: a
-/// different platform backend, a different GL, and on the web no bundled GLFW
-/// at all, because Emscripten supplies its own.
+/// The raylib build for a desktop window is different from the build for a
+/// canvas. It has a different platform backend and a different GL. On the web
+/// it does not use the GLFW that raylib includes, because Emscripten supplies
+/// its own GLFW.
 const Platform = enum { desktop, web };
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    // Master returns null when no mode is given, meaning "the default".
+    // On master, this function returns null when you give no mode. Null means
+    // "the default".
     const optimize = b.standardOptimizeOption(.{}) orelse .debug;
 
-    // A headless smoke run, for CI and for checking the game still draws after
-    // a change without watching it. `-Dframes=N` plays N frames with
-    // the bot at the controls and exits; `-Dshot=path` saves the last one.
-    // Build options rather than environment variables, so they show up in
-    // `zig build --help` and are comptime-known.
+    // A headless smoke run. CI uses it, and you can use it after a change to
+    // check that the game still draws, without a person who watches.
+    // `-Dframes=N` plays N frames with the bot at the controls, then exits.
+    // `-Dshot=path` saves the last frame. These are build options and not
+    // environment variables. Thus `zig build --help` shows them, and their
+    // values are comptime-known.
     const options = b.addOptions();
     const frames = b.option(
         usize,
@@ -30,10 +33,10 @@ pub fn build(b: *std.Build) void {
         "Play this many frames with the bot, then exit (headless smoke test)",
     );
     options.addOption(?usize, "auto_frames", frames);
-    // Sound is off by default in a headless run: nobody is listening, and
-    // opening a device a CI container does not have only fills the log with
-    // driver warnings. `-Daudio=true` forces it back on, which is how the
-    // no-sound-card path gets tested.
+    // By default, a headless run has no sound, because nobody listens. A CI
+    // container has no audio device, and an attempt to open one only puts
+    // driver warnings in the log. `-Daudio=true` turns the sound on again.
+    // That option lets you test the path for a machine with no sound card.
     options.addOption(bool, "audio", b.option(
         bool,
         "audio",
@@ -56,10 +59,10 @@ pub fn build(b: *std.Build) void {
     addWeb(b, optimize, options);
 }
 
-/// The simulation is a module on its own, and it imports nothing: not raylib,
-/// a window or a clock. Because of this, `zig build test` can run the whole
-/// game headless, and the rules of the game stay in one place instead of
-/// being spread through a draw loop.
+/// The simulation is a separate module, and it imports nothing: not raylib, a
+/// window or a clock. Thus `zig build test` can run the full game headless.
+/// Also, the rules of the game stay in one place, and not in parts of a draw
+/// loop.
 fn simModule(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -80,8 +83,8 @@ fn addTests(
     const sim = simModule(b, target, optimize);
     const sim_tests = b.addTest(.{ .root_module = sim });
 
-    // Particles are presentation, but they hold no raylib types, so they get
-    // tested headlessly too.
+    // The particles are presentation. But they contain no raylib types, thus
+    // the tests can also check them headlessly.
     const particles = b.createModule(.{
         .root_source_file = b.path("src/render/particles.zig"),
         .target = target,
@@ -90,9 +93,9 @@ fn addTests(
     particles.addImport("sim", sim);
     const particle_tests = b.addTest(.{ .root_module = particles });
 
-    // The synthesiser holds no raylib types either: it fills a buffer with
-    // samples. So the waveforms are checked without an audio device. CI has no
-    // speakers.
+    // The synthesiser also contains no raylib types. It fills a buffer with
+    // samples. Thus the tests check the waveforms without an audio device. CI
+    // has no speakers.
     const synth = b.createModule(.{
         .root_source_file = b.path("src/audio/synth.zig"),
         .target = target,
@@ -107,9 +110,9 @@ fn addTests(
     step.dependOn(&b.addRunArtifact(synth_tests).step);
 }
 
-/// `zig build sounds` writes the sound effects to `zig-out/sounds` as `.wav`,
-/// so they can be listened to and tuned without playing the game up to the
-/// point that triggers each one.
+/// `zig build sounds` writes the sound effects to `zig-out/sounds` as `.wav`
+/// files. Thus you can listen to each effect and adjust it. You do not have to
+/// play the game until the effect occurs.
 fn addSoundDump(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -141,7 +144,7 @@ fn addSoundDump(
     b.step("sounds", "Write the sound effects to zig-out/sounds as .wav").dependOn(&install.step);
 }
 
-/// The game's root module, wired to a raylib built for `platform`.
+/// The root module of the game, connected to a raylib build for `platform`.
 const Game = struct {
     module: *std.Build.Module,
     raylib: *std.Build.Step.Compile,
@@ -184,11 +187,11 @@ fn addDesktop(
 
 /// Build the game for a browser canvas.
 ///
-/// Zig compiles our code and raylib's to a static library for
-/// `wasm32-emscripten`, and `emcc` does the link, because the JavaScript glue,
-/// the GL context and the canvas setup are all things only Emscripten knows
-/// how to emit. The same split is why `main.zig` has a `Game.frame`: emcc
-/// hands the loop to the browser and never returns.
+/// Zig compiles the game code and the raylib code to a static library for
+/// `wasm32-emscripten`. `emcc` does the link, because only Emscripten can emit
+/// the JavaScript glue, the GL context and the canvas configuration. The same
+/// split is the reason for `Game.frame` in `main.zig`. emcc gives the loop to
+/// the browser and never returns.
 fn addWeb(
     b: *std.Build,
     optimize: std.lang.Optimize,
@@ -221,31 +224,35 @@ fn addWeb(
     emcc.addArtifactArg(lib);
     emcc.addArtifactArg(game.raylib);
     emcc.addArgs(&.{
-        // Emscripten supplies GLFW 3 against the canvas; raylib's own bundled
-        // GLFW is a desktop windowing library and is not built here.
+        // Emscripten supplies GLFW 3 for the canvas. The GLFW that raylib
+        // includes is a desktop library for windows. This build does not
+        // compile it.
         "-sUSE_GLFW=3",
-        // The canvas can be any size, and the page decides. Growth costs a
-        // little speed and saves reserving worst-case memory up front.
+        // The canvas can have any size, and the page selects the size. Growth
+        // costs a small quantity of speed. Without growth, the program must
+        // reserve memory for the worst case at the start.
         "-sALLOW_MEMORY_GROWTH=1",
-        // A factory function instead of a global `Module`, so the page can
-        // start the game when it wants and hand it its own canvas.
+        // A factory function, and not a global `Module`. Thus the page can
+        // start the game at the time that it selects, and give the game its
+        // own canvas.
         //
-        // This is deliberately not an ES6 module. The guide embeds this in a
-        // page built by Vite, and Vite rewrites `import()` even for a file it
-        // is only serving from `public/`, appending `?import` and then failing
-        // to transform a 190 KB Emscripten bundle. A classic script that defines
-        // one global is loaded by a plain `<script>` tag, which no bundler
-        // touches.
+        // This output is not an ES6 module, and that is intentional. The guide
+        // puts the game in a page that Vite builds. Vite rewrites `import()`
+        // also for a file that it only serves from `public/`. It adds
+        // `?import`, then it cannot transform a 190 KB Emscripten bundle. A
+        // plain `<script>` tag loads a classic script that defines one global,
+        // and no bundler changes that tag.
         "-sMODULARIZE=1",
         "-sEXPORT_NAME=createLaneDodger",
-        // The loop is driven by emscripten_set_main_loop, so none of the
-        // stack-unwinding machinery is needed.
+        // emscripten_set_main_loop controls the loop. Thus the build needs
+        // none of the code that unwinds the stack.
         "-sASYNCIFY=0",
         "-sSTACK_SIZE=1048576",
-        // raylib is built here against GLES 3, which emits `#version 300 es`
-        // shaders. Those need a WebGL 2 context, and Emscripten creates a
-        // WebGL 1 one unless told otherwise: the symptom is a game that loads,
-        // runs, and fails to compile a single shader.
+        // Here the build compiles raylib against GLES 3, which emits
+        // `#version 300 es` shaders. These shaders need a WebGL 2 context.
+        // Emscripten creates a WebGL 1 context unless you tell it to do
+        // otherwise. The symptom is a game that loads, runs, and compiles no
+        // shader.
         "-sMIN_WEBGL_VERSION=2",
         "-sMAX_WEBGL_VERSION=2",
     });
@@ -253,16 +260,16 @@ fn addWeb(
     emcc.addArg("-o");
     const out = emcc.addOutputFileArg("lane-dodger.js");
 
-    // emcc writes the wasm next to the js, under the same basename.
+    // emcc writes the wasm next to the js, with the same basename.
     const install_js = b.addInstallFileWithDir(out, .{ .custom = "web" }, "lane-dodger.js");
     const install_wasm = b.addInstallFileWithDir(
         out.dirname().path(b, "lane-dodger.wasm"),
         .{ .custom = "web" },
         "lane-dodger.wasm",
     );
-    // The page that hosts the canvas. It ships with the two artefacts, so
-    // `zig build web` produces a directory that can be played with no other
-    // setup.
+    // The page that holds the canvas. The page comes with the two artefacts.
+    // Thus `zig build web` makes a directory that you can play with no other
+    // configuration.
     const install_page = b.addInstallFileWithDir(
         b.path("web-shell/index.html"),
         .{ .custom = "web" },
@@ -273,23 +280,24 @@ fn addWeb(
     step.dependOn(&install_page.step);
 }
 
-/// Compile raylib from its C sources and hand back a Zig module for `raylib.h`.
+/// Compile raylib from its C sources, and return a Zig module for `raylib.h`.
 ///
-/// raylib ships its own build.zig, and we deliberately do not use it.
-/// Naming a package in build.zig.zon makes the build runner import that
-/// package's build.zig, so a dependency whose build script has not yet caught
-/// up with Zig master fails our build before a line of our code is compiled.
-/// raylib's build script had that problem, and so did raylib-zig's. raylib's C
-/// changes far more slowly.
+/// raylib has its own build.zig, and this project does not use it on purpose.
+/// When you name a package in build.zig.zon, the build runner imports the
+/// build.zig of that package. If the build script of a dependency does not
+/// support Zig master yet, your build fails before it compiles one line of
+/// your code. The build script of raylib had that problem, and the build
+/// script of raylib-zig also had it. The C of raylib changes much more slowly.
 ///
-/// The macros below are copied from what raylib's own build.zig sets for each
-/// of these targets.
+/// The macros below are a copy of the macros that the build.zig of raylib
+/// sets for each of these targets.
 const Raylib = struct {
     /// `@import("rl")`: raylib.h, run through translate-c.
     module: *std.Build.Module,
-    /// The compiled archive. Zig links this into an executable on its own, but
-    /// a static library records the dependency without absorbing it, so the
-    /// web build has to hand this to emcc itself.
+    /// The compiled archive. Zig links the archive into an executable
+    /// automatically. But a static library records the dependency and does
+    /// not include the archive. Thus the web build must give the archive to
+    /// emcc.
     lib: *std.Build.Step.Compile,
 };
 
@@ -304,11 +312,12 @@ fn raylibModule(
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        // Zig instruments C with UBSan by default in the debug modes and links
-        // its own runtime to catch the reports. That runtime comes with a Zig
-        // link, and the web build is linked by emcc, so the instrumentation
-        // would leave a few dozen undefined `__ubsan_*` symbols behind. None of
-        // this C is ours: it is a pinned upstream release.
+        // In the debug modes, Zig instruments C with UBSan by default and
+        // links its own runtime to catch the reports. That runtime comes with
+        // a Zig link. emcc does the link for the web build. Thus the
+        // instrumentation would leave a few dozen undefined `__ubsan_*`
+        // symbols. This project did not write this C. It is a pinned upstream
+        // release.
         .sanitize_c = .off,
     });
     const lib = b.addLibrary(.{
@@ -324,8 +333,8 @@ fn raylibModule(
         .{ "SUPPORT_MODULE_RTEXTURES", "1" },
         .{ "SUPPORT_MODULE_RTEXT", "1" },
         .{ "SUPPORT_MODULE_RAUDIO", "1" },
-        // 3D model loading pulls in cgltf, m3d and par_shapes, and this game
-        // only draws rectangles, so it is turned off.
+        // The 3D model loader adds cgltf, m3d and par_shapes. This game draws
+        // only rectangles, thus the build turns the module off.
         .{ "SUPPORT_MODULE_RMODELS", "0" },
     }) |macro| mod.addCMacro(macro[0], macro[1]);
 
@@ -337,8 +346,8 @@ fn raylibModule(
         },
         .web => {
             mod.addCMacro("PLATFORM_WEB", "");
-            // WebGL 2. ES2 also works and reaches older phones; ES3 is what
-            // every browser this game would be played in supports today.
+            // WebGL 2. ES2 also works, and it also works on older phones. All
+            // browsers where a person would play this game support ES3 today.
             mod.addCMacro("GRAPHICS_API_OPENGL_ES3", "");
         },
     }
@@ -351,8 +360,9 @@ fn raylibModule(
         ) });
     }
 
-    // rglfw.c is raylib's bundled desktop GLFW. On the web Emscripten provides
-    // GLFW against the canvas instead, so it is not compiled.
+    // rglfw.c is the desktop GLFW that raylib includes. On the web,
+    // Emscripten supplies GLFW for the canvas. Thus the web build does not
+    // compile rglfw.c.
     const sources: []const []const u8 = switch (platform) {
         .desktop => &.{
             "rcore.c", "rshapes.c", "rtextures.c", "rtext.c", "raudio.c", "rglfw.c",

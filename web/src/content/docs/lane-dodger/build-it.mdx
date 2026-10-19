@@ -1,7 +1,7 @@
 ---
 title: Build It From Scratch
 seoTitle: "Build a raylib Game in Zig From Scratch: The File Order"
-description: The order to write the files in, the two points where you can stop and check, and what to do when it does not build.
+description: The order in which to write the files, the two points where you can stop and check, and what to do when the build fails.
 section: Lane Dodger
 order: 100
 ---
@@ -9,61 +9,62 @@ order: 100
 import GameSource from "../../../components/GameSource.astro";
 import GameFiles from "../../../components/GameFiles.astro";
 
-The other chapters explain what each piece does. This one is the order to write
-them in.
+The other chapters explain what each part does. This chapter gives the order in
+which to write the parts.
 
-There are two places you can stop and check your work. The first comes before
-you have drawn anything, and it runs the whole game.
+You can stop and check your work at two points. The first point comes before you
+draw anything, and it runs the full game.
 
 ## What you need
 
-Zig master. Not 0.16: the game uses `std.process.Init`, `std.Io.Dir`,
-`std.mem.printSentinel` and `@splat` on arrays, all of which arrived after it.
-`build.zig.zon` names the exact minimum.
+You need Zig master, and not 0.16. The game uses `std.process.Init`,
+`std.Io.Dir`, `std.mem.printSentinel` and `@splat` on arrays. All of these came
+after 0.16. `build.zig.zon` gives the exact minimum version.
 
 ```bash
 zig version    # 0.17.0-dev.1676 or newer
 ```
 
-Git, and a C compiler. On Debian or Ubuntu the game also needs the X
-development headers:
+You also need Git and a C compiler. On Debian or Ubuntu, the game also needs the
+X development headers:
 
 ```bash
 sudo apt-get install libx11-dev libxrandr-dev libxinerama-dev \
                      libxi-dev libxcursor-dev libgl1-mesa-dev
 ```
 
-No ALSA package is needed. raylib's audio backend loads libasound at runtime rather than
-including its header.
+You do not need an ALSA package. The audio backend of raylib loads libasound at
+runtime, and does not include its header.
 
-## Part one: the scaffolding
+## Part one: the project structure
 
-**1. Make the tree.**
+**1. Make the directory tree.**
 
 ```bash
 mkdir -p lane-dodger/src/{sim,render,audio,platform,tools}
 cd lane-dodger
 ```
 
-**2. Ignore the raylib copy.** One line in `.gitignore`:
+**2. Tell Git to ignore the raylib copy.** Add one line to `.gitignore`:
 
 ```
 vendor/
 ```
 
-The fetch script below records which raylib commit the game uses. The copy it
-downloads is 13 MB, so it stays out of git.
+The fetch script below records which raylib commit the game uses. The copy that
+the script downloads is 13 MB, thus the copy stays out of Git.
 
-**3. The package file.**
+**3. Write the package file.**
 
 <GameSource file="build.zig.zon" />
 
-`zig build` will refuse the fingerprint and print the one to use. Paste that in.
+`zig build` does not accept the fingerprint, and prints the correct value. Paste
+that value into the file.
 
-raylib is *not* in `.dependencies`. That is deliberate, and
-[Vendoring raylib](/learn/lane-dodger/the-build/) explains why.
+raylib is *not* in `.dependencies`. This is intentional, and
+[Vendoring raylib](/learn/lane-dodger/the-build/) gives the reason.
 
-**4. The fetch script.**
+**4. Write the fetch script.**
 
 <GameSource file="fetch-raylib.sh" lang="bash" />
 
@@ -71,16 +72,16 @@ raylib is *not* in `.dependencies`. That is deliberate, and
 chmod +x fetch-raylib.sh && ./fetch-raylib.sh
 ```
 
-**5. The build.**
+**5. Write the build script.**
 
 <GameSource file="build.zig" />
 
-Nothing compiles yet. `build.zig` names files that do not exist, which is fine:
-Zig only reads a source file when a step that needs it runs.
+Nothing compiles yet. `build.zig` names files that do not exist, and that is
+correct. Zig reads a source file only when a step that needs the file runs.
 
 ## Part two: the simulation
 
-Nine files, in this order. Each one only uses the ones above it.
+Write these nine files in this order. Each file uses only the files above it.
 
 <GameFiles
   files={[
@@ -102,25 +103,27 @@ Nine files, in this order. Each one only uses the ones above it.
 zig build test
 ```
 
-Fifty-five tests. A bot plays four minutes of the game at every seed, a second
-bot plays it with a human reaction time, and two worlds replay from one seed and
-are compared tick by tick.
+The command runs fifty-five tests:
 
-You have not written any drawing code, input code or `main.zig` yet, and no
-window or audio device is needed. The game is still complete enough to be played
-and checked. The design is arranged so that this checkpoint exists.
+- A bot plays four minutes of the game at each seed.
+- A second bot plays the game with a human reaction time.
+- Two worlds replay from one seed, and the test compares them on each tick.
 
-If this passes, the rules are right. The remaining files draw the game, read
-input and play sound.
+You did not write drawing code, input code or `main.zig` yet. You do not need a
+window or an audio device. But the game is already sufficiently complete to play
+and to check. The design has this arrangement so that this checkpoint exists.
+
+If the tests pass, the rules are correct. The other files draw the game,
+read the input and play the sound.
 
 ## Part three: the game you can see
 
-Four more files.
+Write four more files.
 
 <GameFiles
   files={[
     { path: "src/render/draw.zig", what: "The view transform and every raylib call.", chapter: "/learn/lane-dodger/drawing/", chapterTitle: "Drawing It" },
-    { path: "src/platform/input.zig", what: "Keys and taps, latched once a frame.", chapter: "/learn/lane-dodger/input/", chapterTitle: "Input" },
+    { path: "src/platform/input.zig", what: "Keys and taps, read one time in each frame.", chapter: "/learn/lane-dodger/input/", chapterTitle: "Input" },
     { path: "src/platform/audio.zig", what: "The audio device, and the sounds on it.", chapter: "/learn/lane-dodger/sound/", chapterTitle: "Sound Without Sound Files" },
     { path: "src/main.zig", what: "The window and the fixed timestep loop.", chapter: "/learn/lane-dodger/the-loop/", chapterTitle: "The Loop Takes No dt" },
   ]}
@@ -130,12 +133,13 @@ Four more files.
 zig build run -Doptimize=ReleaseFast
 ```
 
-`A` and `D` or the arrow keys change lane. Space starts a run. `M` mutes.
+To change lane, use `A` and `D` or the arrow keys. Space starts a run. `M` stops
+the sound.
 
 ## Optional
 
-One more file writes the sound effects out as `.wav`, so you can listen to them
-without playing up to the point that triggers each one.
+One more file writes the sound effects to `.wav` files. Then you can listen to
+each effect, and you do not have to play the game until the effect occurs.
 
 <GameFiles
   files={[
@@ -171,33 +175,35 @@ alpha = accumulator / (1/120)      what is left over, less than one tick
 draw.frame(world, alpha)    draws between the last two ticks
 ```
 
-The press reaches exactly one tick. A frame that owes no ticks keeps it for the
-next one. A frame that owes three gives it to the first.
+The press gets to exactly one tick. If a frame needs no ticks, the frame keeps
+the press for the next frame. If a frame needs three ticks, the frame gives the
+press to the first tick.
 
-## If it does not build
+## If the build fails
 
-**`error: invalid fingerprint`.** Expected on the first run. Paste the value the
-compiler prints into `build.zig.zon`.
+**`error: invalid fingerprint`.** This error is normal on the first run. Paste
+the value that the compiler prints into `build.zig.zon`.
 
-**`error: unable to find module 'rl'`** or missing raylib headers. `fetch-raylib.sh`
-has not run, or it ran in the wrong directory. Check that
+**`error: unable to find module 'rl'`**, or the compiler cannot find the raylib
+headers.
+`fetch-raylib.sh` did not run, or it ran in the wrong directory. Make sure that
 `vendor/raylib/src/raylib.h` exists.
 
-**`ld: cannot find -lX11`** and similar. The X development headers are missing.
-Install the packages listed above. The plain runtime libraries are not enough;
-you need the `-dev` ones.
+**`ld: cannot find -lX11`** and similar errors. The X development headers are not on
+your system. Install the packages in the list above. The runtime libraries alone are
+not sufficient. You need the `-dev` packages.
 
-**`root source file struct 'std' has no member named ...`.** Your Zig is too
-old, or too new. This game tracks master, so both directions happen. Check
-`zig version` against `minimum_zig_version`.
+**`root source file struct 'std' has no member named ...`.** Your Zig is too old,
+or too new. This game tracks master, thus both of these problems can occur.
+Compare `zig version` with `minimum_zig_version`.
 
-**Tests pass but the window is black.** You are on Wayland without XWayland, or
-in a container with no display. Try `xvfb-run -a ./zig-out/bin/lane-dodger` to
-confirm the program itself runs.
+**The tests pass but the window is black.** You use Wayland without XWayland, or
+a container with no display. To make sure that the program itself runs, try
+`xvfb-run -a ./zig-out/bin/lane-dodger`.
 
-**It builds and plays badly.** Every number is in
+**The game builds, but it plays badly.** All the numbers are in
 [`src/sim/config.zig`](https://github.com/rajeshpillai/zig-guide/blob/main/examples/lane-dodger/src/sim/config.zig).
-`lane_change_time` is the one to reach for first. Do not tighten the row spacing
-by hand: `sim.zig` derives a floor from the other numbers, and
-[the tests](/learn/lane-dodger/fair-by-design/) will tell you when you have gone
-under it.
+Change `lane_change_time` first. Do not make the row spacing smaller by hand.
+`sim.zig` calculates a minimum from the other numbers, and
+[the tests](/learn/lane-dodger/fair-by-design/) tell you when the spacing is
+less than that minimum.

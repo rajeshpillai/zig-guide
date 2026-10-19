@@ -1,4 +1,4 @@
-//! Gameplay tests. These play the game; none of them opens a window.
+//! Gameplay tests. These tests play the game, and no test opens a window.
 
 const std = @import("std");
 const sim = @import("sim.zig");
@@ -8,8 +8,8 @@ const config = @import("config.zig");
 const World = sim.World;
 const Input = sim.Input;
 
-/// Run the bot for `seconds` of simulated time, checking invariants every tick.
-/// Returns the world so the caller can assert on the outcome.
+/// Run the bot for `seconds` of simulated time, and check invariants on each
+/// tick. Returns the world. Then the caller can assert the result.
 fn playWithBot(seed: u64, seconds: f32) World {
     var w: World = .init(seed);
     w.start();
@@ -21,15 +21,15 @@ fn playWithBot(seed: u64, seconds: f32) World {
     return w;
 }
 
-/// A player who sees the threat, then takes a moment to act on it, modelled as
-/// pure latency: the decision made from the world as it looked `delay` ticks
-/// ago is the one acted on now.
+/// A player who sees the danger and then needs a moment to act. The model
+/// contains only latency. The player acts now on the decision from the world
+/// as it was `delay` ticks ago.
 ///
-/// With this model the tests can say something about whether the game is
-/// *fun*. The bot proves the course is solvable, but the bot has no reaction
-/// time at all, and a course only a machine can run is not a game. With a
-/// delay in front of the same policy, the test asks whether the game is fair
-/// to a person.
+/// With this model, the tests can tell you something about whether the game
+/// is *fun*. The bot proves that the course is solvable. But the bot has no
+/// reaction time, and a course that only a machine can pass is not a game.
+/// With a delay before the same policy, the test asks if the game is fair to a
+/// person.
 const Human = struct {
     delay: usize,
     buffer: [64]u8 = @splat(config.lane_count / 2),
@@ -49,7 +49,7 @@ const Human = struct {
     }
 };
 
-/// Mean seconds survived by a player with this reaction time.
+/// The mean seconds of survival for a player with this reaction time.
 fn meanSurvival(reaction_seconds: f32, seeds: usize, cap: f32) f32 {
     var total: f32 = 0;
     for (0..seeds) |seed| {
@@ -66,23 +66,23 @@ fn meanSurvival(reaction_seconds: f32, seeds: usize, cap: f32) f32 {
 }
 
 test "a run lasts about as long as a hyper casual run should" {
-    // A quarter second is a slow, relaxed player. They should get a proper run,
-    // not a game over screen after a few seconds.
+    // A quarter second is a slow, calm player. That player must get a real
+    // run, and not a game over screen after a few seconds.
     const casual = meanSurvival(0.25, 24, 300);
     std.testing.expect(casual > 12 and casual < 70) catch |err| {
         std.debug.print("casual player averaged {d:.1}s\n", .{casual});
         return err;
     };
 
-    // A sharp player must last longer, or skill makes no difference.
+    // A fast player must last longer. If not, skill makes no difference.
     const sharp = meanSurvival(0.10, 24, 300);
     std.testing.expect(sharp > casual * 1.5) catch |err| {
         std.debug.print("sharp {d:.1}s vs casual {d:.1}s\n", .{ sharp, casual });
         return err;
     };
 
-    // A sharp player must still lose. This check would have caught the
-    // saturating difficulty curve, where a sharp player never died.
+    // A fast player must still lose. This check finds the difficulty curve
+    // that saturated, where a fast player never died.
     std.testing.expect(sharp < 180) catch |err| {
         std.debug.print("sharp player averaged {d:.1}s: the game stops getting harder\n", .{sharp});
         return err;
@@ -90,10 +90,10 @@ test "a run lasts about as long as a hyper casual run should" {
 }
 
 test "the row spacing never falls to the unwinnable floor" {
-    // Check an hour of play, not only the ramp. The spacing decays towards the
-    // floor and must never touch it. Otherwise the game would become
-    // impossible while still looking normal: every row would leave a lane open
-    // that nobody could reach in time.
+    // Check an hour of play, not only the ramp. The spacing decays toward the
+    // minimum, and it must never touch the minimum. If it did, the game would
+    // become impossible but still look normal. Each row would leave a lane
+    // open, but nobody could get to that lane in time.
     var t: f32 = 0;
     while (t <= 3600) : (t += 0.5) {
         const speed = sim.speedAt(t);
@@ -110,14 +110,14 @@ test "the row spacing never falls to the unwinnable floor" {
 }
 
 test "the game keeps getting harder for as long as anyone can survive it" {
-    // If an endless runner stops getting harder, a good player never loses, and
-    // the score then measures patience instead of skill.
+    // If the difficulty of an endless runner stops its increase, a good player
+    // never loses. Then the score measures patience and not skill.
     //
-    // The spacing does eventually stop moving, at around eight minutes, when
-    // the decaying term drops below the last bit of an f32 near the floor. The
-    // reaction time test below says a person does not last nearly that long,
-    // so no player reaches the plateau. The plateau is also at the hardest
-    // setting, not partway up.
+    // At approximately eight minutes, the spacing does stop its movement. At
+    // that time, the term that decays becomes less than the last bit of an f32
+    // near the minimum. The reaction time test below shows that a person does
+    // not last nearly that long. Thus no player gets to the plateau. Also, the
+    // plateau is at the most difficult setting, and not at a point below it.
     var previous = sim.rowGapSeconds(sim.speedAt(0), 0);
     var t: f32 = 1;
     while (t <= 600) : (t += 1) {
@@ -126,7 +126,8 @@ test "the game keeps getting harder for as long as anyone can survive it" {
         previous = gap;
     }
 
-    // Strictly harder across the range a run can actually last.
+    // Strictly more difficult across the range of time that a run can really
+    // last.
     var sample: f32 = 0;
     while (sample < 240) : (sample += 10) {
         const now = sim.rowGapSeconds(sim.speedAt(sample), sample);
@@ -134,16 +135,17 @@ test "the game keeps getting harder for as long as anyone can survive it" {
         try std.testing.expect(later < now);
     }
 
-    // Late in a run must be clearly harder than early, not only different.
+    // Late in a run, the game must be clearly more difficult than early in the
+    // run, and not only different.
     const early = sim.rowGapSeconds(sim.speedAt(0), 0);
     const late = sim.rowGapSeconds(sim.speedAt(300), 300);
     try std.testing.expect(late < early * 0.6);
 }
 
 test "the opening never demands a two lane crossing" {
-    // A first-time player has not learned the controls yet. Inside the grace
-    // window every row leaves two lanes open, so one lane change is always
-    // enough to pass it.
+    // A new player does not know the controls yet. In the grace window, each
+    // row leaves two lanes open. Thus one lane change is always sufficient to
+    // pass the row.
     for (0..32) |seed| {
         var w: World = .init(seed);
         w.start();
@@ -179,8 +181,9 @@ test "a row never blocks every lane" {
             w.step(bot.play(&w));
             w.events.reset();
 
-            // Blocks laid down together share a y exactly, and advance by the
-            // same amount every tick, so grouping on y recovers the rows.
+            // Blocks that the game puts down together have exactly the same
+            // y, and they move by the same distance on each tick. Thus a group
+            // by y gives the rows.
             var rows: [config.lane_count * 16]struct { y: f32, lanes: u8 } = undefined;
             var count: usize = 0;
             var it = w.entities.iterator();
@@ -202,9 +205,9 @@ test "a row never blocks every lane" {
 }
 
 test "solvable course: the bot survives a long run at every seed" {
-    // This test proves that the generator is fair. Four minutes is well past the
-    // point where the difficulty ramp saturates, so this covers the hardest
-    // spacing the game ever produces.
+    // This test proves that the generator is fair. Four minutes is well after
+    // the point where the difficulty ramp saturates. Thus the test includes the
+    // smallest spacing that the game makes.
     for (0..24) |seed| {
         const w = playWithBot(seed, 240);
         std.testing.expectEqual(sim.Phase.playing, w.phase) catch |err| {
@@ -218,9 +221,10 @@ test "solvable course: the bot survives a long run at every seed" {
 }
 
 test "a competent run scores, collects and reaches full speed" {
-    // The numbers are measured from the bot, not guessed. They are a floor: if
-    // a change to the tuning halves the scoring rate or stalls the ramp, this
-    // notices, without pinning the exact values a designer is allowed to move.
+    // These numbers are measurements from the bot, not guesses. They are a
+    // minimum. If a change to the settings makes the score rate half as large,
+    // or stops the ramp, this test finds it. The test does not pin the exact
+    // values, because a designer can change them.
     const w = playWithBot(7, 90);
     try std.testing.expect(w.time > 89);
     try std.testing.expectApproxEqAbs(config.speed_max, w.speed(), 0.001);
@@ -230,8 +234,8 @@ test "a competent run scores, collects and reaches full speed" {
 }
 
 test "the near miss band is reachable, and is not just \"a block went by\"" {
-    // Below the collision width it is a crash; at a full lane it would fire on
-    // every block that passes in the next lane over.
+    // Below the collision width, the result is a crash. At a full lane, a
+    // near miss would occur for each block that passes in the next lane.
     try std.testing.expect(config.near_miss_dist > config.player_half_w + config.block_half_w);
     try std.testing.expect(config.near_miss_dist < config.lane_w);
 }
@@ -247,15 +251,16 @@ test "the entity pool and event buffer never overflow" {
             try std.testing.expectEqual(@as(usize, 0), w.events.dropped);
             w.events.reset();
         }
-        // Room to spare, but not so much that the array is far too large.
+        // The array has extra space, but it is not much too large.
         try std.testing.expect(peak < sim.EntityPool.capacity);
         try std.testing.expect(peak > 6);
     }
 }
 
 test "replay: the same seed and inputs produce an identical run" {
-    // Determinism is what makes a crash reportable as a seed and a keylog
-    // rather than a video, and it is the reason step() takes no dt.
+    // Because of determinism, a player can report a crash as a seed and a
+    // keylog, and not as a video. Determinism is the reason that step() has
+    // no dt.
     const script = struct {
         fn inputAt(tick: usize) Input {
             return switch (tick % 37) {
@@ -284,7 +289,7 @@ test "replay: the same seed and inputs produce an identical run" {
         try std.testing.expectEqual(a.player.x, b.player.x);
         try std.testing.expectEqual(a.entities.live, b.entities.live);
     }
-    // And the script actually exercised the game rather than idling.
+    // Also, the script really used the game, and did not only wait.
     try std.testing.expect(a.phase == .dead or a.score > 0);
 }
 
@@ -298,7 +303,8 @@ test "the player never leaves the field" {
     var w: World = .init(42);
     w.start();
     for (0..20_000) |tick| {
-        // Press left every tick for a while, then right, faster than a human.
+        // Press left on each tick for some time, then right, faster than a
+        // person can.
         w.step(if (tick % 400 < 200) .{ .left = true } else .{ .right = true });
         w.events.reset();
         try std.testing.expect(w.player.lane < config.lane_count);
@@ -309,8 +315,8 @@ test "the player never leaves the field" {
 }
 
 test "a held direction moves exactly one lane" {
-    // Input is edge-triggered. If a held key were read as a press every tick,
-    // the player would cross the board in two frames.
+    // Input is edge-triggered. If the game read a held key as a press on each
+    // tick, the player would cross the board in two frames.
     var w: World = .init(1);
     w.start();
     const start_lane = w.player.lane;
@@ -331,7 +337,7 @@ test "a lane change takes the time it is supposed to" {
 
     var ticks: usize = 1;
     while (@abs(w.player.x - target) > 0.01 and ticks < 1000) : (ticks += 1) {
-        w.entities.clear(); // keep the run alive; we are timing the slide
+        w.entities.clear(); // keep the run alive; this test measures the slide
         w.step(.none);
     }
     const elapsed = @as(f32, @floatFromInt(ticks)) * config.tick_dt;
@@ -352,7 +358,7 @@ test "hitting a block ends the run and restarting clears the field" {
     while (w.phase == .playing and guard < 1000) : (guard += 1) w.step(.none);
     try std.testing.expectEqual(sim.Phase.dead, w.phase);
 
-    // A restart is refused until the crash has played out.
+    // The game refuses a restart until the crash animation is complete.
     w.events.reset();
     w.step(.{ .confirm = true });
     try std.testing.expectEqual(sim.Phase.dead, w.phase);
@@ -384,7 +390,7 @@ test "a coin pays the combo multiplier, and a miss resets it" {
     w.start();
     w.entities.clear();
 
-    // Drop three coins onto the player, one at a time.
+    // Drop three coins on the player, one at a time.
     for (1..4) |expected_combo| {
         _ = w.entities.create(.{
             .kind = .coin,
@@ -400,7 +406,7 @@ test "a coin pays the combo multiplier, and a miss resets it" {
     // 25*1 + 25*2 + 25*3
     try std.testing.expectEqual(config.coin_points * 6, bonus_after_three);
 
-    // Now let one fall past.
+    // Now let one coin fall past the player.
     _ = w.entities.create(.{
         .kind = .coin,
         .lane = (w.player.lane + 1) % config.lane_count,
@@ -443,15 +449,16 @@ test "events are emitted for the things the renderer reacts to" {
     }
     try std.testing.expect(saw_lane_change);
 
-    // A block that draws level while the player is still partly in its lane is
-    // a near miss. That means catching the player mid-slide, so put them there
-    // directly rather than trying to time a keypress.
+    // A near miss is a block that becomes level with the player while a part
+    // of the player is still in its lane. Thus the test needs the player in
+    // the middle of a slide. The test puts the player there directly, and does
+    // not try to time a key press.
     w.events.reset();
     w.entities.clear();
     const vacating: u8 = 1;
     w.player = .{
         .lane = 2,
-        // Clear of the block's edge, inside the near miss band.
+        // Away from the edge of the block, and inside the near miss band.
         .x = config.laneCenter(vacating) + config.player_half_w + config.block_half_w + 12,
         .x_prev = 0,
     };
@@ -475,8 +482,8 @@ test "the first row is never close enough to be unavoidable" {
     for (0..64) |seed| {
         var w: World = .init(seed);
         w.start();
-        // The player must have at least a full board crossing before the first
-        // block is level with them, whatever lane it lands in.
+        // The player must have at least the time to cross the full board
+        // before the first block is level with the player, in any lane.
         var ticks: usize = 0;
         while (w.entities.live == 0) : (ticks += 1) w.step(.none);
         var nearest: f32 = std.math.floatMax(f32);

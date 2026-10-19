@@ -1,19 +1,22 @@
 //! A fixed-capacity pool with generational handles.
 //!
-//! Entities in this game are created and destroyed constantly: a block is
-//! spawned off the top of the screen and freed as it leaves the bottom, several
-//! times a second, forever. Two things follow.
+//! This game creates and destroys entities all the time. The game spawns a
+//! block above the top of the screen, and frees the block when it leaves the
+//! bottom. This occurs several times each second, for all of the game. This
+//! has two results.
 //!
-//! The storage is a fixed array, so a run of any length allocates exactly once
-//! (at startup) and never again. There is no allocator in the simulation at all.
+//! The storage is a fixed array. Thus a run of any length allocates exactly
+//! one time (at startup) and never again. The simulation has no allocator.
 //!
-//! References to entities are handles, not pointers. A handle carries the slot
-//! index *and* the generation that slot was on when the handle was made. Freeing
-//! a slot bumps its generation, so every handle to the old occupant stops
-//! resolving. Without that, an event that outlives its entity by one frame
-//! (a coin that was collected, a block that was cleared) would read whatever
-//! was reallocated into the slot, which is the kind of bug that shows up as a
-//! wrong score once an hour and never reproduces.
+//! The references to entities are handles, not pointers. A handle contains the
+//! slot index *and* the generation of that slot at the time when the pool made
+//! the handle. When the pool frees a slot, it increments the generation of the
+//! slot. Thus no handle to the old occupant resolves after that.
+//!
+//! Without this rule, an event can live one frame longer than its entity. An
+//! example is a coin that the player collected, or a block that the game
+//! removed. That event would read the new value in the slot. This type of bug gives a wrong
+//! score one time each hour, and you can never reproduce it.
 
 const std = @import("std");
 
@@ -27,8 +30,8 @@ pub fn Pool(comptime T: type, comptime capacity_in: u16) type {
             index: u16,
             generation: u32,
 
-            /// A handle that never resolves. Generation 0 is never handed out,
-            /// because live slots start at generation 1.
+            /// A handle that never resolves. The pool never gives out
+            /// generation 0, because live slots start at generation 1.
             pub const none: Handle = .{ .index = 0, .generation = 0 };
 
             pub fn eql(a: Handle, b: Handle) bool {
@@ -40,7 +43,8 @@ pub fn Pool(comptime T: type, comptime capacity_in: u16) type {
             value: T,
             /// Odd while the slot is live, even while it is free.
             generation: u32,
-            /// Index of the next free slot, valid only while this one is free.
+            /// The index of the next free slot. It is valid only while this
+            /// slot is free.
             next_free: u16,
         };
 
@@ -64,9 +68,10 @@ pub fn Pool(comptime T: type, comptime capacity_in: u16) type {
             break :init self;
         };
 
-        /// Returns null when the pool is full. Callers decide what a full pool
-        /// means; the spawner treats it as back-pressure and skips the spawn,
-        /// which is always safe because the course stays solvable.
+        /// Returns null when the pool is full. The caller decides what a full
+        /// pool means. The spawner uses a full pool as back-pressure and does
+        /// not do the spawn. This is always safe, because the course stays
+        /// solvable.
         pub fn create(self: *Self, value: T) ?Handle {
             if (self.free_head >= capacity) return null;
             const index = self.free_head;
@@ -159,7 +164,7 @@ test "a stale handle does not resolve to the slot's new occupant" {
     const old = pool.create(1).?;
     pool.destroy(old);
     const new = pool.create(2).?;
-    // The pool reuses the freed slot. This is what the pool is for.
+    // The pool uses the freed slot again. This is the purpose of the pool.
     try std.testing.expectEqual(old.index, new.index);
     // The stale handle must not see the new value.
     try std.testing.expect(pool.get(old) == null);
@@ -251,7 +256,7 @@ test "clear empties the pool and invalidates every handle" {
     try std.testing.expectEqual(@as(u16, 0), pool.live);
     for (handles) |h| try std.testing.expect(!pool.contains(h));
 
-    // And the pool is fully reusable afterwards.
+    // After the clear, you can use all of the pool again.
     for (0..4) |i| _ = pool.create(@intCast(i)).?;
     try std.testing.expectEqual(@as(u16, 4), pool.live);
 }
