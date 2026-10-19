@@ -1,5 +1,5 @@
 //! title: A Calling Convention
-//! Where the arguments go, who cleans up, and how the machine finds its way back.
+//! Where the arguments go, which side removes them, and how the machine returns.
 
 const std = @import("std");
 const lex = @import("lexer.zig");
@@ -41,8 +41,8 @@ pub const Chunk = struct {
 const Compiler = struct {
     nodes: []const ast.Node,
     chunk: *Chunk,
-    /// The function being compiled, or null at the top level. Its parameters
-    /// are the only names that resolve to a local slot.
+    /// The function that the compiler compiles now, or null at the top level.
+    /// Its parameters are the only names that resolve to a local slot.
     current: ?*const Func = null,
 
     fn emit(c: *Compiler, op: Op, arg: i64) Error!u32 {
@@ -62,9 +62,9 @@ const Compiler = struct {
         return @intCast(c.chunk.global_count - 1);
     }
 
-    /// A parameter's slot is its position, counted from the frame base. That
-    /// is the convention: the caller pushes the arguments, and the callee
-    /// treats them as slots 0, 1, 2 without ever being told where they are.
+    /// The slot of a parameter is its position, counted from the frame base.
+    /// That rule is the convention. The caller pushes the arguments, and the
+    /// callee uses them as slots 0, 1, 2. Nothing tells the callee where they are.
     fn localSlot(c: *Compiler, name: []const u8) ?i64 {
         const f = c.current orelse return null;
         for (f.params[0..f.param_count], 0..) |p, i| {
@@ -102,9 +102,9 @@ const Compiler = struct {
                     else => .eq,
                 }, 0);
             },
-            // Arguments are pushed by the caller, in order, and are simply
-            // left on the stack. The callee's frame base points at the first
-            // of them, so nothing has to be copied anywhere.
+            // The caller pushes the arguments in order, and they stay on the
+            // stack. The frame base of the callee points at the first argument.
+            // Thus no code copies the arguments.
             .call => {
                 var arg = node.first;
                 while (arg) |a| : (arg = c.nodes[a].next) try c.compile(a);
@@ -135,9 +135,9 @@ const Compiler = struct {
                     c.chunk.code[skip].arg = c.chunk.len;
                 }
             },
-            // The body is emitted inline, with a jump around it, so that
-            // running the program straight through does not fall into a
-            // function nobody called.
+            // The body is inline, with a jump around it. Thus a run straight
+            // through the program does not go into a function that no code
+            // called.
             .fn_decl => {
                 if (c.chunk.func_count == c.chunk.funcs.len) return error.TooManyFuncs;
                 const over = try c.emit(.jmp, 0);
@@ -148,8 +148,8 @@ const Compiler = struct {
                     f.params[f.param_count] = c.nodes[p].name;
                     f.param_count += 1;
                 }
-                // Registered before the body is compiled, so a function can
-                // call itself.
+                // The compiler registers the function before it compiles the
+                // body. Thus a function can call itself.
                 c.chunk.funcs[c.chunk.func_count] = f;
                 c.chunk.func_count += 1;
 
@@ -158,7 +158,7 @@ const Compiler = struct {
                 try c.compile(node.b.?);
                 c.current = saved;
 
-                // Falling off the end returns 0.
+                // A function that gets to the end without a `return` gives 0.
                 _ = try c.emit(.push, 0);
                 _ = try c.emit(.ret, 0);
                 c.chunk.code[over].arg = c.chunk.len;
@@ -224,9 +224,9 @@ pub const Vm = struct {
                 .jmp_if_false => if (try vm.pop() == 0) {
                     ip = @intCast(instr.arg);
                 },
-                // The call: remember where to come back to, and where this
-                // frame's arguments start. Nothing is copied; the arguments
-                // the caller pushed *are* the callee's locals.
+                // The call: remember the return address, and the start of the
+                // arguments for this frame. No code copies the arguments. The
+                // arguments that the caller pushed *are* the locals of the callee.
                 .call => {
                     const f = vm.chunk.funcs[@intCast(instr.arg)];
                     if (vm.depth == vm.frames.len) return error.StackOverflow;
@@ -238,10 +238,10 @@ pub const Vm = struct {
                     vm.depth += 1;
                     ip = f.entry;
                 },
-                // The return: take the value, discard everything this call
-                // put on the stack including its arguments, put the value
-                // back, and jump back to the caller. Cleaning up the arguments
-                // is the callee's job here. The calling convention chose that.
+                // The return: take the value, and discard the arguments and all
+                // else that this call put on the stack. Then push the
+                // value and jump to the caller. Here the callee removes the
+                // arguments, because this calling convention chose that.
                 .ret => {
                     const value = try vm.pop();
                     const frame = vm.frames[vm.depth - 1];

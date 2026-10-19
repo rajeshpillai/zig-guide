@@ -1,5 +1,5 @@
 //! title: Functions and Frames
-//! A call needs somewhere to put its own variables, and a way to come back.
+//! A call needs a place for its own variables, and a way to return.
 
 const std = @import("std");
 const lex = @import("lexer.zig");
@@ -13,17 +13,16 @@ pub const Error = error{
     DivideByZero,
     StackOverflow,
     WriteFailed,
-    /// Not a failure. `return` has to unwind out of however many nested
-    /// blocks, loops and ifs it sits inside, and an error is the only
-    /// mechanism that walks back up through arbitrary calls. The one place
-    /// this language uses an error for control flow, and it is caught by
-    /// exactly one caller.
+    /// Not a failure. `return` must leave all the nested blocks, loops and
+    /// ifs around it. An error is the only mechanism that unwinds through any
+    /// number of calls. This is the one place where this language uses an
+    /// error for control flow, and exactly one caller catches it.
     Return,
 };
 
-/// One call's variables. Frame 0 is the globals, which is why a name is looked
-/// up here first and there second: locals shadow globals, and nothing else
-/// shadows anything.
+/// The variables of one call. Frame 0 holds the globals. Thus the lookup
+/// searches the current frame first and frame 0 second. Locals shadow
+/// globals, and nothing else shadows anything.
 const Frame = struct {
     names: [16][]const u8 = undefined,
     values: [16]i64 = undefined,
@@ -52,14 +51,14 @@ pub const Interpreter = struct {
     nodes: []const ast.Node,
     out: *std.Io.Writer,
 
-    /// Declared functions, by name. Filled in as `fn` statements execute.
+    /// Declared functions, by name. Each `fn` statement adds its function when it executes.
     fn_names: [16][]const u8 = undefined,
     fn_nodes: [16]u32 = undefined,
     fn_count: usize = 0,
 
-    /// The call stack, as an array. Depth is limited here on purpose: the
-    /// limit is a fixed number in the code, not whatever the host's stack
-    /// happens to allow.
+    /// The call stack, as an array. The depth limit here is intentional. The
+    /// limit is a fixed number in the code, not the depth that the stack of
+    /// the host allows.
     frames: [64]Frame = undefined,
     depth: usize = 0,
     returned: i64 = 0,
@@ -84,9 +83,9 @@ pub const Interpreter = struct {
         const decl_index = found orelse return error.UnknownFunction;
         const decl = vm.nodes[decl_index];
 
-        // Arguments are evaluated in the *caller's* frame, before the new one
-        // exists. If the order is reversed, a parameter can see the value it
-        // is about to be given.
+        // The interpreter evaluates the arguments in the frame of the *caller*,
+        // before the new frame exists. If you reverse the order, a parameter
+        // can see the value that it will get.
         var args: [8]i64 = undefined;
         var count: usize = 0;
         var arg = node.first;
@@ -110,9 +109,9 @@ pub const Interpreter = struct {
         }
         if (bound != count) return error.WrongArgCount;
 
-        // A function that finishes without returning yields 0. `error.Return`
-        // is caught here and nowhere else, which is what makes it a jump to
-        // this exact point rather than a failure.
+        // A function that ends without a `return` gives 0. Only this code
+        // catches `error.Return`. Thus `error.Return` is a jump to this exact
+        // point, not a failure.
         vm.returned = 0;
         vm.exec(decl.b.?) catch |err| switch (err) {
             error.Return => {},
@@ -216,8 +215,8 @@ pub fn main(init: std.process.Init) !void {
         \\print fib(10);
     , out);
 
-    // The parameter is a local, so it shadows the global of the same name and
-    // the global is untouched when the call returns.
+    // The parameter is a local. Thus it shadows the global with the same name,
+    // and the global does not change when the call returns.
     try out.writeAll("\nshadowing\n");
     try run(
         \\let x = 100;

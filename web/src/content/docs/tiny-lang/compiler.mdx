@@ -1,22 +1,22 @@
 ---
 title: A Bytecode Compiler
-description: The same tree, walked once at compile time instead of once per execution.
+description: The compiler walks the same tree one time at compile time, not one time for each run.
 section: Tiny Language
 order: 5
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The interpreter walks the tree every time the program runs. Inside a loop, it
-walks the same subtree on every iteration: chasing the same indices, switching
-on the same node kinds, comparing the same variable names against the same
-strings. None of that work depends on the values, so none of it needs to
-happen more than once.
+The interpreter walks the tree each time the program runs. Inside a loop, the
+interpreter walks the same subtree on each iteration. It follows the same
+indices, it switches on the same node kinds, and it compares the same variable
+names with the same strings. None of that work depends on the values. Thus
+that work never needs to occur more than one time.
 
-A compiler removes that repeated work. It walks the tree **once**. Instead of
-computing an answer, it writes down the steps. The steps are **bytecode**.
-Running the program then becomes a loop over a flat array, not a walk over a
-tree.
+A compiler removes that repeated work. The compiler walks the tree **one
+time**. It does not calculate an answer. It writes down the steps, and the
+steps are **bytecode**. Then, to run the program, a loop goes over a flat
+array, not over a tree.
 
 ## The program
 
@@ -24,82 +24,92 @@ tree.
 
 ## What just happened
 
-**`1 + 2 * 3` became push, push, push, mul, add.** Operands first, then the
-operator. That is post-order traversal, and it is all you need to translate
-a tree for a stack machine. By the time an operator runs, its two inputs are
-the top two things on the stack, because emitting the children put them there.
-No instruction ever names its operands.
+**`1 + 2 * 3` became push, push, push, mul, add.** The operands come first,
+and then the operator. That order is a post-order traversal, and it is all
+that you need to translate a tree for a stack machine. When an operator runs,
+its two inputs are the top two values on the stack, because the code for the
+children put them there. No instruction ever names its operands.
 
-**Variables became numbers.** `load 0` with a comment saying `total`, and the
-comment is only there for you. The [interpreter
-chapter](/learn/tiny-lang/interpreter/) pointed out that it does a linear
-search over names on every variable read, and promised this fix. The search
-still happens, once per mention, here at compile time. At run time a variable
-is an array index.
+**Variables became numbers.** The listing shows `load 0` with a comment that
+says `total`, and the comment is only for you. The
+[interpreter chapter](/learn/tiny-lang/interpreter/) showed that the
+interpreter does a linear search over names each time it reads a variable.
+That chapter promised this fix. The search still occurs here, one time for
+each mention, at compile time. At run time, a variable is an array index.
 
-This is a large part of why compiled languages are faster.
+This change is a large part of the reason that compiled languages are faster.
 
-**The forward jump was patched.** When `jmp_if_false` is emitted, the address
-to jump to is not known, because the body it needs to skip has not been
-emitted yet. So a placeholder goes in, its position is remembered, and the
-real target is written once the length is known. This is called
-**backpatching**. It lets a compiler emit code in one pass over the tree
-instead of two.
+**The compiler patched the forward jump.** When the compiler emits
+`jmp_if_false`, it does not know the target address, because the body that the
+jump skips does not exist yet. Thus the compiler writes a placeholder and
+remembers its position. When the length of the body is known, the compiler
+writes the real target. This method is called **backpatching**. It lets a
+compiler emit code in one pass over the tree, not two.
 
-Look at the loop: `jmp_if_false 11` was patched, and `jmp 2` was not. The
-backward jump needed no patch, because a loop's start is already behind you
-when you emit the jump to it. Forward jumps need patching; backward ones do
-not.
+Look at the loop. The compiler patched `jmp_if_false 11`, and it did not patch
+`jmp 2`. The backward jump needed no patch, because the start of the loop is
+already in the code when the compiler emits the jump to it. Forward jumps need
+a patch, and backward jumps do not.
 
-**The slot table is not in the program.** It is printed at the end so you can
-read the disassembly, but the bytecode holds only numbers. After compiling,
-the names are debug information. A stack trace can use them, but running the
-program does not need them.
+**The slot table is not in the program.** The program prints the table at the
+end so that you can read the disassembly, but the bytecode holds only numbers.
+After the compile step, the names are debug information. A stack trace can use
+them, but the program does not need them to run.
 
 ## What this compiler does not do
 
-It ignores `fn`, `return` and calls. The `else` prong in `compile` skips them
-silently, so a program using functions compiles to bytecode that quietly
-leaves them out.
+The compiler ignores `fn`, `return` and calls. The `else` prong in `compile`
+silently skips them. Thus a program that uses functions compiles to bytecode
+without those functions, and no error tells you.
 
-This is a real limitation of the code. Compiling functions means designing a
-**calling convention**: where arguments go, how a frame is addressed, how the
-return address is stored, and whose job it is to clean up. Each of those is a
-decision with alternatives, so calls get [their own
-chapter](/learn/tiny-lang/calls/). Read this compiler first. The one in that
-chapter is the same, plus the part that makes calls work.
+This is a real limit of the code. To compile functions, you must design a
+**calling convention**. A calling convention decides these things:
+
+- where the arguments go
+- how the code addresses a frame
+- how the code stores the return address
+- which side removes the arguments after the call
+
+Each of those is a decision with alternatives. Thus calls get
+[their own chapter](/learn/tiny-lang/calls/). Read this compiler first. The
+compiler in that chapter is the same, plus the part that makes calls work.
 
 ## Check yourself
 
-The compiler emits `store` for both `let x = 1;` and `x = 1;`, resolving both
-to the same slot. What does that mean for a variable declared inside a `while`
-body?
+The compiler emits `store` for both `let x = 1;` and `x = 1;`, and it resolves
+both to the same slot. What does that mean for a variable that you declare
+inside a `while` body?
 
-There is only one of it. Slots are allocated per *name*, for the whole
-program. So a variable inside a loop reuses the same slot on every iteration,
-and two variables with the same name in different functions would collide.
-Real compilers give each scope its own range of slots and free them when the
-scope ends. Per-scope slots make locals cheap. It is the same bookkeeping
-the frames chapter did at run time. This compiler has a single flat namespace,
-which is enough for a language with no functions.
+There is only one copy of the variable. The compiler allocates slots by
+*name*, for the full program. Thus a variable inside a loop uses the same slot
+again on each iteration. Two variables with the same name in different
+functions would collide.
+
+Real compilers give each scope its own range of slots, and free the slots when
+the scope ends. Slots for each scope make locals cheap. This is the same
+bookkeeping that the frames chapter did at run time. This compiler has one
+flat namespace, which is enough for a language without functions.
 
 ## If you know C
 
-C compiles to machine code rather than bytecode, but the middle of the
-pipeline is the same shape. The disassembly above would be recognisable to
-anyone who has read compiler output. A real back end differs in two ways.
+C compiles to machine code, not to bytecode, but the middle of the pipeline has
+the same shape. A person who knows compiler output can recognise the
+disassembly above. A real back end is different in two ways.
 
-It has **registers**, so a value can stay in one across several operations
-instead of being pushed and popped. Deciding which values live in which
-registers is called register allocation. A large part of a real compiler's
-complexity is there. A stack machine skips the problem entirely. That is why so
-many bytecode VMs are stack machines, and why they are slower. Lua and Dalvik
-chose the other way and allocate registers.
+First, a real back end has **registers**. A value can stay in a register
+across several operations, and the code does not push and pop the value.
 
-And it optimises, which is possible because the bytecode is now a data
-structure you can rewrite. `push 1, push 2, add` can become `push 3` before
-anything runs. This compiler does none of that. But it could, and that
-possibility is why compiled code can run faster than interpreted code, and not
-only because some of its work happened earlier.
+The decision about which values go in which registers is called register
+allocation. A large part of the complexity of a real compiler is in register
+allocation. A stack machine does not have this problem at all. That is the
+reason that many bytecode VMs are stack machines, and the reason that they are
+slower. Lua and Dalvik made the other choice, and allocate registers.
 
-Next: the virtual machine, which runs what this just wrote.
+Second, a real back end optimises. Optimisation is possible because the
+bytecode is now a data structure that you can change. `push 1, push 2, add`
+can become `push 3` before anything runs. This compiler does none of that, but
+it could. That possibility is the reason that compiled code can run faster than
+interpreted code, and not only because some of its work occurred earlier.
+
+The next chapter is the virtual machine. The virtual machine runs the bytecode
+that this compiler wrote.

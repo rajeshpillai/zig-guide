@@ -1,5 +1,5 @@
 //! title: A Lexer
-//! Characters in, tokens out. One character of lookahead and no backtracking.
+//! Characters in, tokens out. One character of lookahead, and the lexer never moves back.
 
 const std = @import("std");
 
@@ -32,15 +32,15 @@ pub const Kind = enum {
 
 pub const Token = struct {
     kind: Kind,
-    /// Points into the source. The token owns nothing.
+    /// A slice into the source. The token owns no memory.
     text: []const u8,
     value: i64 = 0,
     line: usize = 1,
 };
 
-/// The words that are not identifiers. Checked after scanning a word, which is
-/// why `letter` lexes as an identifier and not as `let` followed by `ter`:
-/// the scan is greedy first, and the lookup happens on the whole word.
+/// The words that are not identifiers. The lexer checks this table after it
+/// scans a full word. Thus `letter` lexes as an identifier, not as `let` and
+/// then `ter`. The scan is greedy first, and the lookup uses the full word.
 fn keyword(word: []const u8) ?Kind {
     const table = .{
         .{ "let", Kind.kw_let },
@@ -65,7 +65,7 @@ fn isAlpha(c: u8) bool {
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or c == '_';
 }
 
-/// Fill `out` with the tokens of `source`, returning the part used.
+/// Put the tokens of `source` into `out`. Return the part of `out` that has tokens.
 pub fn tokenize(source: []const u8, out: []Token) ![]Token {
     var i: usize = 0;
     var line: usize = 1;
@@ -74,8 +74,8 @@ pub fn tokenize(source: []const u8, out: []Token) ![]Token {
     while (i < source.len) {
         const c = source[i];
 
-        // Whitespace carries no meaning beyond separating tokens, so it is
-        // dropped here and the parser never sees it.
+        // Whitespace has no meaning, except that it separates tokens. Thus the
+        // lexer drops the whitespace here, and the parser never sees it.
         if (c == '\n') {
             line += 1;
             i += 1;
@@ -101,7 +101,7 @@ pub fn tokenize(source: []const u8, out: []Token) ![]Token {
             out[n] = .{ .kind = keyword(word) orelse .identifier, .text = word, .line = line };
         } else {
             i += 1;
-            // The only place lookahead is needed: `=` and `==` start the same.
+            // Lookahead is necessary only here, because `=` and `==` start the same.
             const kind: Kind = switch (c) {
                 '+' => .plus,
                 '-' => .minus,

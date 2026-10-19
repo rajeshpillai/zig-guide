@@ -7,17 +7,23 @@ order: 6
 
 import Playground from "../../../components/Playground.astro";
 
-The compiler produced an array of instructions. This chapter runs it, and the
-program that does so is the smallest one in the section.
+The compiler made an array of instructions. This chapter runs that array. The
+program that runs the array is the smallest program in the section.
 
-There is an instruction pointer, an index into the array. Read the instruction
-it points at, move it forward, do what the instruction says, repeat. That loop
-is called **fetch, decode, execute**. A physical processor runs the same loop,
-so this program is called a virtual machine, not an interpreter.
+The machine has an instruction pointer, which is an index into the array. The
+machine does these steps in a loop:
 
-Everything the machine needs is a stack and a table of slots. Instructions
-never name their operands: they take them from the top of the stack and put
-the result back.
+1. Read the instruction at the instruction pointer.
+2. Move the instruction pointer forward.
+3. Do what the instruction says.
+4. Do the steps again.
+
+This loop is called **fetch, decode, execute**. A physical processor runs the
+same loop. Thus this program is called a virtual machine, not an interpreter.
+
+The machine needs only a stack and a table of slots. Instructions never name
+their operands. The instructions take the operands from the top of the stack,
+and put the result back on the stack.
 
 ## The program
 
@@ -25,77 +31,93 @@ the result back.
 
 ## What just happened
 
-**The answers match the tree-walking interpreter exactly.** 55 and 1 for the
-sum of squares, the same arithmetic results. Compiling and interpreting do
-the same computation. The compiler only makes its decisions earlier. If the
-answers differed, one of them would have a bug.
+**The answers are exactly the same as the answers of the tree-walking
+interpreter.** The sum of squares gives 55 and 1, and the arithmetic results
+are the same. Compilation and interpretation do the same calculation. The
+compiler only makes its decisions earlier. If the answers were different, one
+of the two would have a bug.
 
-**A jump is an assignment.** `ip = instr.arg`, and that is the entire
-implementation of `while`, `if` and `else`. All the structure the parser
-found is gone. The tree became a flat array, and control flow is arithmetic on
-an index. This is what "lowering" means. It is why a disassembly is hard to
-read and fast to run.
+**A jump is an assignment.** `ip = instr.arg` is the full implementation of
+`while`, `if` and `else`. All the structure that the parser found is gone. The
+tree became a flat array, and control flow is arithmetic on an index. This
+change is the meaning of "lowering". It is the reason that a disassembly is
+hard to read and fast to run.
 
-**Operand order is an easy bug in this loop.** The right operand was pushed
-last, so it must be popped first. If you get it backwards, `+` and `*` still
-look correct, because order does not change their result. But `-` and `/`
-give wrong answers with no error. A test
-suite of `2 + 3` would pass.
+**Operand order is an easy bug to make in this loop.** The code pushed the
+right operand last, thus the loop must pop it first. If you reverse the order,
+`+` and `*` still look correct, because the order does not change their result.
+But `-` and `/` give wrong answers with no error. A test suite of `2 + 3`
+would pass.
 
-**45 instructions for a five-line program.** The count is printed so you can
-see the cost. Each instruction is one switch dispatch, and that is the cost of
-a bytecode VM. Real VMs use computed goto or a JIT because this switch runs
-billions of times.
+**45 instructions for a five-line program.** The program prints the count so
+that you can see the cost. Each instruction is one dispatch through the
+switch, and that is the cost of a bytecode VM. Real VMs use computed goto or a
+JIT, because this switch runs billions of times.
 
-Nothing in the running program knows a variable ever had a name. So a stripped
-binary gives you a stack trace full of addresses. Debug information is a
-separate thing you choose to keep.
+Nothing in the program at run time knows that a variable ever had a name. Thus
+a stack trace from a stripped binary is full of addresses. Debug information
+is a separate thing that you choose to keep.
 
 ## The state of this language
 
-This VM has no `call` and no `ret`, so a program using functions compiles to
-bytecode that silently leaves them out. This stays so for one more chapter. A calling convention is four separate decisions: where arguments
-live, how a frame is addressed, who restores the instruction pointer, and who
-cleans up the arguments. Each one has alternatives.
+This VM has no `call` and no `ret`. Thus a program that uses functions
+compiles to bytecode without those functions, and no error tells you. This
+limit stays for one more chapter. A calling convention is four separate
+decisions, and each decision has alternatives:
 
-[A Calling Convention](/learn/tiny-lang/calls/) makes those decisions and runs
-`fact(5)` through compiled bytecode. Read this VM first: the calling one is
-the same dispatch loop with `load_local`, `call` and `ret` added, and `div`
-and `neg` dropped.
+- where the arguments are
+- how the code addresses a frame
+- which code restores the instruction pointer
+- which code removes the arguments
+
+[A Calling Convention](/learn/tiny-lang/calls/) makes those decisions, and runs
+`fact(5)` through compiled bytecode. Read this VM first. The VM in that chapter
+is the same dispatch loop, with `load_local`, `call` and `ret` added, and `div`
+and `neg` removed.
 
 ## Check yourself
 
-The VM checks for stack overflow and underflow on every push and pop. A real
-one usually does not. Why is that safe?
+The VM checks for stack overflow and underflow on each push and pop. A real VM
+usually does not. Why is that safe?
 
-Because the compiler is the one producing the bytecode, and it only emits
-sequences that balance. `add` is only ever emitted after two operands, so a
-correct compiler cannot produce an `add` that underflows. Real VMs move the
-check to the moment bytecode is *loaded*, verifying it once rather than on
-every instruction. The JVM's bytecode verifier exists to do this. The checks
-are here because they are cheap at this size. Also, a hand-written bad chunk
-should report an error, not read memory it does not own.
+The compiler makes the bytecode, and the compiler emits only sequences that
+balance. The compiler emits `add` only after two operands. Thus a correct
+compiler cannot make an `add` that underflows. Real VMs move the check to the
+time when they *load* the bytecode. They verify the bytecode one time, not on
+each instruction. The JVM bytecode verifier exists for this purpose.
+
+The checks are here because they are cheap at this size. Also, a bad chunk
+that a person wrote manually should report an error. The chunk should not
+read memory that the VM does not own.
 
 ## If you know C
 
-The dispatch loop is a switch, and the standard trick to make it faster is
-computed goto. It is a GCC extension where each instruction ends by jumping
-directly to the next handler, instead of returning to the top of the switch.
-It helps because the branch predictor gets one indirect jump per opcode
-instead of one shared jump. It is a common optimisation in real interpreters.
+The dispatch loop is a switch. The usual method to make it faster is computed
+goto, which is a GCC extension. With computed goto, each instruction ends with
+a direct jump to the next handler, and does not return to the top of the
+switch. It helps because the branch predictor gets one indirect jump for each
+opcode, not one shared jump. It is a common optimisation in real interpreters.
 
-The stack is the other difference. The VM here checks every push and pop. In
-C, pushing past the end of the stack array reads and writes past it with no
-complaint. This loop runs millions of times, so a bug there corrupts something
-far away and shows up much later.
+The stack is the other difference. The VM here checks each push and pop. In C,
+a push past the end of the stack array reads and writes past the array, with
+no warning. This loop runs millions of times. Thus a bug there corrupts data
+far away, and the problem appears much later.
 
 ## Where to go next
 
-That is the pipeline: characters to tokens, tokens to a tree, the tree walked
-or lowered to instructions, and the instructions run. The compilers and
-interpreters you use follow the same steps, with many more cases.
+That is the full pipeline:
 
-If you want to learn the machine under the language,
-[Groundwork](/learn/systems-from-scratch/) covers what a byte, an address and
-a stack frame actually are. If you would rather keep building tools, [the Unix
-toolbox](/learn/unix-tools/) is seven more programs in the same spirit.
+1. Characters become tokens.
+2. Tokens become a tree.
+3. The interpreter walks the tree, or the compiler lowers the tree to
+   instructions.
+4. The VM runs the instructions.
+
+The compilers and interpreters that you use follow the same steps, with many
+more cases.
+
+To learn about the machine under the language, read
+[Groundwork](/learn/systems-from-scratch/). Groundwork explains what a byte, an
+address and a stack frame are. To continue to build tools, read
+[the Unix toolbox](/learn/unix-tools/), which has seven more programs of the
+same type.

@@ -1,5 +1,5 @@
 //! title: A Tree-Walking Interpreter
-//! Evaluate a node by evaluating its children. That is the whole idea.
+//! To evaluate a node, evaluate its children and then combine the results.
 
 const std = @import("std");
 const lex = @import("lexer.zig");
@@ -12,10 +12,10 @@ pub const Error = error{
     WriteFailed,
 };
 
-/// Names to values. A flat array searched linearly, which is the right choice
-/// at this size and the wrong one at a thousand: real interpreters resolve a
-/// name to a slot number once, at compile time, so this search never happens
-/// at run time.
+/// Names to values, in a flat array with a linear search. At this size, the
+/// array is the correct choice. At a thousand names, it is the wrong choice.
+/// Real interpreters resolve a name to a slot number one time, at compile
+/// time. Then this search never occurs at run time.
 pub const Env = struct {
     names: [32][]const u8 = undefined,
     values: [32]i64 = undefined,
@@ -50,9 +50,9 @@ pub const Interpreter = struct {
     env: Env = .{},
     out: *std.Io.Writer,
 
-    /// Expressions produce a value. Every case is: evaluate the children,
-    /// then combine them. The recursion follows the shape of the tree
-    /// exactly, which keeps this interpreter short.
+    /// Expressions produce a value. Each case does two steps: evaluate the
+    /// children, then combine the results. The recursion follows the shape of
+    /// the tree exactly, thus this interpreter is short.
     pub fn eval(vm: *Interpreter, index: u32) Error!i64 {
         const node = vm.nodes[index];
         return switch (node.kind) {
@@ -66,7 +66,7 @@ pub const Interpreter = struct {
                     .plus => left + right,
                     .minus => left - right,
                     .star => left * right,
-                    // The language must define division by zero. The machine does not.
+                    // The language must define division by zero. The machine does not define it.
                     .slash => if (right == 0) error.DivideByZero else @divTrunc(left, right),
                     .lt => @intFromBool(left < right),
                     .eq => @intFromBool(left == right),
@@ -77,8 +77,8 @@ pub const Interpreter = struct {
         };
     }
 
-    /// Statements produce an effect. `exec` returns nothing, which is the
-    /// distinction the grammar already drew.
+    /// Statements produce an effect. `exec` returns nothing. The grammar
+    /// already made this distinction.
     pub fn exec(vm: *Interpreter, index: u32) Error!void {
         const node = vm.nodes[index];
         switch (node.kind) {
@@ -141,15 +141,15 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("sum of squares 1..5\n");
     try run(program, out);
 
-    // Integer division truncates toward zero, and dividing by zero is an
-    // error the language defines rather than a crash it inherits.
+    // Integer division truncates toward zero. Division by zero is an error
+    // that the language defines, not a crash that it gets from the host.
     try out.writeAll("\ndivision\n");
-    // The second one shows the difference: truncating toward zero
-    // gives -3, where flooring would give -4.
+    // The second statement shows the difference. Truncation toward zero
+    // gives -3, and floor division would give -4.
     try run("print 7 / 2; print (0 - 7) / 2;", out);
     try report(out, "7 / 0", run("print 7 / 0;", out));
 
-    // A name that was never defined is caught where it is used.
+    // The interpreter finds an undefined name at the point where the program uses it.
     try report(out, "print nope;", run("print nope;", out));
 
     try out.flush();

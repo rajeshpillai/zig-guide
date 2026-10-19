@@ -1,46 +1,47 @@
 ---
 title: A Calling Convention
-description: Where the arguments go, who cleans up, and how the machine finds its way back.
+description: Where the arguments go, which side removes them, and how the machine returns to the caller.
 section: Tiny Language
 order: 7
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The compiler and the VM stopped before functions. Calls are not hard to
-implement. But implementing them means answering four questions that have no
+The compiler and the VM stopped before functions. Calls are not difficult to
+implement. But to implement them, you must answer four questions that have no
 obvious answers. The set of answers is called a **calling convention**.
 
 1. Where do the arguments go?
 2. How does the callee find its own variables?
 3. Where does the machine go when the function returns?
-4. Who removes the arguments afterwards?
+4. Which side removes the arguments after the call?
 
-Each question has more than one answer, and real machines choose differently.
-Code built with one convention cannot call code built with another. That is
-why you cannot link a library built with different conventions.
+Each question has more than one answer, and real machines make different
+choices. Code that uses one convention cannot call code that uses a different
+convention. Thus you cannot link a library that uses a different convention.
 
-## The answers this one gives
+## The answers in this convention
 
-**Arguments go on the stack, pushed by the caller, in order.** That is the
-oldest answer and the simplest. Real machines put the first few in registers
-because that is faster. For example, "the System V AMD64 ABI passes the first
-six integer arguments in `rdi, rsi, rdx, rcx, r8, r9`".
+**The caller pushes the arguments on the stack, in order.** This answer is the
+oldest and the simplest. Real machines put the first few arguments in
+registers, because registers are faster. For example, the System V AMD64 ABI
+passes the first six integer arguments in `rdi, rsi, rdx, rcx, r8, r9`.
 
-**A local is a slot counted from the frame base.** When a call begins, the base
-points at the first argument the caller pushed. So parameter 0 is at base + 0.
-The callee never has to be told where its arguments are, because they are
-already on the stack at its base. Nothing is copied.
+**A local is a slot that the code counts from the frame base.** When a call
+starts, the base points at the first argument that the caller pushed. Thus
+parameter 0 is at base + 0. No code has to tell the callee where its arguments
+are, because the arguments are already on the stack at its base. No code
+copies the arguments.
 
-**The return address is saved by the call.** The instruction pointer already
-points past the `call` when the frame is pushed, so saving it costs no extra
+**The call saves the return address.** The instruction pointer already points
+past the `call` when the VM pushes the frame. Thus the save costs no extra
 work.
 
-**The callee cleans up.** On `ret` it resets the stack to the frame base, which
-discards the arguments, and then pushes the result. The other choice is for
-the caller to clean up, which is what C does. C does it because of variadic
-functions: `printf` cannot clean up arguments when it was never told how many
-there are.
+**The callee removes the arguments.** On `ret`, the callee resets the top of
+the stack to the frame base, which discards the arguments. Then the callee
+pushes the result. The other choice is that the caller removes the arguments,
+and C uses that choice. C does this because of variadic functions: `printf`
+cannot remove arguments when nothing tells it how many there are.
 
 ## The program
 
@@ -48,49 +49,53 @@ there are.
 
 ## What just happened
 
-**`square`'s body is four instructions.** `load_local 0` twice, `mul`, `ret`.
-The `push 0` after them in the listing is the epilogue every function gets,
-for the case where control reaches the end without a `return`.
-The body has no name lookup and copies no arguments. The parameter `n` became
-slot 0 at compile time. Reading it at run time is one array index from the
-frame base.
+**The body of `square` is four instructions:** `load_local 0` two times, `mul`
+and `ret`. Each function gets an epilogue, and the `push 0` after the body in
+the listing is that epilogue. The epilogue is for the case where control
+reaches the end of the function without a `return`. The body has no name
+lookup and copies no arguments. The compiler made the parameter `n` into slot
+0, thus at run time a read of `n` is one array index from the frame base.
 
 **`fact(5)` recursed through compiled bytecode and gave 120.** Each call pushed
-a frame; each `ret` popped one. The recursion works because the frame base is
-per-call. Five frames existed at once, at different stack offsets. The frames
-chapter showed the same thing in the tree-walking interpreter.
+a frame, and each `ret` popped one. The recursion works because each call has
+its own frame base. Five frames existed at the same time, at different stack
+offsets. The frames chapter showed the same thing in the tree-walking
+interpreter.
 
-**A jump goes around each function body.** Bodies are emitted inline, in the
-middle of the program, so running straight through would fall into `square`
-without anybody calling it. The jump is patched once the body's length is
-known. This is the same backpatching the compiler chapter used for `if`.
+**A jump goes around each function body.** The compiler emits each body
+inline, in the middle of the program. Without the jump, a straight run through
+the program would go into `square`, although no code called `square`. The
+compiler patches the jump when it knows the length of the body. This is the
+same backpatching that the compiler chapter used for `if`.
 
-**The function is registered before its body is compiled.** This order makes
-recursion possible: when the compiler reaches `fact(n -
-1)` inside `fact`, it needs to already know that `fact` exists.
+**The compiler registers the function before it compiles the body.** This
+order makes recursion possible. When the compiler gets to `fact(n - 1)` inside
+`fact`, the compiler must already know that `fact` exists.
 
 ## Check yourself
 
-The compiler resolves a name to a local slot only if it is a parameter of the
-enclosing function. What happens to `let x = 1;` written inside a function
+The compiler resolves a name to a local slot only if the name is a parameter
+of the function around it. What occurs with `let x = 1;` inside a function
 body?
 
-It becomes a **global**, shared by every call. That is wrong, and it is one of
-the limitations this compiler still has. The same silent `else` prong drops
-`while` loops and compiles `/` as an equality test. Real locals need a scope
-resolver that walks the body first, collects every declaration, and assigns each one a slot
-above the parameters. The frame is then sized to hold both, and the base
-pointer addresses all of it uniformly.
+The variable becomes a **global**, and all calls share it. That is wrong, and
+it is one of the limits that this compiler still has. The same silent `else`
+prong drops `while` loops, and compiles `/` as an equality test.
 
-With that resolver, a function has its own scope, not just arguments. It is
-the next thing to build if you take this further. Without it, the tree-walking
-interpreter and this compiler still accept different programs. A language with
-two back ends often has gaps like this.
+Real locals need a scope resolver. The resolver walks the body first, collects
+each declaration, and gives each declaration a slot above the parameters. The
+frame then has space for both. The base pointer addresses all of the frame in
+the same way.
+
+With that resolver, a function has its own scope, not only arguments. The
+resolver is the next thing to build if you continue this work. Without the
+resolver, the tree-walking interpreter and this compiler still accept
+different programs. A language with two back ends often has gaps like this.
 
 ## If you know C
 
-You have seen this convention's output every time you read a disassembly. The
-prologue and epilogue GCC emits are exactly the bookkeeping above:
+You saw the output of this convention each time you read a disassembly. The
+prologue and epilogue that GCC emits are exactly the bookkeeping above:
 
 ```
 push rbp          ; save the caller's frame pointer
@@ -102,16 +107,16 @@ ret               ; jump back
 ```
 
 `rbp` is the frame base. A local at `[rbp-8]` is the slot arithmetic above,
-with a real register doing the work. A debugger can print a stack trace
-because each frame stores the previous frame pointer. Walking that chain
-recovers the call history. It is the frame array from this chapter, stored as
-a linked list in memory.
+and a real register does the work. A debugger can print a stack trace because
+each frame stores the previous frame pointer. The debugger follows that chain
+and gets the call history. The chain is the frame array from this chapter,
+stored as a linked list in memory.
 
-The convention is also why a stack overflow in C is a segfault, not an error.
-Nothing checks the depth, because checking would cost an instruction on every
-call. This VM checks. It can afford to, because it already pays for a switch
-dispatch.
+The convention is also the reason that a stack overflow in C is a segfault, not
+an error. Nothing checks the depth, because a check would cost an instruction
+on each call. This VM checks. The cost is acceptable here, because the VM
+already pays for a dispatch through the switch.
 
-Next: [the virtual machine chapter](/learn/tiny-lang/vm/) if you skipped it,
-since this one is that dispatch loop with `load_local`, `call` and `ret`
-added, and `div` and `neg` dropped.
+If you did not read [the virtual machine chapter](/learn/tiny-lang/vm/), read
+it next. This chapter uses the same dispatch loop, with `load_local`, `call`
+and `ret` added, and `div` and `neg` removed.

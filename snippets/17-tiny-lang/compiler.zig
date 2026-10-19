@@ -22,10 +22,10 @@ pub const Op = enum {
     halt,
 };
 
-/// One instruction. `arg` is a literal value, a slot number, or a jump target,
-/// depending on the opcode. A real VM packs this into bytes. Keeping it a
-/// struct costs memory and saves writing a decoder, which is a good trade for
-/// code meant to be read.
+/// One instruction. `arg` is a literal value, a slot number or a jump target.
+/// The opcode decides which. A real VM packs the instruction into bytes. A
+/// struct uses more memory, but you do not have to write a decoder. That
+/// trade is good for code that people read.
 pub const Instr = struct {
     op: Op,
     arg: i64 = 0,
@@ -42,8 +42,8 @@ pub const Error = error{
 pub const Chunk = struct {
     code: []Instr,
     len: u32 = 0,
-    /// Names, in the order they were first seen. The index is the slot number,
-    /// and after compiling, the names are never needed again.
+    /// Names, in the order that the compiler first saw them. The index is the
+    /// slot number. After the compile step, the compiler never needs the names.
     slots: [32][]const u8 = undefined,
     slot_count: u32 = 0,
 };
@@ -59,9 +59,9 @@ pub const Compiler = struct {
         return c.chunk.len - 1;
     }
 
-    /// Resolve a name to a number, once, here. This is the fix the interpreter
-    /// chapter promised: at run time a variable is an array index, and the
-    /// string comparison that used to happen on every read is gone.
+    /// Resolve a name to a number, one time, here. This is the fix that the
+    /// interpreter chapter promised. At run time a variable is an array index,
+    /// and the string comparison on each read does not occur.
     fn slot(c: *Compiler, name: []const u8) Error!i64 {
         for (c.chunk.slots[0..c.chunk.slot_count], 0..) |candidate, i| {
             if (std.mem.eql(u8, candidate, name)) return @intCast(i);
@@ -72,9 +72,9 @@ pub const Compiler = struct {
         return @intCast(c.chunk.slot_count - 1);
     }
 
-    /// Post-order: emit the operands, then the operator. This ordering is all
-    /// it takes to translate a tree for a stack machine, because by the time
-    /// `add` runs its two inputs are already the top of the stack.
+    /// Post-order: emit the operands, then the operator. This order is all
+    /// that you need to translate a tree for a stack machine. When `add` runs,
+    /// its two inputs are already the top of the stack.
     pub fn compile(c: *Compiler, index: u32) Error!void {
         const node = c.nodes[index];
         switch (node.kind) {
@@ -106,10 +106,10 @@ pub const Compiler = struct {
             },
             .@"if" => {
                 try c.compile(node.a.?);
-                // The target is not known yet: the then-branch has not been
-                // emitted. Emit a placeholder, remember where it is, and come
-                // back. That is backpatching, and it is why a compiler can
-                // work in a single pass over the tree.
+                // The target is not known yet, because the compiler did not
+                // emit the then-branch yet. Emit a placeholder, remember its
+                // position, and write the target later. That is backpatching.
+                // Because of backpatching, a compiler can work in one pass.
                 const skip_then = try c.emit(.jmp_if_false, 0);
                 try c.compile(node.b.?);
                 if (node.c) |other| {
@@ -122,8 +122,8 @@ pub const Compiler = struct {
                 }
             },
             .@"while" => {
-                // The backward jump needs no patching: the loop's start has
-                // already been emitted when the jump is emitted.
+                // The backward jump needs no patch. The compiler emitted the
+                // start of the loop before it emits the jump.
                 const start = c.chunk.len;
                 try c.compile(node.a.?);
                 const exit = try c.emit(.jmp_if_false, 0);

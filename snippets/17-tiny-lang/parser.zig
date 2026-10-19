@@ -20,17 +20,17 @@ pub const Kind = enum {
     ret,
 };
 
-/// Children are a linked list rather than a slice, so the whole tree lives in
-/// one flat array and a node is a fixed size. `first` starts the list, `next`
+/// Children are a linked list, not a slice. Thus the full tree is in one flat
+/// array, and each node has a fixed size. `first` starts the list, and `next`
 /// continues it.
 pub const Node = struct {
     kind: Kind,
     op: lex.Kind = .eof,
     value: i64 = 0,
     name: []const u8 = "",
-    /// Operand, condition, or the value being assigned.
+    /// The operand, the condition, or the value for the assignment.
     a: ?u32 = null,
-    /// Second operand, or the body of an if/while.
+    /// The second operand, or the body of an if or a while.
     b: ?u32 = null,
     /// The else branch.
     c: ?u32 = null,
@@ -38,9 +38,10 @@ pub const Node = struct {
     next: ?u32 = null,
 };
 
-/// Written out rather than inferred. These functions are mutually recursive
-/// (`primary` re-enters `expression` for a parenthesised group), and inferred
-/// error sets cannot close a cycle: the compiler reports a dependency loop.
+/// The error set is explicit, not inferred. These functions are mutually
+/// recursive: `primary` calls `expression` again for a group in parentheses.
+/// An inferred error set cannot close a cycle, and the compiler reports a
+/// dependency loop.
 pub const Error = error{ UnexpectedToken, TooManyNodes, TooManyTokens };
 
 pub const Parser = struct {
@@ -72,9 +73,9 @@ pub const Parser = struct {
         return p.used - 1;
     }
 
-    // Each level consumes its own operators and defers to the next one for the
-    // operands. That call order *is* the precedence: `product` binds tighter
-    // than `sum` because `sum` asks it for both sides before looking at `+`.
+    // Each level reads its own operators, and gets its operands from the next
+    // level. That call order *is* the precedence. `product` binds tighter than
+    // `sum`, because `sum` asks `product` for both sides before it examines `+`.
 
     pub fn expression(p: *Parser) Error!u32 {
         return p.comparison();
@@ -130,7 +131,7 @@ pub const Parser = struct {
             .identifier => {
                 p.pos += 1;
                 // One token of lookahead decides between a name and a call.
-                // This is the only place the expression grammar needs it.
+                // The expression grammar needs lookahead only here.
                 if (p.peek() != .lparen) {
                     return p.add(.{ .kind = .variable, .name = token.text });
                 }
@@ -146,8 +147,9 @@ pub const Parser = struct {
                 _ = try p.expect(.rparen);
                 return node;
             },
-            // Parentheses need no precedence rule of their own. They re-enter
-            // at the loosest level, which is what "override the grouping" means.
+            // Parentheses need no precedence rule of their own. They start
+            // again at the loosest level, and thus they change the order of
+            // operations.
             .lparen => {
                 p.pos += 1;
                 const inner = try p.expression();
@@ -238,8 +240,8 @@ pub const Parser = struct {
     }
 };
 
-/// Print the tree as an S-expression, which is the shape with the syntax
-/// removed: nesting is the only thing left, so precedence is visible.
+/// Print the tree as an S-expression. An S-expression is the shape without the
+/// syntax. Only the nesting remains, thus the precedence is visible.
 pub fn show(nodes: []const Node, index: u32, out: *std.Io.Writer) !void {
     const node = nodes[index];
     switch (node.kind) {
@@ -350,8 +352,8 @@ pub fn main(init: std.process.Init) !void {
     var tokens: [128]lex.Token = undefined;
     var nodes: [128]Node = undefined;
 
-    // Precedence, with the syntax removed. Nothing consults a table: `*` ends
-    // up deeper than `+` because `sum` called `product` first.
+    // Precedence, without the syntax. Nothing reads a table. `*` is deeper
+    // than `+` because `sum` called `product` first.
     try out.writeAll("precedence\n");
     for ([_][]const u8{ "1 + 2 * 3;", "(1 + 2) * 3;", "1 - 2 - 3;", "0 - -4;" }) |line| {
         const stream = try lex.tokenize(line, &tokens);

@@ -1,5 +1,5 @@
 //! title: A Virtual Machine
-//! Fetch, decode, execute. A loop over an array, and no tree in sight.
+//! Fetch, decode, execute. A loop over an array, with no tree.
 
 const std = @import("std");
 const lex = @import("lexer.zig");
@@ -19,10 +19,10 @@ pub const Vm = struct {
 
     stack: [64]i64 = undefined,
     top: usize = 0,
-    /// One value per slot the compiler allocated. Reading a variable is an
-    /// array index now; the name it had is not present anywhere.
+    /// One value for each slot that the compiler allocated. A variable read is
+    /// now an array index. The name of the variable is not in the VM.
     globals: [32]i64 = @splat(0),
-    /// Instructions executed, so the cost of the loop is visible.
+    /// The number of instructions that ran. It makes the cost of the loop visible.
     steps: usize = 0,
 
     fn push(vm: *Vm, value: i64) Error!void {
@@ -38,8 +38,9 @@ pub const Vm = struct {
     }
 
     pub fn run(vm: *Vm) Error!void {
-        // The instruction pointer is an index, not a pointer, and moving it is
-        // the only control flow this machine has. A jump is an assignment.
+        // The instruction pointer is an index, not a pointer. A change to the
+        // index is the only control flow that this machine has. A jump is an
+        // assignment.
         var ip: usize = 0;
 
         while (true) {
@@ -52,9 +53,9 @@ pub const Vm = struct {
                 .load => try vm.push(vm.globals[@intCast(instr.arg)]),
                 .store => vm.globals[@intCast(instr.arg)] = try vm.pop(),
                 .neg => try vm.push(-(try vm.pop())),
-                // Order matters: the right operand was pushed last, so it
-                // comes off first. Getting this backwards makes `+` look
-                // correct and `-` silently wrong.
+                // Order is important. The code pushed the right operand last,
+                // thus the VM pops it first. If you reverse the order, `+`
+                // looks correct and `-` is silently wrong.
                 .add, .sub, .mul, .div, .lt, .eq => {
                     const right = try vm.pop();
                     const left = try vm.pop();
