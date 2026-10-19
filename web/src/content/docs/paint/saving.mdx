@@ -1,74 +1,74 @@
 ---
 title: Saving
 seoTitle: "Zig Paint Program: Saving a PNG with a Filter Chosen for Every Row"
-description: The picture flattened onto white paper and written as a PNG. Each row gets whichever of the five filters makes its bytes smallest.
-seoDescription: "Saving a Zig paint program's picture as a PNG: flattening the layers, an allocator for the zlib compressor, and choosing one of five PNG filters for every row."
+description: The program flattens the picture onto white paper and writes it as a PNG. Each row gets the filter, of five, that makes its bytes smallest.
+seoDescription: "How a Zig paint program saves a PNG: flatten the layers, give an allocator to the zlib compressor, and select one of five PNG filters for each row."
 section: A Paint Program
 order: 90
 ---
 
 import PaintSource from "../../../components/PaintSource.astro";
 
-Save PNG in the studio writes the picture as you see it: every visible layer over white paper.
+Save PNG in the studio writes the picture that you see: each visible layer over white paper.
 
-The [Writing a PNG](/learn/graphics/png/) chapter builds a PNG writer by hand: the signature, the chunks, a CRC on each, and zlib compression. Read it first. This chapter is what changes for a real document.
+The [Writing a PNG](/learn/graphics/png/) chapter makes a PNG writer by hand: the signature, the chunks, a CRC on each chunk, and zlib compression. Read that chapter first. This chapter shows the changes for a real document.
 
-Two things change. The writer takes an allocator, and it chooses a filter for every row.
+There are two changes. The writer takes an allocator, and it selects a filter for each row.
 
-## Flattening
+## Flatten the layers
 
-A PNG could store the layers' transparency. But the picture people expect to save is the one on the screen, with the white paper behind it.
+A PNG can store the transparency of the layers. But people expect to save the picture on the screen, with the white paper behind it.
 
-The screen buffer already holds exactly that, so saving starts from it:
+The screen buffer already holds exactly that picture. Thus the save starts from the screen buffer:
 
 <PaintSource file="src/engine/document.zig" decl="writePng" />
 
-It marks the whole screen stale and renders it first. Normally the engine redraws only what changed, and a saved file must not depend on what happened to be drawn last.
+`writePng` marks the full screen as stale and renders it first. Usually the engine draws again only the areas that changed. A saved file must not depend on the last areas that the engine drew.
 
-## An allocator, not globals
+## An allocator, not global variables
 
-The chapter's writer kept its buffers in global variables. That works for one fixed size of picture.
+The writer in the PNG chapter kept its buffers in global variables. That works for one fixed size of picture.
 
-A document can be any size, so this writer takes an allocator and asks for what it needs:
+A document can be of any size. Thus this writer takes an allocator and gets the memory that it needs:
 
-- the compressor's state, about 224 KB, which is too big for a small stack
-- the 64 KB window the compressor needs
-- two rows of pixels and five filtered copies of a row
-- the compressed output, which grows as it is written
+- The state of the compressor, about 224 KB. This is too large for a small stack.
+- The 64 KB window that the compressor needs.
+- Two rows of pixels, and five filtered copies of a row.
+- The compressed output, which grows while the writer writes it.
 
-Each allocation has a `defer` right below it, so every one is freed on every path out of the function, including the error paths.
+Each allocation has a `defer` immediately below it. Thus the code frees each allocation on each path out of the function, and this is also true on the error paths.
 
-## A filter for every row
+## A filter for each row
 
-The chapter tried two filters on the whole picture and kept the smaller file. A gradient shrank from 3801 bytes to 133 with Sub. The flat test scene got bigger.
+The PNG chapter tried two filters on the full picture and kept the smaller file. With Sub, a gradient became smaller, from 3801 bytes to 133. The flat test scene became larger.
 
-A real picture is both. The sky in a painting is smooth and the edge of a stroke is not. So the best filter changes from row to row.
+A real picture has both types of area. The sky in a painting is smooth, and the edge of a stroke is not smooth. Thus the best filter changes from row to row.
 
-There are five filters. Each one predicts a byte from bytes already written, and stores the difference:
+There are five filters. Each filter predicts a byte from bytes that the writer wrote before, and stores the difference:
 
-- **None** predicts 0, so it stores the byte as it is.
+- **None** predicts 0. Thus it stores the byte without a change.
 - **Sub** predicts the byte to the left.
 - **Up** predicts the byte above.
-- **Average** predicts the average of left and above.
-- **Paeth** predicts whichever of left, above and above-left is closest to `left + above − above-left`.
+- **Average** predicts the average of the left byte and the byte above.
+- **Paeth** predicts the one of left, above and above-left that is nearest to `left + above − above-left`.
 
 <PaintSource file="src/engine/png.zig" decl="paeth" />
 
-## Choosing
+## Select a filter
 
-The writer tries all five on every row and keeps one.
+The writer tries all five filters on each row and keeps one of them.
 
-It cannot afford to compress every row five ways, so it uses a guess. A good prediction leaves differences near zero. So it adds up the differences, reading each byte as a signed number from −128 to 127, and keeps the filter with the smallest total.
+To compress each row in five ways costs too much time. Thus the writer uses an estimate. A good prediction gives differences near zero. The writer adds the differences, and reads each byte as a signed number from −128 to 127. Then it keeps the filter with the smallest total.
 
 <PaintSource file="src/engine/png.zig" decl="write" />
 
-The guess is the one the PNG specification suggests and libpng uses. It is cheap: one pass over the row for each filter.
+The PNG specification recommends this estimate, and libpng uses it. The estimate costs little: one pass over the row for each filter.
 
-`inline for` runs the loop body once for each of the five filters, at compile time. The `switch` on the filter inside it is then decided by the compiler, so each copy of the body does one kind of prediction with no branch in the inner loop.
+`inline for` runs the loop body one time for each of the five filters, at compile time. Thus the compiler decides the `switch` on the filter inside the body. Each copy of the body does one type of prediction, with no branch in the inner loop.
 
-## Handing the file to the browser
+## Give the file to the browser
 
-The engine writes the PNG into its own memory. The studio copies the bytes out, wraps them in a `Blob`, and starts a download:
+The engine writes the PNG into its own memory. The studio copies the bytes out and puts them in a `Blob`. Then it starts a download:
 
 ```ts
 const length = e.paint_export_png();
@@ -76,28 +76,28 @@ const bytes = new Uint8Array(e.memory.buffer, e.paint_png(), length).slice();
 const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
 ```
 
-The `.slice()` copies the bytes. Without it, the `Blob` would point into the engine's memory, which the next export frees and reuses.
+The `.slice()` copies the bytes. Without it, the `Blob` points into the memory of the engine. The next export frees that memory and uses it again.
 
 ## Checks
 
-A picture with flat rows, smooth rows and noise. It must come back exactly, and the writer must have chosen more than one filter for it:
+This test uses a picture with flat rows, smooth rows and noise. After the round trip, the pixels must be exactly the same. The writer must also select more than one filter for the picture:
 
 <PaintSource file="src/engine/png.zig" decl="pixels survive the round trip, whatever filters were chosen" />
 
-The tie-breaking rule for Paeth, which the specification fixes. A decoder that broke ties differently would decode a different picture:
+This test examines the rule for ties in Paeth, which the specification fixes. A decoder with a different rule for ties decodes a different picture:
 
 <PaintSource file="src/engine/png.zig" decl="paeth breaks ties in the order the specification gives" />
 
-The engine's own reader agreeing with its own writer does not prove much. They could share a mistake. So the site's browser test presses Save PNG and decodes the file with a separate decoder, written for the site's tests from the PNG specification, with zlib from Node. Its pixels must match the canvas.
+If the reader of the engine agrees with the writer of the engine, that does not prove much. The two can have the same mistake. Thus the browser test of the site pushes Save PNG and decodes the file with a separate decoder. That decoder uses zlib from Node, and the site tests use their own code from the PNG specification. Its pixels must be the same as the pixels of the canvas.
 
-## Explain before reading the answer
+## Explain before you read the answer
 
-A row is 640 pixels of one flat colour, directly under a row of another flat colour.
+A row is 640 pixels of one flat colour. The row immediately above it has a different flat colour.
 
-Which filter wins?
+Which filter gives the smallest total?
 
-Sub or Paeth. After the first pixel, both store zeros: Sub predicts the byte to the left, and Paeth picks the left byte too, because the row above is flat.
+Sub or Paeth. After the first pixel, both filters store zeros. Sub predicts the byte to the left. Paeth also selects the left byte, because the row above is flat.
 
-They differ only on the first pixel. It has nothing to its left, so Sub stores its colour as it is, while Paeth predicts the pixel above and stores the difference. Whichever of those three bytes is closer to zero decides it.
+The two filters are different only on the first pixel. The first pixel has nothing to its left. Thus Sub stores its colour without a change, and Paeth predicts the pixel above and stores the difference. The filter whose three bytes are nearer to zero gives the smaller total.
 
-Up loses. It stores the difference between the two colours on every one of the 1,920 bytes.
+Up gives a larger total. It stores the difference between the two colours in each of the 1,920 bytes.

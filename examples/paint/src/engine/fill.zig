@@ -42,10 +42,10 @@ pub fn find(
     var inside: std.bit_set.Dynamic = try .initEmpty(gpa, total);
     errdefer inside.deinit(gpa);
 
-    // Every pixel enters the queue at most once, because it is marked when it
-    // goes in rather than when it comes out. So the queue never needs more
-    // room than the image has pixels, and a plain array with a read position
-    // is enough: nothing is ever moved.
+    // Each pixel goes into the queue one time at most, because the code marks
+    // it when it goes in, not when it comes out. Thus the queue never needs
+    // more space than the number of pixels in the image. A plain array with a
+    // read position is sufficient, because the code never moves an entry.
     const queue = try gpa.alloc(u32, total);
     defer gpa.free(queue);
     var head: usize = 0;
@@ -65,7 +65,7 @@ pub fn find(
         const py = i / width;
         bounds = bounds.join(.{ .x0 = px, .y0 = py, .x1 = px + 1, .y1 = py + 1 });
 
-        // The four neighbours, skipping any that would fall off an edge.
+        // The four neighbours. Skip each neighbour that is outside an edge.
         const neighbours = [4]?u32{
             if (px > 0) i - 1 else null,
             if (px + 1 < width) i + 1 else null,

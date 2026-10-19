@@ -25,14 +25,15 @@ pub const Mask = struct {
     width: u32,
     height: u32,
     coverage: []u16,
-    /// The colour the stroke puts down at each pixel. For most brushes it is
-    /// the brush colour everywhere. A brush that picks up paint changes
-    /// colour along the stroke, so the buffer has to remember it per pixel.
-    /// Only meaningful where `coverage` is above 0, so it is never cleared.
+    /// The colour that the stroke puts at each pixel. For most brushes, it is
+    /// the brush colour at all pixels. A brush with pickup changes colour
+    /// along the stroke. Thus the buffer must keep the colour for each pixel.
+    /// The value has a meaning only where `coverage` is above 0. Thus the
+    /// code never clears it.
     color: [][3]u8,
-    /// Every pixel outside this rectangle is 0. Keeping it means committing,
-    /// clearing and redrawing touch only the part of the image the stroke
-    /// reached.
+    /// Each pixel outside this rectangle is 0. With this rectangle, the
+    /// commit, the clear and the redraw touch only the part of the image that
+    /// the stroke touched.
     dirty: Rect = .empty,
 
     pub fn init(gpa: std.mem.Allocator, width: u32, height: u32) !Mask {
@@ -65,25 +66,25 @@ pub const Mask = struct {
 
     /// Add one dab of the tip.
     ///
-    /// `hardness` is the solid fraction of the radius, `aspect` squashes the
-    /// tip into an ellipse, and `flow` is how much one dab adds.
+    /// `hardness` is the solid fraction of the radius, `aspect` makes the tip
+    /// an ellipse, and `flow` is how much one dab adds.
     pub fn stamp(m: *Mask, dab: Dab, hardness: f32, aspect: f32, flow: f32) void {
         m.stampOn(null, 1, dab, hardness, aspect, flow);
     }
 
-    /// `stamp`, on paper. Where the brush's `contact` does not reach the
-    /// paper's height, the pixel gets no paint at all.
+    /// `stamp`, on paper. Where the `contact` of the brush does not reach the
+    /// height of the paper, the pixel gets no paint.
     pub fn stampOn(m: *Mask, paper: ?*const Paper, contact: f32, dab: Dab, hardness: f32, aspect: f32, flow: f32) void {
         const r = dab.radius;
         const box = Rect.around(dab.x, dab.y, r, m.width, m.height);
         if (box.isEmpty() or flow <= 0) return;
 
-        // The fading band at the edge. A hard tip still gets one pixel of it,
-        // or its edge would be a staircase.
+        // The soft band at the edge. A hard tip still gets one pixel of the
+        // band. Without it, the edge would be a staircase.
         const fade = @max((1.0 - hardness) * r, 1.0);
         const cos_a = @cos(dab.angle);
         const sin_a = @sin(dab.angle);
-        // A brush running dry puts down less with every dab.
+        // When the brush becomes dry, each dab puts less paint.
         const flow16: u32 = @intFromFloat(@round(flow * dab.load * @as(f32, full)));
 
         var y = box.y0;
@@ -93,36 +94,36 @@ pub const Mask = struct {
                 // Pixel centres sit at half-pixel positions.
                 const dx = @as(f32, @floatFromInt(x)) + 0.5 - dab.x;
                 const dy = @as(f32, @floatFromInt(y)) + 0.5 - dab.y;
-                // Turn the offset into the tip's own frame, then undo the
-                // squash on the short axis.
+                // Turn the offset into the frame of the tip. Then divide by the
+                // aspect on the short axis.
                 const u = dx * cos_a + dy * sin_a;
                 const v = (dy * cos_a - dx * sin_a) / aspect;
                 const d = @sqrt(u * u + v * v);
                 if (d >= r) continue;
                 if (paper) |pp| if (!pp.touches(x, y, contact)) continue;
 
-                // Coverage is 1 inside the solid part, and falls to 0 at the
+                // Coverage is 1 inside the solid part. It decreases to 0 at the
                 // edge in a straight line.
                 const cov = std.math.clamp((r - d) / fade, 0, 1);
                 const add = (@as(u32, @intFromFloat(@round(cov * @as(f32, full)))) * flow16 + full / 2) / full;
 
-                // Each dab covers part of what is still uncovered.
-                // After n dabs of flow f the coverage is 1 - (1 - f)^n, which
-                // approaches 1 and never passes it.
+                // Each dab covers part of the area that has no coverage yet.
+                // After n dabs of flow f, the coverage is 1 - (1 - f)^n. The value
+                // moves nearer to 1 and never goes past 1.
                 //
-                // The step is rounded up. Rounded to nearest, it becomes 0
-                // once the gap is small, and coverage stops at 65534 however
-                // many dabs land. Rounded up it cannot pass the gap, so it
-                // still never goes over full.
+                // The code rounds the step up. With rounding to the nearest value, the
+                // step becomes 0 when the gap is small. Then the coverage stops at 65534
+                // for any number of dabs. A step that the code rounds up cannot be larger
+                // than the gap. Thus the coverage still never goes over full.
                 const i = @as(usize, y) * m.width + x;
                 const old: u32 = m.coverage[i];
                 const new = old + ((full - old) * add + full - 1) / full;
                 m.coverage[i] = @intCast(new);
 
-                // The colour is the average of the old colour and the dab's,
-                // weighted by how much coverage each one supplied. That is
-                // what painting the dab over the old colour gives. When both
-                // colours are the same, the average is that colour exactly.
+                // The colour is the average of the old colour and the colour of the
+                // dab. The weight of each colour is the coverage that it added. Paint of
+                // the dab over the old colour gives the same result. When the two
+                // colours are the same, the average is exactly that colour.
                 const added = new - old;
                 if (added > 0) {
                     for (&m.color[i], dab.color) |*c, fresh| {
@@ -155,8 +156,8 @@ test "many dabs approach full coverage and never pass it" {
 test "radius 20, hardness 0.6 is solid to 12 and half at 16" {
     var m = try Mask.init(std.testing.allocator, 64, 64);
     defer m.deinit(std.testing.allocator);
-    // Centre on a pixel corner, so the pixel at (32 + k, 32) has its centre
-    // k + 0.5 pixels from the dab.
+    // Put the centre on a pixel corner. Then the centre of the pixel at
+    // (32 + k, 32) is k + 0.5 pixels from the dab.
     m.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = 0, .direction = 0, .color = .{ 0, 0, 0 }, .load = 1 }, 0.6, 1, 1);
     const at = struct {
         fn f(mm: Mask, k: u32) f32 {
@@ -175,7 +176,7 @@ test "aspect 0.25 makes a tip 40 wide and 10 high" {
     try std.testing.expect(m.at(32 + 18, 32) > 0);
     try std.testing.expect(m.at(32, 32 + 6) == 0);
     try std.testing.expect(m.at(32, 32 + 3) > 0);
-    // Turned a quarter turn, the same tip is tall instead of wide.
+    // After a quarter turn, the same tip is tall, not wide.
     var t = try Mask.init(std.testing.allocator, 64, 64);
     defer t.deinit(std.testing.allocator);
     t.stamp(.{ .x = 32, .y = 32, .radius = 20, .angle = std.math.pi / 2.0, .direction = 0, .color = .{ 0, 0, 0 }, .load = 1 }, 1, 0.25, 1);
@@ -200,8 +201,8 @@ test "two colours mix by the coverage each one added" {
     var blue = at;
     blue.color = .{ 0, 0, 200 };
     m.stamp(blue, 1, 1, 0.5);
-    // Red covered half, then blue covered half of the rest: red supplied
-    // twice as much as blue.
+    // Red covered half, then blue covered half of the remainder. Red added
+    // two times as much as blue.
     const c = m.color[8 * 16 + 8];
     try std.testing.expectEqual([3]u8{ 133, 0, 67 }, c);
 }

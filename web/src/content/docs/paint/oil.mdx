@@ -1,123 +1,121 @@
 ---
 title: "Oil: Pickup and Paint Load"
 seoTitle: "Zig Paint Program: An Oil Brush That Picks Up Paint and Runs Dry"
-description: An oil brush carries paint. It picks up some of the colour it is dragged through, and it runs dry as it travels.
-seoDescription: "An oil-style brush in Zig: a loaded colour that picks up paint under each dab, a paint load that drains by distance, and a stroke buffer that mixes colours by coverage."
+description: An oil brush carries paint. It collects some of the colour below it, and it becomes dry as it moves.
+seoDescription: "An oil brush in Zig: a loaded colour that collects paint below each dab, a paint load that decreases with distance, and colours mixed by coverage."
 section: A Paint Program
 order: 47
 ---
 
 import PaintSource from "../../../components/PaintSource.astro";
 
-Every brush so far puts down one colour, the same at the end of a stroke as at the start.
+Each brush in the previous chapters puts down one colour. The colour is the same at the end of a stroke and at the start.
 
-A brush loaded with oil paint does not. Two things change as it moves:
+A brush with oil paint is different. Two things change while the brush moves:
 
-- It **picks up** some of the paint it is dragged through, so its colour drifts towards what is under it.
-- It **runs dry**. There is less paint on it with every centimetre, and the stroke fades out.
+- **Pickup.** The brush collects some of the paint below it. Thus its colour moves towards the colour below it.
+- **Load.** The brush becomes dry. It has less paint after each centimetre, and the stroke becomes fainter.
 
-Choose the Oil brush in the studio, paint a few colours, and drag it across them.
+Select the Oil brush in the studio. Paint some colours, and then pull the Oil brush across them.
 
 ## The brush carries paint
 
-For these two effects the stroke has to remember something from one dab to the next: the colour on the brush, and how much paint is left.
+For these two effects, the stroke must keep two values from one dab to the next. The values are the colour on the brush and the quantity of paint that remains.
 
-So the stroke gains two fields:
+Thus the stroke has two new fields:
 
 <PaintSource file="src/engine/stroke.zig" decl="Stroke" fields />
 
-`loaded` starts as the brush colour. `load` starts at 1, a full brush. Every stroke starts with a freshly loaded brush.
+The first value of `loaded` is the brush colour. The first value of `load` is 1, which is a full brush. Each stroke starts with a full brush.
 
 ## Pickup
 
-Before each dab goes down, the brush looks at the paint under it and moves its colour part of the way there:
+Before each dab, the brush examines the paint below it. Then it moves its colour part of the distance to that paint:
 
 ```
 loaded = loaded + (under − loaded) × pickup
 ```
 
-That is `lerp` again, once for each of red, green and blue.
+This is `lerp` again, one time each for red, green and blue.
 
-Loaded red is 200. The paint under it has red 100. `pickup` is 0.2. The new loaded red is 200 + (100 − 200) × 0.2 = 180.
+For example, the loaded red is 200, the paint below it has red 100, and `pickup` is 0.2. The new loaded red is 200 + (100 − 200) × 0.2 = 180. Over the same paint again, the result is 180 + (100 − 180) × 0.2 = 164.
 
-Over the same paint again: 180 + (100 − 180) × 0.2 = 164.
+The brush carries the colour to the next dab. Thus the paint from one area moves a short distance along the stroke, and that is the smear.
 
-The colour is carried to the next dab, so the paint from one place gets dragged a little way along the stroke. That is the smear.
-
-Here is where it happens in `emit`:
+The pickup occurs in `emit`:
 
 <PaintSource file="src/engine/stroke.zig" decl="emit" />
 
-`loaded` is kept in `f32`, not in bytes. A small pickup moves each channel by less than 1. In bytes that would round away to nothing, and a brush with a low pickup would never change colour at all.
+The code keeps `loaded` in `f32`, not in bytes. A small pickup moves each channel by less than 1. In bytes, the rounding removes that change. Then a brush with a low pickup never changes colour.
 
-## The brush cannot pick up paper
+## The brush cannot collect paper
 
-The first version of this sampled the picture as it looks on screen: the layer over white paper.
+The first version of the code took its sample from the picture on the screen: the layer over white paper.
 
-The demo's oil stroke is red, and it starts on blank paper. Within a few dabs it was white, and then it painted white over the dark stroke it crossed. It was picking up the paper.
+The oil stroke in the demo is red, and it starts on empty paper. After a small number of dabs, the brush was white. Then it painted white over the dark stroke below it. The brush collected the paper.
 
-Paper is not paint. So the sample comes from the layer itself, and reports how much paint is there as well as its colour:
+Paper is not paint. Thus the code now takes the sample from the layer. The sample gives the quantity of paint and also its colour:
 
 <PaintSource file="src/engine/document.zig" decl="sample" />
 
-Bare paper returns `null`, so there is nothing to pick up. Paint that half covers a pixel counts half as much: the pickup is multiplied by `cover`.
+Empty paper returns `null`, thus the brush collects nothing. If paint covers half of a pixel, the paint has half of the effect: the code multiplies the pickup by `cover`.
 
-Layers are premultiplied, as the [Layers](/learn/paint/layers-and-the-eraser/) chapter explains. A pixel half covered with red 200 is stored as red 100. To get the colour of the paint itself, `sample` divides by the alpha.
+Layers are premultiplied, as the [Layers](/learn/paint/layers-and-the-eraser/) chapter explains. If red 200 covers half of a pixel, the layer stores red 100. To get the colour of the paint, `sample` divides by the alpha.
 
-The sample also comes from the layer, never from the stroke buffer. So the brush picks up paint that was there before the stroke, and never the stroke it is in the middle of laying down.
+The sample also comes from the layer, and never from the stroke buffer. Thus the brush collects paint that was there before the stroke. It never collects the current stroke.
 
 ## A stroke of many colours
 
-The stroke buffer from [Flow and Opacity](/learn/paint/flow-and-opacity/) held one number per pixel, the coverage. The colour was the brush colour, the same everywhere.
+The stroke buffer in [Flow and Opacity](/learn/paint/flow-and-opacity/) held one number for each pixel, the coverage. The colour was the brush colour, the same at all pixels.
 
-With pickup, two dabs of one stroke can have different colours. So the buffer now keeps a colour per pixel too:
+With pickup, two dabs of one stroke can have different colours. Thus the buffer now also keeps a colour for each pixel:
 
 <PaintSource file="src/engine/mask.zig" decl="Mask" fields />
 
-When a dab adds coverage to a pixel, the pixel's colour becomes the average of the old colour and the dab's, weighted by how much coverage each one supplied.
+When a dab adds coverage to a pixel, the colour of the pixel changes. The new colour is the average of the old colour and the colour of the dab. The weight of each colour is the coverage that it added.
 
-A red dab at 50% flow covers half a pixel. A blue dab at 50% covers half of the rest, a quarter. Red supplied twice as much as blue, so the colour is two thirds red and one third blue.
+For example, a red dab at 50% flow covers half of a pixel. A blue dab at 50% covers half of the remainder, which is a quarter. Red added two times as much as blue. Thus the colour is two thirds red and one third blue.
 
-That weighted average is what painting the blue dab over the red one gives. And when the two colours are the same, the average is exactly that colour, with no rounding error. So every brush that does not pick up paint draws the same pixels as before this change.
+That weighted average is the same result as blue paint on red paint. When the two colours are the same, the average is exactly that colour, with no rounding error. Thus each brush without pickup draws the same pixels as before this change.
 
-That is not only an argument. The demo picture's hash was pinned before the change. The change went in and every test ran, with the hash unchanged. Only then was an oil stroke added to the demo, and the hash pinned again.
+A test proved this. Before the change, the demo picture had a fixed hash. After the change, all of the tests ran, and the hash did not change. Only after that did the demo get an oil stroke and a new fixed hash.
 
-## Running dry
+## The brush becomes dry
 
-The load goes down with distance, not with time and not with pointer samples. The [Strokes](/learn/paint/strokes/) chapter shows why samples are a bad measure of anything.
+The load decreases with distance. It does not decrease with time or with pointer samples. The [Strokes](/learn/paint/strokes/) chapter shows why samples are a bad measurement.
 
-The stroke already walks the path one gap at a time. So each gap uses a fixed share of the load:
+The stroke already moves along the path one gap at a time. Thus each gap uses a fixed part of the load:
 
 ```zig
 s.load = @max(s.load - s.brush.drain * step / 100.0, 0);
 ```
 
-`drain` is the share of a full load used per 100 pixels. With `drain` 0.2, 150 pixels of stroke use 0.3, and a full brush is left at 0.7.
+`drain` is the part of a full load that the brush uses in each 100 pixels. With `drain` 0.2, 150 pixels of stroke use 0.3. Then 0.7 of a full load remains.
 
-The load never goes below 0. Each dab's flow is multiplied by the load, so a stroke fades out smoothly as the brush empties.
+The load never goes below 0. The code multiplies the flow of each dab by the load. Thus a stroke becomes fainter smoothly while the brush becomes empty.
 
 ## Checks
 
-The pickup example, 200 then 180 then 164:
+This test is the pickup example, with 200, then 180, then 164:
 
 <PaintSource file="src/engine/stroke.zig" decl="pickup: the loaded red goes 200, 180, 164 over a red of 100 at 0.2" />
 
-Thin paint gives less:
+This test makes sure that thin paint gives less pickup:
 
 <PaintSource file="src/engine/stroke.zig" decl="pickup from paint that half covers the paper is half as strong" />
 
-The drain example, cut into samples two ways, which must agree:
+This test is the drain example. It cuts the stroke into samples in two ways, and the two results must be the same:
 
 <PaintSource file="src/engine/stroke.zig" decl="drain 0.2 over 150 pixels uses 0.3 of a load, whatever the samples" />
 
-And the colour mixing in the stroke buffer:
+This test examines how the stroke buffer mixes colours:
 
 <PaintSource file="src/engine/mask.zig" decl="two colours mix by the coverage each one added" />
 
-## Explain before reading the answer
+## Explain before you read the answer
 
-Set `pickup` to 1, and drag the brush from a blue area out onto bare paper.
+Set `pickup` to 1. Then pull the brush from a blue area onto empty paper.
 
-What does it paint?
+What does the brush paint?
 
-Over the blue, each dab takes the blue under it completely, so it paints blue on blue and nothing seems to change. Out on the paper there is nothing to pick up, so the brush keeps the last blue it took and paints it there. The stroke drags the blue out of its area, like a finger through wet paint.
+Over the blue, each dab takes all of the blue below it. Thus the brush paints blue on blue, and nothing seems to change. On the paper, there is nothing to collect. Thus the brush keeps the last blue that it took, and paints that blue on the paper. The stroke pulls the blue out of its area, as a finger does through wet paint.

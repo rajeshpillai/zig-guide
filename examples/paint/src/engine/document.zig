@@ -46,20 +46,21 @@ pub const Document = struct {
     layers: [][]Rgba,
     visible: []bool,
     active_layer: u32 = 0,
-    /// Coverage of the stroke in progress.
+    /// The coverage of the current stroke.
     mask: Mask,
-    /// The grain under the whole picture, for brushes with less than full
-    /// contact. Made once, so every stroke meets the same hills.
+    /// The grain below the full picture, for brushes with less than full
+    /// contact. The document makes it one time, thus each stroke touches the
+    /// same hills.
     paper: Paper,
-    /// What the screen shows: every visible layer over white paper, with the
-    /// stroke in progress applied. Always opaque.
+    /// The picture on the screen: each visible layer over white paper, with
+    /// the current stroke applied. Always opaque.
     display: []Rgba,
     /// The part of `display` that is out of date.
     stale: Rect = .empty,
     history: History,
     stroke: ?Active = null,
-    /// False after an action whose undo could not be kept. A front end can
-    /// say so instead of letting Undo silently skip it.
+    /// False after an action if the history could not keep its undo step. A
+    /// front end can tell the user. Otherwise, Undo silently skips that action.
     history_ok: bool = true,
 
     pub fn init(gpa: std.mem.Allocator, width: u32, height: u32, layer_count: u32, history_budget: usize) !Document {
@@ -114,12 +115,12 @@ pub const Document = struct {
 
     // ---- strokes ----------------------------------------------------------
 
-    /// The sink `Stroke` sends its dabs to. Each dab goes into the stroke
-    /// buffer, and the screen is marked stale where it landed.
+    /// The sink that receives the dabs from `Stroke`. Each dab goes into the
+    /// stroke buffer, and the painter marks that area of the screen as stale.
     ///
-    /// It carries its own copy of the brush rather than reading the one in
-    /// `doc.stroke`, because `Stroke.begin` places the first dab before the
-    /// stroke it returns has been stored anywhere.
+    /// The painter has its own copy of the brush. It does not read the brush in
+    /// `doc.stroke`, because `Stroke.begin` puts the first dab before the
+    /// document stores the stroke that `begin` returns.
     const Painter = struct {
         doc: *Document,
         brush: Brush,
@@ -129,11 +130,11 @@ pub const Document = struct {
             return .{ .doc = doc, .brush = brush, .hairs = .layOut(brush) };
         }
 
-        /// The paint already on the active layer at (`x`, `y`): its colour,
-        /// and how much of the pixel it covers. Read from the layer, not from
-        /// the stroke buffer, so a brush picks up the paint it is dragged
-        /// through and never the stroke it is in the middle of laying down.
-        /// Bare paper is not paint, so it gives nothing.
+        /// The paint that is already on the active layer at (`x`, `y`): its
+        /// colour, and how much of the pixel it covers. The function reads the
+        /// layer, not the stroke buffer. Thus a brush collects the paint below it,
+        /// and never collects the current stroke. Empty paper is not paint, thus
+        /// it gives nothing.
         pub fn sample(p: Painter, x: f32, y: f32) ?Sample {
             const doc = p.doc;
             if (!(x >= 0 and y >= 0)) return null;
@@ -141,8 +142,8 @@ pub const Document = struct {
             const uy: u32 = @intFromFloat(@min(y, @as(f32, @floatFromInt(doc.height - 1))));
             const px = doc.layers[doc.active_layer][@as(usize, uy) * doc.width + ux];
             if (px.a == 0) return null;
-            // Layers are premultiplied, so the colour of the paint itself is
-            // each channel divided by the alpha.
+            // Layers are premultiplied. Thus the colour of the paint is each
+            // channel divided by the alpha.
             const a: u32 = px.a;
             return .{
                 .color = .{
@@ -164,13 +165,13 @@ pub const Document = struct {
             }
 
             // A bristle brush is a row of thin hairs across the stroke. Each
-            // hair is a small round dab, placed along the line at right
-            // angles to the direction of travel.
+            // hair is a small round dab on the line at right angles to the
+            // direction of movement.
             const across_x = -@sin(d.direction);
             const across_y = @cos(d.direction);
             const count: f32 = @floatFromInt(b.bristles);
-            // Each hair is half as wide as the space it has, so neighbouring
-            // tracks stay apart even after the small shifts in `Hairs`.
+            // Each hair is half as wide as its space. Thus the tracks stay apart,
+            // also after the small random movements in `Hairs`.
             const hair_radius = @max(d.radius / count * 0.5, 0.75);
             for (p.hairs.offset[0..b.bristles], p.hairs.flow[0..b.bristles]) |offset, flow| {
                 var hair = d;
@@ -183,14 +184,14 @@ pub const Document = struct {
         }
     };
 
-    /// Where each hair of a bristle brush sits across the tip, and how much
-    /// paint it carries. Made from the brush's seed, so the same brush always
-    /// has the same hairs, and a painter can make them again on every call
-    /// instead of storing them.
+    /// The position of each hair of a bristle brush across the tip, and how
+    /// much paint the hair carries. The code makes the hairs from the seed of
+    /// the brush. Thus the same brush always has the same hairs, and a painter
+    /// can make them again on each call. It does not have to store them.
     const Hairs = struct {
         /// From -1 (one edge of the tip) to 1 (the other).
         offset: [max_bristles]f32,
-        /// A share of the brush's flow, from 0.55 to 1.
+        /// A part of the flow of the brush, from 0.55 to 1.
         flow: [max_bristles]f32,
 
         fn layOut(b: Brush) Hairs {
@@ -199,8 +200,8 @@ pub const Document = struct {
             const n: f32 = @floatFromInt(@max(b.bristles, 1));
             for (0..max_bristles) |i| {
                 const even = -1.0 + (2.0 * @as(f32, @floatFromInt(i)) + 1.0) / n;
-                // Evenly spaced, then moved by up to a third of the gap, so
-                // the tracks are not a perfect comb.
+                // Equal distances, then a movement of up to a third of the gap.
+                // Thus the tracks are not a perfect comb.
                 h.offset[i] = even + (random.next() - 0.5) * (2.0 / n) / 3.0;
                 h.flow[i] = 0.55 + 0.45 * random.next();
             }
@@ -208,9 +209,9 @@ pub const Document = struct {
         }
     };
 
-    /// Start a stroke. The brush is copied, so changing a slider halfway
-    /// through a stroke cannot change the stroke. A stroke already in progress
-    /// is cancelled first.
+    /// Start a stroke. The function copies the brush. Thus a slider change
+    /// during a stroke cannot change the stroke. If a stroke is in progress,
+    /// the function cancels it first.
     pub fn beginStroke(d: *Document, brush: Brush, tool: Tool, p: Point) void {
         if (d.stroke != null) d.cancelStroke();
         const b = brush.sanitized();
@@ -250,8 +251,8 @@ pub const Document = struct {
         d.stale = d.stale.join(r);
     }
 
-    /// Drop the stroke in progress without changing any layer. Used when the
-    /// pointer is lost halfway through a stroke.
+    /// Drop the current stroke, and change no layer. A front end calls this
+    /// function when it loses the pointer during a stroke.
     pub fn cancelStroke(d: *Document) void {
         if (d.stroke == null) return;
         d.stale = d.stale.join(d.mask.dirty);
@@ -259,9 +260,9 @@ pub const Document = struct {
         d.stroke = null;
     }
 
-    /// One pixel of a layer with the stroke applied. The preview on screen
-    /// and the commit both call this, so what you see while drawing is
-    /// exactly what you get when you let go.
+    /// One pixel of a layer with the stroke applied. The preview on the screen
+    /// and the commit both call this function. Thus the stroke that you see
+    /// while you draw is exactly the stroke that you get when you release it.
     fn applyStroke(active: Active, below: Rgba, coverage: u16, color: [3]u8) Rgba {
         const amount = (@as(u32, coverage) * active.opacity + 32767) / 65535;
         return switch (active.tool) {
@@ -278,8 +279,8 @@ pub const Document = struct {
         if (d.stroke != null or x >= d.width or y >= d.height) return false;
         const layer = d.layers[d.active_layer];
         const new: Rgba = .opaqueRgb(color);
-        // Filling a region with the colour it already has would find the
-        // whole region and change nothing.
+        // If the region already has the fill colour, the fill finds the full
+        // region and changes nothing.
         if (std.meta.eql(layer[@as(usize, y) * d.width + x], new)) return false;
 
         var region = try fill.find(d.gpa, layer, d.width, d.height, x, y);
@@ -306,7 +307,7 @@ pub const Document = struct {
         return true;
     }
 
-    /// Choose the layer the next action draws on. Refused during a stroke.
+    /// Select the layer for the next action. The function refuses during a stroke.
     pub fn setActiveLayer(d: *Document, index: u32) bool {
         if (d.stroke != null or index >= d.layers.len) return false;
         d.active_layer = index;
@@ -321,8 +322,8 @@ pub const Document = struct {
 
     // ---- output -----------------------------------------------------------
 
-    /// Bring `display` up to date and return the rectangle that changed, so a
-    /// front end copies only that part to the screen.
+    /// Update `display` and return the rectangle that changed. Thus a front
+    /// end copies only that part to the screen.
     pub fn render(d: *Document) Rect {
         const r = d.stale;
         var y = r.y0;
@@ -352,8 +353,8 @@ pub const Document = struct {
         return out;
     }
 
-    /// FNV-1a over the R, G and B bytes of the display, the same hash the
-    /// guide's picture checks use. Call `render` first.
+    /// FNV-1a over the R, G and B bytes of the display. The picture checks of
+    /// the guide use the same hash. Call `render` first.
     pub fn displayHash(d: *const Document) u32 {
         var h = std.hash.Fnv1a_32.init();
         for (d.display) |p| h.update(&.{ p.r, p.g, p.b });
@@ -403,8 +404,8 @@ test "opacity 0 leaves the layer unchanged" {
 test "a stroke crossing itself does not get darker" {
     var d = try newDoc();
     defer d.deinit();
-    // Half opacity, full flow: the stroke itself becomes fully covered, and
-    // the opacity is applied once on top.
+    // Half opacity, full flow: the stroke gets full coverage, and then the
+    // opacity applies one time.
     const brush: Brush = .{ .radius = 4, .flow = 1, .opacity = 0.5, .color = .{ 0, 0, 0 } };
     d.beginStroke(brush, .brush, .{ .x = 5, .y = 20 });
     d.moveStroke(.{ .x = 60, .y = 20 });
@@ -495,8 +496,8 @@ test "a dry brush skips the paper's dips, the same ones every time" {
     d.beginStroke(dry, .brush, .{ .x = 0, .y = 24 });
     d.moveStroke(.{ .x = 64, .y = 24 });
     d.endStroke();
-    // Every painted pixel is on a high cell, and every high cell the stroke
-    // crossed is painted.
+    // Each painted pixel is on a high cell, and the stroke paints each high
+    // cell that it crosses.
     var painted: usize = 0;
     for (0..48) |y| for (0..64) |x| {
         const covered = d.layers[0][y * 64 + x].a > 0;
@@ -507,7 +508,7 @@ test "a dry brush skips the paper's dips, the same ones every time" {
         }
     };
     try testing.expect(painted > 0);
-    try testing.expect(painted < 64 * 41 / 2); // well under half the band
+    try testing.expect(painted < 64 * 41 / 2); // much less than half of the band
 }
 
 test "a bristle brush leaves separate tracks" {
@@ -517,7 +518,7 @@ test "a bristle brush leaves separate tracks" {
     d.beginStroke(brush, .brush, .{ .x = 0, .y = 24 });
     d.moveStroke(.{ .x = 64, .y = 24 });
     d.endStroke();
-    // Read down one column across the stroke and count the runs of paint.
+    // Read one column across the stroke and count the separate areas of paint.
     var runs: usize = 0;
     var inside = false;
     for (0..48) |y| {

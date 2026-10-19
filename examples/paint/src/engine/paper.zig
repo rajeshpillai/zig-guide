@@ -33,8 +33,8 @@ pub const Paper = struct {
         gpa.free(p.heights);
     }
 
-    /// The height under pixel (`x`, `y`). Every pixel in a cell shares one
-    /// height, so the grain is `cell` pixels across.
+    /// The height below pixel (`x`, `y`). All pixels in a cell have one
+    /// height, thus the grain is `cell` pixels across.
     pub fn at(p: Paper, x: u32, y: u32) u8 {
         const column = @min(x / p.cell, p.columns - 1);
         const row = @min(y / p.cell, p.rows - 1);

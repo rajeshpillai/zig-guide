@@ -45,14 +45,14 @@ pub const Stroke = struct {
     random: Random,
     /// The smoothed pointer position.
     filtered: Point,
-    /// Where the last segment ended. Dabs are placed from here.
+    /// The end of the last segment. The next dabs start from here.
     last: Point,
-    /// Distance walked since the last dab, in pixels. Always less than `gap`.
+    /// The distance since the last dab, in pixels. Always less than `gap`.
     carry: f32,
-    /// Direction of travel, in radians. 0 (to the right) until the first move.
+    /// The direction of movement, in radians. 0 (to the right) until the first move.
     direction: f32,
-    /// The colour on the brush, kept in `f32` so that small pickups add up
-    /// instead of rounding away. Starts as the brush colour.
+    /// The colour on the brush. It is in `f32`, thus small pickups accumulate,
+    /// and the rounding does not remove them. Starts as the brush colour.
     loaded: [3]f32,
     /// The paint left on the brush. Every stroke starts with a full brush.
     load: f32,
@@ -75,26 +75,26 @@ pub const Stroke = struct {
         return s;
     }
 
-    /// The pointer moved to `p`. Place every dab that falls on the way.
+    /// The pointer moved to `p`. Put each dab that is on the path.
     pub fn move(s: *Stroke, p: Point, sink: anytype) void {
-        // Smoothing: move part of the way towards the real point.
+        // Smoothing: move part of the distance to the real point.
         s.filtered = geometry.lerpPoint(s.filtered, p, s.brush.follow);
 
         const a = s.last;
         const b = s.filtered;
         const d = geometry.distance(a, b);
-        // Two samples at the same place: nothing to walk, and dividing by
-        // `d` below would give NaN.
+        // Two samples at the same position: there is no distance to move. A
+        // division by `d` below would give NaN.
         if (d == 0) return;
         s.direction = std.math.atan2(b.y - a.y, b.x - a.x);
 
         const step = s.gap();
-        // The first dab on this segment completes the interval left over from
-        // the last one.
+        // The first dab on this segment completes the interval that remains
+        // from the last segment.
         var at = step - s.carry;
         while (at <= d) : (at += step) {
-            // The load drains by distance, not by dab or by sample: one gap
-            // further along the path uses `drain * step / 100` of a load.
+            // The load decreases with distance, not with each dab or sample. One
+            // gap farther along the path uses `drain * step / 100` of a load.
             s.load = @max(s.load - s.brush.drain * step / 100.0, 0);
             s.emit(geometry.lerpPoint(a, b, at / d), sink);
         }
@@ -116,25 +116,25 @@ pub const Stroke = struct {
         const p2 = p.pressure * p.pressure;
         var radius = b.radius * geometry.lerp(1.0, 0.25 + 0.75 * p2, b.pressure);
 
-        // Three random numbers per dab, used or not, so that turning on
-        // scatter does not change the size of every later dab.
+        // Three random numbers for each dab, also if the code does not use them.
+        // Thus a change to scatter does not change the size of each later dab.
         const u_size = s.random.next();
         const u_angle = s.random.next();
         const u_reach = s.random.next();
 
         radius *= 1.0 - b.jitter * u_size;
 
-        // Scatter across a disc. The square root spreads the
-        // offsets evenly over the area instead of bunching them at the centre.
+        // Scatter across a disc. The square root spreads the offsets equally
+        // over the area. Without it, the offsets collect at the centre.
         const theta = 2.0 * std.math.pi * u_angle;
         const reach = b.scatter * b.radius * @sqrt(u_reach);
         const x = p.x + @cos(theta) * reach;
         const y = p.y + @sin(theta) * reach;
 
-        // Pickup: before the dab goes down, the brush takes on part of the
-        // paint already under it. The colour is carried to the next dab, so
-        // paint gets dragged along the stroke. Thin paint gives less, and
-        // bare paper gives nothing: a brush cannot pick up the paper.
+        // Pickup: before the dab, the brush takes part of the paint that is
+        // already below it. The brush carries the colour to the next dab. Thus
+        // paint moves along the stroke. Thin paint gives less, and empty paper
+        // gives nothing: a brush cannot collect the paper.
         if (b.pickup > 0) {
             if (sink.sample(x, y)) |under| {
                 const t = b.pickup * under.cover;
@@ -146,8 +146,8 @@ pub const Stroke = struct {
             .x = x,
             .y = y,
             .radius = radius,
-            // Following the direction, the brush angle is an offset from it:
-            // 0 lays the tip along the stroke, 90 lays it across.
+            // When the tip follows the direction, the brush angle is an offset from
+            // the direction. 0 puts the tip along the stroke, and 90 puts it across.
             .angle = (if (b.follow_direction) s.direction else 0) + b.angle * std.math.pi / 180.0,
             .direction = s.direction,
             .color = .{
@@ -160,11 +160,11 @@ pub const Stroke = struct {
     }
 };
 
-/// A sink for tests: keeps the dabs it is given.
+/// A sink for tests. It keeps the dabs that it receives.
 const Recorder = struct {
     dabs: [256]Dab = undefined,
     len: usize = 0,
-    /// What `sample` reports as the paint under every dab.
+    /// The paint that `sample` returns for each dab.
     under: ?Sample = null,
 
     fn dab(r: *Recorder, d: Dab) void {
@@ -254,7 +254,7 @@ test "scatter stays inside the disc, and the same seed repeats it" {
     try std.testing.expectEqual(a.len, b.len);
     for (a.dabs[0..a.len], b.dabs[0..b.len], 0..) |da, db, i| {
         try std.testing.expectEqual(da, db);
-        // The dab's place on the path, before scatter, is i * gap.
+        // The position of the dab on the path, before scatter, is i * gap.
         const along: f32 = @as(f32, @floatFromInt(i)) * 2.5;
         const off = std.math.hypot(da.x - along, da.y);
         try std.testing.expect(off <= 20.001);

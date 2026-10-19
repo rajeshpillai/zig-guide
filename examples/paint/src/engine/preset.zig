@@ -105,17 +105,18 @@ pub fn parse(gpa: std.mem.Allocator, json: []const u8, name_buf: *[max_name]u8) 
         .drain = @floatCast(s.drain),
         .color = try parseColor(s.color),
     };
-    // Valid means the brush is already one the engine would draw with
-    // unchanged. Anything `sanitized` would have to move is out of range,
-    // and NaN never equals itself, so it fails here too.
+    // Valid means that the engine can draw with the brush without a change.
+    // If `sanitized` must move a value, the value is out of range. NaN is
+    // never equal to itself, thus a NaN also fails here.
     if (!std.meta.eql(brush.sanitized(), brush)) return error.OutOfRange;
 
     @memcpy(name_buf[0..file.name.len], file.name);
     return .{ .name = name_buf[0..file.name.len], .brush = brush };
 }
 
-/// The shortest decimal that reads back as `x`, as an `f64`: 0.2 for the
-/// `f32` nearest to 0.2, where widening would give 0.20000000298023224.
+/// The shortest decimal that gives `x` when a program reads it again, as
+/// an `f64`. For the `f32` nearest to 0.2, the result is 0.2. A plain
+/// change to `f64` gives 0.20000000298023224.
 fn decimal(x: f32) f64 {
     var buf: [64]u8 = undefined;
     const text = std.mem.print(&buf, "{d}", .{x}) catch unreachable;

@@ -1,8 +1,8 @@
 ---
 title: A Native Window
 seoTitle: "Zig Paint Program in a raylib Window, Cross-Compiled for Windows from Linux"
-description: The same engine in a desktop window with raylib. Windows builds from Linux with one flag. macOS does not, and the reason is a licence, not the compiler.
-seoDescription: "Running a Zig paint engine in a raylib window, cross-compiling a Windows .exe from Linux with one flag, and why macOS needs a Mac: Apple's SDK cannot be shipped."
+description: The same engine in a desktop window with raylib. Linux builds for Windows with one flag. A licence, not the compiler, stops a build for macOS.
+seoDescription: "A Zig paint engine in a raylib window, a Windows .exe cross-compiled from Linux with one flag, and why macOS needs a Mac: nobody can ship the Apple SDK."
 section: A Paint Program
 order: 100
 ---
@@ -11,9 +11,9 @@ import PaintSource from "../../../components/PaintSource.astro";
 
 The studio on the first page is the engine in a browser.
 
-The same engine also runs in a desktop window. The window is drawn by **raylib**, a small C library for windows, graphics and input.
+The same engine also runs in a desktop window. **raylib** draws the window. raylib is a small C library for windows, graphics and input.
 
-The front end is one file, `native.zig`. Like the browser front end, it reads input, calls the engine, and copies the changed rectangle to the screen.
+The front end is one file, `native.zig`. It does the same work as the browser front end. It reads input, calls the engine, and copies the changed rectangle to the screen.
 
 ```
 cd examples/paint
@@ -23,29 +23,33 @@ zig build run          # open the window
 
 ## raylib as C, not as a package
 
-raylib is used as a folder of C files, compiled by our own `build.zig`.
+The program uses raylib as a folder of C files, and its own `build.zig` compiles them.
 
-`fetch-raylib.sh` downloads them at a fixed commit, the same one the [Lane Dodger](/learn/lane-dodger/the-build/) game uses. That chapter explains why the C is vendored rather than used as a Zig package: a package's build script must keep up with Zig master, and raylib's often does not.
+`fetch-raylib.sh` downloads the files at a fixed commit. The [Lane Dodger](/learn/lane-dodger/the-build/) game uses the same commit. That chapter tells why the program vendors the C and does not use a Zig package. The build script of a package must stay current with Zig master, and the build script of raylib often is not current.
 
-Here is the whole raylib build:
+This is the full raylib build:
 
 <PaintSource file="build.zig" decl="raylibModule" />
 
-`addTranslateC` reads `raylib.h` and turns it into a Zig module. The front end then calls `rl.InitWindow`, `rl.DrawTexture` and the rest as if they were Zig functions.
+`addTranslateC` reads `raylib.h` and changes it into a Zig module. Then the front end calls `rl.InitWindow`, `rl.DrawTexture` and the other functions as Zig functions.
 
-A paint program makes no sound and loads no 3D models, so the audio and model modules are switched off with two macros. That leaves five C files.
+A paint program makes no sound and loads no 3D models. Thus two macros turn off the audio and model modules. Five C files remain.
 
 ## The front end
 
-The window shows a texture the size of the document. Each frame, the loop reads the mouse, calls the engine, and uploads only the rectangle `render` says changed:
+The window shows a texture with the size of the document. In each frame, the loop does these steps:
+
+1. It reads the mouse.
+2. It calls the engine.
+3. It uploads only the rectangle that `render` returns as changed.
 
 <PaintSource file="src/native.zig" decl="main" />
 
-raylib's texture update wants the rectangle's pixels next to each other in memory. In `display` they are not: each row of the rectangle is one row of a 640-pixel image. So the rows are copied into `scratch` first.
+The texture update of raylib needs the pixels of the rectangle next to each other in memory. In `display`, the pixels are not next to each other: each row of the rectangle is one row of a 640-pixel image. Thus the code first copies the rows into `scratch`.
 
-A mouse has no pressure, so every point gets 0.5, the value browsers report for a mouse. The window and the studio draw the same stroke for the same movement.
+A mouse has no pressure. Thus each point gets 0.5, which is the value that browsers send for a mouse. The window and the studio draw the same stroke for the same movement.
 
-## Cross-compiling
+## Cross-compile
 
 Zig compiles for other operating systems with one flag:
 
@@ -53,49 +57,48 @@ Zig compiles for other operating systems with one flag:
 zig build native -Dtarget=x86_64-windows
 ```
 
-On Linux, that builds a working `paint.exe` of about 1.3 MB, and nothing needs to be installed first.
+On Linux, this command builds a `paint.exe` of about 1.3 MB that works. You do not have to install anything first.
 
-It works because of what raylib needs from Windows: `opengl32`, `gdi32`, `winmm`, `user32` and `shell32`. Zig ships the import libraries for these, from the MinGW project, inside the compiler. The `build.zig` above only has to choose `_GLFW_WIN32` instead of `_GLFW_X11` and name those libraries.
+The cross-compile works because of the libraries that raylib needs from Windows: `opengl32`, `gdi32`, `winmm`, `user32` and `shell32`. The compiler contains the import libraries for these, from the MinGW project. The `build.zig` above only selects `_GLFW_WIN32` instead of `_GLFW_X11` and gives the names of those libraries.
 
-One more line matters on Windows:
+One more line is important on Windows:
 
 ```zig
 if (target.result.os.tag == .windows) exe.subsystem = .windows;
 ```
 
-A Windows program is either a console program or a window program. A console program opens a terminal window when you double-click it, behind the paint window. `.windows` asks for a window program.
+A Windows program is a console program or a window program. When you double-click a console program, it opens a terminal window behind the paint window. `.windows` selects a window program.
 
-CI builds the Windows `.exe` on every run, from a Linux machine, so a change in Zig or raylib that breaks it fails the nightly build. CI does not run it, because it has no Windows machine to run it on.
+CI builds the Windows `.exe` on each run, from a Linux computer. If a change in Zig or raylib breaks the Windows build, the nightly build fails. CI does not run the `.exe`, because it has no Windows computer.
 
-## Where cross-compiling stops
+## The limits of cross-compilation
 
-The other direction is harder for Linux and simply blocked for macOS.
+For other Linux systems, a build is more difficult. For macOS, a build from Linux is not possible.
 
-Building **for Linux on another CPU**, such as a 64-bit ARM board, needs the X11 header files for that system. Zig does not ship them, so they have to come from that system. They are only headers, so it can be done, but it is not one flag.
+- **Linux on a different CPU**, such as a 64-bit ARM board, needs the X11 header files for that system. Zig does not contain them, thus they must come from that system. They are only headers, thus the build is possible. But it is not one flag.
+- **macOS** needs the Apple SDK: the headers and libraries for Cocoa, IOKit and OpenGL that raylib uses on a Mac. Zig does not contain them, and the Apple licence does not let other people ship them. The compiler can do the job, but nobody can legally copy the files that it needs.
 
-Building **for macOS** from Linux needs Apple's SDK: the headers and libraries for Cocoa, IOKit and OpenGL that raylib uses on a Mac. Zig does not ship them, and Apple's licence does not allow anyone else to ship them either. The compiler could do the job. The files it would need are not allowed to be copied.
-
-So the macOS build is made on a Mac, where the SDK is already installed. GitHub provides Mac machines for CI, so this is a cost, not a dead end.
+Thus you must build the macOS version on a Mac, where the SDK is already installed. GitHub gives Mac computers for CI. Thus a macOS build costs more, but it is possible.
 
 ## A smoke test without a screen
 
-CI has no screen. It runs the window inside **Xvfb**, a virtual display that draws into memory.
+CI has no screen. CI runs the window inside **Xvfb**, a virtual display that draws into memory.
 
-`-Dframes=30` makes the program draw the engine's demo picture, show it for 30 frames and exit. `-Dshot` saves the last frame:
+`-Dframes=30` makes the program draw the demo picture of the engine, show it for 30 frames, and stop. `-Dshot` saves the last frame:
 
 ```
 zig build native -Dframes=30 -Dshot=demo-native.png
 xvfb-run ./zig-out/bin/paint
 ```
 
-Compiling proves the raylib calls still match the headers. Running proves the window opens and the texture is drawn.
+The compile proves that the raylib calls still agree with the headers. The run proves that the window opens and that raylib draws the texture.
 
-## Explain before reading the answer
+## Explain before you read the answer
 
-The browser studio and the native window both send the engine the same points for the same movement.
+For the same movement, the browser studio and the native window send the same points to the engine.
 
-Will they draw exactly the same pixels?
+Do they draw exactly the same pixels?
 
-The engine will. Given the same calls, it computes the same picture on any machine. The first chapter's demo check proves this for the browser and native builds.
+The engine does. With the same calls, it calculates the same picture on all computers. The demo check in the first chapter proves this for the browser and native builds.
 
-What can differ is the calls. A browser can report more samples per second than one per frame, and the studio passes all of them on. raylib reads the mouse once per frame. So a fast stroke gets more points in the browser. The spacing from the [Strokes](/learn/paint/strokes/) chapter keeps the dabs evenly spaced either way, but where the path bends between samples, the two paths are not quite the same.
+The calls can be different. A browser can send more than one sample in each frame. The studio gives all of the samples to the engine. raylib reads the mouse one time in each frame. Thus a fast stroke gets more points in the browser. The spacing from the [Strokes](/learn/paint/strokes/) chapter keeps the dabs at equal distances in both cases. But where the path bends between samples, the two paths are slightly different.

@@ -30,9 +30,10 @@ pub const Watercolor = struct {
     mobile: []f32,
     deposited: []f32,
     /// How quickly pigment settles in each cell, from 0.6 to 1.4 times the
-    /// base rate. Made once, so the paper's grain stays where it is.
+    /// base rate. The code makes it one time, thus the grain of the paper
+    /// does not move.
     grain: []f32,
-    /// The second buffer for spreading. A step reads one buffer and writes
+    /// The second buffer for the spread. A step reads one buffer and writes
     /// the other, then swaps them.
     next: []f32,
 
@@ -40,7 +41,7 @@ pub const Watercolor = struct {
     spread_rate: f32 = 0.18,
     /// How much of its wetness the paper keeps after one second.
     retention: f32 = 0.8,
-    /// How fast floating pigment settles, per second.
+    /// How fast mobile pigment settles, per second.
     settle_rate: f32 = 0.8,
     /// The pigment's colour.
     color: [3]u8 = .{ 40, 90, 160 },
@@ -64,7 +65,7 @@ pub const Watercolor = struct {
     }
 
     pub fn deinit(w: *Watercolor, gpa: std.mem.Allocator) void {
-        // The five fields are one allocation, starting at `water`.
+        // The five fields are one allocation, and `water` is at the start.
         gpa.free(w.water.ptr[0 .. w.water.len * 5]);
     }
 
@@ -96,20 +97,21 @@ pub const Watercolor = struct {
 
     /// One step of 1/30 of a second.
     pub fn step(w: *Watercolor) void {
-        // Water spreads to drier neighbours. Pigment spreads too, but only as
-        // far as the paper is wet: between two cells, it moves in proportion
-        // to the wetness of the drier one.
+        // Water spreads to drier neighbours. Pigment also spreads, but only
+        // where the paper is wet. Between two cells, the pigment moves in
+        // proportion to the wetness of the drier cell.
         w.spread(w.water, null, .forward);
         w.spread(w.mobile, w.water, .forward);
 
-        // Drying. `retention` is what is left after a whole second, so one
-        // step of `dt` seconds keeps `retention` to the power `dt`. Thirty
-        // steps then keep exactly `retention`, at any step size.
+        // The paper dries. `retention` is what remains after one full second.
+        // Thus one step of `dt` seconds keeps `retention` to the power `dt`.
+        // Thirty steps then keep exactly `retention`, at any step size.
         const keep = std.math.pow(f32, w.retention, dt);
         for (w.water) |*v| v.* *= keep;
 
-        // Settling. A share of the floating pigment moves into the paper.
-        // Moved, not removed: the total pigment does not change.
+        // The pigment settles. A part of the mobile pigment moves into the
+        // paper. The step moves it and does not remove it: the total pigment
+        // does not change.
         for (w.mobile, w.deposited, w.grain) |*m, *d, g| {
             const share = 1.0 - @exp(-w.settle_rate * g * dt);
             const moved = m.* * share;
@@ -120,16 +122,17 @@ pub const Watercolor = struct {
 
     pub const Order = enum { forward, reverse };
 
-    /// Spread `field` between neighbouring cells, reading the old values and
-    /// writing the new ones to a second buffer.
+    /// Spread `field` between neighbour cells. Read the old values, and
+    /// write the new values to a second buffer.
     ///
-    /// Each cell moves towards its neighbours by `spread_rate` times each
-    /// difference. A cell with four neighbours keeps `1 - 4 * rate` of its
-    /// own value, so `rate` must be at most 0.25 or that weight goes negative
-    /// and values can overshoot, flip sign and grow without limit.
+    /// Each cell moves towards its neighbours by `spread_rate` multiplied by
+    /// each difference. A cell with four neighbours keeps `1 - 4 * rate` of
+    /// its own value. Thus `rate` must be 0.25 or less. If not, that weight
+    /// is negative, and values can go too far, change sign and grow without
+    /// limit.
     ///
-    /// `order` only exists to show that it does not matter. Because no cell
-    /// reads a value written in the same step, scanning backwards gives the
+    /// `order` exists only to show that the order has no effect. No cell
+    /// reads a value from the same step. Thus a backwards scan gives the
     /// same result.
     pub fn spread(w: *Watercolor, field: []f32, wet: ?[]const f32, order: Order) void {
         const n = field.len;
@@ -149,9 +152,9 @@ pub const Watercolor = struct {
         @memcpy(field, w.next);
     }
 
-    /// Left, right, above and below, or null where that neighbour would be
-    /// off the paper. Checking the coordinate first stops a cell on the left
-    /// edge from reaching the right edge of the row above.
+    /// Left, right, above and below, or null where that neighbour is
+    /// outside the paper. The code examines the coordinate first. Thus a
+    /// cell on the left edge cannot get to the right edge of the row above.
     pub fn neighbours(w: Watercolor, x: u32, y: u32) [4]?usize {
         return .{
             if (x > 0) w.index(x - 1, y) else null,
@@ -168,7 +171,7 @@ pub const Watercolor = struct {
     }
 
     /// Draw the grid, one pixel per cell: white paper that turns pale blue
-    /// where it is wet, and the pigment laid over it.
+    /// where it is wet, and the pigment on top of it.
     pub fn render(w: Watercolor, out: []Rgba) void {
         const wet_paper = [3]f32{ 225, 235, 248 };
         for (out, w.water, w.mobile, w.deposited) |*px, water, m, d| {
@@ -237,7 +240,7 @@ test "reading the old grid makes the scan order irrelevant" {
 test "spreading keeps the total and never goes negative" {
     var w = try lab(30, 20);
     defer w.deinit(testing.allocator);
-    w.retention = 1; // no drying, so all the water must still be there
+    w.retention = 1; // the paper does not dry, thus all the water must stay
     w.drop(5, 5, 4, 1, 0.5);
     const water = Watercolor.total(w.water);
     for (0..300) |_| w.step();
@@ -274,7 +277,7 @@ test "settling moves pigment into the paper and loses none" {
     for (0..600) |_| w.step();
     const now = Watercolor.total(w.mobile) + Watercolor.total(w.deposited);
     try testing.expectApproxEqRel(pigment, now, 1e-4);
-    // After twenty seconds nearly all of it has settled.
+    // After twenty seconds, almost all of the pigment is in the paper.
     try testing.expect(Watercolor.total(w.deposited) > 0.95 * pigment);
 }
 

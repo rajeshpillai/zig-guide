@@ -1,26 +1,26 @@
 ---
 title: Projects and Presets
 seoTitle: "Zig Paint Program: A Binary Project File and JSON Brush Presets, Validated"
-description: A project file keeps the layers a PNG would merge. A preset keeps a brush. Both are input someone else wrote, so both are checked before anything changes.
-seoDescription: "Saving a Zig paint program's layers in a versioned binary file, opening it safely with every field checked, JSON brush presets with std.json, and what std.json costs in wasm."
+description: A project file keeps the layers that a PNG merges. A preset keeps a brush. Other people can write both, thus the program examines both first.
+seoDescription: "How a Zig paint program saves its layers in a binary file with a version, examines each field when it opens the file, and keeps brush presets in std.json."
 section: A Paint Program
 order: 92
 ---
 
 import PaintSource from "../../../components/PaintSource.astro";
 
-A PNG is for sharing a finished picture. It is a bad way to keep working on one.
+A PNG is for a completed picture that you share. It is a bad format for a picture that you will change again.
 
-A PNG is flat. When it is saved, the layers are merged into one image. Opened again, nothing can say which paint was on which layer, so the eraser can no longer reveal the bottom layer. Two layers plus the size of the page can rebuild the picture you were working on. One merged PNG cannot.
+A PNG is flat. When the program saves a PNG, it merges the layers into one image. When you open the PNG again, nothing tells which paint was on which layer. Thus the eraser cannot show the bottom layer again. Two layers and the size of the page can make the picture again. One merged PNG cannot.
 
-So the studio has two more kinds of file:
+Thus the studio has two more types of file:
 
-- **Save project** keeps every layer, and which ones are visible.
-- **Save brush** keeps a brush's settings as a **preset**: a name and the numbers that make the brush behave the way it does. A preset holds no pixels.
+- **Save project** keeps each layer, and records which layers are visible.
+- **Save brush** keeps the settings of a brush as a **preset**. A preset is a name and the numbers that control the brush. A preset holds no pixels.
 
 ## The project format
 
-Before any code, the format is written down, field by field, at the top of the file that implements it:
+Before the code, the top of the file that implements the format describes it, field by field:
 
 ```
 header, 16 bytes
@@ -37,51 +37,56 @@ each layer
   5  pixels     size bytes, zlib: width * height premultiplied RGBA
 ```
 
-The [Binary Files](/learn/files/binary-files/) chapter builds a format the same way. The **magic** bytes say what kind of file this is. The **version** says which edition of the format, so a later program can change the format and still recognise an old file.
+The [Binary Files](/learn/files/binary-files/) chapter makes a format in the same way. The **magic** bytes tell the type of the file. The **version** tells which edition of the format the file uses. Thus a later program can change the format and still identify an old file.
 
-Each layer's pixels are compressed with zlib, the same compressor the [PNG writer](/learn/graphics/png/) uses. An empty layer of 640 by 400 is 1,024,000 bytes of zeros, and compresses to about a kilobyte.
+The program compresses the pixels of each layer with zlib, the same compressor that the [PNG writer](/learn/graphics/png/) uses. An empty layer of 640 by 400 is 1,024,000 bytes of zeros. After compression, it is about one kilobyte.
 
 <PaintSource file="src/engine/project.zig" decl="save" />
 
-## Opening is reading someone else's bytes
+## To open a file is to read bytes from an unknown source
 
-Saving is easy, because our program wrote the data and trusts it.
+To save is easy. The program wrote the data, and it trusts the data.
 
-Opening is different. The file might be from an older version, cut short by a failed download, damaged on a disk, or not a project at all. Opening reads input from outside the program, so every field is checked before it is used.
+To open is different. The file can be from an older version. A failed download can cut it short, or a disk can damage it, or the file can be a different type. The program reads input from outside, thus it examines each field before it uses the field.
 
 <PaintSource file="src/engine/project.zig" decl="OpenError" />
 
-Each way a file can be wrong has its own error. The studio turns each one into a sentence a person can act on, and leaves the picture on screen untouched.
+Each type of problem in a file has its own error. The studio changes each error into a sentence that tells the person what to do. The picture on the screen does not change.
 
 ## Build the new document first
 
-A failed open must not damage the work on screen.
+If an open fails, the work on the screen must not change.
 
-So `open` builds a complete new document, separate from the one that is open. Only if every layer decodes and every check passes does the studio swap the new one in. If anything fails, `errdefer` frees the half-built document and the open picture was never touched.
+Thus `open` makes a complete new document, separate from the open document. The studio swaps in the new document only if each layer decodes and each check passes. If something fails, `errdefer` frees the partial document. The open picture does not change.
 
 <PaintSource file="src/engine/project.zig" decl="open" />
 
-## A small file can ask for a lot of memory
+## A small file can ask for much memory
 
-The header says how big the picture is, and the document is allocated from that.
+The header gives the size of the picture, and the program allocates the document from that size.
 
-Eight layers of 4096 by 4096 pixels is 512 MB. A file only 16 bytes long can ask for that, with nothing behind its header.
+Eight layers of 4096 by 4096 pixels is 512 MB. A file that is only 16 bytes long can ask for that quantity, with no data after its header.
 
-So before allocating anything, `open` walks the layer table once. It reads each layer's size and checks that the bytes are really there, and that nothing follows the last layer. A file that lies about its contents fails here, before the big allocation.
+Thus, before it allocates anything, `open` reads the layer table one time:
 
-A test proves it with an allocator that refuses every request. If `open` asked for memory before checking, the test would see `OutOfMemory` instead of `Truncated`.
+- It reads the size of each layer and makes sure that the bytes are in the file.
+- It makes sure that nothing follows the last layer.
+
+If a file gives incorrect data about its contents, the file fails here, before the large allocation.
+
+A test proves this with an allocator that refuses each request. If `open` asked for memory before the checks, the test would get `OutOfMemory` instead of `Truncated`.
 
 ## Checks inside the pixels
 
-Two more checks look inside the compressed pixels.
+Two more checks examine the compressed pixels.
 
-A layer must decompress to exactly `width × height × 4` bytes. `open` reads that many, then asks for one more. A layer that is short fails the first read. One that is long has a byte left for the second.
+A layer must decompress to exactly `width × height × 4` bytes. `open` reads that number of bytes, and then asks for one more byte. If a layer is too short, the first read fails. If a layer is too long, a byte remains for the second read.
 
-And every pixel must be **premultiplied**, as the [Layers](/learn/paint/layers-and-the-eraser/) chapter explains: no colour channel larger than the alpha. The engine never writes such a pixel, so finding one means the file is damaged or was not written by this program.
+Each pixel must also be **premultiplied**, as the [Layers](/learn/paint/layers-and-the-eraser/) chapter explains. No colour channel can be larger than the alpha. The engine never writes a pixel that breaks this rule. Thus such a pixel means that the file is damaged, or that a different program wrote it.
 
 ## Brush presets
 
-A preset is small, and a person may want to read or edit one. So presets are JSON:
+A preset is small, and a person can want to read or edit it. Thus presets are JSON:
 
 ```json
 {
@@ -95,82 +100,86 @@ A preset is small, and a person may want to read or edit one. So presets are JSO
 }
 ```
 
-Fields the file leaves out take the default brush's values. Fields this program does not know are skipped, so a preset from a later version still opens if the fields it knows are valid.
+If the file does not have a field, the field gets the value of the default brush. The program skips fields that it does not know. Thus a preset from a later version still opens if its known fields are valid.
 
 ## 0.2, not 0.20000000298023224
 
-The first preset this code wrote said `"aspect": 0.20000000298023224`.
+The first preset from this code had `"aspect": 0.20000000298023224`.
 
-The brush stores its settings as `f32`. `std.json` writes an `f32` by first widening it to `f64`, and the `f32` nearest to 0.2 is not exactly 0.2. Widened, the difference shows.
+The brush stores its settings as `f32`. `std.json` first changes an `f32` to an `f64`, and then writes it. The `f32` that is nearest to 0.2 is not exactly 0.2. After the change to `f64`, the difference is visible.
 
-The file was correct, and it read back to the same brush. But a preset is meant to be read and edited by a person, and that number is not what anyone typed.
+The file was correct, and it gave the same brush when the program read it. But a preset is for people to read and edit, and no person typed that number.
 
-So `write` turns each setting into the shortest decimal that reads back as the same `f32`, which is what Zig's `{d}` format prints, and stores that as an `f64`. JSON then prints `0.2`:
+Thus `write` changes each setting into the shortest decimal that gives the same `f32` when the program reads it again. Zig's `{d}` format prints that decimal. `write` stores the decimal as an `f64`, and JSON then prints `0.2`:
 
 <PaintSource file="src/engine/preset.zig" decl="decimal" />
 
-Reading the file narrows `0.2` back to an `f32`, and gets the same bits the brush had. The round-trip test checks that.
+When the program reads the file, it changes `0.2` back to an `f32` and gets the same bits that the brush had. The round-trip test examines this.
 
 ## Refuse, do not repair
 
-The brush already has a function that moves every setting into range: `sanitized`, in `brush.zig`. Every stroke runs its brush through it, so a slider can never hand the engine a value it cannot draw with.
+The brush already has a function that moves each setting into its range: `sanitized`, in `brush.zig`. Each stroke sends its brush through this function. Thus a slider can never give the engine a value that it cannot draw with.
 
-A preset file must not rely on it. A file with a radius of −3 is a damaged file. Quietly turning −3 into 0.5 would hide the damage and give the person a brush they never made.
+A preset file must not use `sanitized` to repair its values. A file with a radius of −3 is a damaged file. If the program silently changes −3 into 0.5, it hides the damage, and the person gets a brush that they did not make.
 
-But `sanitized` is still useful here, as the definition of a valid brush. A brush is valid exactly when sanitizing it changes nothing:
+But `sanitized` is still useful here, as the definition of a valid brush. A brush is valid only when `sanitized` changes nothing:
 
 <PaintSource file="src/engine/preset.zig" decl="parse" />
 
-NaN never equals itself, so a NaN setting fails the same comparison. No list of ranges is repeated, so the preset check and the sliders cannot disagree.
+NaN is never equal to itself, thus a NaN setting fails the same comparison. The code does not repeat a list of ranges. Thus the preset check and the sliders cannot disagree.
 
-## What JSON costs
+## The cost of JSON
 
-The browser build was 49 KB before files. It is 146 KB after.
+The browser build was 49 KB before the file features. After them, it is 146 KB.
 
-Taking out one function at a time and building again shows where the 97 KB went:
+To find where the 97 KB went, remove one function at a time and build again:
 
 | part | adds |
 |---|---|
-| reading a preset with `std.json` | 67 KB |
-| opening a project (zlib decompression) | 15 KB |
-| writing presets and projects, and the rest | 15 KB |
+| read a preset with `std.json` | 67 KB |
+| open a project (zlib decompression) | 15 KB |
+| write presets and projects, and the remainder | 15 KB |
 
-`std.json` is general: it can parse any JSON into any Zig type, which is what makes `parseFromSlice(File, ...)` one line. That generality is most of the cost. A hand-written parser for exactly this one shape would be smaller, and would be a second piece of code to keep correct.
+`std.json` is general. It can parse any JSON into any Zig type. That is why `parseFromSlice(File, ...)` is one line. Most of the cost comes from that general design. A parser written by hand for only this one shape would be smaller. But it would be a second part of the code that must stay correct.
 
-The page loads the engine only when you press Start, so the cost is paid once, by people who use the studio. For a program that loaded on every page, it would be worth writing the small parser.
+The page loads the engine only when you push Start. Thus only people who use the studio pay the cost, one time. For a program that loads on each page, it would be better to write the small parser.
 
 ## Checks
 
-A saved project opens with the same layers, visibility and active layer:
+This test makes sure that a saved project opens with the same layers, visibility and active layer:
 
 <PaintSource file="src/engine/project.zig" decl="a saved project opens with the same layers, visibility and active layer" />
 
-Each kind of damage gives its own error:
+This test makes sure that each type of damage gives its own error:
 
 <PaintSource file="src/engine/project.zig" decl="each kind of damage is rejected with its own error" />
 
-The file cut at every possible length, and every byte flipped in turn. A cut file must never open. A flipped byte may still open, if it lands somewhere that decompresses to valid pixels, but nothing may crash, and the testing allocator fails the test if anything leaks:
+This test cuts the file at each possible length, and changes each byte, one after the other:
+
+- A cut file must never open.
+- A file with a changed byte can still open, if the decompressed pixels are valid. But nothing can crash.
+- If something leaks, the testing allocator makes the test fail.
 
 <PaintSource file="src/engine/project.zig" decl="every truncation and every flipped byte is rejected or opens cleanly, and nothing leaks" />
 
-The 512 MB header:
+This test uses the 512 MB header:
 
 <PaintSource file="src/engine/project.zig" decl="a header asking for 512 MB with no data behind it allocates nothing" />
 
-There is also a **fuzz test**. `zig build test --fuzz` runs it with inputs the fuzzer generates and mutates, looking for any byte sequence that crashes `open`. An ordinary test run gives it only the valid file it starts from.
+There is also a **fuzz test**. `zig build test --fuzz` runs it with inputs that the fuzzer makes and changes. The fuzzer searches for a byte sequence that crashes `open`. An ordinary test run gives the fuzz test only the valid file that it starts from.
 
-Presets written the way a person would type them:
+This test makes sure that presets contain the numbers that a person types:
 
 <PaintSource file="src/engine/preset.zig" decl="settings are written as typed: 0.2, not 0.20000000298023224" />
 
-And presets, refused for each reason:
+This test refuses presets for each reason:
 
 <PaintSource file="src/engine/preset.zig" decl="a bad preset is refused with a reason, never repaired" />
 
-## Explain before reading the answer
+## Explain before you read the answer
 
-A project file from version 2 of this program arrives. Version 2 added a field to the header.
+You get a project file from version 2 of this program. Version 2 added a field to the header.
 
-Should version 1 try to open it, skipping the field it does not know?
+Must version 1 try to open the file, and skip the field that it does not know?
 
-No. Version 1 cannot know where the new field is or how long it is, so it cannot know where the layers start. It refuses with `NewerVersion`, which tells the person exactly what to do: update the program. A preset is different, because JSON names every field, so an unknown one can be skipped safely.
+No, it must not. Version 1 cannot know the position or the length of the new field. Thus it cannot know where the layers start. It refuses the file with `NewerVersion`, which tells the person exactly what to do: update the program. A preset is different. JSON gives a name to each field, thus the program can safely skip an unknown field.

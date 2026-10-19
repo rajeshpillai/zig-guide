@@ -50,8 +50,8 @@ pub fn build(b: *std.Build) void {
     web_step.dependOn(&b.addInstallArtifact(web, .{ .dest_dir = .{ .override = .{ .custom = "web" } } }).step);
 }
 
-/// The browser build. Public so the guide's build.zig can call it with its own
-/// path to `src/`, and both builds stay one definition.
+/// The browser build. The function is public, thus the build.zig of the
+/// guide can call it with its own path to `src/`. Both builds use one definition.
 pub fn addWeb(b: *std.Build, src: std.Build.LazyPath, optimize: std.lang.Optimize) *std.Build.Step.Compile {
     const wasm_target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .freestanding });
     const engine = b.createModule(.{
@@ -68,8 +68,8 @@ pub fn addWeb(b: *std.Build, src: std.Build.LazyPath, optimize: std.lang.Optimiz
             .imports = &.{.{ .name = "engine", .module = engine }},
         }),
     });
-    // A library of exported functions, not a program with a main: the page
-    // calls into it.
+    // A library of exported functions, not a program with a main. The page
+    // calls the functions.
     exe.entry = .disabled;
     exe.rdynamic = true;
     return exe;
@@ -124,8 +124,8 @@ fn raylibModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.l
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        // None of this C is ours, and UBSan's runtime would only report on
-        // a pinned upstream release.
+        // This C does not come from this project. The UBSan runtime would only
+        // report problems in a fixed upstream release.
         .sanitize_c = .off,
     });
     const lib = b.addLibrary(.{ .name = "raylib", .linkage = .static, .root_module = mod });

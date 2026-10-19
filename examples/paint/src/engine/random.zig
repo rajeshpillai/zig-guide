@@ -12,7 +12,7 @@
 const std = @import("std");
 
 pub const Random = struct {
-    /// Always between 1 and 2^31 - 2. Zero would stay zero for ever.
+    /// Always between 1 and 2^31 - 2. A zero state always stays zero.
     state: u32,
 
     const modulus: u64 = 2147483647; // 2^31 - 1, a prime
@@ -25,8 +25,8 @@ pub const Random = struct {
 
     /// The next value, from 0.0 to 1.0.
     pub fn next(r: *Random) f32 {
-        // The product needs 46 bits, so it is done in u64. In u32 it would
-        // overflow, and Zig would stop the program in a safe build.
+        // The product needs 46 bits, thus the code calculates it in u64. In u32
+        // it would overflow, and Zig would stop the program in a safe build.
         r.state = @intCast(@as(u64, r.state) * multiplier % modulus);
         return @as(f32, @floatFromInt(r.state - 1)) / 2147483646.0;
     }
@@ -34,7 +34,7 @@ pub const Random = struct {
 
 test "the first values from seed 1 are the published ones" {
     // Park and Miller give 16807, 282475249 and 1622650073 as the first three
-    // states from seed 1, so a wrong multiplication shows up here.
+    // states from seed 1. Thus this test finds an incorrect multiplication.
     var r = Random.init(1);
     _ = r.next();
     try std.testing.expectEqual(@as(u32, 16807), r.state);

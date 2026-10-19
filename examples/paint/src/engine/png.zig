@@ -14,8 +14,8 @@ const signature = "\x89PNG\r\n\x1a\n";
 const Filter = enum(u8) { none = 0, sub = 1, up = 2, average = 3, paeth = 4 };
 const all_filters = [_]Filter{ .none, .sub, .up, .average, .paeth };
 
-/// Write `pixels` as an 8-bit RGB PNG. Alpha is dropped: pass pixels that are
-/// already flattened onto the paper.
+/// Write `pixels` as an 8-bit RGB PNG. The function ignores alpha. Give it
+/// pixels that are already flattened onto the paper.
 pub fn write(
     gpa: std.mem.Allocator,
     out: *std.Io.Writer,
@@ -25,8 +25,8 @@ pub fn write(
 ) !void {
     const stride = @as(usize, width) * 3;
 
-    // The compressor is about 224 KB, which is more than a small stack can
-    // hold, so it goes on the heap with its 64 KB window.
+    // The compressor is about 224 KB. A small stack cannot hold that size.
+    // Thus the compressor goes on the heap with its 64 KB window.
     const compressor = try gpa.create(flate.Compress);
     defer gpa.destroy(compressor);
     const window = try gpa.alloc(u8, flate.max_window_len);
@@ -50,10 +50,10 @@ pub fn write(
             current[x * 3 ..][0..3].* = .{ p.r, p.g, p.b };
         }
 
-        // Try all five filters and keep the one whose bytes are smallest when
-        // read as signed numbers. Small numbers mean values close to their
-        // prediction, which is what compresses well. The rule is a guess, but
-        // it is the guess libpng makes, and it is cheap.
+        // Try all five filters. Keep the filter whose bytes are smallest when
+        // the code reads them as signed numbers. Small numbers mean values near
+        // their prediction, and those values compress well. The rule is an
+        // estimate, but libpng uses the same estimate, and it costs little.
         var best: []const u8 = undefined;
         var best_score: u64 = std.math.maxInt(u64);
         inline for (all_filters, 0..) |filter, k| {
@@ -95,7 +95,7 @@ pub fn write(
     try writeChunk(out, "IEND", "");
 }
 
-/// Whichever of left, above and above-left is closest to `left + up - up_left`.
+/// The one of left, above and above-left that is nearest to `left + up - up_left`.
 /// Ties go to left, then above, as the specification says.
 fn paeth(left: u8, up: u8, up_left: u8) u8 {
     const p = @as(i16, left) + up - up_left;
@@ -201,8 +201,8 @@ test "pixels survive the round trip, whatever filters were chosen" {
         try testing.expectEqualSlices(u8, &.{ p.r, p.g, p.b }, decoded.rgb[i * 3 ..][0..3]);
     }
 
-    // The picture mixes flat rows, smooth rows and noise, so the per-row
-    // choice should not have settled on one filter for everything.
+    // The picture mixes flat rows, smooth rows and noise. Thus the choice
+    // for each row must not use one filter for all rows.
     var kinds: usize = 0;
     for (decoded.used) |u| kinds += @intFromBool(u);
     try testing.expect(kinds >= 2);

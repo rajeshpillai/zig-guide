@@ -1,114 +1,111 @@
 ---
 title: The Tip
 seoTitle: "Zig Paint Program: Soft Brush Tips, Ellipses and Rotation"
-description: A dab is a disc with a fading edge. Squash it into an ellipse, turn it, and the same twenty lines draw a soft brush, a calligraphy nib and a ribbon.
-seoDescription: "Rasterizing a brush tip in Zig: coverage with a soft edge from hardness, an elliptical calligraphy nib from an aspect ratio, and tips rotated with atan2 to follow the stroke."
+description: A dab is a disc with a soft edge. Make it an ellipse, turn it, and the same twenty lines draw a soft brush, a calligraphy nib and a ribbon.
+seoDescription: "How a Zig paint program rasterizes a brush tip: a soft edge from hardness, an elliptical nib from an aspect ratio, and a tip that turns with atan2."
 section: A Paint Program
 order: 40
 ---
 
 import PaintSource from "../../../components/PaintSource.astro";
 
-A dab says where the brush touched and how big it was.
+A dab tells where the brush touched and how large the dab was. The **tip** decides which pixels the dab covers, and how much it covers them.
 
-The **tip** decides which pixels that covers, and by how much.
+For each pixel, the answer is a number from 0 to 1, the **coverage**. 1 is full coverage, 0 is no coverage, and 0.5 is half coverage.
 
-The answer for each pixel is a number from 0 to 1 called its **coverage**. 1 means fully covered, 0 means untouched, and 0.5 means half.
+The engine calculates the coverage for three types of tip:
 
-The engine computes it for three kinds of tip:
+- A round tip with a soft edge.
+- A flat tip, which is an ellipse.
+- A flat tip at an angle. The angle is fixed, or it follows the stroke.
 
-- a round tip with a soft edge
-- a flat tip, squashed into an ellipse
-- a flat tip turned to an angle, fixed or following the stroke
+## Which pixels to examine
 
-## Which pixels to look at
-
-A dab can only touch pixels within its radius of its centre.
-
-So we visit the square around it, cut to the edges of the image, and nothing else:
+A dab can touch only the pixels within its radius from its centre. Thus the code examines the square around the dab, cut at the edges of the image, and no other pixels:
 
 <PaintSource file="src/engine/geometry.zig" decl="around" />
 
-A 20-pixel dab looks at a 40 by 40 square: 1,600 pixels. The whole 640 by 400 image is 256,000. Visiting only the square is 160 times less work for every dab.
+A 20-pixel dab examines a 40 by 40 square, which is 1,600 pixels. The full 640 by 400 image is 256,000 pixels. Thus, for each dab, the square is 160 times less work.
 
-The square is computed in `f32` and clamped before it becomes an integer. A dab can start well outside the image. Converting a negative `f32` straight to a `u32` is illegal behaviour, which Zig checks in safe builds.
+The code calculates the square in `f32` and clamps it before it changes it to an integer. A dab can start far outside the image. A direct conversion from a negative `f32` to a `u32` is illegal behaviour, and Zig examines it in safe builds.
 
 ## A soft round tip
 
-For a round tip, coverage depends only on the distance `d` from the dab's centre to the pixel's centre.
+For a round tip, the coverage depends only on the distance `d` from the centre of the dab to the centre of the pixel.
 
-The brush's **hardness** is the solid part of the radius. With radius 20 and hardness 0.6:
+The **hardness** of the brush is the solid part of the radius. With radius 20 and hardness 0.6:
 
-- inside 12 pixels (0.6 × 20), coverage is 1
-- from 12 to 20 pixels, it falls in a straight line from 1 to 0
-- beyond 20 pixels, it is 0
+- Inside 12 pixels (0.6 × 20), the coverage is 1.
+- From 12 to 20 pixels, the coverage decreases in a straight line from 1 to 0.
+- After 20 pixels, the coverage is 0.
 
-At 16 pixels, halfway through the fading band, coverage is 0.5.
+At 16 pixels, which is the middle of the soft band, the coverage is 0.5.
 
-At hardness 1, the band would have no width at all, and the edge of every dab would be a staircase of whole pixels. So the band is never narrower than one pixel. That one pixel is enough to smooth the edge.
+At hardness 1, the band has no width. Then the edge of each dab is a staircase of full pixels. Thus the band is never narrower than one pixel. One pixel is sufficient to make the edge smooth.
 
 ## Pixel centres
 
-A pixel is a small square, not a point.
+A pixel is a small square, not a point. Pixel (5, 3) covers x from 5 to 6 and y from 3 to 4. Its centre is (5.5, 3.5).
 
-Pixel (5, 3) covers x from 5 to 6 and y from 3 to 4. Its centre is (5.5, 3.5).
+The tip measures the distance to the centre. If the tip used the corner, each dab would be half a pixel up and to the left of its correct position. The [Scaling and Resampling](/learn/graphics/resample/) chapter shows how the same half-pixel mistake moves a full image.
 
-The tip measures distance to the centre. If it used the corner instead, every dab would be drawn half a pixel up and to the left of where it was asked to be. The [Scaling and Resampling](/learn/graphics/resample/) chapter shows the same half-pixel mistake shifting a whole image.
-
-## Squashing and turning
+## Make the tip flat and turn it
 
 A calligraphy nib is not round. It is flat.
 
-A flat tip is an ellipse: full width along one axis, and `aspect` times that along the other. With radius 20 and aspect 0.25, the tip is 40 pixels wide and 10 high.
+A flat tip is an ellipse. It has the full width along one axis, and `aspect` multiplied by that width along the other axis. With radius 20 and aspect 0.25, the tip is 40 pixels wide and 10 pixels high.
 
-To draw an ellipse, we turn the problem back into a circle.
+To draw an ellipse, the code changes the problem back into a circle:
 
-Take the pixel's offset from the centre, `dx` and `dy`. Turn it by the tip's angle, so `u` runs along the tip and `v` across it. Then divide `v` by the aspect.
+1. Take the offset of the pixel from the centre, `dx` and `dy`.
+2. Turn the offset by the angle of the tip. Then `u` is along the tip, and `v` is across it.
+3. Divide `v` by the aspect.
 
-A point on the edge of the ellipse now lies exactly on the circle of the original radius, and the round tip's coverage rule works unchanged.
+Now a point on the edge of the ellipse is exactly on the circle with the original radius. Thus the coverage rule of the round tip works without a change.
 
-Here is the whole tip, all three kinds in one function:
+This function is the full tip, with all three types:
 
 <PaintSource file="src/engine/mask.zig" decl="stamp" />
 
-`@cos` and `@sin` are computed once per dab, not once per pixel. A 20-pixel dab visits 1,600 pixels and uses the same two numbers for all of them.
+The code calculates `@cos` and `@sin` one time for each dab, not one time for each pixel. A 20-pixel dab examines 1,600 pixels and uses the same two numbers for all of them.
 
-## Following the direction
+## Follow the direction
 
-A nib at a fixed angle gives calligraphy. Lines along the nib come out thin and lines across it come out wide, without the pressure changing at all. That is the Calligraphy brush in the studio, held at −45 degrees.
+A nib at a fixed angle gives calligraphy. Lines along the nib are thin, and lines across the nib are wide, with no change in pressure. The Calligraphy brush in the studio does this, at −45 degrees.
 
-A tip can also turn with the stroke.
-
-The stroke already knows its direction. Each `move` computes it from the segment it walks:
+A tip can also turn with the stroke. The stroke knows its direction already. Each `move` calculates the direction from its segment:
 
 ```zig
 s.direction = std.math.atan2(b.y - a.y, b.x - a.x);
 ```
 
-`atan2` takes the change in y and the change in x and returns the angle, from −π to π. Moving right gives 0. Moving down the page gives π/2, a quarter turn, because y grows downwards on a screen.
+`atan2` takes the change in y and the change in x, and returns the angle, from −π to π. A movement to the right gives 0. A movement down the page gives π/2, which is a quarter turn, because y increases downwards on a screen.
 
-With `follow_direction`, the dab's angle is that direction plus the brush's own angle. At 0 the flat tip lies along the stroke and draws a thin line. At 90 it lies across the stroke and draws a broad ribbon. That is the Ribbon brush.
+With `follow_direction`, the angle of the dab is that direction plus the angle of the brush:
+
+- At 0, the flat tip is along the stroke, and it draws a thin line.
+- At 90, the flat tip is across the stroke, and it draws a wide ribbon. The Ribbon brush does this.
 
 ## Checks
 
-The soft tip from the example: solid to 12 pixels, half at 16, empty past 20.
+This test is the soft tip from the example. The tip is solid to 12 pixels, half at 16, and empty after 20.
 
 <PaintSource file="src/engine/mask.zig" decl="radius 20, hardness 0.6 is solid to 12 and half at 16" />
 
-The test centres the dab on a pixel corner, so the pixel at offset `k` has its centre `k + 0.5` pixels away. That is why the checks use 11, 15 and 20.
+The test puts the centre of the dab on a pixel corner. Thus the centre of the pixel at offset `k` is `k + 0.5` pixels away. That is why the checks use 11, 15 and 20.
 
-The flat tip, then the same tip turned a quarter turn:
+This test examines the flat tip, and then the same tip after a quarter turn:
 
 <PaintSource file="src/engine/mask.zig" decl="aspect 0.25 makes a tip 40 wide and 10 high" />
 
-And a dab mostly outside the image, which must touch only what is inside:
+This test uses a dab that is mostly outside the image. The dab must touch only the pixels inside the image:
 
 <PaintSource file="src/engine/mask.zig" decl="a dab past the edge touches nothing outside the image" />
 
-## Explain before reading the answer
+## Explain before you read the answer
 
 The Calligraphy brush has an aspect of 0.2 and an angle of −45 degrees.
 
-You draw a line from the bottom left to the top right of the page. Is it thin or wide?
+You draw a line from the bottom left to the top right of the page. Is the line thin or wide?
 
-Thin. On screen, y grows downwards, so −45 degrees points up and to the right. That is the direction you are drawing in. The long side of the nib lies along the line, and the line is only as wide as the short side.
+The line is thin. On the screen, y increases downwards, thus −45 degrees points up and to the right. That is the direction of your line. The long side of the nib is along the line, and the line is only as wide as the short side.

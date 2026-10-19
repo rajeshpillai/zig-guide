@@ -1,8 +1,8 @@
 ---
 title: A Paint Program You Can Test
 seoTitle: "Build a Paint Program in Zig That You Can Test Without a Window"
-description: A paint program you can use on this page, and the one rule that lets tests check every brush.
-seoDescription: A paint program written in Zig and running in your browser as about 150 KB of WebAssembly. The engine never sees a mouse or a window, so tests can draw with every brush, undo, fill and export, and compare the pixels.
+description: A paint program that you can use on this page, and the one rule that lets tests check each brush.
+seoDescription: A Zig paint program that runs in your browser as about 150 KB of WebAssembly. The engine never sees a mouse, thus tests can draw, undo, fill and export.
 section: A Paint Program
 order: 10
 ---
@@ -12,104 +12,89 @@ import PaintSource from "../../../components/PaintSource.astro";
 
 Press Start painting and draw.
 
-<PaintStudio caption="Pick a brush, a size and a colour. Draw on the bottom or the top layer, erase, fill, undo, and save a PNG." />
+<PaintStudio caption="Select a brush, a size and a colour. Draw on the bottom or the top layer, erase, fill, undo, and save a PNG." />
 
-A mouse works, and so does a finger. A pen with pressure draws thicker when you press harder.
+You can use a mouse or a finger. If your pen has pressure, the line is thicker when you push harder.
 
-Try the Calligraphy brush. Lines in one direction come out thin, and lines across them come out wide.
+Try the Calligraphy brush. Lines in one direction are thin, and lines across them are wide.
 
-Draw on the bottom layer, switch to the top layer, draw again, and erase there. The bottom layer shows through where you erase.
+Draw on the bottom layer. Then select the top layer, draw again, and erase there. Where you erase, you see the bottom layer.
 
 ## One rule
 
-The program is in two parts.
+The program has two parts:
 
-The **engine** decides what every pixel becomes. It is about 2,100 lines of Zig, and about 1,050 more of tests.
+- The **engine** calculates the value of each pixel. The engine is about 2,100 lines of Zig, and about 1,050 more lines of tests.
+- The **front end** changes mouse and pen events into calls to the engine. Then it copies the pixels from the engine to the canvas.
 
-The **front end** turns mouse and pen events into calls to the engine, and copies the engine's pixels onto the canvas.
+The rule is that the engine never sees a mouse, a window or a clock. Points go in, and pixels come out.
 
-The rule is that the engine never sees a mouse, a window or a clock.
-
-Points go in. Pixels come out.
-
-The engine's main type is a document. It holds the layers, the stroke being drawn, the history, and what the screen should show:
+The main type of the engine is a document. A document holds the layers, the current stroke, the history, and the data for the screen:
 
 <PaintSource file="src/engine/document.zig" decl="Document" fields />
 
-A front end calls a few methods on it.
+A front end calls a small number of methods on the document. A stroke is one `beginStroke` call, some `moveStroke` calls, and one `endStroke` call. Each call takes a point: an `x`, a `y` and a pressure.
 
-A stroke is `beginStroke`, some `moveStroke` calls, and `endStroke`. Each call takes a point: an `x`, a `y` and a pressure.
+After these calls, `render` updates `display` and returns the rectangle that changed. The front end copies that rectangle to the screen. The front end does nothing more.
 
-After that, `render` brings `display` up to date and says which rectangle changed.
+## What the rule gives you
 
-The front end copies that rectangle to the screen. It does nothing else.
+The engine needs no window. Thus a test can draw.
 
-## What the rule buys
-
-Because the engine needs no window, a test can draw.
-
-A test can start a stroke, move it, end it, and then check the pixels.
-
-This one checks that a stroke looks the same while you draw it as it does after you let go:
+A test can start a stroke, move it, end it, and then examine the pixels. This test makes sure that a stroke looks the same while you draw it and after you release the pointer:
 
 <PaintSource file="src/engine/document.zig" decl="a stroke shows while drawing, and looks the same after it is committed" />
 
-There are 80 tests like this, and none of them opens a window.
+There are 80 tests of this type, and no test opens a window.
 
-## The same pixels everywhere
+## The same pixels in all builds
 
 The engine runs in three places: in your browser, in a native window, and in the tests.
 
-A test only proves something about the browser if the browser build draws the same pixels as the test build.
-
-So the engine carries a fixed drawing. It uses every tool: a soft wash, a calligraphy nib, a ribbon, a dry bristle brush, an oil brush, spray, a fill, an eraser, and an undo and redo.
+A test proves something about the browser only if the browser build draws the same pixels as the test build. Thus the engine contains a fixed drawing. The drawing uses each tool. It has a soft wash, a calligraphy nib, a ribbon, a dry bristle brush, an oil brush and spray. It also has a fill, an eraser, and an undo and redo.
 
 <PaintSource file="src/engine/demo.zig" decl="hash" />
 
-A native test draws the picture and compares a hash of its pixels with that number.
+A native test draws the picture. Then the test compares a hash of the pixels with that number.
 
-Before the site is built, the browser build draws the same picture and compares with the same number.
-
-If one pixel differs between the two builds, the build fails and this page is not published.
+Before the site build, the browser build draws the same picture and compares its hash with the same number. If one pixel is different between the two builds, the build fails, and the site does not publish this page.
 
 ## The browser build
 
-The engine is plain Zig with no dependencies.
-
-So the browser build needs no extra tools. It is the same compiler, pointed at `wasm32-freestanding`:
+The engine is plain Zig with no dependencies. Thus the browser build needs no other tools. It uses the same compiler, with the target `wasm32-freestanding`:
 
 <PaintSource file="build.zig" decl="addWeb" />
 
-`freestanding` means there is no operating system at all. The engine does not need one, because it never opens a file or reads a clock.
+`freestanding` means that there is no operating system. The engine does not need an operating system, because it never opens a file or reads a clock.
 
-The result is about 150 KB. About half of that is the JSON parser that reads brush presets, as the [Projects and Presets](/learn/paint/projects-and-presets/) chapter measures.
+The result is about 150 KB. About half of that size is the JSON parser that reads brush presets. The [Projects and Presets](/learn/paint/projects-and-presets/) chapter gives the measurement.
 
 ## The chapters
 
-The chapters follow the engine from the pointer to the PNG file.
+The chapters follow the engine from the pointer to the PNG file:
 
-1. **Strokes**: turning uneven pointer samples into evenly spaced dabs.
-2. **Smoothing, pressure and scatter**: making a stroke look drawn by hand, and repeatable.
+1. **Strokes**: change pointer samples at irregular distances into dabs at equal distances.
+2. **Smoothing, pressure and scatter**: make a stroke look as if a hand drew it, and make it repeatable.
 3. **The tip**: soft edges, flat tips, and tips that turn.
-4. **Bristles and paper**: separate hair tracks, and a dry brush on paper grain.
-5. **Oil**: a brush that picks up the paint it is dragged through, and runs dry.
-6. **Flow and opacity**: why a stroke is built in its own buffer first.
+4. **Bristles and paper**: separate tracks for each hair, and a dry brush on the grain of the paper.
+5. **Oil**: a brush that collects the paint below it, and becomes dry.
+6. **Flow and opacity**: why the engine first puts a stroke in a separate buffer.
 7. **Layers and the eraser**: premultiplied alpha, and why the eraser needs it.
-8. **Undo**: keeping only what changed, inside a memory budget.
-9. **Fill**: a flood fill with a queue instead of recursion.
-10. **Saving**: the picture as a PNG.
-11. **Projects and presets**: keeping the layers in a file of our own, and brushes in JSON, and checking both when they come back.
-12. **Watercolour**: water and pigment spreading and drying on a grid, a separate experiment you can run.
-13. **A native window**: the same engine with raylib, and cross-compiling it for Windows.
+8. **Undo**: keep only the pixels that changed, inside a memory budget.
+9. **Fill**: a flood fill that uses a queue instead of recursion.
+10. **Saving**: write the picture as a PNG.
+11. **Projects and presets**: keep the layers in a file format of this program, and brushes in JSON. Examine both when the program reads them again.
+12. **Watercolour**: water and pigment that spread and dry on a grid. This is a separate experiment that you can run.
+13. **A native window**: the same engine with raylib, and a cross-compiled build for Windows.
 
-Each chapter shows the tests that check it.
+Each chapter shows the tests that examine it.
 
-## Explain before reading the answer
+## Explain before you read the answer
 
-The front end sends the engine every pointer sample the browser reports.
+The front end sends each pointer sample from the browser to the engine.
 
-Some browsers report a fast movement as a few samples far apart. Others report the same movement as many samples close together.
+Some browsers send a fast movement as a small number of samples that are far apart. Other browsers send the same movement as many samples that are near each other.
 
-Will the same movement draw the same stroke in both?
+Does the same movement draw the same stroke in both browsers?
 
-It will. The engine does not put one mark per sample. It walks along the path and puts a mark every few pixels, whatever the samples were. The next chapter shows how.
+Yes, it does. The engine does not put one mark for each sample. The engine moves along the path and puts a mark at a fixed distance, for all sets of samples. The next chapter shows how.

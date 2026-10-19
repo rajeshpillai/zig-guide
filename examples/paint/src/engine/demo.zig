@@ -11,9 +11,9 @@ const Document = @import("document.zig").Document;
 const Brush = @import("brush.zig").Brush;
 const Point = @import("geometry.zig").Point;
 
-/// The display hash after `draw` on a fresh 640 by 400, two-layer document.
+/// The display hash after `draw` on a new 640 by 400 document with two layers.
 /// If a change to the engine changes the picture on purpose, run the tests,
-/// look at the new picture, and update this.
+/// examine the new picture, and update this value.
 pub const hash: u32 = 0x3870db57;
 
 /// Draw the demo. The points are computed with integer arithmetic only, so the

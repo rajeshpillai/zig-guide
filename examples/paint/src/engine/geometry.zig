@@ -15,7 +15,7 @@ pub const Point = struct {
     pressure: f32 = 0.5,
 };
 
-/// Straight-line distance, in pixels. Moving backwards gives the same distance.
+/// Straight-line distance, in pixels. A movement backwards gives the same distance.
 pub fn distance(a: Point, b: Point) f32 {
     return std.math.hypot(b.x - a.x, b.y - a.y);
 }
@@ -72,9 +72,9 @@ pub const Rect = struct {
         };
     }
 
-    /// The pixels a circle of `radius` around (`x`, `y`) can touch, cut to a
-    /// `w` by `h` image. Computed in `f32` and clamped before converting,
-    /// because a dab can start far outside the image.
+    /// The pixels that a circle of `radius` around (`x`, `y`) can touch, cut
+    /// to a `w` by `h` image. The function calculates in `f32` and clamps
+    /// before the conversion, because a dab can start far outside the image.
     pub fn around(x: f32, y: f32, radius: f32, w: u32, h: u32) Rect {
         const fw: f32 = @floatFromInt(w);
         const fh: f32 = @floatFromInt(h);

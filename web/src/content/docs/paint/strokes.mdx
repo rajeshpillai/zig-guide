@@ -1,138 +1,133 @@
 ---
 title: Strokes
 seoTitle: "Zig Paint Program: Evenly Spaced Brush Dabs from Pointer Events"
-description: Pointer samples arrive at uneven distances. Walk the path between them, place a dab every few pixels, and carry the leftover distance into the next segment.
-seoDescription: "How a Zig paint program places brush dabs evenly whatever the pointer speed: distance, lerp, a gap from the radius, and carrying leftover distance between samples."
+description: Pointer samples come at irregular distances. Move along the path, put a dab at a fixed distance, and keep the distance that remains for the next segment.
+seoDescription: "How a Zig paint program puts brush dabs at equal distances at all pointer speeds: distance, lerp, a gap from the radius, and the carry between samples."
 section: A Paint Program
 order: 20
 ---
 
 import PaintSource from "../../../components/PaintSource.astro";
 
-A brush stroke is a row of marks called **dabs**.
+A brush stroke is a row of marks. Each mark is a **dab**, and a dab is one stamp of the brush tip.
 
-Each dab is one stamp of the brush tip. Put enough of them close together and they look like one continuous line, if they are spaced evenly.
+If many dabs are near each other at equal distances, they look like one continuous line.
 
 ## The obvious answer is wrong
 
-The pointer reports where it is, again and again, while the button is held. Each report is a **sample**.
+While you hold the button, the pointer sends its position again and again. Each position report is a **sample**.
 
-The obvious answer is one dab per sample.
+The obvious answer is one dab for each sample. That answer fails, because the samples do not come at equal distances.
 
-That fails for a simple reason. Samples do not arrive at even distances.
+The browser sends a sample when it can, about one time for each screen frame:
 
-The browser sends them when it gets round to it, about once per screen frame. A slow movement gives samples one or two pixels apart. A fast movement gives samples 40 pixels apart, with nothing in between.
+- A slow movement gives samples that are one or two pixels apart.
+- A fast movement gives samples that are 40 pixels apart, with nothing between them.
 
-So one dab per sample draws a solid line when you move slowly, and a row of separate dots when you move fast.
+Thus one dab for each sample draws a solid line when you move slowly. When you move fast, it draws a row of separate dots.
 
 ## Distance and lerp
 
-We need two small tools first.
+The stroke code needs two small tools first.
 
-The distance between two points is the length of the straight line from one to the other:
+The distance between two points is the length of the straight line between them:
 
 <PaintSource file="src/engine/geometry.zig" decl="distance" />
 
-From (10, 20) to (40, 60), the change in x is 30 and the change in y is 40. The distance is √(900 + 1600) = 50 pixels.
+From (10, 20) to (40, 60), the change in x is 30, and the change in y is 40. The distance is √(900 + 1600) = 50 pixels. A movement in the opposite direction gives negative changes, but the distance is the same.
 
-Moving backwards gives negative changes, but the same distance.
-
-`lerp` finds the value a fraction `t` of the way from `a` to `b`:
+`lerp` gives the value at a fraction `t` of the distance from `a` to `b`:
 
 <PaintSource file="src/engine/geometry.zig" decl="lerp" />
 
-From 20 to 100, `t = 0.25` gives 40. `t = 0` gives 20 and `t = 1` gives 100.
+From 20 to 100, `t = 0.25` gives 40. `t = 0` gives 20, and `t = 1` gives 100.
 
-`t = 1.5` gives 140, past the end. `lerp` does not clamp, and the stroke code never needs it to.
+`t = 1.5` gives 140, which is after the end. `lerp` does not clamp, and the stroke code never needs a clamp.
 
-## Walking the path
+## Move along the path
 
-The fix is to stop caring where the samples are.
+The solution is to ignore the positions of the samples.
 
-Between two samples the pointer moved along a line. We walk along that line and put a dab every `gap` pixels.
+Between two samples, the pointer moved along a line. The stroke code moves along that line and puts a dab after each `gap` pixels.
 
-The gap comes from the brush. It is a fraction of the radius, so a big brush puts its dabs further apart than a small one:
+The gap comes from the brush. The gap is a fraction of the radius. Thus a large brush puts its dabs farther apart than a small brush:
 
 <PaintSource file="src/engine/stroke.zig" decl="gap" />
 
 A spacing of 0.25 on a brush of radius 40 gives a gap of 10 pixels.
 
-## The leftover distance
+## The distance that remains
 
-Walking each segment on its own still has a problem.
+If the code examines each segment separately, there is still a problem.
 
-Say the gap is 10 and the pointer moves 6 pixels. No dab fits in 6 pixels.
+For example, the gap is 10, and the pointer moves 6 pixels. A dab does not fit in 6 pixels. Then the pointer moves 6 more pixels. If each segment starts its count at zero, a dab does not fit in the second segment either. The pointer moved 12 pixels, and the stroke has no dab after the first dab.
 
-Then it moves another 6. If each segment starts counting from zero, no dab fits in that one either. The pointer has moved 12 pixels and the stroke has no dab after the first.
+Thus the code keeps the distance from the last dab. This distance is the **carry**. After the first 6-pixel movement, the carry is 6.
 
-So we remember how far we have walked since the last dab. That distance is called the **carry**.
+The next segment does not need a full gap before its first dab. It needs only the 4 pixels that complete the interval: 10 − 6 = 4.
 
-After the first 6-pixel move, the carry is 6.
-
-The next segment does not need a whole gap before its first dab. It needs only the 4 pixels that complete the interval: 10 − 6 = 4.
-
-Here is `move`, the function each new sample goes through:
+Each new sample goes through the function `move`:
 
 <PaintSource file="src/engine/stroke.zig" decl="move" />
 
-`at` is the distance along this segment where the next dab goes. It starts at `step - s.carry`, which is the 4 pixels in our example.
+`at` is the distance along this segment to the position of the next dab. Its first value is `step - s.carry`, which is 4 pixels in the example.
 
-The loop places a dab, adds a gap, and repeats while `at` still falls inside the segment.
+The loop puts a dab and adds a gap. The loop continues while `at` is inside the segment.
 
-When the loop ends, `at` has gone one gap past the last dab. So `at - step` is where the last dab was, and `d - (at - step)` is how far the segment ran on after it. That is the new carry.
+When the loop ends, `at` is one gap after the last dab. Thus `at - step` is the position of the last dab. `d - (at - step)` is the length of the segment after the last dab, and that length is the new carry.
 
 After the loop, the carry is always less than one gap.
 
-## Two smaller details
+## Two small details
 
-Two samples can arrive at exactly the same position. The distance is then 0, and `at / d` would be a division by zero, giving NaN. NaN in a position puts a dab nowhere and poisons every calculation after it. So `move` returns early when `d == 0`.
+Two samples can have exactly the same position. Then the distance is 0, and `at / d` is a division by zero, which gives NaN. A NaN position puts a dab nowhere, and it makes all of the calculations after it incorrect. Thus `move` returns immediately when `d == 0`.
 
-A stroke must also leave a mark when you click without moving. So `begin` places the first dab at the starting point, and resets the carry to 0:
+A stroke must also make a mark when you click without a movement. Thus `begin` puts the first dab at the start point, and sets the carry to 0:
 
 <PaintSource file="src/engine/stroke.zig" decl="begin" />
 
-## Where the dabs go
+## The destination of the dabs
 
-`move` does not draw anything. It calls `sink.dab(...)` and lets the caller decide.
+`move` does not draw. It calls `sink.dab(...)`, and the caller decides what to do.
 
-`sink` is `anytype`, so any value with a `dab` method works. Zig checks this at compile time, separately for each type that is passed in.
+`sink` is `anytype`, thus any value with a `dab` method is correct. Zig examines this at compile time, separately for each type that a caller gives.
 
-The document passes a painter that stamps each dab into the stroke buffer. A test passes a recorder that only keeps a list:
+The document gives a painter that stamps each dab into the stroke buffer. A test gives a recorder that only keeps a list:
 
 <PaintSource file="src/engine/stroke.zig" decl="Recorder" />
 
-The stroke code is the same in both. Only what happens to the dabs changes.
+The stroke code is the same in the two cases. Only the action on the dabs changes.
 
 ## Checks
 
-The worked example from above, as a test. Three moves of 6 pixels with a gap of 10:
+This test is the example from above: three movements of 6 pixels with a gap of 10.
 
 <PaintSource file="src/engine/stroke.zig" decl="carry after three moves of 6 pixels with a gap of 10 is 8" />
 
-The first dab is at 0 and the second at 10, one gap apart. The second move, from 6 to 12, places it 4 pixels in.
+The first dab is at 0, and the second dab is at 10, one gap after the first. The second movement, from 6 to 12, puts the second dab 4 pixels into that movement.
 
-The next test is the reason for the carry. It draws one 100-pixel move, then the same 100 pixels cut into moves of 3. Both must give the same dabs:
+The next test shows why the carry is necessary. The test draws one movement of 100 pixels. Then it draws the same 100 pixels as movements of 3 pixels. The two strokes must give the same dabs:
 
 <PaintSource file="src/engine/stroke.zig" decl="the spacing does not depend on how the movement was cut up" />
 
-Without the carry, the second stroke would put a dab at the end of every 3-pixel move, or at none of them.
+Without the carry, the second stroke puts a dab at the end of each 3-pixel movement, or at none of them.
 
-And the repeated sample:
+This test examines the repeated sample:
 
 <PaintSource file="src/engine/stroke.zig" decl="a repeated sample adds no dab and does not divide by zero" />
 
-## Recording and replaying
+## Record and replay a stroke
 
-A stroke is just its list of samples.
+A stroke is only its list of samples.
 
-Keep the list, and you can draw the stroke again. With the same brush it draws the same dabs. With a different brush it draws the same path in a new style.
+If you keep the list, you can draw the stroke again. With the same brush, the list draws the same dabs. With a different brush, it draws the same path in a different style.
 
-The demo picture from the [first chapter](/learn/paint/a-paint-program/) is a replay of this kind. Its samples are written into the code, so a test can draw it and compare the pixels.
+The demo picture from the [first chapter](/learn/paint/a-paint-program/) is a replay of this type. Its samples are in the code. Thus a test can draw the picture and compare the pixels.
 
-## Explain before reading the answer
+## Explain before you read the answer
 
-You finish a stroke with a carry of 7, lift the pen, and start a new stroke somewhere else.
+You complete a stroke with a carry of 7 and lift the pen. Then you start a new stroke in a different position.
 
-Should the new stroke start with a carry of 7?
+Must the new stroke start with a carry of 7?
 
-No. The carry measures the distance since the last dab of this stroke. A new stroke has no last dab. It starts its own spacing, with a dab where the pen touches down, which is why `begin` sets `carry = 0`.
+No, it must not. The carry is the distance from the last dab of this stroke. A new stroke has no last dab. It starts its own spacing, with a dab at the point where the pen touches the surface. That is why `begin` sets `carry = 0`.

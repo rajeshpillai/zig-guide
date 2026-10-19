@@ -57,8 +57,8 @@ pub const History = struct {
     }
 
     /// Copy `rect` of `layer` before an action changes it. Returns false when
-    /// the copy could not be kept, either because it alone is larger than the
-    /// budget or because memory ran out. The action should go ahead anyway.
+    /// the history cannot keep the copy. The copy alone can be larger than the
+    /// budget, or the memory can be full. In both cases, do the action.
     pub fn record(
         h: *History,
         gpa: std.mem.Allocator,
@@ -69,22 +69,22 @@ pub const History = struct {
     ) bool {
         if (rect.isEmpty()) return true;
 
-        // A new action starts a new branch. What could have been redone no
-        // longer follows from the picture, so it goes.
+        // A new action starts a new branch. The entries for redo do not agree
+        // with the picture now. Thus the code removes them.
         h.dropFrom(gpa, h.cursor);
 
         const need = rect.area() * @sizeOf(Rgba);
         if (need > h.budget) {
-            // Even an empty history could not hold this one. Keeping the old
-            // entries would let undo skip over this action and restore a
-            // picture that never existed, so they go too.
+            // An empty history also cannot hold this entry. If the code kept the
+            // old entries, undo would skip this action and restore a picture that
+            // never existed. Thus the code also removes the old entries.
             h.dropFrom(gpa, 0);
             return false;
         }
         while (h.used + need > h.budget) h.dropOldest(gpa);
 
-        // Make room in the list first, so a failure after the copy has been
-        // made cannot leave a copy that nothing owns.
+        // Make space in the list first. Then a failure after the copy cannot
+        // leave a copy that nothing owns.
         while (true) {
             if (h.entries.ensureUnusedCapacity(gpa, 1)) |_| break else |_| {}
             if (h.entries.items.len == 0) return false;
@@ -208,7 +208,7 @@ test "drawing after an undo drops the redo branch" {
     _ = h.record(gpa, 0, &layer, 8, b); // C, drawn where B was
     fillRect(&layer, 8, b, 3);
 
-    try testing.expect(!h.canRedo()); // B cannot come back
+    try testing.expect(!h.canRedo()); // redo cannot restore B
     try testing.expectEqual(@as(usize, 2), h.entries.items.len);
 }
 
@@ -246,10 +246,11 @@ test "an entry larger than the whole budget clears the history" {
 }
 
 test "running out of memory loses undo steps, never pixels, and leaks nothing" {
-    // Run the same four actions once per allocation they make, with that one
-    // allocation failing. `std.testing.checkAllAllocationFailures` cannot do
-    // this job: it expects the failure to come back as an error, and here the
-    // whole point is that it does not.
+    // Run the same four actions one time for each allocation that they make.
+    // In each run, that one allocation fails.
+    // `std.testing.checkAllAllocationFailures` cannot do this job. It expects
+    // an error as the result of the failure, and here the failure must not
+    // give an error.
     var fail_index: usize = 0;
     while (true) : (fail_index += 1) {
         var failing: std.testing.FailingAllocator = .init(testing.allocator, .{ .fail_index = fail_index });

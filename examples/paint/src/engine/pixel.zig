@@ -11,8 +11,9 @@
 
 const std = @import("std");
 
-/// `extern` fixes the field order in memory. A row of these is the R, G, B, A
-/// bytes a browser canvas expects, so the display needs no conversion.
+/// `extern` fixes the field order in memory. A row of these values has the
+/// R, G, B, A bytes in the order that a browser canvas expects. Thus the
+/// display needs no conversion.
 pub const Rgba = extern struct {
     r: u8,
     g: u8,
@@ -101,9 +102,10 @@ test "half red over white is pink" {
 }
 
 test "paint never overflows a byte, at any coverage" {
-    // The two rounded parts add up to at most 255: their exact values add up
-    // to 255, and both can round up only if both end in exactly .5, which
-    // `amount / 257` never does. Checked here rather than trusted.
+    // The sum of the two rounded parts is 255 or less. The sum of their
+    // exact values is 255. Both parts can round up only if both end in
+    // exactly .5, and `amount / 257` never does. This test examines the
+    // claim. It does not trust it.
     var amount: u32 = 0;
     while (amount <= full) : (amount += 1) {
         const out = paint(.white, .{ 255, 255, 255 }, amount);

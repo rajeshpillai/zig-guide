@@ -63,26 +63,26 @@ pub fn save(gpa: std.mem.Allocator, doc: *const Document, out: *std.Io.Writer) !
 pub const OpenError = error{
     /// The first four bytes are not "ZPNT".
     NotAProject,
-    /// Written by a later version of this program.
+    /// A later version of this program wrote the file.
     NewerVersion,
     /// Width or height is 0 or larger than `max_side`.
     BadSize,
     /// No layers, too many, or an active layer that does not exist.
     BadLayers,
-    /// The file ends before everything it promised.
+    /// The file ends before all of the data that it promised.
     Truncated,
     /// The compressed pixels do not decompress to exactly one layer.
     BadPixels,
-    /// A pixel's colour is larger than its alpha, which premultiplied
-    /// pixels can never be.
+    /// The colour of a pixel is larger than its alpha. A premultiplied pixel
+    /// can never have such a value.
     NotPremultiplied,
     /// Bytes after the last layer.
     TrailingBytes,
     OutOfMemory,
 };
 
-/// Build a new document from a project file. On any error nothing is
-/// returned and nothing is changed.
+/// Build a new document from a project file. If an error occurs, the
+/// function returns no document and changes nothing.
 pub fn open(gpa: std.mem.Allocator, bytes: []const u8, history_budget: usize) OpenError!Document {
     var in: Cursor = .{ .bytes = bytes };
 
@@ -98,10 +98,10 @@ pub fn open(gpa: std.mem.Allocator, bytes: []const u8, history_budget: usize) Op
     const active = try in.int(u8);
     if (layer_count == 0 or layer_count > max_layers or active >= layer_count) return error.BadLayers;
 
-    // Walk the layer table once before allocating anything. Eight layers of
-    // 4096 by 4096 is 512 MB, and a 16-byte header can ask for that. A file
-    // whose layers are not all there, or that has bytes after them, fails
-    // here, cheaply, before the big allocation is made.
+    // Read the layer table one time before any allocation. Eight layers of
+    // 4096 by 4096 is 512 MB, and a 16-byte header can ask for that size. If
+    // some layers are not in the file, or bytes follow the layers, the file
+    // fails here at a low cost, before the large allocation.
     {
         var scan = in;
         for (0..layer_count) |_| {
@@ -126,9 +126,9 @@ pub fn open(gpa: std.mem.Allocator, bytes: []const u8, history_budget: usize) Op
         const size = try in.int(u32);
         const compressed = try in.take(size);
 
-        // Decompress into the layer itself, then ask for one more byte. A
-        // layer that is short fails the first read; one that is long has a
-        // byte left over for the second.
+        // Decompress into the layer, then ask for one more byte. If a layer is
+        // too short, the first read fails. If a layer is too long, a byte
+        // remains for the second read.
         var reader: std.Io.Reader = .fixed(compressed);
         var inflate: flate.Decompress = .init(&reader, .zlib, window);
         inflate.reader.readSliceAll(std.mem.sliceAsBytes(layer)) catch return error.BadPixels;
@@ -249,7 +249,7 @@ test "every truncation and every flipped byte is rejected or opens cleanly, and 
     const good = try sample(gpa);
     defer gpa.free(good);
 
-    // Cut the file at every length.
+    // Cut the file at each length.
     for (0..good.len) |n| {
         if (open(gpa, good[0..n], 1 << 20)) |doc| {
             var d = doc;
@@ -258,9 +258,10 @@ test "every truncation and every flipped byte is rejected or opens cleanly, and 
         } else |_| {}
     }
 
-    // Flip each byte in turn. Some flips land in compressed data that still
-    // decodes to valid premultiplied pixels, so a flip may open. It must
-    // never crash, and the testing allocator checks it never leaks.
+    // Flip each byte, one after the other. Some flips change compressed data
+    // that still decodes to valid premultiplied pixels. Thus a file with a
+    // flip can open. It must never crash, and the testing allocator makes
+    // sure that it never leaks.
     const bad = try gpa.dupe(u8, good);
     defer gpa.free(bad);
     for (0..good.len) |i| {
@@ -281,8 +282,8 @@ test "a header asking for 512 MB with no data behind it allocates nothing" {
     std.mem.writeInt(u32, header[10..14], max_side, .little);
     header[14] = max_layers;
     header[15] = 0;
-    // A failing allocator that refuses everything: if `open` tried to
-    // allocate before checking, this would report OutOfMemory instead.
+    // An allocator that refuses each request. If `open` tried an allocation
+    // before its checks, this test would get OutOfMemory instead.
     var none: std.testing.FailingAllocator = .init(testing.allocator, .{ .fail_index = 0 });
     try testing.expectError(error.Truncated, open(none.allocator(), &header, 0));
 }

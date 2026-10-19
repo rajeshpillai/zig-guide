@@ -46,8 +46,8 @@ pub fn main(init: std.process.Init) !void {
     const headless = build_options.frames != null;
     if (headless) {
         rl.SetTraceLogLevel(rl.LOG_WARNING);
-        // A smoke run draws the engine's demo picture, so CI checks a
-        // window can show what the tests drew.
+        // A smoke run draws the demo picture of the engine. Thus CI makes sure
+        // that a window can show the picture that the tests drew.
         try engine.demo.draw(&doc);
     }
 
@@ -55,8 +55,8 @@ pub fn main(init: std.process.Init) !void {
     defer rl.CloseWindow();
     rl.SetTargetFPS(60);
 
-    // The texture is the size of the document and starts as a copy of the
-    // display. After that only changed rectangles are uploaded.
+    // The texture has the size of the document. At the start, it is a copy
+    // of the display. After that, the loop uploads only changed rectangles.
     _ = doc.render();
     const texture = rl.LoadTextureFromImage(.{
         .data = doc.display.ptr,
@@ -67,8 +67,8 @@ pub fn main(init: std.process.Init) !void {
     });
     defer rl.UnloadTexture(texture);
 
-    // Room to copy one changed rectangle into, row by row: a texture update
-    // needs the rectangle's pixels next to each other.
+    // Space for a copy of one changed rectangle, row by row. A texture update
+    // needs the pixels of the rectangle next to each other.
     const scratch = try gpa.alloc(engine.Rgba, width * height);
     defer gpa.free(scratch);
 
@@ -107,8 +107,8 @@ pub fn main(init: std.process.Init) !void {
         }
 
         // ---- mouse -------------------------------------------------------------
-        // A mouse has no pressure, and the browser reports 0.5 for one, so
-        // the native build does the same and both draw alike.
+        // A mouse has no pressure, and the browser sends 0.5 for a mouse. The
+        // native build does the same, thus the two builds draw the same stroke.
         const m = rl.GetMousePosition();
         const p: engine.Point = .{ .x = m.x, .y = m.y, .pressure = 0.5 };
         if (rl.IsMouseButtonPressed(rl.MOUSE_BUTTON_LEFT) and m.y < height) {
@@ -131,7 +131,8 @@ pub fn main(init: std.process.Init) !void {
             seed += 1;
         }
         if (drawing and !rl.IsWindowFocused()) {
-            // Focus lost halfway through: drop the stroke, as the browser does.
+            // The window lost focus during a stroke. Drop the stroke. The browser
+            // does the same.
             doc.cancelStroke();
             drawing = false;
         }
