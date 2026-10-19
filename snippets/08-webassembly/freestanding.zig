@@ -1,14 +1,13 @@
 //! title: A Freestanding Module
-//! wasm32-freestanding drops WASI and libc entirely: no files, no clock, no
-//! stdout, no `main`. You export functions and own every byte of memory. This
-//! is built for wasm32-wasi so the tests can run, but the source is unchanged
-//! for freestanding; the prose gives the one-line build command that switches
-//! the target.
+//! wasm32-freestanding removes WASI and libc: no files, no clock, no stdout,
+//! no `main`. You export functions and own each byte of memory. CI builds this
+//! for wasm32-wasi to run the tests. For freestanding, the source does not
+//! change. The prose gives the one-line build command that changes the target.
 
 const std = @import("std");
 
-// Freestanding has no OS heap, so give the allocator a fixed backing store
-// inside the module's own linear memory.
+// Freestanding has no OS heap. Thus give the allocator a fixed backing store
+// inside the linear memory of the module.
 var heap: [64 * 1024]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&heap);
 
@@ -19,8 +18,8 @@ export fn sumRange(n: u32) u64 {
     return total;
 }
 
-// Ask the engine for one more 64 KiB page of linear memory and report the
-// previous size in pages. A wasm builtin: it needs no OS underneath.
+// Ask the engine for one more 64 KiB page of linear memory, and report the
+// previous size in pages. This is a wasm builtin. It needs no OS.
 export fn growOnePage() i32 {
     return @wasmMemoryGrow(0, 1);
 }

@@ -1,14 +1,14 @@
-//! title: Importing a Host Function
+//! title: Import a Host Function
 //! norun
 //! A module can call back into its host. An `extern` declaration with no body
-//! becomes a wasm *import*, resolved at instantiation. Node's WASI does not
-//! supply this `env.log`, so this page shows the code without running it; the
-//! browser recipe wires the import up and presses go.
+//! becomes a wasm *import*. The engine resolves it at instantiation. The WASI
+//! of Node does not supply this `env.log`. Thus this page shows the code and
+//! does not run it. The browser recipe connects the import and runs the code.
 
 const std = @import("std");
 
-// Provided by the host (JavaScript) when the module is instantiated. The module
-// name "env" and the symbol "log" are what the host's imports object must match.
+// The host (JavaScript) supplies this function at instantiation. The imports
+// object of the host must match the module name "env" and the symbol "log".
 extern "env" fn log(ptr: [*]const u8, len: usize) void;
 
 fn hostPrint(msg: []const u8) void {

@@ -1,6 +1,6 @@
 //! title: A WASI Command
 //! A normal program: it does work, writes stdout, and exits with a status.
-//! WASI is the interface that gives wasm those OS-shaped abilities.
+//! WASI is the interface that gives wasm those OS abilities.
 
 const std = @import("std");
 

@@ -7,30 +7,30 @@ order: 88
 
 import Playground from "../../../components/Playground.astro";
 
-`wasm32-freestanding` is Zig's smallest wasm target, with no WASI and no libc:
-the module has no `main`, stdout, files or OS heap, and its host drives it
-through exports.
+`wasm32-freestanding` is the smallest wasm target of Zig, with no WASI and no
+libc. The module has no `main`, no stdout, no files and no OS heap. Its host
+controls the module through exports.
 
 ## The problem
 
 You want the smallest possible module, with no dependency on a system
-interface. A JavaScript host or a native embedder drives it, so WASI's files
-and clocks would only add unused weight.
+interface. A JavaScript host or a native embedder controls the module. Thus
+the files and clocks of WASI only add weight that the module does not use.
 
 ## The plan
 
-1. Write functions with no reliance on an OS: no files, no stdout, no `main`.
-2. Provide your own memory, since there is no system allocator underneath.
+1. Write functions that do not need an OS: no files, no stdout, no `main`.
+2. Supply your own memory, because no system allocator is available.
 3. Build for `wasm32-freestanding`.
 
 <Playground name="08-webassembly.freestanding" />
 
-The tests here run because the guide builds every snippet for `wasm32-wasi` so
-it can verify them. The source is unchanged for freestanding: nothing in it
-touches WASI. Only the build command's target differs, and the next section is
-that command.
+The tests here run because the guide builds each snippet for `wasm32-wasi` to
+verify it. For freestanding, the source does not change, because no line in it
+touches WASI. Only the target in the build command is different. The next
+section gives that command.
 
-## Building freestanding
+## Build for freestanding
 
 ```bash
 zig build-exe freestanding.zig \
@@ -39,48 +39,54 @@ zig build-exe freestanding.zig \
   --export=sumRange --export=growOnePage
 ```
 
-Same reactor flags as the [JavaScript recipe](../export-to-js/). The only
-change is `-target wasm32-freestanding` in place of `wasm32-wasi`. That single
-swap removes the WASI import layer entirely: the module imports nothing at all
-and depends on no runtime beyond a bare wasm engine.
+These are the same reactor flags as in the [JavaScript
+recipe](../export-to-js/). The only change is `-target wasm32-freestanding` in
+place of `wasm32-wasi`.
 
-## What freestanding takes away
+That one change removes the full WASI import layer. The module imports nothing
+at all. It needs no runtime, only a bare wasm engine.
 
-Everything OS-shaped, because there is no OS:
+## What freestanding removes
 
-- **No `main` / `_start`.** There is no entry point to call. The host reaches in
-  through the exports.
-- **No stdout, files, clock or sockets.** Files and clocks live behind
-  `std.Io` now, and freestanding has no `Io` implementation to hand it. There
-  is nothing to lower onto, so using them is a compile error, not a failure
-  at run time.
-- **No OS heap.** There is no `mmap` underneath. `std.heap.page_allocator`
-  still works, because on wasm it is backed by `@wasmMemoryGrow` rather than
-  by the OS, and the general-purpose allocator layers on top of it.
+Freestanding removes everything that has the shape of an OS, because there is
+no OS:
 
-The snippet takes the simpler route and hands a `FixedBufferAllocator` a 64
-KiB static array. That array lives in linear memory, which is the only memory
-there is. It never calls the OS because there is no OS to call.
+- **No `main` / `_start`.** There is no entry point to call. The host gets into
+  the module through the exports.
+- **No stdout, files, clock or sockets.** Files and clocks are now behind
+  `std.Io`, and freestanding has no `Io` implementation to give to the code.
+  There is nothing to lower the calls onto. Thus a use of them is a compile
+  error, not a failure at run time.
+- **No OS heap.** There is no `mmap` under the code. But
+  `std.heap.page_allocator` still works. On wasm, it uses `@wasmMemoryGrow`,
+  not the OS. The general-purpose allocator works on top of it.
+
+The snippet uses the simpler method. It gives a `FixedBufferAllocator` a 64
+KiB static array. That array is in linear memory, which is the only memory
+that exists. The allocator never calls the OS, because there is no OS to call.
 
 ## The memory builtins
 
-Freestanding does not limit you to the memory you started with. Two
-wasm builtins manage linear memory directly, with no runtime underneath:
+Freestanding does not limit you to the memory that the module started with.
+Two wasm builtins manage linear memory directly, with no runtime under them:
 
 - `@wasmMemorySize(0)` returns the current size in 64 KiB pages.
-- `@wasmMemoryGrow(0, n)` asks the engine for `n` more pages and returns the
+- `@wasmMemoryGrow(0, n)` asks the engine for `n` more pages. It returns the
   previous size, or `-1` if the engine refuses.
 
-`growOnePage` in the snippet is the second one. A real allocator calls it when
-its buffer is exhausted, then splits the new pages into allocations. This is
-the layer beneath the fixed buffer. When a freestanding module needs more
-memory than it was compiled with, the bytes come from here.
+`growOnePage` in the snippet uses the second builtin. When its buffer is full,
+a real allocator calls this builtin. Then it divides the new pages into
+allocations.
 
-## When to choose it over WASI
+This is the layer under the fixed buffer. When a freestanding module needs
+more memory than it got at compile time, the bytes come from here.
 
-Choose freestanding when a host is already there to give the module
-whatever it needs, and you want the module itself to carry nothing extra. A
-browser is such a host, and so is a native program embedding wasmtime. Choose
-WASI instead when the module is a program in its own right that has to run
-from a shell and do OS-shaped work. The [command recipe](../wasi-command/)
-covers that case. This recipe covers the opposite one.
+## When to select freestanding and not WASI
+
+Select freestanding when a host can give the module all that it needs, and you
+want the module itself to carry nothing extra. A browser is such a host. A
+native program that embeds wasmtime is also such a host.
+
+Select WASI when the module is a full program that must run from a shell and do
+the work of an OS program. The [command recipe](../wasi-command/) covers that
+case. This recipe covers the opposite case.

@@ -1,13 +1,13 @@
 //! title: Passing Data Across the Boundary
-//! A wasm call takes only numbers: i32, i64, f32, f64. Anything larger (a
-//! string, a buffer) lives in the module's linear memory and crosses as an
-//! offset plus a length. The host writes into that memory, calls in, and reads
-//! the result back out. The test simulates exactly what the JS host does.
+//! A wasm call takes only numbers: i32, i64, f32, f64. Larger data (a string,
+//! a buffer) is in the linear memory of the module, and it goes across as an
+//! offset and a length. The host writes into that memory, calls in, and reads
+//! the result back. The test does exactly the steps of the JS host.
 
 const std = @import("std");
 
-// A small arena the host can take scratch space from. A real module would
-// export a general allocator. This one keeps every step visible in the code.
+// A small arena that gives scratch space to the host. A real module exports
+// a general allocator. This arena keeps each step visible in the code.
 var scratch: [4096]u8 = undefined;
 var used: usize = 0;
 
@@ -21,14 +21,15 @@ export fn reset() void {
     used = 0;
 }
 
-// Sum the bytes the host placed at ptr[0..len].
+// Sum the bytes that the host put at ptr[0..len].
 export fn sumBytes(ptr: [*]const u8, len: usize) u32 {
     var total: u32 = 0;
     for (ptr[0..len]) |b| total += b;
     return total;
 }
 
-// Uppercase in place, so the host reads the answer from the same offset.
+// Change to upper case in place. Thus the host reads the answer from the
+// same offset.
 export fn upperInPlace(ptr: [*]u8, len: usize) void {
     for (ptr[0..len]) |*b| b.* = std.ascii.toUpper(b.*);
 }
@@ -36,7 +37,7 @@ export fn upperInPlace(ptr: [*]u8, len: usize) void {
 test "the round trip a JS host would drive" {
     reset();
 
-    // Host: reserve space, copy bytes into linear memory.
+    // Host: reserve space, and copy bytes into linear memory.
     const msg = "zig";
     const dst = alloc(msg.len);
     @memcpy(dst[0..msg.len], msg);

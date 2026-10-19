@@ -1,7 +1,7 @@
-//! title: Exporting Functions to a Host
-//! `export fn` puts a function in the module's export table under its own name.
-//! A host (JavaScript, wasmtime, another Zig program) calls it by that name.
-//! The tests below verify the same functions this page's Run button executes.
+//! title: Export Functions to a Host
+//! `export fn` puts a function in the export table of the module, under its
+//! own name. A host (JavaScript, wasmtime, another Zig program) calls it by
+//! that name. The tests below verify the functions that the Run button runs.
 
 const std = @import("std");
 

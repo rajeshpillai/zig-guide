@@ -1,6 +1,6 @@
 //! title: You Are Running WebAssembly
-//! Prints the target this code was compiled for. When you press Run, the same
-//! wasm CI verified is fetched and executed in your browser.
+//! Prints the target of this compiled code. When you press Run, your browser
+//! fetches and runs the same wasm that CI verified.
 
 const std = @import("std");
 const builtin = @import("builtin");
