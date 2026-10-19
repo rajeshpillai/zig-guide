@@ -1,10 +1,11 @@
 //! title: Errors Are Values
-//! Failure is in the return type, so the caller cannot walk past it.
+//! Failure is in the return type. Thus the caller cannot ignore it.
 
 const std = @import("std");
 
 /// The return type says two things: on success a u16, on failure one of a
-/// known set of errors. A caller can see both without reading the body.
+/// known set of errors. A caller can see both, and does not have to read the
+/// body.
 fn parsePort(text: []const u8) !u16 {
     const value = try std.fmt.parseInt(u16, text, 10);
     if (value < 1024) return error.ReservedPort;
@@ -19,17 +20,17 @@ pub fn main(init: std.process.Init) !void {
     const inputs = [_][]const u8{ "8080", "http", "99999", "80" };
 
     for (inputs) |text| {
-        // `if` on a call that can fail splits the two cases apart. Neither
-        // branch can see the other's value, so there is no way to read a
-        // result that was never produced.
+        // `if` on a call that can fail separates the two cases. Neither branch
+        // can see the value of the other branch. Thus you cannot read a result
+        // that the function did not make.
         if (parsePort(text)) |port| {
             try out.print("{s: <6} -> port {d}\n", .{ text, port });
         } else |err| {
-            // An error is an ordinary value. It can be compared, switched on,
-            // and passed around like any other. There is no `else` prong here
-            // because there is nothing left to catch: the compiler worked out
-            // the complete set of errors parsePort can return, and adding an
-            // `else` would be rejected as unreachable.
+            // An error is an ordinary value. You can compare it, use it in a
+            // switch, and pass it to other code, as any other value. This
+            // switch has no `else` prong, because no other error can occur.
+            // The compiler found the full set of errors that parsePort can
+            // return. The compiler rejects an `else` prong as unreachable.
             const reason = switch (err) {
                 error.InvalidCharacter => "not a number",
                 error.Overflow => "too large for a u16",
@@ -40,7 +41,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // When a default is the correct answer, say so in one word. Do not write
-    // a branch that only pretends to handle the error.
+    // a branch that only looks as if it handles the error.
     const port = parsePort("nonsense") catch 8080;
     try out.print("\nfalling back: {d}\n", .{port});
 

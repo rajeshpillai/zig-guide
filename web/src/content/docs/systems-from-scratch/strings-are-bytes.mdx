@@ -1,30 +1,30 @@
 ---
 title: Strings Are Bytes
-description: There is no string type. A literal is bytes, with a zero on the end.
+description: Zig has no string type. A literal is bytes, with a zero at the end.
 section: Systems from Scratch
 order: 8
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Chapter one said everything is bytes. Text is where that fact starts to cost
-you something.
+Chapter one said that everything is bytes. With text, that fact starts to have
+a cost.
 
-In the language you came from, a string is a thing. It knows its own length,
-it compares with `==`, and asking for its length gives you the number of
-letters you would count by eye. Someone built all of that for you. In Zig,
-nobody built it.
+In the language that you know, a string is a thing. A string knows its length,
+and you can compare two strings with `==`. When you ask for the length, you
+get the number of letters that you count with your eyes. A different person
+made all of that for you. In Zig, nobody made it.
 
-What exists is a run of bytes. Which raises the question C had to answer
-first: if you are handed the address of some text, **how do you know where it
-ends?**
+Zig has only a sequence of bytes. Thus Zig has the same question that C had to
+answer first. If you get the address of some text, **how do you know where the
+text ends?**
 
-C's answer was to put a zero byte after the last character. Cheap: one byte
-per string, and a pointer is all you need to pass. The cost is that finding
-the length means reading the whole thing, looking for that zero. If the zero
-is ever missing, the reading does not stop where the text does.
+C put a zero byte after the last character. This method costs little: one byte
+for each string, and a pointer is all that you must pass. But to find the
+length, the code must read all the text and look for the zero. If the zero is
+not there, the read does not stop at the end of the text.
 
-Zig keeps the zero, for talking to C, and does not rely on it.
+Zig keeps the zero for code that calls C, but Zig does not depend on it.
 
 ## The program
 
@@ -32,49 +32,50 @@ Zig keeps the zero, for talking to C, and does not rely on it.
 
 ## What just happened
 
-**The type printed as `*const [5:0]u8`.** It reads: a pointer, to an array of
-5 bytes, with a sentinel `0` after them. The type does not say "a string". It
-describes a specific number of specific bytes at a specific place.
+**The type printed as `*const [5:0]u8`.** Read it as: a pointer to an array of
+5 bytes, with a sentinel `0` after them. The type does not say "a string".
+The type describes a specific number of specific bytes at a specific place.
 
-**`.len` was 5 and the array was 6 bytes.** The terminator is really there,
-occupying memory, and it is deliberately not counted. So Zig knows the length
-without walking anything, and can still hand the pointer to a C function that
-expects the zero. You get both answers to the question above rather than
-choosing one.
+**`.len` was 5, and the array was 6 bytes.** The terminator is really there,
+and it uses memory, but the length does not count it, on purpose. Thus Zig
+knows the length without a search. Zig can also give the pointer to a C
+function that expects the zero. You get both answers to the question above,
+and you do not have to select one.
 
-**Indexing gave 104, not `'h'`.** They are the same byte. `104` is what is
-stored and `'h'` is a way of printing it. This is chapter one's point again,
-in a place where it matters.
+**The index gave 104, not `'h'`.** The two are the same byte. The memory
+stores `104`, and `'h'` is a way to print it. This fact is the point of
+chapter one again, in a place where it is important.
 
-**Comparing needed `std.mem.eql`.** Zig will not let you write `a == b` on two
-slices. The compiler rejects it: `operator == not allowed for type '[]const
-u8'`. Two pointers do compare with `==`, and the answer is whether they point
-at the same place. That is a valid question, but it is not the one you meant.
-If you come from a managed language, make this a firm habit: **compare contents
-with `std.mem.eql`.**
+**The comparison needed `std.mem.eql`.** Zig does not let you write `a == b`
+on two slices. The compiler rejects it: `operator == not allowed for type
+'[]const u8'`. You can compare two pointers with `==`, and the answer tells
+you if they point at the same place. That question is valid, but it is not
+the question that you wanted to ask. If you know a managed language, make
+this a firm habit: **compare contents with `std.mem.eql`.**
 
-**`"héllo".len` was 6 for five letters.** UTF-8 spends one byte on the letters
-in ASCII and two to four on everything else, so `é` costs two. A byte count
-and a character count are different questions with different answers. `.len`
-answers the byte one, because that is the one the machine can answer without
-inspecting anything.
+**`"héllo".len` was 6 for five letters.** UTF-8 uses one byte for each ASCII
+letter, and two to four bytes for each other character. Thus `é` uses two
+bytes. A count of bytes and a count of characters are different questions,
+with different answers. `.len` answers the question about bytes, because the
+machine can answer that question without an inspection of the bytes.
 
 ## Check yourself
 
-You have a `[]const u8` and you want its third character. What is wrong with
-`text[2]`?
+You have a `[]const u8`, and you want its third character. What is the problem
+with `text[2]`?
 
-Nothing, if the text is ASCII. If it might not be, `text[2]` is the third
-*byte*, which could be the middle of a two-byte character, and you would get
-half of one. The correct version is to iterate codepoints with
-`std.unicode.Utf8View`, which is what
-[Unicode](/learn/standard-library/unicode/) covers. Most of the time you do
-not want a character at an index at all: you want to search, split, or
-compare, and those all work on bytes.
+If the text is ASCII, there is no problem. If the text can contain other
+characters, `text[2]` is the third *byte*. That byte can be the middle of a
+two-byte character, and then you get half of the character.
 
-## If you have written C
+The correct method is to iterate over the codepoints with
+`std.unicode.Utf8View`. [Unicode](/learn/standard-library/unicode/) tells
+about this method. But usually, you do not want the character at an index. You
+want to search, split or compare, and all of these operations work on bytes.
 
-You already know the terminator and what it costs:
+## If you know C
+
+You already know the terminator and its cost:
 
 ```c
 char *name = "hello";
@@ -83,14 +84,14 @@ if (name == "hello")     /* compares pointers, and compiles without complaint */
 strcpy(dest, name);      /* writes until the zero, wherever that turns out to be */
 ```
 
-The `strcpy` line is the one that has caused real damage. `strcpy` trusts a
-terminator it cannot verify, and a missing one means it keeps writing.
+The `strcpy` line caused real damage. `strcpy` trusts a terminator that it
+cannot check. If the terminator is not there, `strcpy` continues to write.
 
-Zig's slice carries the length next to the pointer, so functions do not have
+A Zig slice holds the length next to the pointer. Thus functions do not have
 to trust anything. `[:0]const u8` is the type for the case where a C function
-needs the zero as well. The full set, including how to get a C string back
-out, is in [Sentinel
-Termination](/learn/language-basics/sentinel-termination/).
+also needs the zero. [Sentinel
+Termination](/learn/language-basics/sentinel-termination/) gives the full set
+of types, and how to get a C string back into Zig.
 
-Next: [Structs Are Layout](/learn/systems-from-scratch/structs-are-layout/),
-which is what happens when you put several values together.
+Next: [Structs Are Layout](/learn/systems-from-scratch/structs-are-layout/).
+That chapter tells what occurs when you put several values together.

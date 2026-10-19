@@ -1,5 +1,5 @@
 //! title: When the Checks Are Off
-//! Operators that mean the same thing in every build, and how to see which build you are in.
+//! Operators with the same meaning in each build, and how to see your build.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -9,7 +9,7 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &stdout_writer.interface;
 
-    // Every program can see how it was built.
+    // Each program can see its build mode.
     try out.print("build mode: {t}\n", .{builtin.optimize});
     try out.print("safety checks present: {}\n\n", .{builtin.optimize.runtimeSafety()});
 
@@ -18,21 +18,21 @@ pub fn main(init: std.process.Init) !void {
     _ = &a;
     _ = &b;
 
-    // Four ways of saying what should happen when 300 does not fit in a u8.
-    // None of them change with the build mode, because none of them are
-    // relying on a check that a release build is allowed to remove.
+    // Four ways to say what must occur when 300 does not fit in a u8. None of
+    // them change with the build mode, because none of them use a check that
+    // a release build can remove.
 
-    // 1. Wrap, deliberately.
+    // 1. Wrap, on purpose.
     try out.print("a +% b            = {d}\n", .{a +% b});
 
-    // 2. Refuse, as an error the caller has to handle.
+    // 2. Refuse, with an error that the caller must handle.
     if (std.math.add(u8, a, b)) |sum| {
         try out.print("std.math.add      = {d}\n", .{sum});
     } else |err| {
         try out.print("std.math.add      = {t}\n", .{err});
     }
 
-    // 3. Answer and report, with no error handling at all.
+    // 3. Give the answer and a flag, with no error to handle.
     const result = @addWithOverflow(a, b);
     try out.print("@addWithOverflow  = {d}, overflowed: {d}\n", .{ result[0], result[1] });
 

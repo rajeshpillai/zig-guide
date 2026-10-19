@@ -1,26 +1,28 @@
 ---
 title: Structs Are Layout
-description: Fields sit next to each other, and the size is not the sum of the parts.
+description: Fields are next to each other in memory, and the size is not the sum of the parts.
 section: Systems from Scratch
 order: 9
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Put a few values together under one name and you have a struct. In a managed
-language that is the end of the story. Here there is a second half: those
-values have to go somewhere, in some order, and the machine has an opinion
-about where.
+When you put some values together under one name, you get a struct. In a
+managed language, that is all. At the level of the machine, there is a second
+part: the values must go to a place in memory, in some order. The machine has
+a preference about the place.
 
-The opinion is called **alignment**. A processor reads memory in chunks, and a
-four-byte number that starts at an address divisible by four can be read in
-one go. One that straddles the boundary takes two reads and some assembly, and
-on some processors it is not allowed at all. So the rule for a number is that
-it starts at an address divisible by its own size.
+The name of that preference is **alignment**. A processor reads memory in
+blocks. If a four-byte number starts at an address that is divisible by four,
+the processor can read the number in one operation. If the number goes across
+the boundary, the processor needs two reads and some extra instructions. On
+some processors, that read is not permitted. Thus the rule for a number is:
+the number starts at an address that is divisible by its own size.
 
-Apply that rule to a struct whose fields are different sizes, and you get a
-result you may not expect: **the struct is bigger than its fields**. The gaps inserted to keep each field aligned are called **padding**,
-and you are paying for them whether or not you know they are there.
+Apply that rule to a struct with fields of different sizes, and the result can
+be a surprise: **the struct is larger than its fields**. The name of the gaps
+that keep each field aligned is **padding**. You pay for the padding when you
+know about it and when you do not.
 
 ## The program
 
@@ -28,55 +30,64 @@ and you are paying for them whether or not you know they are there.
 
 ## What just happened
 
-**Six bytes of data occupied twelve.** `u8`, `u32`, `u8`. The offsets say why:
-`flag` at 0, `count` at **4**, `tag` at 8. `count` could not start at byte 1,
-because 1 is not divisible by 4, so three bytes went unused. Then the struct
-itself is padded to 12 so that an array of them keeps every `count` aligned
-too.
+**Six bytes of data used twelve bytes.** The fields are `u8`, `u32` and `u8`.
+The offsets show the reason: `flag` at 0, `count` at **4**, `tag` at 8.
+`count` could not start at byte 1, because 1 is not divisible by 4. Thus
+three bytes are not used.
 
-**The same fields, largest first, took eight.** Nothing was removed. `count` at
-0, `flag` at 4, `tag` at 5, and two bytes of tail padding. Field order is a
-size decision, and in C it is entirely yours to get right. Four bytes on one
-struct is nothing; four bytes on ten million rows is 40 MB.
+Then the compiler adds padding at the end, and the struct becomes 12 bytes.
+Thus in an array of these structs, each `count` is also aligned.
 
-**Zig's own layout also gave eight.** This is the part that differs from C.
-A plain `struct` in Zig has **no guaranteed layout**: the compiler may order
-the fields however it likes, and it generally packs them for you. `extern
-struct` is how you ask for C's rules. Ask for them when the layout has to
-match something outside your program: a C library, a file format, a network
-packet. Inside your own program, let the compiler do it.
+**The same fields, with the largest first, used eight bytes.** The struct lost
+no fields. `count` is at 0, `flag` at 4, `tag` at 5, and two bytes of padding
+are at the end.
+
+The order of the fields decides the size. In C, you alone must get the order
+correct. Four bytes on one struct are not important. Four bytes on ten million
+rows are 40 MB.
+
+**The layout that Zig selected also used eight bytes.** Here Zig is different
+from C. A plain `struct` in Zig has **no guaranteed layout**. The compiler can
+put the fields in any order, and it usually packs them for you. With `extern
+struct`, you ask for the rules of C. Use `extern struct` when the layout must
+agree with something outside your program: a C library, a file format, or a
+network packet. Inside your own program, let the compiler decide.
 
 ## Check yourself
 
-If you added a `u64` field to `Packed`, what would `@sizeOf` become?
+If you add a `u64` field to `Packed`, what will `@sizeOf` become?
 
-16. The `u64` needs an address divisible by 8, and the four bytes already used
-by `count` plus the two by `flag` and `tag` come to 6, so it starts at 8 and
-ends at 16. The struct's own alignment also rises to 8, because a struct takes
-the alignment of its most demanding field, which is what makes arrays of it
-work. Adding one 8-byte field to an 8-byte struct cost 8 bytes, and that is the
-ordinary case rather than a surprise.
+16. The `u64` needs an address that is divisible by 8. `count` uses four
+bytes, and `flag` and `tag` use two more, thus 6 bytes are already used. Thus
+the `u64` starts at 8 and ends at 16. The alignment of the struct also becomes
+8, because a struct takes the alignment of its field with the largest
+alignment. This rule makes arrays of the struct work. One 8-byte field added
+to an 8-byte struct cost 8 bytes. This result is the usual case, not a
+surprise.
 
-## If you have written C
+## If you know C
 
-The rules, the padding and the arithmetic are the same. There are two
-differences.
+The rules, the padding and the arithmetic are the same. The two languages have
+two differences.
 
-C guarantees the declaration order, so you can reason about a struct's layout
-from its source and rely on it. Zig only guarantees that for `extern struct`
-and `packed struct`. For a plain struct, the compiler decides. That is the
-better default. Most structs never leave your program, and packing them is
-free performance. It is the wrong default in exactly one place: the moment you
-assume otherwise at a boundary with C. Reach for `extern struct` there and the
-two languages agree.
+First, C guarantees the order of the declarations. Thus you can find the
+layout of a struct from its source, and you can trust that layout. Zig gives
+that guarantee only for `extern struct` and `packed struct`. For a plain
+struct, the compiler decides.
 
-C also gives you `offsetof` from `<stddef.h>`; Zig's `@offsetOf` is a builtin
-and needs no include. The program above used it to show the gaps, so you do
-not have to take them on trust.
+This default is better, because most structs never go outside your program.
+When the compiler packs them, you get better performance at no cost. The
+default is wrong in exactly one place: at a boundary with C, if you assume the
+C layout. Use `extern struct` there, and the two languages agree.
 
-The rest of the layout controls, `align`, `packed struct` for bit fields, and
-the C ABI in detail, are in the [memory layout](/learn/how-to/memory-layout/)
-recipe.
+Second, C gives you `offsetof` from `<stddef.h>`. In Zig, `@offsetOf` is a
+builtin, and it needs no include. The program above used `@offsetOf` to show
+the gaps. Thus you do not have to trust a statement about them.
 
-Next: [Errors Are Values](/learn/systems-from-scratch/errors-are-values/),
-which is about what a function returns when it cannot do what you asked.
+The [memory layout](/learn/how-to/memory-layout/) recipe tells about the other
+layout controls: `align`, `packed struct` for bit fields, and the C ABI in
+detail.
+
+Next: [Errors Are Values](/learn/systems-from-scratch/errors-are-values/).
+That chapter is about what a function returns when it cannot do the work that
+you asked for.

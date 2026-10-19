@@ -1,11 +1,12 @@
 //! title: Memory Is Numbered
-//! An address is a number, and neighbouring values sit @sizeOf(T) apart.
+//! An address is a number. Values next to each other are @sizeOf(T) apart.
 //!
-//! Deliberately no `.expected` file. This prints real addresses, which is the
-//! point of the chapter, and they move whenever the compiler changes the
-//! layout of the module. Pinning them would turn a routine toolchain bump into
-//! a red nightly that teaches nobody anything. The gaps between them are the
-//! claim the chapter makes, and those are checked by the reader on the page.
+//! This snippet has no `.expected` file, on purpose. The program prints real
+//! addresses, and the chapter is about them. The addresses move when the
+//! compiler changes the layout of the module. If a file fixed the addresses,
+//! a normal toolchain update would make the nightly fail, and the failure
+//! would teach nothing. The chapter makes a claim about the gaps between the
+//! addresses, and the reader checks the gaps on the page.
 
 const std = @import("std");
 
@@ -16,7 +17,7 @@ pub fn main(init: std.process.Init) !void {
 
     var row = [_]u32{ 10, 20, 30, 40 };
 
-    // @intFromPtr does no work. It shows the number the address already was.
+    // @intFromPtr does no work. It shows the address as the number that it is.
     const first = @intFromPtr(&row[0]);
     try out.print("row[0] sits at address {d}\n\n", .{first});
 
@@ -29,13 +30,13 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.print("\n@sizeOf(u32) = {d}\n\n", .{@sizeOf(u32)});
 
-    // A pointer holds one of those numbers and nothing else.
+    // A pointer holds one of these numbers and nothing else.
     const p: *u32 = &row[2];
     try out.print("a *u32 is {d} bytes wide\n", .{@sizeOf(*u32)});
     try out.print("this one holds {d}\n", .{@intFromPtr(p)});
     try out.print("reading through it gives {d}\n\n", .{p.*});
 
-    // Writing through it writes that box in the row, not a copy of it.
+    // A write through the pointer changes that box in the row, not a copy.
     p.* = 99;
     try out.print("after p.* = 99, row[2] = {d}\n", .{row[2]});
 

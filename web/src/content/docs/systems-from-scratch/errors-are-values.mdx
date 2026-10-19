@@ -1,31 +1,33 @@
 ---
 title: Errors Are Values
-description: There is no exception mechanism underneath you, so failure has to be part of what a function returns.
+description: Zig has no exception mechanism below your program. Thus a failure must be part of the value that a function returns.
 section: Systems from Scratch
 order: 10
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-In a higher-level language, failure has somewhere to go. You raise or throw an
-exception. Code you did not write then unwinds the calls between you and the
-code that is ready to deal with it. This works because a runtime is watching.
+In a higher-level language, a failure has a place to go. You raise or throw an
+exception. Then code that you did not write unwinds the calls between your
+code and the code that can handle the failure. This method works because a
+runtime monitors the program.
 
-In Zig, nobody is watching. There is no runtime under your program to catch
-anything, and the machine has no idea what an exception is. So failure has to
-travel the same way every result travels: as a value, in the return.
+In Zig, nothing monitors the program. No runtime is under your program to
+catch anything, and the machine does not know what an exception is. Thus a
+failure must move in the same way as each other result: as a value, in the
+return.
 
-One question then decides how pleasant the language is to use: **what stops
-the caller from ignoring it?**
+Then one question decides if the language is easy to use: **what stops the
+caller when it ignores the failure?**
 
-The answer decides whether error handling works in practice. If ignoring a
-failure takes less typing than handling it, people ignore it. The program then
-carries on with a number that means "this did not happen".
+The answer decides if the errors of a language work in practice. If code that
+ignores a failure is shorter than code that handles it, programmers ignore it.
+Then the program continues with a number that means "this did not occur".
 
-Zig's answer is to put the failure in the **type**. A function that can fail
-does not return a `u16`. It returns "either a `u16` or an error", and those
-are different types. You cannot use the first without saying what happens in
-the second, because until you do, you do not have a `u16` at all.
+Zig puts the failure in the **type**. A function that can fail does not return
+a `u16`. It returns "a `u16` or an error", and these are different types. You
+cannot use the `u16` before you say what occurs in the error case. Until you
+do, you do not have a `u16`.
 
 ## The program
 
@@ -33,51 +35,57 @@ the second, because until you do, you do not have a `u16` at all.
 
 ## What just happened
 
-**The return type is `!u16`.** The `!` means "a `u16` or an error". The caller receives one value in one of two states. The
-language will not let you treat it as a number until you have dealt with the
-other state.
+**The return type is `!u16`.** The `!` means "a `u16` or an error". The
+caller receives one value in one of two states. The language does not let you
+use the value as a number until you handle the other state.
 
-**`if` split the two states apart.** `if (parsePort(text)) |port| ... else |err|`
-gives the success branch a `port` and the failure branch an `err`, and neither
-can see the other's value. There is no moment where a variable holds a result
-that was never produced.
+**`if` separated the two states.** `if (parsePort(text)) |port| ... else
+|err|` gives a `port` to the success branch and an `err` to the failure
+branch. Neither branch can see the value of the other branch. At no time does
+a variable hold a result that the function did not make.
 
-**`try` is the short way to pass it upward.** Inside `parsePort`, the line
-`try std.fmt.parseInt(...)` means: if that failed, return its error to my
-caller; otherwise give me the number. The everyday case gets three letters.
-Nothing is unwound and nothing is searched for. The failure path is an
-ordinary return.
+**`try` is the short way to pass the error to the caller.** Inside
+`parsePort`, the line `try std.fmt.parseInt(...)` means: if that call failed,
+return its error to my caller, and if not, give me the number. The usual case
+needs only three letters. Nothing unwinds, and nothing searches. The failure
+path is an ordinary return.
 
-**The errors were values.** `switch (err)` on them works like a switch on
-anything else. And there is **no `else` prong**. The
-compiler worked out on its own that `parsePort` can return exactly three
-errors, so adding an `else` was rejected as unreachable code. So if you later
-make the function able to fail a fourth way, every switch like this one stops
-compiling until it is updated. The compiler checks the set of failures. You do
-not have to keep a list of them in a comment.
+**The errors were values.** A `switch (err)` on them works as a switch on any
+other value. Also, the switch has **no `else` prong**. The compiler found
+without help that `parsePort` can return exactly three errors. Thus the
+compiler rejected an `else` prong as unreachable code.
 
-**`catch 8080` handled it in one word.** When a default really is correct,
-`catch` says so without a whole branch. `catch` is also how you set an error
-aside on purpose: `catch unreachable` asserts it cannot
-happen, and `catch |e| std.debug.panic(...)` stops on purpose. All three are
-visible at the call site. What you cannot do is say nothing.
+You can later change the function so that it can fail in a fourth way. Then
+each switch like this one does not compile until you update it. The compiler
+checks the set of failures. You do not have to keep a list of them in a
+comment.
+
+**`catch 8080` handled the error in one word.** When a default is really
+correct, `catch` says so without a full branch. `catch` also lets you put an
+error aside on purpose:
+
+- `catch unreachable` asserts that the error cannot occur.
+- `catch |e| std.debug.panic(...)` stops the program on purpose.
+
+You can see all three at the call site. But you cannot say nothing.
 
 ## Check yourself
 
-`parsePort("99999")` reported `Overflow`, but `parsePort` never mentions
+`parsePort("99999")` reported `Overflow`, but `parsePort` does not mention
 overflow. Where did that error come from?
 
-From `std.fmt.parseInt`, passed straight through by `try`. `parsePort`'s error
-set is inferred, and it is the union of what it returns itself
-(`error.ReservedPort`) and everything its `try` lines can propagate. The
-inferred set is why the switch has three prongs for a function with one
-`return error` in it. It is also why you can trust the set. It comes from the code, not from a
-comment somebody remembered to update.
+The error came from `std.fmt.parseInt`, and `try` passed it directly through.
+The compiler infers the error set of `parsePort`. The set is the union of the
+error that `parsePort` returns itself (`error.ReservedPort`) and all the
+errors that its `try` lines can pass up. Because of the inferred set, the
+switch has three prongs for a function with one `return error` line. Also
+because of the inferred set, you can trust the set. The set comes from the
+code, not from a comment that a person remembered to update.
 
-## If you have written C
+## If you know C
 
-C has the same constraint and no help with it, so the conventions are all
-different from each other:
+C has the same limit and gives no help with it. Thus each C function has a
+different convention:
 
 ```c
 int fd = open(path, O_RDONLY);       /* -1 means failure, errno says why */
@@ -85,17 +93,19 @@ long n = strtol(text, &end, 10);     /* 0 might be failure or might be zero */
 void *p = malloc(size);              /* NULL means failure */
 ```
 
-Three functions, three encodings, and in every case the failure is a value
-that looks exactly like a success. Nothing stops you assigning `fd` and using
-it. The `strtol` case is the worst: you have to check `errno` and the end
-pointer to tell a real 0 from a failed parse, and almost nobody does.
+Three functions have three encodings. In each case, the failure is a value
+that looks exactly like a success. Nothing stops you when you assign `fd` and
+use it. The `strtol` case is the worst. To tell a real 0 from a failed parse,
+you must check `errno` and the end pointer, and almost nobody does.
 
-Zig's `!u16` solves the same problem, but the type system owns the encoding
-instead of you. There is one convention, and it is in the signature. In C,
-skipping the check is a habit. In Zig, it is a compile error.
+The Zig `!u16` solves the same problem, but the type system owns the encoding,
+not you. There is one convention, and it is in the signature. In C, a
+programmer skips the check as a habit. In Zig, a skipped check is a compile
+error.
 
-The language-level detail, error sets as types, `errdefer`, and how error
-returns interact with cleanup, is in [Errors](/learn/language-basics/errors/).
+[Errors](/learn/language-basics/errors/) gives the details at the level of the
+language: error sets as types, `errdefer`, and how error returns work together
+with cleanup.
 
 Next: [Talking to the Operating
 System](/learn/systems-from-scratch/talking-to-the-os/), the last chapter in

@@ -1,16 +1,16 @@
 //! title: Who Owns This Memory
-//! Memory that outlives a call has to come from somewhere, and go back.
+//! Memory that stays valid after a call must come from a source and return.
 
 const std = @import("std");
 
-/// Fills a caller-supplied buffer. This function allocates nothing, so there
-/// is nothing for it to own and nothing for the caller to release.
+/// Fills a buffer from the caller. This function allocates nothing. Thus the
+/// function owns nothing, and the caller has nothing to release.
 fn writeGreeting(into: []u8, name: []const u8) []u8 {
     return std.mem.print(into, "hello, {s}", .{name}) catch into[0..0];
 }
 
-/// Returns memory of its own. The doc comment is where the rule lives: the
-/// caller owns the result and has to free it with the same allocator.
+/// Returns memory of its own. The doc comment holds the rule: the caller owns
+/// the result, and must free it with the same allocator.
 fn makeGreeting(allocator: std.mem.Allocator, name: []const u8) ![]u8 {
     return allocator.print("hello, {s}", .{name});
 }
@@ -20,27 +20,28 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &stdout_writer.interface;
 
-    // Memory you can point at. It lives in this call's frame and is gone when
-    // main returns, which is why the function above cannot return it.
+    // This memory is in the frame of this call, and it ends when main
+    // returns. For the same reason, the function above cannot return memory
+    // from its own frame.
     var scratch: [64]u8 = undefined;
     try out.print("{s}\n", .{writeGreeting(&scratch, "stack")});
 
-    // Memory that has to be asked for. Nothing in Zig allocates without an
-    // allocator argument, so the places that can are the places that say so.
+    // This memory needs a request. Nothing in Zig allocates without an
+    // allocator argument. Thus each place that can allocate says so.
     var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
     const allocator = safe.allocator();
 
     {
         const greeting = try makeGreeting(allocator, "heap");
-        defer allocator.free(greeting); // runs when this block ends
+        defer allocator.free(greeting); // runs at the end of this block
         try out.print("{s}\n", .{greeting});
     }
 
-    // deinit answers one question: how many allocations were never returned.
+    // deinit answers one question: how many allocations did the program not free?
     try out.print("allocations never freed: {d}\n\n", .{safe.deinit()});
 
-    // The same program with the `defer` removed. The allocator is asked at the
-    // end whether everything it handed out came back, and it says so.
+    // The same program without the `defer`. At the end, the program asks the
+    // allocator if the program freed all its memory, and the allocator answers.
     var leaky: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
     {
         const greeting = try makeGreeting(leaky.allocator(), "forgotten");

@@ -1,33 +1,38 @@
 ---
 title: Who Owns This Memory
-description: Memory that outlives a call has to be asked for, and somebody has to give it back.
+description: Memory that must stay valid after a call returns needs a request, and a person or a function must give it back.
 section: Systems from Scratch
 order: 5
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A frame goes away when the call returns. So what do you do when the answer has
-to outlive the call that computed it?
+A frame ends when the call returns. What do you do when the answer must stay
+valid after the call that calculated it?
 
-You ask for memory that is not tied to a frame. There is a second pool for
-exactly this, usually called the **heap**, and the deal is different. Frame
-memory is free and automatic and short-lived. Heap memory has to be requested,
-lasts until it is handed back, and if it is never handed back, the program
-holds it until it exits. That is a **leak**.
+You ask for memory that does not belong to a frame. A second pool of memory
+exists for this purpose. Its usual name is the **heap**, and its rules are
+different:
 
-So somebody has to be responsible for handing it back. Memory management comes
-down to one question: **who owns this, and when do they give it
-up?** Every scheme you have heard of is an answer to it. A garbage collector
-answers "nobody, the runtime works it out later". Rust answers "the compiler
-tracks it". C answers "you do, good luck". Zig answers "you do, and the type
-signature will say so".
+- Frame memory costs nothing, is automatic, and has a short life.
+- Heap memory needs a request. It stays valid until the program gives it
+  back. If the program never gives it back, the program holds the memory
+  until the program exits. The name for this problem is a **leak**.
 
-The last part is what makes Zig different. In Zig, **a function that
-allocates takes an allocator as an argument**. There is no global `malloc` to
-reach for. So a function that needs memory cannot hide it. The allocator is in
-the signature, visible at every call site. A function without that parameter
-cannot be allocating without your knowledge.
+Thus some part of the program must give the memory back. Memory management is
+the answer to one question: **who owns this memory, and when does the owner
+release it?** Each method that you know is an answer to this question:
+
+- A garbage collector answers "nobody, the runtime decides later".
+- Rust answers "the compiler tracks it".
+- C answers "you do, and nothing helps you".
+- Zig answers "you do, and the type signature shows it".
+
+The last part makes Zig different. In Zig, **a function that allocates takes
+an allocator as an argument**. Zig has no global `malloc` that a function can
+use. Thus a function that needs memory cannot hide the request. The allocator
+is in the signature, and you can see it at each call site. A function without
+that parameter cannot allocate without your knowledge.
 
 ## The program
 
@@ -35,48 +40,53 @@ cannot be allocating without your knowledge.
 
 ## What just happened
 
-**The first function allocated nothing.** `writeGreeting` takes a buffer the
-caller already has and writes into it. It owns nothing, so there is nothing to
-release, and it cannot leak. Reach for this more often than people new to
-systems programming expect. Plenty of jobs that look like they need the heap
-just need the caller to supply the space.
+**The first function allocated nothing.** `writeGreeting` takes a buffer from
+the caller and writes into the buffer. The function owns nothing. Thus it has
+nothing to release, and it cannot leak. Use this method more frequently than
+a beginner in systems programming expects. Many jobs look as if they need the
+heap, but they only need the caller to supply the space.
 
-**The second one returns memory it asked for.** `makeGreeting` takes an
-`std.mem.Allocator` and returns a slice that came from it. The caller now owns
-that slice. Nothing in the type system enforces this, so the convention is
-written where the reader will look: in the doc comment on the function.
+**The second function returns memory that it asked for.** `makeGreeting`
+takes an `std.mem.Allocator` and returns a slice from that allocator. The
+caller now owns the slice. The type system does not make this rule true. Thus
+the rule is in the place where the reader looks: the doc comment on the
+function.
 
-**`defer` is how the giving-back gets done.** Writing
-`defer allocator.free(greeting);` on the line after the allocation schedules
-the release for when the block ends, however it ends. The two lines sit next
-to each other, so you can see the pair in one look. The alternative is
-scrolling to a cleanup section at the bottom and hoping every path reaches it.
+**`defer` gives the memory back.** Put `defer allocator.free(greeting);` on
+the line after the allocation. Then the release occurs when the block ends,
+in all the ways that the block can end. The two lines are next to each other,
+thus you can see the pair at one time. The other method is a cleanup section
+at the bottom of the function, and a hope that each path gets to it.
 
-**The allocator answered the question at the end.** `SafeAllocator` remembers
-what it handed out. Calling `deinit` reports how many allocations never came
-back: 0 the first time, and 1 in the block where the `defer` was left out. It
-also writes a description of the leaked block to standard error, which is why
-this is the allocator to use while developing.
+**The allocator answered the question at the end.** `SafeAllocator` records
+the memory that it gave out. A call to `deinit` reports how many allocations
+the program did not free. The count is 0 the first time. The count is 1 in the
+block that has no `defer`.
 
-That last part is the reason to learn ownership in Zig rather than in C. A
-leak is not something you discover in production three months later when a
-server falls over. It is a number the program prints before it exits, and in
-tests it is a failed build: `std.testing.allocator` fails any test that leaks.
+`deinit` also writes a description of the leaked block to standard error. For
+this reason, use this allocator during development.
+
+This report is the reason to learn ownership in Zig and not in C. You do not
+find a leak in production three months later, when a server fails. The leak is
+a number that the program prints before it exits. In tests, a leak makes the
+build fail: `std.testing.allocator` fails each test that leaks.
 
 ## Check yourself
 
-In the leaking block, why does moving the `deinit` call earlier not help?
+In the block that leaks, why does an earlier call to `deinit` not help?
 
-Because `deinit` is not what frees the allocation. It is the audit. Freeing is
-`allocator.free`, and the block never calls it. Calling `deinit` sooner would
-just ask the question sooner and get the same answer, and it would also make
-the allocator unusable for the code after it. The fix is the missing `defer`.
-The report tells you that a rule was broken. It does not tell you what the fix
-should be.
+`deinit` does not free the allocation. `deinit` is the audit. The function
+that frees memory is `allocator.free`, and the block never calls it. An
+earlier call to `deinit` would ask the question earlier and get the same
+answer. The allocator would also be unusable for the code after the call.
 
-## If you have written C
+The correct repair is to add the `defer`. The report tells you that the code
+broke a rule. The report does not tell you the correct repair.
 
-The shapes line up almost exactly, and then diverge in one place:
+## If you know C
+
+The two languages are almost the same here, but they are different in one
+place:
 
 ```c
 char *greeting = malloc(32);   /* where did this memory come from? */
@@ -85,16 +95,19 @@ if (!greeting) return NULL;    /* and who checks? */
 free(greeting);                /* and who remembers, on every path out? */
 ```
 
-Zig's `allocator.alloc` is `malloc` with the source named at the call site
-instead of assumed. Its failure is in the return type, so `try` handles it and
-you cannot forget the null check, because there is no null to check. And
-`defer` puts the `free` next to the `alloc` rather than at every exit from the
-function, which is the shape that makes the classic `goto cleanup` ladder
-unnecessary.
+The Zig `allocator.alloc` is `malloc`, but the call site names the source of
+the memory. The failure is in the return type. Thus `try` handles the failure,
+and you cannot forget the null check, because no null exists. Also, `defer`
+puts the `free` next to the `alloc`, not at each exit from the function. Thus
+the usual C ladder of `goto cleanup` labels is not necessary.
 
-The rest of what Zig ships, arenas that free everything at once, fixed buffers
-that never touch the heap, and the leak-checking allocator used above, is in
-[Allocators](/learn/standard-library/allocators/).
+[Allocators](/learn/standard-library/allocators/) tells about the other
+allocators in Zig:
 
-Next: [Off the End](/learn/systems-from-scratch/off-the-end/), which is what
-happens when you read memory you do own, just not the part you meant.
+- arenas that free all their memory at one time
+- fixed buffers that never use the heap
+- the allocator above, which finds leaks
+
+Next: [Off the End](/learn/systems-from-scratch/off-the-end/). That chapter
+tells what occurs when you read memory that you own, but not the part that you
+wanted.

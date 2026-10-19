@@ -1,23 +1,28 @@
 ---
 title: Off the End
-description: A length is a value, and the difference between languages is who is made to check it.
+description: A length is a value. Languages are different in who must check the length.
 section: Systems from Scratch
 order: 6
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-An array of four numbers occupies a stretch of memory, and the stretch ends.
-What is at the address just past it? Something is always there: another
-variable, part of a frame, or the machinery of the program itself. Memory keeps
-going past the end of your array. Only your right to use it ends there.
+An array of four numbers uses a length of memory, and that length has an end.
+What is at the address immediately after the end? Something is always there: a
+different variable, part of a frame, or the internal parts of the program.
+Memory continues after the end of your array. Only your right to use the
+memory stops there.
 
-So what should `row[4]` do?
+Thus what must `row[4]` do?
 
-There are only three possible answers and every language picks one. Read
-whatever happens to be there and carry on. Stop the program. Or refuse to be
-asked, by making the caller check first. The third needs nothing from the
-language except an `if`, so that is where to start.
+Only three answers are possible, and each language selects one:
+
+- Read the value that is there, and continue.
+- Stop the program.
+- Refuse the request, and make the caller check first.
+
+The third answer needs nothing from the language except an `if`. Thus the
+program starts with the third answer.
 
 ## The program
 
@@ -25,39 +30,43 @@ language except an `if`, so that is where to start.
 
 ## What just happened
 
-**The slice knew where it ended.** A slice is a pointer and a length travelling
-together as one value, so a function receiving one always knows the size. This
-is why `[]const u32`, and not a bare pointer, is the normal way to pass a
-sequence around. The pointer alone would have told the function where the data starts
-and nothing about where to stop.
+**The slice knew where it ended.** A slice is a pointer and a length that go
+together as one value. Thus a function that receives a slice always knows the
+size. For this reason, `[]const u32` is the usual way to pass a sequence, and
+a bare pointer is not. The pointer alone tells the function where the data
+starts, but not where to stop.
 
-**The slice printed as 8 bytes.** Four for the pointer and four for the length,
-on this 32-bit WebAssembly build. Compile it for your own machine and it
-prints 16, for the same reason a pointer there is 8 bytes rather than 4.
+**The slice printed as 8 bytes.** The pointer uses four bytes and the length
+uses four bytes, on this 32-bit WebAssembly build. If you compile the program
+for your own machine, it prints 16. The reason is the same reason that a
+pointer on your machine is 8 bytes and not 4.
 
 **The checked read returned an error instead of a number.** `at` compares the
-index against `.len` and returns `error.OutOfBounds` when it does not fit.
-Nothing was read. The caller was told, in the return type, that the answer
-might not exist, and had to deal with both cases before it could use the
-result. All of that cost one comparison.
+index with `.len`. When the index is too large, `at` returns
+`error.OutOfBounds`. The function read nothing.
 
-**And then the last line said `safety checks in this build: false`.**
+The return type told the caller that the answer can be absent. Thus the caller
+had to handle both cases before it could use the result. All of this cost one
+comparison.
 
-## About that last line
+**Then the last line said `safety checks in this build: false`.**
 
-When you write `slice[i]` directly, Zig inserts that same comparison for you,
-and on failure the program stops with a message naming the index and the
-length. That check exists in Debug and ReleaseSafe builds. It does not exist
-in ReleaseFast or ReleaseSmall, where it is compiled out for speed and size.
+## About the last line
 
-The wasm you just ran is a ReleaseSmall build, because that is what gets
-shipped to a reader's browser. So on this page, `slice[4]` would not stop the
-program. It would read four bytes that are not yours and hand them over as a
-number.
+When you write `slice[i]` directly, Zig adds the same comparison for you. If
+the comparison fails, the program stops with a message that gives the index
+and the length. Debug and ReleaseSafe builds have this check. ReleaseFast and
+ReleaseSmall builds do not have it. In those builds, the compiler removes the
+check for speed and size.
 
-Here is the program that does it. This one is the exception on this site: it
-is built ReleaseSafe rather than ReleaseSmall, so the check is present, and it
-is here to stop. Press **Run**.
+The wasm that you ran is a ReleaseSmall build, because the site sends
+ReleaseSmall builds to the browser of the reader. Thus on this page,
+`slice[4]` would not stop the program. It would read four bytes that are not
+yours, and give them to you as a number.
+
+The program below does that read. This program is the exception on this site.
+Its build is ReleaseSafe and not ReleaseSmall. Thus the check is present, and
+the program must stop. Press **Run**.
 
 <Playground name="15-groundwork.past-the-end" />
 
@@ -65,64 +74,70 @@ is here to stop. Press **Run**.
 panic: index out of bounds: index 4, len 4
 ```
 
-Nothing was read. The program named the index it was given and the length it
-was allowed, and stopped on the line that asked. Compare that with the silent
-wrong answer at the top of this page: the mistake is the same, and the
-difference is entirely in whether the check was compiled in.
+The program read nothing. The program gave the index that it got and the
+length that it had permission to use. Then it stopped on the line that asked.
+Compare this result with the silent wrong answer of the ReleaseSmall build
+above. The mistake is the same. The only difference is if the build contains
+the check.
 
-The run also says it cannot print a stack trace, because debug info is
-unavailable for this target. The wasm sent to your browser carries no symbols,
-so there is nothing to turn a return address into a file and a line. On your
-own machine the same panic comes with the chain of calls that led to it.
+The run also says that it cannot print a stack trace, because debug info is
+not available for this target. The wasm that your browser gets has no symbols.
+Thus the runtime cannot change a return address into a file and a line. On
+your own machine, the same panic shows the sequence of calls that caused it.
 
-That message is not quoted from memory. Our build runs this program on every
-change and requires it to stop with exactly that text. If a future Zig worded
-the panic differently, this page would fail to publish. It cannot quietly
-teach you a message you would never see.
+The message above is not from memory. The build for this site runs this
+program on each change, and the program must stop with exactly that text. If a
+future version of Zig changes the words of the panic, this page will not
+publish. Thus the page cannot teach you a message that you will never see.
 
-This snippet is about 1.1 MB, against 46 KB for the program at the top of this
-page. That gap is what the safety checks and the machinery to describe them
-cost, and it is the reason the rest of the site does not carry them. It
-downloads only when you press Run.
+This snippet is about 1.1 MB, and the program at the top of this page is 46
+KB. The difference is the cost of the safety checks and of the code that
+describes them. For this reason, the other snippets on the site do not have
+the checks. Your browser downloads this snippet only when you press Run.
 
-The general rule behind this, what each build mode turns off and what you are
-promising when you choose one, is [When the Checks Are
-Off](/learn/systems-from-scratch/when-checks-are-off/).
+[When the Checks Are Off](/learn/systems-from-scratch/when-checks-are-off/)
+gives the general rule: what each build mode turns off, and what you promise
+when you select a build mode.
 
 ## Check yourself
 
-The program checks `index >= numbers.len`. Why not `index > numbers.len`?
+The program checks `index >= numbers.len`. Why does it not check
+`index > numbers.len`?
 
-Because the indexes of four elements are 0, 1, 2 and 3. Index 4 is the first
-one past the end, so it has to be rejected. Being off by one at exactly this
-boundary is common enough to have a name: the fencepost error. It is the
-reason to prefer `for (slice) |item|` over an index and a counter whenever you
-do not actually need the number.
+The indexes of four elements are 0, 1, 2 and 3. Index 4 is the first index
+after the end, thus the program must reject index 4. A mistake of one at
+exactly this boundary is frequent, and it has a name: the fencepost error. For
+this reason, use `for (slice) |item|` instead of an index and a counter when
+you do not need the number.
 
-## If you have written C
+## If you know C
 
-This is a difference you will meet early.
+You will see this difference early.
 
 ```c
 int row[4] = {10, 20, 30, 40};
 int x = row[4];        /* reads something. no error, no warning, no crash */
 ```
 
-C's array does not carry a length, so a function receiving `int *row` cannot
-check anything. The length has to be passed alongside and kept correct by
-hand. Reading past the end is undefined behaviour, which in practice means it
-usually works, sometimes returns nonsense, and occasionally corrupts something
-that fails much later somewhere unrelated.
+A C array does not hold a length. Thus a function that receives `int *row`
+cannot check anything. The code must pass the length as a separate value, and
+the programmer must keep the length correct. A read past the end is undefined
+behaviour. In practice, the read usually works, sometimes returns a value that
+has no meaning, and sometimes corrupts memory. That corruption can cause a
+failure much later, in an unrelated part of the program.
 
-Zig has two answers to it. The slice carries the length, so the length cannot
-get out of step with the data. The safety check turns "usually works" into a
-message with a line number. Both are what make this material learnable: you
-find out at the moment you make the mistake rather than an hour later.
+Zig has two answers to this problem:
 
-The C-shaped pointer, the one without a length, still exists in Zig for
-talking to C, and it is spelled differently on purpose: [many-item
+- The slice holds the length. Thus the length always agrees with the data.
+- The safety check changes "usually works" into a message with a line number.
+
+Because of these two answers, you can learn this material. You see the mistake
+at the time that you make it, not an hour later.
+
+Zig still has the C pointer without a length, for code that calls C. Zig gives
+it a different syntax on purpose: [many-item
 pointers](/learn/language-basics/many-item-pointers/).
 
 Next: [When the Checks Are
-Off](/learn/systems-from-scratch/when-checks-are-off/), which is the promise
-you make when you turn a check off.
+Off](/learn/systems-from-scratch/when-checks-are-off/). That chapter tells
+what you promise when you turn a check off.

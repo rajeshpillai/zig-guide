@@ -1,32 +1,33 @@
 ---
 title: Talking to the Operating System
-description: Your program is handed streams it did not open, and must return a status.
+description: Your program gets streams that it did not open, and it must return a status.
 section: Systems from Scratch
 order: 11
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Every chapter so far has been about the inside of your program: its bytes, its
-memory, its failures. This one is about the edge, because a program cannot
-actually do anything from in there. It cannot read a file, write to your
-terminal, or open a connection. It can only compute.
+Each chapter before this one was about the inside of your program: its bytes,
+its memory and its failures. This chapter is about the edge, because a program
+cannot do anything from the inside alone. A program cannot read a file, write
+to your terminal or open a connection. It can only calculate.
 
-Anything that reaches the outside is done by asking the operating system. That
-request is a **system call**. Your program stops. The kernel does the thing,
-using privileges your program does not have. Control comes back with a result.
+For each operation that goes outside the program, the program asks the
+operating system. The name of that request is a **system call**. Your program
+stops. The kernel does the operation, with privileges that your program does
+not have. Then control returns to your program with a result.
 
-That is the boundary, and everything you think of as I/O crosses it.
+That is the boundary, and all I/O goes across it.
 
-The arrangement has three parts. It is older than almost everything else you
-use, and it has not changed:
+The arrangement has three parts. It is older than almost all the other tools
+that you use, and it did not change:
 
-- The operating system hands your program some things when it starts, without
-  being asked.
-- Your program asks for anything else by number: it refers to what it opened
-  with a small integer, not a name.
-- When it ends, it hands back one number, and that number is the only thing the
-  parent process is guaranteed to learn.
+- The operating system gives your program some things when the program
+  starts. The program does not ask for them.
+- Your program asks for all other things by number. It uses a small integer,
+  not a name, to refer to each thing that it opened.
+- When the program ends, it gives back one number. The operating system
+  guarantees only that number to the parent process.
 
 ## The program
 
@@ -34,75 +35,82 @@ use, and it has not changed:
 
 ## What just happened
 
-**Three streams were already open.** The program did not open them and cannot
-choose their numbers. Descriptor 0 is standard input, 1 is standard output,
-and 2 is standard error. That is true of every process on every Unix-derived
-system. A shell relies on it to connect two programs together without either of
-them agreeing in advance.
+**Three streams were already open.** The program did not open them, and it
+cannot select their numbers. Descriptor 0 is standard input, 1 is standard
+output, and 2 is standard error. This is true for each process on each system
+that comes from Unix. A shell uses this fact to connect two programs, and the
+two programs do not have to agree on anything first.
 
-**A descriptor is an integer and nothing else.** It is not a handle object with
-methods hiding inside it. It is a number the kernel uses to look up what you
-opened, in a table it keeps for your process. Opening a file gives you the
-next free number. This is what the phrase "everything is a file" means in
-practice. A file, a socket, a pipe and a terminal are all just numbers into that table,
-and `read` works on all of them.
+**A descriptor is an integer and nothing else.** A descriptor is not a handle
+object with methods inside it. It is a number. The kernel uses the number to
+find the thing that you opened, in a table that the kernel keeps for your
+process. When you open a file, you get the next free number.
 
-**Two output streams, on purpose.** stdout is the program's *result*, the bytes
-another program would consume if you piped this one into it. stderr is for the
-person watching. The distinction only becomes visible when you redirect: run
-this locally as `zig run talking-to-the-os.zig > out.txt` and the stdout lines
-land in the file while the stderr line still appears on your terminal. Tools
-that mix the two up are painful to use from scripts.
+This is the practical meaning of the phrase "everything is a file". A file, a
+socket, a pipe and a terminal are all numbers into that table, and `read`
+works on all of them.
 
-**Returning from `main` reported 0.** A process ends with a status, and by
-convention 0 means success and anything else means a specific kind of failure.
-One small integer is not much to say with, so programs also write to stderr.
-The status says *that* it failed. stderr says *what* happened.
+**The program has two output streams, on purpose.** stdout is the *result* of
+the program. If you pipe this program into a different program, the second
+program reads these bytes. stderr is for the person who watches. You can see
+the difference only when you redirect the output. Run the program on your
+machine as `zig run talking-to-the-os.zig > out.txt`. The stdout lines go into
+the file, but the stderr line still shows on your terminal. A tool that mixes
+the two streams is difficult to use from scripts.
+
+**The return from `main` reported 0.** A process ends with a status. By
+convention, 0 means success, and each other value means a specific type of
+failure. One small integer cannot hold much information. Thus programs also
+write to stderr. The status says *that* the program failed. stderr says *what*
+occurred.
 
 ## Check yourself
 
-This program ran in your browser, where there is no operating system, no
-process table and no kernel to call. So why did the descriptors print 0, 1 and
-2?
+This program ran in your browser. The browser has no operating system, no
+process table and no kernel to call. Then why did the descriptors print 0, 1
+and 2?
 
-Because the page runs it under **WASI**, an interface with the same shape as
-the real thing: the same numbering, the same calls, written in JavaScript
-against the browser instead of against a kernel.
+The page runs the program under **WASI**. WASI is an interface with the same
+shape as the real operating system: the same numbers and the same calls. But
+WASI in the browser is JavaScript code, and it works with the browser, not
+with a kernel.
 
-The program cannot tell the difference. An interface is exactly that promise,
-and most of the snippets in this guide run on a page because of it. Three
-chapters in [the OS section](/learn/os/) need a real kernel: pipes,
-signals and spawning. They say so, and they do not offer a Run button.
+The program cannot see the difference. An interface is exactly that promise.
+Because of WASI, most of the snippets in this guide run on the page. Three
+chapters in [the OS section](/learn/os/) need a real kernel: pipes, signals
+and the start of new processes. Those chapters say so, and they do not have a
+Run button.
 
 ## Where to go next
 
-That is the end of the track. You now have the model the rest of the guide
-assumes.
+This chapter is the end of the track. You now have the model that the rest of
+the guide assumes.
 
-If you arrived here before the rest of the guide, [Getting
-Started](/learn/getting-started/) installs a compiler and gets these programs
-running on your own machine. [Language Basics](/learn/language-basics/) then
-covers the same ground from the language side: what `*T` means precisely, how
-optionals remove null, what `comptime` is.
+Perhaps you came here before the rest of the guide. Then [Getting
+Started](/learn/getting-started/) installs a compiler, and shows how to run
+these programs on your own machine. After that, [Language
+Basics](/learn/language-basics/) teaches the same topics for the language: the
+exact meaning of `*T`, how optionals remove null, and what `comptime` is.
 
-If you came the other way, having already read those, go to [the operating
-system](/learn/os/) next. It takes the descriptors above and uses them to open
-files, start processes, and connect pipes. And if you would rather learn by
-building, [Data Structures](/learn/data-structures/) starts with a linked
-list, the smallest program that makes you answer the ownership question from
-[chapter five](/learn/systems-from-scratch/who-owns-this-memory/) for real.
+If you already read those sections, go to [the operating system](/learn/os/)
+next. That section uses the descriptors above to open files, start processes
+and connect pipes. If you prefer to learn when you build something, [Data
+Structures](/learn/data-structures/) starts with a linked list. A linked list
+is the smallest program that makes you really answer the ownership question
+from [chapter five](/learn/systems-from-scratch/who-owns-this-memory/).
 
-## If you have written C
+## If you know C
 
-You have already met all of this, under the names `open`, `read`, `write`,
-`close`, and `exit`. Zig's `std.Io.File` is a descriptor and a couple of flag
-bits, and you can build one out of the number 1 by hand and write to standard
-output with it. The [file descriptors](/learn/os/file-descriptors/) chapter
-does exactly that.
+You already know all of this, with the names `open`, `read`, `write`, `close`
+and `exit`. A Zig `std.Io.File` is a descriptor and some flag bits. You can
+make one from the number 1, and write to standard output with it. The [file
+descriptors](/learn/os/file-descriptors/) chapter does exactly that.
 
-Two differences show up immediately. A failed call returns an error rather
-than setting a global `errno`, so it composes with `try` like everything else.
-And the ability to do I/O arrives as an argument: `main` receives an `init`,
-and `init.io` is what the writers above were built from. There is no global
-`stdout` to reach for, which means a function that does not take an `Io`
-cannot quietly touch the outside world.
+You will see two differences immediately:
+
+- A failed call returns an error. It does not set a global `errno`. Thus the
+  error works with `try`, as all other errors do.
+- The permission to do I/O comes as an argument. `main` receives an `init`,
+  and the writers above come from `init.io`. Zig has no global `stdout` that a
+  function can use. Thus a function that does not take an `Io` cannot touch
+  the outside world without your knowledge.

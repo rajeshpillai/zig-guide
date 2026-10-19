@@ -1,5 +1,5 @@
 //! title: Strings Are Bytes
-//! There is no string type. A literal is bytes, with a zero on the end.
+//! Zig has no string type. A literal is bytes, with a zero at the end.
 
 const std = @import("std");
 
@@ -10,23 +10,23 @@ pub fn main(init: std.process.Init) !void {
 
     const greeting = "hello";
 
-    // The type shows everything that is stored: a pointer to five bytes, with
-    // a zero after them that the length does not count.
+    // The type shows all that the memory stores: a pointer to five bytes, and
+    // a zero after them. The length does not count the zero.
     try out.print("\"hello\" is a {s}\n", .{@typeName(@TypeOf(greeting))});
     try out.print("greeting.len       = {d}\n", .{greeting.len});
     try out.print("the array occupies = {d} bytes\n\n", .{@sizeOf(@TypeOf(greeting.*))});
 
-    // Indexing gives a number, because that is all that is stored.
+    // An index gives a number, because the memory stores only a number.
     try out.print("greeting[0] = {d}, which prints as '{c}'\n\n", .{ greeting[0], greeting[0] });
 
-    // Two separate literals with the same contents. `==` on slices compares
-    // where they point. You usually want to compare the contents.
+    // Two separate literals with the same contents. Zig does not allow `==`
+    // on slices. std.mem.eql compares the contents.
     const a: []const u8 = "cat";
     const b: []const u8 = "cat";
     try out.print("std.mem.eql(a, b) = {}\n\n", .{std.mem.eql(u8, a, b)});
 
-    // A length in bytes is not a count of characters, and on this string the
-    // difference is visible.
+    // A length in bytes is not a count of characters. On this string, you can
+    // see the difference.
     const word = "héllo";
     try out.print("\"héllo\".len = {d} bytes\n", .{word.len});
     try out.print("codepoints  = {d}\n", .{try std.unicode.utf8CountCodepoints(word)});

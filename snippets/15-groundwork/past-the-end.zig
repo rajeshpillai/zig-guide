@@ -2,11 +2,11 @@
 //! fails
 //! What `slice[4]` does in a build with safety checks turned on.
 //!
-//! `//! fails` rather than `//! norun`: this is built `.safe` instead of the
-//! site-wide `.small`, so the bounds check is present, and CI runs it and
-//! requires it to stop with the message in `past-the-end.expected-error`. The
-//! reader gets a Run button and watches it happen, and the message the chapter
-//! quotes is checked every night rather than remembered.
+//! This snippet uses the fails marker, not the norun marker. The build is
+//! `.safe`, not the `.small` of the other snippets. Thus the bounds check is
+//! present. CI runs the program, and the program must stop with the message
+//! in `past-the-end.expected-error`. The reader gets a Run button and sees the
+//! stop. CI checks the message in the chapter each night.
 
 const std = @import("std");
 
@@ -16,9 +16,9 @@ pub fn main(init: std.process.Init) !void {
     const row = [_]u32{ 10, 20, 30, 40 };
     const slice: []const u32 = &row;
 
-    // `index` is a `var` whose value the compiler cannot fold, so this is not
-    // rejected at compile time. The compiler cannot know the index, so the
-    // check that stops it runs while the program is running.
+    // `index` is a `var`, and the compiler cannot fold its value. Thus the
+    // compiler does not reject this line. The compiler cannot know the index.
+    // Thus the check that stops the read runs when the program runs.
     var index: usize = 4;
     _ = &index;
 
