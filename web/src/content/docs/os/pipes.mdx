@@ -7,23 +7,24 @@ order: 50
 
 import Playground from "../../../components/Playground.astro";
 
-A pipe is a one-way buffer in the kernel with a descriptor at each end. Write
-into one end, and read out of the other. It carries only bytes. It has no
-message boundaries and no types, and you cannot ask how much data is coming.
+A pipe is a one-way buffer in the kernel, with a descriptor at each end. Write
+into one end, and read from the other end. A pipe carries only bytes. It has
+no message boundaries and no types. You cannot ask how much data will come.
 
 <Playground
   name="14-os.pipes"
-  note="Built and run natively by CI. The pipe is created by spawning a process, which a WASI sandbox cannot do."
+  note="CI builds and runs this snippet natively. The snippet makes the pipe when it spawns a process, and a WASI sandbox cannot spawn a process."
   tryLocally="zig run pipes.zig"
 />
 
 ## There is no `std.posix.pipe`
 
-The standard library does not have one. `pipe2` exists inside the `Io`
-implementations, `std.Io.Threaded` and `std.Io.Uring`, where it is an
-implementation detail of how they schedule work. The standard library
-offers you the useful case: ask for a pipe on a child's stream, and get the
-other end back as an `Io.File`.
+The standard library does not have a `std.posix.pipe` function. `pipe2`
+exists inside the `Io` implementations, `std.Io.Threaded` and `std.Io.Uring`.
+There, `pipe2` is a detail of how the implementations schedule work.
+
+The standard library gives you the useful case. Ask for a pipe on a stream of
+a child, and you get the other end back as an `Io.File`.
 
 ```zig
 var child = try std.process.spawn(io, .{
@@ -33,18 +34,20 @@ var child = try std.process.spawn(io, .{
 });
 ```
 
-This is what the shell's `|` does. `.pipe` on a stream means: do not give the
-child my stream, make a new pipe, and give me the other end. `child.stdin` and
-`child.stdout` are then ordinary files, and everything you know about readers
-and writers applies to them unchanged.
+The `|` of the shell does the same thing. `.pipe` on a stream has this
+meaning: do not give my stream to the child, make a new pipe, and give me the
+other end. Then `child.stdin` and `child.stdout` are ordinary files. All
+that you know about readers and writers applies to them without change.
 
-The descriptors are new numbers past the three the process started with.
-Nothing promises which numbers, so the snippet checks that they are greater
-than 2 rather than that they are 4 and 5. They would be different under a
-different `Io` implementation. A test that asserts exact numbers fails on a
-machine that opened one more file at startup.
+The descriptors are new numbers after the three that the process started with.
+Nothing makes the numbers certain. Thus the snippet checks that the numbers
+are more than 2. It does not check that they are 4 and 5.
 
-## Closing is the message
+The numbers can be different with a different `Io` implementation. A test
+that asserts exact numbers fails on a computer that opened one more file at
+startup.
+
+## Close the pipe to send the message
 
 ```zig
 try to_child.interface.flush();
@@ -52,33 +55,42 @@ child.stdin.?.close(io);
 child.stdin = null;
 ```
 
-The child is reading until end of file. End of file on a pipe means every
-write end has been closed, and the parent is holding one. A parent that
-writes, does not close, and then waits for output waits forever. The child is
-blocked in a read that cannot return, and the parent is blocked in a read of a
-child that will never write. Neither process has failed, and neither can
-continue.
+The child reads until end of file. On a pipe, end of file means that all of
+the write ends are closed, and the parent holds one write end. Assume that a
+parent writes, does not close the pipe, and then waits for output. That parent
+waits forever.
 
-This is the classic pipe deadlock. It has a second form.
-Pipes hold a fixed amount, 64 KB on Linux by default. A parent that writes
-more than that before reading anything fills the buffer and blocks in its own
-write, while the child fills its output pipe and blocks in its.
-`std.process.run` avoids both by draining and waiting in the right order,
-so use it whenever the output fits in memory.
+In that case, the child is blocked in a read that cannot return. The parent
+is blocked in a read from a child that will never write. Neither process
+failed, and neither process can continue.
 
-Setting `child.stdin = null` after closing is required. `Child.wait`
-closes the streams it still holds. Closing a descriptor twice causes a bug that
-shows up much later, when the number has been given to another file you are
-using.
+This is the classic pipe deadlock. The deadlock has a second form. A pipe
+holds a fixed quantity of data, by default 64 KB on Linux. Assume that a
+parent writes more than that before it reads anything. The parent fills the
+buffer and is blocked in its own write. At the same time, the child fills its
+output pipe and is blocked in its own write.
+
+`std.process.run` prevents both forms, because it drains the pipes and waits
+in the correct order. Thus use `std.process.run` when the output fits in
+memory.
+
+After the close, you must set `child.stdin = null`. `Child.wait` closes the
+streams that it still holds. If a program closes a descriptor two times, a
+bug occurs much later. The bug occurs after the kernel gives the number to a
+different file that you use.
 
 ## `SIGPIPE`, the other direction
 
-Write to a pipe whose read end is gone and the kernel sends `SIGPIPE`, whose
-default action is to kill your process. That default is what makes `head` work:
-`producer | head -3` ends the producer once `head` stops reading, without
-anyone writing code to arrange it.
+Assume that you write to a pipe, and the read end no longer exists. Then the
+kernel sends `SIGPIPE`. The default action of `SIGPIPE` is to kill your
+process.
 
-For the same reason, a long-running server ignores the signal and handles the
-`error.BrokenPipe` from the write instead. A client that disconnects mid-reply
-should end one connection, not the process serving all the others.
+That default is the reason that `head` works. In `producer | head -3`, the
+producer stops when `head` stops its reads. No person writes code to make
+this occur.
+
+For the same reason, a server that runs for a long time ignores the signal.
+Instead, the server handles the `error.BrokenPipe` from the write. If a client
+disconnects in the middle of a reply, only that connection must end. The
+process that serves all the other connections must continue.
 [Signals](/learn/os/signals/) is the next chapter.

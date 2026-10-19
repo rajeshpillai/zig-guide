@@ -1,6 +1,6 @@
 //! title: Spawning a Process
 //! native
-//! A child is a program, an argument list, and a status code coming back.
+//! A child is a program, an argument list, and a status code for the parent.
 
 const std = @import("std");
 
@@ -12,8 +12,8 @@ pub fn main(init: std.process.Init) !void {
     defer args.deinit();
     _ = args.next(); // argv[0]
 
-    // Spawned with an argument, this program is the child. Rather than depend
-    // on a system binary being installed, it runs itself.
+    // With an argument, this program is the child. The program runs itself.
+    // Thus it does not need a system binary to be installed.
     if (args.next()) |mode| {
         if (std.mem.eql(u8, mode, "ok")) {
             var buf: [64]u8 = undefined;
@@ -22,8 +22,8 @@ pub fn main(init: std.process.Init) !void {
             try w.interface.flush();
             std.process.exit(0);
         }
-        // A program reports failure with a number, and only a number. The
-        // reason, if there is one, goes to stderr.
+        // A program reports failure with a number, and only a number. If there
+        // is a reason, the program writes the reason to stderr.
         std.process.exit(3);
     }
 
@@ -35,8 +35,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &stdout_writer.interface;
 
-    // `run` spawns, collects both streams to completion, and waits. Use it
-    // when the output is small and you want all of it.
+    // `run` spawns, collects both streams to the end, and waits. Use it when
+    // the output is small and you want all of the output.
     const ok = try std.process.run(gpa, io, .{ .argv = &.{ self, "ok" } });
     defer gpa.free(ok.stdout);
     defer gpa.free(ok.stderr);
@@ -49,8 +49,8 @@ pub fn main(init: std.process.Init) !void {
     try out.print("failing child: {f}\n", .{failed.term});
     try out.print("succeeded:     {}\n", .{failed.term.success()});
 
-    // A status is a `u8`, so there are only 256 of them and 0 is the only one
-    // that means success. The program decides what the others mean.
+    // A status is a `u8`. Thus there are only 256 values, and only 0 means
+    // success. The program decides the meaning of the other values.
     switch (failed.term) {
         .exited => |code| try out.print("exit code:     {d}\n", .{code}),
         else => try out.print("killed or stopped rather than exited\n", .{}),

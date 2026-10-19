@@ -1,14 +1,14 @@
 //! title: Signals
 //! native
-//! A handler interrupts you between two instructions. Set a flag; do nothing else.
+//! A handler interrupts you between two instructions. Set a flag. Do nothing else.
 
 const std = @import("std");
 const posix = std.posix;
 
-/// The handler here does one thing: it sets this flag. It is a
-/// `std.atomic.Value` because the handler can run between any two instructions
-/// of the code below. A plain `bool` written there is a data race with
-/// whatever that code was doing.
+/// The handler here does one thing: it sets this flag. The flag is a
+/// `std.atomic.Value`, because the handler can run between any two
+/// instructions of the code below. A write to a plain `bool` there is a data
+/// race with the code that the handler interrupted.
 var caught: std.atomic.Value(u32) = .init(0);
 
 fn onUsr1(sig: posix.SIG) callconv(.c) void {
@@ -21,9 +21,9 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &stdout_writer.interface;
 
-    // `sigaction` returns nothing. It used to return an error union, and the
-    // handler used to take a `c_int`; both changed, so a handler copied from
-    // an older tutorial fails to compile instead of misbehaving at run time.
+    // `sigaction` returns nothing. In the past, it returned an error union,
+    // and the handler took a `c_int`. Both changed. Thus a handler from an
+    // older tutorial does not compile. It does not fail at run time.
     var action: posix.Sigaction = .{
         .handler = .{ .handler = onUsr1 },
         .mask = posix.sigemptyset(),
@@ -35,8 +35,9 @@ pub fn main(init: std.process.Init) !void {
     try posix.raise(.USR1);
     try out.print("caught after:  {d}\n\n", .{caught.load(.seq_cst)});
 
-    // Blocking a signal delays it. The signal is not discarded. USR1 raised
-    // while blocked stays pending, and is delivered as soon as it is unblocked.
+    // A block delays a signal. It does not discard the signal. If you raise
+    // USR1 while it is blocked, it stays pending. The kernel sends it
+    // immediately when you unblock it.
     caught.store(0, .seq_cst);
     var mask = posix.sigemptyset();
     posix.sigaddset(&mask, .USR1);
@@ -49,9 +50,9 @@ pub fn main(init: std.process.Init) !void {
     posix.sigprocmask(posix.SIG.UNBLOCK, &mask, null);
     try out.print("once unblocked: {d}\n\n", .{caught.load(.seq_cst)});
 
-    // Handing the signal back to the kernel's default disposition. For USR1
-    // that default is "terminate the process". That default is why an
-    // unhandled USR1 kills a program that never installed a handler for it.
+    // Give the signal back to the default disposition of the kernel. For USR1,
+    // that default is "terminate the process". Thus a USR1 kills a program
+    // that never installed a handler for it.
     var default: posix.Sigaction = .{
         .handler = .{ .handler = posix.SIG.DFL },
         .mask = posix.sigemptyset(),

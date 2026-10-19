@@ -1,15 +1,16 @@
 ---
 title: Exiting
 seoTitle: "Zig process.exit: Skipped defers and Lost Output"
-seoDescription: "process.exit stops the process immediately. Registered defers do not run and buffered output never reaches the terminal. The snippet shows both."
-description: exit is the process stopping, not your program returning.
+seoDescription: "process.exit stops the process immediately. Registered defers do not run, and buffered output never gets to the terminal. The snippet shows both."
+description: exit stops the process. It does not return from your program.
 section: Operating System
 order: 70
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The snippet writes two lines and registers two `defer`s. One line comes out.
+The snippet writes two lines and registers two `defer` statements. Only one
+line comes out.
 
 <Playground name="14-os.exiting" />
 
@@ -23,31 +24,38 @@ try out.writeAll("second line, still sitting in the buffer\n");
 std.process.exit(0);
 ```
 
-`std.process.exit` is `noreturn`: it never returns to the caller, so nothing
-between the call and the end of `main` happens. No `defer` runs at any depth of
-the stack, no `errdefer` runs, and nothing is flushed.
+`std.process.exit` is `noreturn`. It never returns to the caller, so no code
+between the call and the end of `main` runs. No `defer` runs at any depth of
+the stack, no `errdefer` runs, and the program flushes nothing.
 
-Look at the lost line. Those bytes were in a buffer in your process's memory.
-The operating system never received them, and then the process ended. This is
-a common way for output to go missing from a program that "definitely printed
-it". The second `defer` above, the one that would have flushed, looks like it
-protects the output. It never runs, so it protects nothing.
+Look at the lost line. Those bytes were in a buffer in the memory of your
+process. The operating system never received the bytes, and then the process
+ended. Output often disappears in this way from a program that "definitely
+printed it".
 
-Returning from `main` normally does run every `defer`, so `main`
-returning an error and `exit(1)` are not interchangeable. The first unwinds
-and cleans up. The second stops the process immediately.
+The second `defer` above is the one that flushes. It looks like it protects
+the output. But it never runs, so it protects nothing.
 
-## The status you leave
+When `main` returns normally, every `defer` runs. Thus an error return from
+`main` and `exit(1)` are not the same:
 
-`exit` takes a `u8`. Zero means success, and you decide what every other
-value means. This is the same one-bit protocol the parent sees as `Term` in
-[Spawning a Process](/learn/os/spawning/).
+- An error return unwinds the stack and runs the cleanup.
+- `exit(1)` stops the process immediately.
 
-Returning an error from `main` sets a nonzero status for you and prints the
-error name with a stack trace in debug builds. That is the right default for a
-tool. Choosing a specific code is for programs whose callers branch on it.
-`grep` returns 1 for "no match" and 2 for "something went wrong", a
-distinction a shell script can act on and an error message cannot.
+## The status that you leave
+
+`exit` takes a `u8`. Zero means success, and you decide the meaning of each
+other value. This is the same one-bit protocol that the parent sees as `Term`
+in [Spawning a Process](/learn/os/spawning/).
+
+When `main` returns an error, Zig sets a nonzero status for you. In debug
+builds, Zig also prints the error name with a stack trace. For a tool, that
+is the correct default.
+
+Select a specific code only for a program whose callers make a decision on
+the code. `grep` returns 1 for "no match" and 2 for "something went wrong". A
+shell script can act on that difference, but it cannot act on an error
+message.
 
 ## `cleanExit`, and why it does nothing in Debug
 
@@ -59,29 +67,34 @@ pub fn cleanExit(io: Io) void {
 }
 ```
 
-A program about to exit does not need to free anything. The kernel reclaims
-the whole address space. Walking a tree of allocations to release memory that
-is about to vanish is work that only makes the program slower to quit.
+A program that is about to exit does not have to free anything. The kernel
+takes back the full address space. A walk through a tree of allocations to
+release memory that will disappear soon only makes the program slower to
+stop.
 
-`std.process.cleanExit` is that shortcut, with the one condition that makes it
-safe. In Debug it returns and lets your teardown run, so the leak detector
-still sees a program that freed everything and can still tell you about the
-leak that matters. In release builds it exits immediately. The Zig compiler
-itself calls it.
+`std.process.cleanExit` is that shortcut, with the one condition that makes
+the shortcut safe:
 
-That mode dependence is why this page describes the call rather than running
-it. A snippet whose output changed between `-Doptimize=Debug` and the
-`ReleaseSmall` this site ships would pass CI and still show the wrong output
-to readers using the other build mode.
+- In Debug, the function returns and lets your teardown code run. Thus the
+  leak detector still sees a program that freed everything, and it can still
+  tell you about the leak that is important.
+- In release builds, the function exits immediately.
+
+The Zig compiler itself calls `cleanExit`.
+
+Because the behavior changes with the build mode, this page describes the call
+and does not run it. Assume that the output of a snippet changes between
+`-Doptimize=Debug` and `ReleaseSmall`, which this site ships. Then the snippet
+passes CI, but readers who use the other build mode see the wrong output.
 
 ## `abort` is not an exit
 
-`std.process.abort` ends the process abnormally: it raises `SIGABRT`, which
-runs a handler if you installed one, and then makes sure the process dies
-anyway. It sets no status code and runs no cleanup, and it typically leaves a core
-dump.
+`std.process.abort` ends the process abnormally. It raises `SIGABRT`, which
+runs a handler if you installed one. Then it makes sure that the process
+stops in all cases. It sets no status code and runs no cleanup. Usually, it
+leaves a core dump.
 
-`abort` is the correct response to a broken invariant, where continuing would
-do damage and there is nothing sensible to report. It is the wrong response to
-a file that was not found. Use `exit` when the program has finished. Use
-`abort` when the program has reached a state that should be impossible.
+Use `abort` for a broken invariant, where more work can cause damage and
+there is nothing useful to report. Do not use `abort` for a file that does not
+exist. Use `exit` when the program has no more work. Use `abort` when the
+program gets to a state that must be impossible.

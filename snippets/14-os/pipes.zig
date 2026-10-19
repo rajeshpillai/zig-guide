@@ -12,7 +12,7 @@ pub fn main(init: std.process.Init) !void {
     defer args.deinit();
     _ = args.next(); // argv[0]
 
-    // The child half: read standard input to end of file, write it back in upper case.
+    // The child half: read standard input to end of file. Write it back in upper case.
     if (args.next() != null) {
         var in_buf: [256]u8 = undefined;
         var reader = std.Io.File.stdin().readerStreaming(io, &in_buf);
@@ -35,18 +35,18 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &stdout_writer.interface;
 
-    // `.pipe` on a stream means: do not pass the parent's stream to the child.
-    // Make a new pipe and give the parent the other end as a `File`.
+    // `.pipe` on a stream means: do not give the stream of the parent to the
+    // child. Make a new pipe, and give the other end to the parent as a `File`.
     var child = try std.process.spawn(io, .{
         .argv = &.{ path_buf[0..len], "child" },
         .stdin = .pipe,
         .stdout = .pipe,
     });
 
-    // Both ends are ordinary descriptors, allocated past the three the
-    // process started with. Which numbers they got depends on what else this
-    // process has open, so the test checks that they are new, not that they
-    // are 4.
+    // Both ends are ordinary descriptors, after the three that the process
+    // started with. The numbers depend on the other files that this process
+    // has open. Thus the test checks that the numbers are new. It does not
+    // check that they are 4.
     const fresh = child.stdin.?.handle > 2 and child.stdout.?.handle > 2;
     try out.print("both ends are fresh descriptors: {}\n\n", .{fresh});
     try out.flush();
@@ -56,10 +56,10 @@ pub fn main(init: std.process.Init) !void {
     try to_child.interface.writeAll("one\ntwo\nthree\n");
     try to_child.interface.flush();
 
-    // Closing the pipe tells the child the input is over. The child is blocked
-    // in a read that only ends when every write end of that pipe is gone. A
-    // parent that keeps this descriptor open and then waits for output waits
-    // forever.
+    // The close tells the child that the input is complete. The child is
+    // blocked in a read. The read ends only when no write end of that pipe
+    // exists. If the parent keeps this descriptor open and then waits for
+    // output, the parent waits forever.
     child.stdin.?.close(io);
     child.stdin = null;
 

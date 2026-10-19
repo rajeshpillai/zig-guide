@@ -1,7 +1,7 @@
 ---
 title: Signals
 seoTitle: "Zig Signal Handling: Set a Flag and Return"
-seoDescription: "A signal handler runs between two instructions, on a thread you did not choose. Almost nothing is safe to call inside one, so set a flag and return."
+seoDescription: "A signal handler runs between two instructions, on a thread that you did not select. Very few calls are safe in a handler, so set a flag and return."
 description: A handler interrupts you between two instructions. Set a flag and return.
 section: Operating System
 order: 60
@@ -9,19 +9,21 @@ order: 60
 
 import Playground from "../../../components/Playground.astro";
 
-A signal is the operating system calling a function in your program at a
-moment you did not choose. It is not a queue you poll, and not a message you
-receive. Your thread is stopped between two instructions, the handler runs on
-that thread's stack, and then the instruction that was next runs as though
-nothing happened.
+A signal is a call from the operating system to a function in your program,
+at a time that you did not select. A signal is not a queue that you poll, and
+it is not a message that you receive.
+
+The kernel stops your thread between two instructions. The handler runs on
+the stack of that thread. Then the next instruction runs, as if nothing
+occurred.
 
 <Playground
   name="14-os.signals"
-  note="Built and run natively by CI. There are no signals in a WASI sandbox, because there is no kernel to deliver them."
+  note="CI builds and runs this snippet natively. A WASI sandbox has no signals, because it has no kernel to send them."
   tryLocally="zig run signals.zig"
 />
 
-## Two things changed, and both are compile errors
+## Two things changed, and both cause compile errors
 
 ```zig
 var action: std.posix.Sigaction = .{
@@ -32,19 +34,23 @@ var action: std.posix.Sigaction = .{
 std.posix.sigaction(.USR1, &action, null);
 ```
 
-`sigaction` returns `void`. It used to return an error union, so `try` in
-front of it is now an error about a non-error value. And a handler takes a
-`std.posix.SIG` rather than a `c_int`:
+`sigaction` returns `void`. In the past, it returned an error union. Thus a
+`try` in front of the call now causes an error about a value that is not an
+error. Also, a handler now takes a `std.posix.SIG`, not a `c_int`:
 
 ```zig
 fn onUsr1(sig: std.posix.SIG) callconv(.c) void
 ```
 
-Every handler written before this change has the signature `fn (c_int)
-callconv(.C) void` and does not compile. A compile error is the better outcome here. An enum
-parameter also means a `switch` over the signal in a shared handler is
-checked. And `.USR1` cannot be confused with the integer 10 on one platform
-and 30 on another.
+Each handler from before this change has the signature `fn (c_int)
+callconv(.C) void`, and it does not compile. Here, a compile error is the
+better result.
+
+The enum parameter has two more advantages:
+
+- The compiler checks a `switch` over the signal in a shared handler.
+- You cannot confuse `.USR1` with the integer 10 on one platform and 30 on a
+  different platform.
 
 ## Set a flag. Do nothing else.
 
@@ -56,25 +62,27 @@ fn onUsr1(_: std.posix.SIG) callconv(.c) void {
 }
 ```
 
-The handler interrupted arbitrary code. If that code was inside `malloc`,
-holding the allocator's lock, and your handler allocates, it waits for a lock
-held by the thread it is running on. That is a deadlock with one thread in it,
-and it happens perhaps once in ten thousand runs, in production, under load.
+The handler interrupted code that can be anywhere. Assume that the code was
+inside `malloc` and held the lock of the allocator. If your handler allocates,
+the handler waits for a lock that its own thread holds. The result is a
+deadlock with one thread. It can occur one time in ten thousand runs, in
+production, under load.
 
-The same applies to anything that takes a lock or allocates, which is most of
-what you would want to do. `std.debug.print` locks standard error. A logger
-allocates. A hash map insert may allocate. The set of calls that are safe here
-is small. It does not include the calls you would use to debug why the handler
-is not working.
+The same problem applies to all calls that take a lock or allocate, and these
+are most of the calls that you want. `std.debug.print` locks standard error. A
+logger allocates. An insert into a hash map can allocate. Only a small set of
+calls is safe in a handler. That set does not include the calls that you use
+to find why the handler does not work.
 
-So the handler stores to an atomic and returns. Everything real happens in the
-main loop, which reads the flag between two units of work, when it has time to
-handle it. It is an atomic rather than a plain `bool` because the
-handler runs between two instructions of code that may be reading the same
-variable. A torn or reordered read there is a real bug on a weakly ordered
-machine.
+Thus the handler stores to an atomic and returns. All the real work occurs in
+the main loop. The main loop reads the flag between two units of work, when it
+has time to handle the flag.
 
-## Blocking defers, it does not discard
+The flag is an atomic, not a plain `bool`. The reason is that the handler runs
+between two instructions of code that can read the same variable. On a
+weakly ordered computer, a torn or reordered read at that point is a real bug.
+
+## A block delays a signal and does not discard it
 
 ```zig
 std.posix.sigprocmask(std.posix.SIG.BLOCK, &mask, null);
@@ -83,34 +91,40 @@ std.posix.sigprocmask(std.posix.SIG.UNBLOCK, &mask, null);
 // handler runs here
 ```
 
-A blocked signal is held pending until it is unblocked, and then delivered.
-This is how a program protects a section that must not be interrupted without
-losing the notification. It is also the mechanism behind `signalfd`. Block a
-signal permanently, then read it as data on a descriptor, and an interruption
-becomes something a normal event loop can wait on. Most servers handle signals
-this way.
+The kernel holds a blocked signal as pending until you unblock it. Then the
+kernel sends the signal. With this method, a program protects a section from
+interruptions, and it does not lose the notification.
 
-Pending is a bit, not a count. Ten `SIGUSR1`s raised while blocked deliver
-once. A handler that increments a counter is counting deliveries, not signals,
-and a program that needs to know how many things happened has to count them
-somewhere else.
+The same method is the base of `signalfd`. Block a signal permanently, then
+read it as data on a descriptor. Then a normal event loop can wait for the
+interruption. Most servers handle signals in this way.
 
-## Defaults you inherit
+Pending is one bit, not a count. If you raise ten `SIGUSR1` signals while the
+signal is blocked, the kernel sends the signal one time. A handler that
+increments a counter counts deliveries, not signals. If a program must know
+how many events occurred, the program must count the events in a different
+place.
 
-Every signal has a disposition before your program touches it, and for most of
-them it is to terminate the process. `SIGUSR1` is the snippet's example: named
-"user defined" and fatal by default, so a program that never installs a
-handler dies when one arrives.
+## Defaults that you inherit
 
-Three worth remembering:
+Each signal has a disposition before your program changes it. For most
+signals, the disposition is to terminate the process.
+
+`SIGUSR1` is the example in the snippet. Its name means "user defined", and by
+default it is fatal. Thus if a program never installs a handler, the program
+stops when a `SIGUSR1` arrives.
+
+Remember these three:
 
 | Signal | Default | Sent when |
 | --- | --- | --- |
 | `SIGINT` | terminate | someone pressed Ctrl-C |
 | `SIGTERM` | terminate | something asked you to stop politely |
-| `SIGPIPE` | terminate | you wrote to a pipe nobody is reading |
+| `SIGPIPE` | terminate | you wrote to a pipe that has no reader |
 
-`SIGINT` and `SIGTERM` are the two a long-running program should handle, and
-handling them means setting a flag that the main loop turns into a clean
-shutdown. `SIGKILL` and `SIGSTOP` cannot be handled or blocked at all. This
-guarantees that an operator can always stop a process that no longer responds.
+A program that runs for a long time must handle `SIGINT` and `SIGTERM`. To
+handle them, set a flag. The main loop then changes the flag into a clean
+shutdown.
+
+You cannot handle or block `SIGKILL` and `SIGSTOP`. Thus an operator can
+always stop a process that does not respond.

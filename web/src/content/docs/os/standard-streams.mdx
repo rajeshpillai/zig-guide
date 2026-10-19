@@ -1,13 +1,14 @@
 ---
 title: The Three Standard Streams
-description: Buffering belongs to your writer, not to the descriptor underneath it.
+description: The buffer belongs to your writer, not to the descriptor under the writer.
 section: Operating System
 order: 20
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The output of the snippet below is not in the order the program wrote it.
+The output of the snippet below is not in the order in which the program
+wrote it.
 
 <Playground name="14-os.standard-streams" />
 
@@ -22,53 +23,69 @@ try unbuffered.interface.writeAll("written second, straight to the fd\n");
 try buffered.interface.flush();
 ```
 
-Both writers address descriptor 1. The first was given a 1 KB buffer and holds
-bytes until it is drained. The second was given an empty slice and has nowhere
-to put them, so each write goes out immediately. The second line reaches the
-terminal first. Reading the source from top to bottom does not show you that.
+Both writers write to descriptor 1:
 
-The descriptor has no buffer. Your writer does the buffering, on your side of the call. So the fix is
-`flush`, not a flag on the file.
-[Hello, World](/learn/getting-started/hello-world/) covers the mechanics. Here,
-the fact to see is that two writers on one descriptor have two independent
-buffers, and neither knows about the other.
+- The first writer has a 1 KB buffer. It holds bytes until the program
+  flushes the buffer.
+- The second writer has an empty slice, so it has no place to keep bytes.
+  Thus each write goes out immediately.
 
-This is a common way for interleaved output to go wrong. A program prints
-progress to standard error unbuffered and results to standard output buffered.
-The log then shows the work in an order that did not happen.
+The second line gets to the terminal first. When you read the source from top
+to bottom, you cannot see that.
+
+The descriptor has no buffer. Your writer holds the buffer, on your side of
+the call. Thus the fix is `flush`, not a flag on the file.
+[Hello, World](/learn/getting-started/hello-world/) explains the mechanics.
+Here, see this fact: two writers on one descriptor have two independent
+buffers, and neither writer knows about the other.
+
+Interleaved output often goes wrong in this way. A program prints progress to
+standard error without a buffer, and it prints results to standard output with
+a buffer. Then the log shows the work in an order that did not occur.
 
 ## Which stream a line belongs on
 
-Descriptor 1 is for what the program was asked to produce. Descriptor 2 is for
-everything the program has to say about producing it.
+Descriptor 1 is for the output that the program must make. Descriptor 2 is for
+all the messages that the program has about that work.
 
-A pipe tests the split. `zig build 2>/dev/null | wc -l` should count results,
-not warnings. It only does if each line went to the right stream. Anything a reader
-would want to filter out of the data belongs on 2: progress, warnings, errors,
-the name of the file being processed.
+A pipe tests the split. `zig build 2>/dev/null | wc -l` must count results,
+not warnings. It does this only if each line went to the correct stream.
 
-Standard error is also the stream whose output survives a crash. For that
-reason it is usually unbuffered, or line buffered. If a diagnostic is still in
-a buffer when the process dies, you never see it, and a crash is when you need
-it most.
+Put on descriptor 2 all the text that a reader wants to remove from the data.
+Examples are progress, warnings, errors, and the name of the file that the
+program processes.
 
-## `isTty`, and why anyone asks
+The output of standard error also stays after a crash. For this reason,
+standard error usually has no buffer, or a line buffer. If a diagnostic is
+still in a buffer when the process stops, you never see the diagnostic. After
+a crash, you need the diagnostic most.
+
+## `isTty`, and why programs ask it
 
 ```zig
 std.Io.File.stdout().isTty(io)
 ```
 
-The answer is false in the playground above, false in a CI log, false through
-a pipe, and true in your terminal. The answer depends on the descriptor, not
-on the program. A well-behaved tool asks it before it emits colour escapes,
-redraws a progress bar in place, or prints a table sized to the window. A tool
-that does not ask writes escape sequences into log files.
+The answer is true in the playground above, because the browser runner
+reports both streams as a terminal. The answer is false in a CI log and
+through a pipe. It is true in your terminal. The answer depends on the
+descriptor, not on the program.
+
+A good tool asks this question before it does one of these things:
+
+- It writes colour escapes.
+- It draws a progress bar again in the same place.
+- It prints a table with the size of the window.
+
+A tool that does not ask writes escape sequences into log files.
 
 ## Both streams in the playground
 
-The playground merges 1 and 2 into one pane, because a browser has one place
-to put text. Under CI they stay separate. The runner routes each to its own
-file and compares only standard output against the recorded expectation. So
-the stderr line in this snippet is not in the expectation that gates it. That
-is the right split for a test: the test checks what the program produced, and
-ignores the messages it printed along the way.
+The playground puts 1 and 2 into one pane, because a browser has one place for
+text. Under CI, the streams stay separate. The runner sends each stream to its
+own file. It compares only standard output with the recorded expectation.
+
+Thus the stderr line in this snippet is not in the expectation that gates the
+snippet. That is the correct split for a test. The test checks what the
+program made, and it ignores the messages that the program printed during the
+work.

@@ -1,20 +1,20 @@
 ---
 title: The Environment
-description: A string-to-string map the parent process chose, handed over at startup.
+description: A map from string to string. The parent process selects the map, and your process gets the map at startup.
 section: Operating System
 order: 30
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The environment is a list of `KEY=value` strings that the parent process
-decided on and the kernel copied into your address space at startup. It
-belongs only to your process. Nothing you do to it after startup reaches any
-other running process.
+The environment is a list of `KEY=value` strings. The parent process selected
+the list, and the kernel copied the list into your address space at startup.
+The environment belongs only to your process. After startup, a change that you
+make to the environment does not get to any other process that runs.
 
 <Playground name="14-os.environment" />
 
-## It arrives already parsed
+## The map is ready at startup
 
 ```zig
 pub fn main(init: std.process.Init) !void {
@@ -23,54 +23,64 @@ pub fn main(init: std.process.Init) !void {
 }
 ```
 
-`init.environ_map` is a `*std.process.Environ.Map` that the startup code
-populated from the raw block before `main` was called, allocated with the same
-`gpa` on `init`. You do not free it and you do not build it.
+`init.environ_map` is a `*std.process.Environ.Map`. The startup code filled
+the map from the raw block before the call to `main`. The startup code
+allocated the map with the same `gpa` that is on `init`. You do not free the
+map, and you do not build the map.
 
-The count is 0 in the playground above. This is the real result, not a stub. A
-wasm module in a browser tab has no parent process to inherit an environment
-from, so there really are none. Reading `PATH`
-there returns `null`, which is exactly what a program should be prepared for
-on any platform. If you did not set a variable yourself, it may not be
-there.
+In the playground above, the count is 0. The count is the real result, not a
+stub. A wasm module in a browser tab has no parent process, so the module
+inherits no environment. Thus the environment is really empty.
 
-## Your copy is yours
+In the playground, `env.get("PATH")` returns `null`. A program must be ready
+for this result on all platforms. If you did not set a variable yourself, the
+variable can be absent.
+
+## Your copy belongs to you
 
 ```zig
 try env.put("ZIG_GUIDE", "live");
 ```
 
-That changes this program's map and nothing else. It does not modify the shell
-that launched you. On its own it does not even modify what a child of yours
-will see. A child inherits a copy of the block that existed when it was
-spawned, and you choose which block that is when you spawn it. Leave it null
-and the child gets the parent's.
+This line changes the map of this program and nothing else. It does not
+change the shell that started your program. Alone, it does not change the
+environment of a child process either.
 
-Many people expect the other direction to work, and it does not. There is no
-call that lets a program change its parent's environment. A tool that wants to
-alter your shell prints something for the shell to evaluate instead. The
-environment was copied at fork time, and the copies were never connected.
+A child process inherits a copy of a block. The block is the one that existed
+when you spawned the child. When you spawn the child, you select the block. If
+you give `null`, the child gets the environment of the parent.
 
-## Keys have two rules
+Many people expect the other direction to work, but it does not work. No call
+lets a program change the environment of its parent. Thus a tool that must
+change your shell prints text, and the shell evaluates that text. The
+kernel copied the environment at fork time, and the copies have no connection.
 
-A name may not be empty, and may not contain `=` or a NUL byte. The map will
-tell you:
+## Two rules for keys
+
+A name must not be empty. A name must not contain `=` or a NUL byte. The map
+can tell you if a key is valid:
 
 ```zig
 std.process.Environ.Map.validateKeyForPut("A=B") // false
 ```
 
-The separator is not escapable. A block is a flat list of `KEY=VALUE` strings,
-split on the first `=`. So a key containing one could be written but never
-read back as what you meant. Everything after that first byte is value,
-including newlines, spaces and further `=` signs, which is why `PATH` works
-and why a value never needs quoting at this level. The quoting you write in a
-shell is the shell's, and it is gone by the time the string reaches you.
+You cannot escape the separator. A block is a flat list of `KEY=VALUE`
+strings, and the split occurs at the first `=`. Thus you can write a key that
+contains `=`, but you cannot read the key back as you intended.
 
-## Case, and the platform that disagrees
+All bytes after the first `=` are the value. The value can contain newlines,
+spaces and more `=` signs. For this reason, `PATH` works, and a value never
+needs quotes at this level. The quotes that you write in a shell belong to
+the shell. The shell removes the quotes before the string gets to your
+program.
 
-Names are case-sensitive on POSIX and case-insensitive on Windows, where the
-block is UTF-16 and `Path` and `PATH` are the same variable. `Environ.Map`
-matches the platform it was built for. Code that reads one spelling and writes
-another is fine on Windows and quietly broken everywhere else, so pick the
-conventional upper-case spelling and use it in both places.
+## Case, and the platform that is different
+
+On POSIX, names are case-sensitive. On Windows, names are case-insensitive,
+and the block is UTF-16. Thus on Windows, `Path` and `PATH` are the same
+variable. `Environ.Map` follows the target platform of the build.
+
+Code that reads one spelling and writes a different spelling works on
+Windows. On all other platforms, the code is wrong, and no error tells you.
+Thus select the usual upper-case spelling, and use the same spelling in both
+places.
