@@ -352,7 +352,7 @@ const openSlug =
           href="https://ziglang.org"
           target="_blank"
           rel="noopener noreferrer"
-          title="Independent community guide. Not affiliated with the Zig Software Foundation; the official site is ziglang.org."
+          title="Independent community guide. It is not affiliated with the Zig Software Foundation. The official site is ziglang.org."
         >
           Unofficial
         </a>
@@ -360,7 +360,7 @@ const openSlug =
             is the answer to it, and the two only mean something together. */}
         <span
           class="verified"
-          title={`Every one of the ${snippetCount} snippets on this site was compiled and run by CI against Zig ${zigVersion}. If one stopped working, the build would be red and this page would not have published.`}
+          title={`CI compiled and ran all ${snippetCount} snippets on this site against Zig ${zigVersion}. If one snippet failed, the build would fail, and this page would not be published.`}
         >
           but fully verified
         </span>
@@ -394,7 +394,7 @@ const openSlug =
       <a
         class="version"
         href={`${base}verification/`}
-        title="Every snippet in this guide is compiled and run against this exact compiler, in CI and in your browser"
+        title="CI compiles and runs every snippet in this guide against this exact compiler. Your browser runs the same wasm files."
       >
         ✓ Zig {zigVersion}
       </a>
@@ -626,7 +626,7 @@ const openSlug =
 
       <span class="status-item">
         <span class="status-sub">
-          Found a bug? Please report it in{" "}
+          To report a bug, use{" "}
           <a href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer">GitHub issues</a>.
         </span>
       </span>
@@ -710,7 +710,7 @@ const openSlug =
         <a href={`${base}whats-new/`}>What's new</a>
         <a href={`${base}blog/`}>Blog</a>
         <a href={`${base}raylib/`}>raylib-zig</a>
-        <a href={`${base}verification/`}>How it's verified</a>
+        <a href={`${base}verification/`}>How it is verified</a>
         <a href={`${base}about/`}>About</a>
         <a href={`${base}contact/`}>Contact</a>
         <a href={`${base}privacy/`}>Privacy</a>

@@ -63,19 +63,19 @@ const moved = post.data.zig !== zigVersion;
         <p class="post-age">
           {checked && plain && (
             <>
-              The runnable examples on this page are checked every night and
-              currently run on Zig {zigVersion}. The plain code blocks are not
-              checked, and may no longer compile.
+              CI checks the runnable examples on this page every night, and
+              they currently run on Zig {zigVersion}. Nothing checks the plain
+              code blocks, and they may not compile now.
             </>
           )}
           {checked && !plain && (
-            <>The runnable examples on this page are checked every night and currently run on Zig {zigVersion}.</>
+            <>CI checks the runnable examples on this page every night, and they currently run on Zig {zigVersion}.</>
           )}
           {!checked && plain && (
             <>
-              The code on this page is not checked against newer compilers.
-              The guide is currently verified against Zig {zigVersion}, and
-              this code may no longer compile on it.
+              Nothing checks the code on this page against newer compilers.
+              CI currently verifies the guide against Zig {zigVersion}, and
+              the code on this page may not compile on that version.
             </>
           )}
         </p>

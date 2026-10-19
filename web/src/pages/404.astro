@@ -29,32 +29,33 @@ const base = import.meta.env.BASE_URL;
     <h1>Not found</h1>
 
     <p class="lede">
-      There is no page at this address. Nothing was lost: the guide's own old
-      addresses still work and land on the chapter that replaced them, so a
-      link that ends up here was either mistyped or cut short somewhere.
+      There is no page at this address. No page was lost. The old addresses of
+      the guide still work, and go to the chapter that replaced them. Thus a
+      link that comes here has an error in the address, or the address is not
+      complete.
     </p>
 
     <p>
       <a href={guideHref}>The guide index</a> lists every track, section and
-      chapter in reading order, which is the fastest way to find what you
-      want. If you know roughly what you want but not where it lives, the
-      search box in the header matches every chapter title and heading; press
+      chapter in reading order. The index is the fastest way to find what you
+      want. If you know the topic but not the page, use the search box in the
+      header. The search box matches every chapter title and heading. Press
       <kbd>/</kbd> to open it.
     </p>
 
     <p>
-      If you are starting rather than looking for one page,{" "}
-      <a href={`${base}paths/`}>the reading paths</a> lay out five routes
-      through the guide depending on where you are coming from: another
-      systems language, a scripting language, no systems experience at all.
+      If you are new to the guide and do not look for one page, read{" "}
+      <a href={`${base}paths/`}>the reading paths</a>. They give seven routes
+      through the guide for different starting points, for example another
+      systems language, a scripting language, or no systems experience.
     </p>
 
     <p>
-      If a link on this site brought you here, that is a bug. It should not be
-      possible, because every internal link on every page is resolved
-      in a browser before a build is allowed to publish. Either way,{" "}
-      <a href={`${base}contact/`}>say where you came from</a> and it gets
-      fixed.
+      If a link on this site sent you here, that link is a bug. This should
+      not be possible, because a browser test resolves every internal link on
+      every page before a build can publish. In all cases,{" "}
+      <a href={`${base}contact/`}>tell the author where you came from</a>, and the link
+      will be fixed.
     </p>
   </article>
 </Base>

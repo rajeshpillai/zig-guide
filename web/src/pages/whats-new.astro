@@ -44,8 +44,8 @@ const readable = (date: string) =>
   });
 
 const description =
-  "Every change published to this Zig guide, day by day: new chapters, " +
-  "rewritten ones, and the snippets that had to change when Zig master moved.";
+  "Every chapter added to this Zig guide, day by day, in the order of " +
+  "publication, from the history of the repository.";
 
 const schema = {
   "@type": "CollectionPage",
@@ -64,19 +64,19 @@ const schema = {
   <article>
     <h1>What's new</h1>
     <p class="section-intro">
-      New chapters, in the order they were published. Generated from the
-      repository's history at build time, so it lists what shipped rather than
-      what someone remembered to write down. The guide currently serves
-      <strong>Zig {zigVersion}</strong>, and all {snippetCount} snippets were
-      compiled and run against that build before this page existed.
+      New chapters, in the order of publication. The build makes this list
+      from the history of the repository. Thus the list shows what shipped,
+      not what a person remembered to write down. The guide currently uses
+      <strong>Zig {zigVersion}</strong>. Before this page existed, CI compiled
+      and ran all {snippetCount} snippets against that build.
     </p>
 
     {
       days.length === 0 ? (
         <p>
-          This build has no history to read: it was made from a shallow clone or
-          from a source tarball with no <code>.git</code> directory. The site
-          itself is unaffected, and a full checkout restores the list.
+          This build has no history to read. It was made from a shallow clone,
+          or from a source tarball with no <code>.git</code> directory. The
+          site itself has no problem, and a full checkout restores the list.
         </p>
       ) : (
         days.map((day) => (
@@ -124,11 +124,10 @@ const schema = {
     }
 
     <p class="release-foot">
-      Older changes are in the repository's history. The nightly build runs at
-      06:00 UTC against Zig master, so a day with no entry here is a day the
-      compiler changed nothing this guide depends on. The same list, for a feed
-      reader, is at <a href={`${import.meta.env.BASE_URL}rss.xml`}>rss.xml</a>,
-      and the guide itself starts at <a href={guideHref}>the section list</a>.
+      Older changes are in the history of the repository. The nightly build
+      runs at 06:00 UTC against Zig master. The same list, for a feed reader, is
+      at <a href={`${import.meta.env.BASE_URL}rss.xml`}>rss.xml</a>. The guide
+      itself starts at <a href={guideHref}>the section list</a>.
     </p>
   </article>
 </Base>

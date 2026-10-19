@@ -34,7 +34,7 @@ export interface Track {
 export const TRACKS: Track[] = [
   {
     title: "Foundations",
-    blurb: "The language and the library it ships with. Start here.",
+    blurb: "The language and its standard library. Start here.",
     // Concurrency last, and a section of its own rather than seven chapters
     // inside Standard Library. The pages had existed for months and nobody
     // could find them: Standard Library is thirty chapters, so a reader
@@ -65,7 +65,7 @@ export const TRACKS: Track[] = [
   },
   {
     title: "Groundwork",
-    blurb: "What the machine is doing, from zero. No C and no prior systems work assumed.",
+    blurb: "What the machine does, from zero. The track assumes no C and no earlier systems work.",
     // After Foundations rather than before it, which is a claim about the
     // common reader rather than about difficulty. Most people arriving here can
     // already program and want Zig; sending them through nine chapters on what
@@ -86,7 +86,7 @@ export const TRACKS: Track[] = [
   },
   {
     title: "Systems",
-    blurb: "Zig against the world outside the process: networks, builds, C, wasm, and pixels.",
+    blurb: "Zig and the world outside the process: networks, builds, C, wasm and pixels.",
     // The OS section first: a socket is a file descriptor, and Networking
     // opens by explaining what a handle is on its way to what an address is.
     // Networking next, and after Foundations rather than inside it: the
@@ -96,12 +96,12 @@ export const TRACKS: Track[] = [
   },
   {
     title: "Cookbook",
-    blurb: "Task-shaped recipes, each a complete program CI compiled and ran.",
+    blurb: "Recipes for tasks. Each recipe is a complete program that CI compiled and ran.",
     sections: ["how-to"],
   },
   {
     title: "From Scratch",
-    blurb: "Rebuild the tools you use every day, one program at a time, using nothing you did not write.",
+    blurb: "Rebuild the tools that you use every day, one program at a time, with only code that you wrote.",
     // A separate track rather than more Cookbook, because the pedagogy is
     // different. A recipe answers "how do I do X in Zig". These answer "what
     // is X, actually", and the answer is a complete program you could have
@@ -115,7 +115,7 @@ export const TRACKS: Track[] = [
   },
   {
     title: "Projects",
-    blurb: "One library at a time, designed in the open, one decision per chapter.",
+    blurb: "One library at a time, designed in public, with one decision in each chapter.",
     // The game last, and it is the odd one out: the only project here with a
     // frame budget, and the only one whose output you judge by playing rather
     // than by reading. It earns its place because the discipline it needs is
@@ -124,7 +124,7 @@ export const TRACKS: Track[] = [
   },
   {
     title: "Practice",
-    blurb: "The algorithms a contest problem assumes you already have, each one printing the steps it took.",
+    blurb: "The algorithms that a contest problem expects you to know. Each program prints the steps that it took.",
     // Last, because it is the one track that is not building towards
     // anything. A reader arrives with a problem and leaves with an
     // algorithm, and the chapters can be read in any order.

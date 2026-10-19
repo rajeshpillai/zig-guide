@@ -73,7 +73,7 @@ const canCompile = existsSync(new URL("../../public/compiler/zig.wasm", import.m
     <div class="pg-static">
       <div class="pg-toolbar">
         <span class="pg-note">
-          {note ?? "Compiled by CI, but not runnable in the browser sandbox."}
+          {note ?? "CI compiles this snippet, but it cannot run in the browser sandbox."}
         </span>
       </div>
       <Code code={shown} lang="zig" themes={CODE_THEMES} defaultColor={false} />

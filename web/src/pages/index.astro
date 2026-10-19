@@ -37,34 +37,35 @@ const riddles = (await shorts()).slice(0, 4);
 >
   <h1>Zig Guide Live</h1>
   <p class="lede">
-    A tutorial for the Zig programming language where <strong>every snippet is
-    compiled and executed against current Zig master on every build</strong>. If
-    an example on this site were out of date, the build would fail.
+    A tutorial for the Zig programming language. <strong>Each build compiles
+    and runs every snippet against current Zig master</strong>. If an example on
+    this site were out of date, the build would fail.
   </p>
   <p>
-    Snippets run in your browser as WebAssembly: the very same artifact CI
-    verified. No server, nothing to install.
+    The snippets run in your browser as WebAssembly. Your browser runs the same
+    artifact that CI verified. There is no server, and you install nothing.
   </p>
   <p>
-    Zig changes fast. Documentation that is only proofread goes out of date,
-    and nobody notices. This guide is re-verified against a fresh compiler
-    every night, and it republishes only when every snippet still passes. The exact mechanism, including
-    what happens to the snippets a browser cannot run, is written up in{" "}
-    <a href={`${base}verification/`}>how this guide is verified</a>. Already on
-    a tagged release? See{" "}
+    Zig changes fast. If people only proofread documentation, it becomes out of
+    date, and nobody sees the problem. Every night, CI verifies this guide again
+    against a new compiler. The site publishes again only when every snippet
+    still passes. For the exact mechanism, read{" "}
+    <a href={`${base}verification/`}>how this guide is verified</a>. That page
+    also tells you what occurs to the snippets that a browser cannot run.
+    If you use a tagged release, read{" "}
     <a href={pageHref("getting-started/coming-from-older-zig")}>what changed</a>.
   </p>
   <p>
     <a href={guideHref}>Read the guide →</a>
     {" or "}
-    <a href={`${base}paths/`}>pick a reading path</a>.
+    <a href={`${base}paths/`}>select a reading path</a>.
   </p>
 
   <h2>What is in it</h2>
   <p>
-    {chapterCount} chapters in four tracks, in one reading order. The arrows at
-    the foot of every page follow that order, so you can read the guide from
-    start to end if you want to.
+    The guide has {chapterCount} chapters in seven tracks, in one reading order.
+    The arrows at the bottom of every page follow that order. Thus you can read
+    the guide from the start to the end.
   </p>
   {/* A track has no page of its own, on purpose, so each one links to where it
       begins. That is the same place the sidebar and the pager would take you. */}
@@ -85,9 +86,9 @@ const riddles = (await shorts()).slice(0, 4);
       <>
         <h2>Riddle breaks</h2>
         <p>
-          Short videos from the author of this guide: riddles that ask the
-          question first and show the answer at the end, and the odd joke.
-          They play here, on this page.
+          Short videos from the author of this guide. Most are riddles: each
+          riddle asks the question first and shows the answer at the end. Some
+          are jokes. The videos play here, on this page.
         </p>
         <ul class="riddle-strip">
           {riddles.map((short) => (
@@ -125,47 +126,49 @@ const riddles = (await shorts()).slice(0, 4);
       are the build target the scripts are compiled to, not a guess. */}
   <h2>What your browser needs</h2>
   <p>
-    Running a snippet needs WebAssembly and JavaScript, and nothing else. The
-    scripts here are built for Chrome and Edge 111, Firefox 114, and Safari
-    16.4 (iOS and iPadOS 16.4) or newer. On anything older, or with JavaScript
-    off, every chapter still reads normally and every snippet is on the page,
-    highlighted and complete; only the Run button is missing.
+    To run a snippet, your browser needs WebAssembly and JavaScript, and nothing
+    else. The scripts here are built for Chrome and Edge 111, Firefox 114, and
+    Safari 16.4 (iOS and iPadOS 16.4) or newer. On an older browser, or with
+    JavaScript off, you can still read every chapter. Every snippet is on the
+    page, highlighted and complete. Only the Run button is missing.
   </p>
   <ul>
     <li>
-      Pressing Run downloads one <code>.wasm</code> file, about 70 KB for a
-      typical snippet and 157 KB for the largest. The page keeps the compiled
-      module, so running the same snippet again fetches nothing.
+      When you press Run, the page downloads one <code>.wasm</code> file. The
+      file is about 70 KB for a typical snippet and about 150 KB for the largest.
+      The snippets that show a safety check fail are an exception, at about
+      1.2 MB each. The page keeps the compiled module, so a second run of the
+      same snippet downloads nothing.
     </li>
     <li>
-      The four chapters that teach vectors are compiled with WebAssembly SIMD,
-      because without it the compiler would leave the vector code out, with no warning. Firefox
-      turns wasm SIMD off on x86 processors without SSE4.1, whatever its
-      version, so those four can fail to load on a machine where every other
-      snippet runs. The playground names the missing requirement instead of
-      showing the raw engine error.
+      The four chapters that teach vectors are compiled with WebAssembly SIMD.
+      Without SIMD, the compiler would remove the vector code, with no warning.
+      Firefox disables wasm SIMD on x86 processors without SSE4.1, in all
+      versions. Thus those four chapters can fail to load on a machine where
+      every other snippet runs. If that occurs, the playground names the
+      missing requirement, and does not show the raw engine error.
     </li>
     <li>
-      Editing a snippet loads a code editor on first use, around 500 KB.
-      Reading and running never load it.
+      When you first edit a snippet, the page loads a code editor of about
+      500 KB. The page does not load the editor when you only read or run.
     </li>
     <li>
-      Nothing is installed and nothing runs on a server. A snippet executes in
-      the page's sandbox with no filesystem, no network and no input, which is
-      why a handful of examples say they were compiled by CI but cannot run
-      here.
+      You install nothing, and nothing runs on a server. A snippet runs in the
+      sandbox of the page. The sandbox has only an empty directory in memory,
+      and no network and no input. Thus some examples say that CI compiled them,
+      but that they cannot run here.
     </li>
   </ul>
 
   <h2>Who writes it</h2>
   <p>
-    Rajesh Pillai, with AI assistance. It is an unofficial community guide
-    and is not affiliated with the Zig Software Foundation, whose
-    documentation is at{" "}
+    Rajesh Pillai writes this guide, with AI assistance. It is an unofficial
+    community guide, and is not affiliated with the Zig Software Foundation.
+    The documentation of the foundation is at{" "}
     <a href="https://ziglang.org" target="_blank" rel="noopener noreferrer"
-      >ziglang.org</a>. More on <a href={`${base}about/`}>what this is and what
-    it is not</a>, and how to <a href={`${base}contact/`}>report an error in a
-    chapter</a>.
+      >ziglang.org</a>. Read more about <a href={`${base}about/`}>what this guide
+    is and what it is not</a>, and how to <a href={`${base}contact/`}>report an
+    error in a chapter</a>.
   </p>
 </Base>
 

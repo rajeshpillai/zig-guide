@@ -26,9 +26,9 @@ const chapterCount = sections.reduce(
 );
 
 const description =
-  `${chapterCount} chapters on Zig, from installing a master build to writing ` +
-  "a renderer, a network service and an ORM. Every snippet is compiled and " +
-  "run against current Zig master on every build.";
+  `${chapterCount} chapters on Zig, from the installation of a master build to ` +
+  "a renderer, a network service and an ORM. Each build compiles and runs " +
+  "every snippet against current Zig master.";
 
 const schema = {
   "@type": "CollectionPage",
@@ -55,16 +55,16 @@ const schema = {
   <article>
     <h1>The Guide</h1>
     <p class="section-intro">
-      {chapterCount} chapters in four tracks. They read in this order, and the
-      arrows at the foot of every page follow it, so you can start at the top
-      and keep following the next arrow. Each track also stands on its own if you already
-      know the language.
+      The guide has {chapterCount} chapters in seven tracks, in this order. The
+      arrows at the bottom of every page follow this order. Thus you can start
+      at the top and follow the next arrow each time. If you already know the
+      language, you can also read each track alone.
     </p>
     <p>
       {first && <a href={pageHref(first.id)}>Start with {first.data.title} →</a>}
       {first && " or "}
-      <a href={`${import.meta.env.BASE_URL}paths/`}>pick a reading path</a> for
-      where you are coming from.
+      <a href={`${import.meta.env.BASE_URL}paths/`}>select a reading path</a> for
+      your starting point.
     </p>
 
     {

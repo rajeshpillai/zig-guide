@@ -50,9 +50,9 @@ const GROUPS: Group[] = [
   {
     title: "The language itself",
     blurb:
-      "Every claim on this site is checked against the compiler below, on the " +
-      "nightly build. When a chapter and the standard library disagree, the " +
-      "standard library is right and the chapter is a bug.",
+      "The nightly build checks every claim on this site against the compiler " +
+      "below. When a chapter and the standard library disagree, the standard " +
+      "library is correct, and the chapter has a bug.",
     sources: [
       {
         name: "ziglang.org",
@@ -64,16 +64,16 @@ const GROUPS: Group[] = [
         name: "Download a master build",
         href: "https://ziglang.org/download/",
         note:
-          "This guide tracks master, not a tagged release. The nightly tarballs are here.",
+          "This guide follows master, not a tagged release. The nightly tarballs are here.",
         cite: "getting-started/installation",
       },
       {
         name: "The Zig source, on Codeberg",
         href: "https://codeberg.org/ziglang/zig",
         note:
-          "Where the standard library actually lives. Chapters cite it by file " +
-          "and line (std/mem.zig, std/Io/Writer.zig) so you can read the " +
-          "implementation behind a claim rather than take it on trust.",
+          "The location of the standard library source. Chapters cite it by " +
+          "file and line (std/mem.zig, std/Io/Writer.zig). Thus you can read the " +
+          "implementation behind a claim, and you do not have to trust the claim.",
         cite: null,
       },
     ],
@@ -81,28 +81,28 @@ const GROUPS: Group[] = [
   {
     title: "Where the standard library stops",
     blurb:
-      "Two libraries the guide names because std leaves these areas out on " +
-      "purpose and says so. Both are dependencies rather than part of the " +
-      "language, so neither is verified by this site's nightly build: they " +
-      "track the compiler on their own schedule.",
+      "Three libraries that the guide names, because std does not cover these " +
+      "areas, on purpose, and says so. All three are dependencies, not part of " +
+      "the language. Thus the nightly build of this site does not verify them. " +
+      "They follow the compiler on their own schedule.",
     sources: [
       {
         name: "zg",
         href: "https://codeberg.org/atman/zg",
         note:
           "Unicode text processing by Sam Atman: grapheme clusters, display " +
-          "width, case folding, normalization. std has none of these, and the " +
-          "tables are large enough that it is right not to. Split into modules " +
-          "so a program includes only the ones it uses.",
+          "width, case folding, normalization. std has none of these. The tables " +
+          "are large, so that decision is correct. The library has separate " +
+          "modules, so a program includes only the modules that it uses.",
         cite: "standard-library/unicode-recipes",
       },
       {
         name: "zig-string",
         href: "https://github.com/JakubSzark/zig-string",
         note:
-          "A UTF-8 aware String type by Jakub Szark, MIT licensed, for when you " +
-          "want the shape of a string class rather than a slice of bytes and a " +
-          "set of free functions.",
+          "A UTF-8 aware String type by Jakub Szark, MIT licensed. Use it when " +
+          "you want the shape of a string class, not a slice of bytes and a set " +
+          "of free functions.",
         cite: "standard-library/string-recipes",
       },
       {
@@ -110,22 +110,22 @@ const GROUPS: Group[] = [
         href: "https://github.com/Hejsil/mecha",
         note:
           "A parser-combinator library by Jimmi Holst Christensen. The build " +
-          "system chapter uses it as its worked example of declaring and " +
-          "fetching a real dependency.",
+          "system chapter uses it as the example of a real dependency to " +
+          "declare and fetch.",
         cite: "build-system/dependencies",
       },
     ],
   },
   {
     title: "Tools",
-    blurb: "You do not need these to follow the guide, but they help.",
+    blurb: "You do not need these tools to follow the guide, but they help.",
     sources: [
       {
         name: "ZLS, the Zig Language Server",
         href: "https://github.com/zigtools/zls",
         note:
           "Completion, go-to-definition and inline errors in any editor that " +
-          "speaks LSP. Build it from source against the same compiler you use.",
+          "supports LSP. Build it from source against the same compiler that you use.",
         cite: "getting-started/installation",
       },
     ],
@@ -133,34 +133,34 @@ const GROUPS: Group[] = [
   {
     title: "Prior art",
     blurb:
-      "Code by other people whose design a chapter ends up rebuilding. Named " +
-      "so that a reader who recognises the design knows where it came from, " +
-      "and a reader who does not has a fuller version to read.",
+      "Code by other people, with a design that a chapter rebuilds. The guide " +
+      "names it for two reasons. A reader who knows the design can see where " +
+      "it came from. A reader who does not know it gets a fuller version to read.",
     sources: [
       {
         name: "olive.c",
         href: "https://github.com/tsoding/olive.c",
         note:
           "A dependency-free 2D graphics library in C by Alexey Kutepov, MIT " +
-          "licensed, rendering into a plain pixel buffer with no display " +
-          "server and no libc. Its Olivec_Canvas is the pixels, width, height " +
-          "and stride struct the canvas chapter builds field for field, and " +
-          "olivec_subcanvas is the same constructor. It is a single header that " +
-          "stays readable while it covers triangles, text and sprites.",
+          "licensed. It renders into a plain pixel buffer, with no display " +
+          "server and no libc. Its Olivec_Canvas is the struct of pixels, width, " +
+          "height and stride that the canvas chapter builds, field for field. " +
+          "olivec_subcanvas is the same constructor. The library is a single " +
+          "header, and it stays readable while it covers triangles, text and sprites.",
         cite: "graphics/sub-canvas",
       },
     ],
   },
   {
     title: "Worth reading",
-    blurb: "Writing by other people that a chapter sends you to.",
+    blurb: "Articles by other people that a chapter sends you to.",
     sources: [
       {
         name: "Everyone should know SIMD, by Mitchell Hashimoto",
         href: "https://mitchellh.com/writing/everyone-should-know-simd",
         note:
-          "The argument for why vector code is worth learning at all, which the " +
-          "SIMD recipe relies on instead of repeating.",
+          "The argument for why you should learn vector code. The SIMD recipe " +
+          "uses this argument, and does not repeat it.",
         cite: "how-to/simd-scan",
       },
     ],
@@ -185,9 +185,8 @@ const groups = GROUPS.map((group) => ({
 const count = groups.reduce((n, group) => n + group.sources.length, 0);
 
 const description =
-  "Every source outside this site that a chapter of the Zig guide links to: " +
-  "the compiler and its standard library, the libraries that cover what std " +
-  "leaves out, and the tools worth having.";
+  "Every external source that a chapter of the Zig guide links to: the " +
+  "compiler, its standard library, libraries for what std does not cover, and tools.";
 
 const schema = {
   "@type": "CollectionPage",
@@ -206,9 +205,10 @@ const schema = {
   <article>
     <h1>References</h1>
     <p class="section-intro">
-      {count} sources outside this site, each one already linked from the chapter
-      that needed it. Nothing here is a recommendation the guide has not made in
-      prose, so the list stays short and does not become a directory.
+      {count} sources outside this site. The chapter that needed each source
+      already links to it. This page recommends nothing that the prose does not
+      already recommend, so the list stays short, and does not become a
+      directory.
     </p>
 
     {

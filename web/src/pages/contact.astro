@@ -32,72 +32,72 @@ const { zigVersion } = await buildInfo();
     <h1>Contact</h1>
 
     <p class="lede">
-      This guide is written and maintained by Rajesh Pillai. Corrections,
-      questions and requests all go to the same place, and all of them are
-      read.
+      Rajesh Pillai writes and maintains this guide. Corrections, questions
+      and requests all go to the same place, and he reads all of them.
     </p>
 
     <p>
-      Email <a href={`mailto:${AUTHOR_EMAIL}`}>{AUTHOR_EMAIL}</a> to reach him
-      directly. The sections below say which channel gets a given thing fixed
-      fastest.
+      To contact him directly, send an email to{" "}
+      <a href={`mailto:${AUTHOR_EMAIL}`}>{AUTHOR_EMAIL}</a>. The sections below
+      tell you which channel gives the fastest fix for each type of problem.
     </p>
 
     <h2>Something on a page is wrong</h2>
     <p>
-      This is the most useful thing you can send. Open an issue on{" "}
+      This report is the most useful thing that you can send. Open an issue
+      on{" "}
       <a
         href="https://github.com/rajeshpillai/zig-guide/issues"
         target="_blank"
-        rel="noopener noreferrer">the issue tracker</a>. A report that can be
-      acted on straight away usually has four things in it:
+        rel="noopener noreferrer">the issue tracker</a>. If a report has these
+      four items, the author can usually act on it immediately:
     </p>
     <ul>
       <li>The URL of the chapter.</li>
       <li>
         Your Zig version, from <code>zig version</code>. The guide targets
-        master and was last verified against {zigVersion}. About half of
-        reports turn out to be a tagged release running code written for
-        master, which is what{" "}
+        master, and CI last verified it against {zigVersion}. In about half of
+        the reports, a tagged release runs code that was written for master.
+        The chapter{" "}
         <a href={pageHref("getting-started/coming-from-older-zig")}
-          >coming from an older Zig</a> covers.
+          >Migrate from an Older Zig</a> is about that problem.
       </li>
-      <li>What you expected to happen.</li>
-      <li>What happened instead, with the error message pasted in full.</li>
+      <li>The result that you expected.</li>
+      <li>The result that you got, with the full error message.</li>
     </ul>
     <p>
       If a snippet does not compile for you on current master, the nightly
-      build will fail on it soon, so please report it straight away. Every snippet
-      is compiled and run nightly, so it should not be possible, and if it is
-      happening then something about the check is wrong too. How that check
-      works is written up in{" "}
+      build will soon fail on it. Please report it immediately. CI compiles and
+      runs every snippet each night, so this problem should not be possible. If
+      it occurs, then the check also has a problem. To learn how the check
+      works, read{" "}
       <a href={`${base}verification/`}>how this guide is verified</a>.
     </p>
 
     <h2>A chapter is missing, or one is unclear</h2>
     <p>
-      Also the issue tracker. Say what you were trying to do and where you got
-      stuck. "I could not work out how to do X" is more useful than a proposed
-      table of contents, because the real gap is usually not where it seems to
-      be.
+      Use the issue tracker for this too. Say what you tried to do, and where
+      you could not continue. "I could not find how to do X" is more useful
+      than a proposed table of contents. The real gap is usually not where it
+      seems to be.
     </p>
 
-    <h2>A correction you have already written</h2>
+    <h2>A correction that you wrote</h2>
     <p>
-      Pull requests are welcome at{" "}
+      You can send pull requests to{" "}
       <a
         href="https://github.com/rajeshpillai/zig-guide"
         target="_blank"
         rel="noopener noreferrer">github.com/rajeshpillai/zig-guide</a>. Every
-      snippet is a real file that the build compiles and runs, so a change to
-      example code is checked automatically the moment it is pushed. The
-      repository's own notes describe how snippets are classified and what a new
-      one needs.
+      snippet is a real file that the build compiles and runs. Thus, when you
+      push a change to example code, CI checks it automatically. The notes in
+      the repository tell how the build classifies snippets, and what a new
+      snippet needs.
     </p>
 
     <h2>Anything else</h2>
     <p>
-      For anything that does not belong in a public issue, write to{" "}
+      For a message that does not belong in a public issue, write to{" "}
       <a href={`mailto:${AUTHOR_EMAIL}`}>{AUTHOR_EMAIL}</a>. Rajesh is also on X
       as{" "}
       <a href="https://twitter.com/rajeshpillai" target="_blank" rel="noopener noreferrer"
@@ -106,11 +106,11 @@ const { zigVersion } = await buildInfo();
 
     <h2>What this site cannot do</h2>
     <p>
-      It has no accounts, no comment system and no server. Nothing here can
-      receive a form submission or store a message, which is why every route
-      above leaves this domain: the address at the top goes to a mailbox, not to
-      anything running here. The same fact is why there is so little to say on{" "}
-      <a href={`${base}privacy/`}>privacy</a>.
+      This site has no accounts, no comment system and no server. Nothing here
+      can receive a form or store a message. Thus every route above goes to a
+      different domain. The address at the top goes to a mailbox, not to a
+      program on this site. For the same reason, the{" "}
+      <a href={`${base}privacy/`}>privacy</a> page is short.
     </p>
 
     <p><a href={`${base}about/`}>About this guide →</a></p>

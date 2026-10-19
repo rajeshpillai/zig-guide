@@ -13,7 +13,7 @@ const list = await posts();
 
 const description =
   "Essays, notes on what changed in Zig master, and tutorials that do not " +
-  "fit a chapter. Every post says which Zig compiler it was written against.";
+  "fit a chapter. Each post names the Zig compiler that it was written against.";
 ---
 
 <Base
@@ -36,10 +36,10 @@ const description =
   <article>
     <h1>Blog</h1>
     <p class="section-intro">
-      Posts about Zig, written on a date and against a named compiler. The
-      chapters in the guide are kept current every night. Posts are not: each
-      one shows the Zig version it was written against, so you can see how old
-      it is. For a feed reader, posts are at{" "}
+      Posts about Zig. Each post has a date and a named compiler. Every night,
+      CI keeps the chapters of the guide current, but not the posts. Each post
+      shows the Zig version that it was written against, so you can see the age
+      of the post. For a feed reader, the posts are at{" "}
       <a href={`${blogHref}rss.xml`}>blog/rss.xml</a>.
     </p>
 

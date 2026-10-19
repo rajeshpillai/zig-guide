@@ -19,7 +19,7 @@ const { zigVersion, snippetCount } = await buildInfo();
 <Base
   title="About"
   seoTitle="About Zig Guide Live"
-  description="Who writes this Zig guide, why it targets master rather than a tagged release, and what it deliberately is not."
+  description="Who writes this Zig guide, why it targets master and not a tagged release, and what the guide is not, by design."
   crumbs={[{ label: "About" }]}
   schema={{ "@type": "AboutPage", name: "About Zig Guide Live" }}
 >
@@ -28,125 +28,136 @@ const { zigVersion, snippetCount } = await buildInfo();
 
     <p class="lede">
       Zig Guide Live is a tutorial and cookbook for the Zig programming
-      language. Every code example on it was compiled and executed by a machine
-      against Zig {zigVersion} before this page was published, and the artifact
-      that ran in that check is the one your browser downloads when you press
-      Run.
+      language. Before this page was published, a machine compiled and ran
+      every code example on the site against Zig {zigVersion}. When you press
+      Run, your browser downloads the same artifact that ran in that check.
     </p>
 
     <h2>Why it exists</h2>
     <p>
-      Zig has no stable release, and the language still changes. Much of what
-      is written about it goes out of date. Between the last tagged releases and today,
-      <code>pub fn main()</code> gained a parameter, writers became buffered and
-      have to be flushed, <code>std.fs.File</code> became <code>std.Io.File</code>
-      and started taking an <code>Io</code>, the <code>**</code> array-repeat
-      operator was removed outright, and <code>ArrayList</code> stopped holding
-      an allocator. Each of those breaks the first program in most Zig tutorials
+      Zig has no stable release, and the language still changes. Much of the
+      text about Zig becomes out of date. These changes occurred between the
+      last tagged releases and today:
+    </p>
+    <ul>
+      <li><code>pub fn main()</code> got a parameter.</li>
+      <li>Writers became buffered, and you must flush them.</li>
+      <li>
+        <code>std.fs.File</code> became <code>std.Io.File</code>, and it now
+        takes an <code>Io</code>.
+      </li>
+      <li>The <code>**</code> array-repeat operator was removed completely.</li>
+      <li><code>ArrayList</code> does not hold an allocator now.</li>
+    </ul>
+    <p>
+      Each of these changes breaks the first program in most Zig tutorials
       that exist.
     </p>
     <p>
-      Usually this failure is silent. A tutorial is written against whatever
-      compiler its author had, it is correct for a few months, and then it is
-      wrong with no visible sign that anything changed. A reader following it
-      hits an error message that does not appear anywhere in the text, and has
-      no way to tell whether they made a mistake or the page did.
+      Usually this failure is silent. An author writes a tutorial against the
+      compiler that the author had. The tutorial is correct for a few months.
+      Then it is wrong, with no visible sign that something changed. A reader
+      who follows the tutorial gets an error message that is not in the text.
+      The reader cannot tell if the reader or the page made the mistake.
     </p>
     <p>
-      This site is built so that this failure is visible. There is no separate copy of
-      the examples kept in prose: the pages embed the same files the build
-      compiles, so a snippet that stopped working cannot be published at all.
-      When Zig master changes something, the build fails. The fix is to teach
-      the new form and say what the old one was. That delta is usually
-      the most useful thing on the page for anyone arriving from an older
-      tutorial.
+      This site makes the failure visible. The prose keeps no separate copy of
+      the examples. The pages embed the same files that the build compiles, so
+      a snippet that stopped working cannot be published. When Zig master
+      changes something, the build fails. The fix is to teach the new form,
+      and to say what the old form was. For a reader who comes from an older
+      tutorial, that difference is usually the most useful part of the page.
     </p>
 
     <h2>How it is built</h2>
     <p>
-      {snippetCount} snippets live as ordinary <code>.zig</code> files in the
-      repository. A build step compiles every one of them, runs the ones that
-      can be run, and compares their output against a recorded expected result.
-      Only if all of that passes does the site build at all, and only then is it
-      published. The same check runs again every night against a freshly built
-      compiler, so the guide proves itself correct today rather than on the day
-      it was last edited.
+      The repository keeps {snippetCount} snippets as ordinary
+      <code>.zig</code> files. A build step compiles all of them, and runs the
+      snippets that can run. Then the build step compares their output with a
+      recorded expected result. The site builds only if all of these checks
+      pass, and only then is the site published. The same check runs again
+      every night against a new compiler. Thus the guide proves that it is
+      correct today, not only on the day of the last edit.
     </p>
     <p>
-      The full mechanism, including what happens to snippets that cannot run in
-      a browser and the five that are required to fail, is written up in{" "}
-      <a href={`${base}verification/`}>how this guide is verified</a>.
+      For the full mechanism, read{" "}
+      <a href={`${base}verification/`}>how this guide is verified</a>. That
+      page also tells what occurs to the snippets that cannot run in a browser,
+      and to the five snippets that must fail.
     </p>
 
     <h2>Who writes it</h2>
     <p>
-      Rajesh Pillai. It is one person's work, written with AI assistance and
-      then verified: every code example by the build described above, and the
-      prose by a team of engineers before it is published. The machine checks
-      that the code is correct; people check that the explanation is.
+      Rajesh Pillai writes this guide. It is the work of one person, written
+      with AI assistance and then verified. The build above verifies every
+      code example. A team of engineers verifies the prose before it is
+      published. The machine checks that the code is correct. People check
+      that the explanation is correct.
     </p>
     <p>
-      It is not affiliated with the Zig Software Foundation. The official
-      language documentation is at{" "}
+      This guide is not affiliated with the Zig Software Foundation. The
+      official language documentation is at{" "}
       <a href="https://ziglang.org" target="_blank" rel="noopener noreferrer"
-        >ziglang.org</a>, and that is the reference this guide defers to on any
-      point where the two disagree.
+        >ziglang.org</a>. If the two disagree on a point, the official
+      documentation is correct.
     </p>
     <p>
-      The source, including every snippet and the build that checks them, is
-      public at{" "}
+      The source is public at{" "}
       <a
         href="https://github.com/rajeshpillai/zig-guide"
         target="_blank"
-        rel="noopener noreferrer">github.com/rajeshpillai/zig-guide</a>. If
-      something here is wrong, it can be checked and corrected in the open;
-      see <a href={`${base}contact/`}>contact</a>.
+        rel="noopener noreferrer">github.com/rajeshpillai/zig-guide</a>, with
+      every snippet and the build that checks them. If something here is wrong,
+      anyone can check and correct it in public. See{" "}
+      <a href={`${base}contact/`}>contact</a>.
     </p>
     <p>
-      Away from Zig, the same author makes short riddle and joke videos on YouTube:{" "}
+      The same author also makes short riddle and joke videos on YouTube:{" "}
       {CHANNELS.map((channel, i) => (
         <>
           {i > 0 && ", "}
           <a href={channelUrl(channel)} target="_blank" rel="noopener noreferrer"
             >{channel.name}</a>
         </>
-      ))}. Each chapter ends with one of them, and it plays on the page.
+      ))}. Each chapter ends with one of these videos, and the video plays on
+      the page.
     </p>
 
     <h2>What it is not</h2>
     <ul>
       <li>
-        <strong>Not a language reference.</strong> It teaches by running
-        programs and explaining what they did. Where you need the exact rule,
-        the official reference and the standard library source are better.
+        <strong>Not a language reference.</strong> The guide runs programs, and
+        then explains what they did. If you need the exact rule, use the
+        official reference and the standard library source.
       </li>
       <li>
-        <strong>Not a guide to a tagged release.</strong> Code here targets
-        master. On 0.14 or 0.15 much of it will not build, which is what{" "}
+        <strong>Not a guide to a tagged release.</strong> The code here
+        targets master. On 0.14 or 0.15, much of the code does not build. For
+        that problem, read{" "}
         <a href={pageHref("getting-started/coming-from-older-zig")}
-          >coming from an older Zig</a> is for.
+          >Migrate from an Older Zig</a>.
       </li>
       <li>
-        <strong>Not stable in the way a book is.</strong> Chapters change when
-        the compiler does. The version in the footer is always the compiler
-        that verified what you are reading, and{" "}
-        <a href={`${base}whats-new/`}>what's new</a> lists what moved.
+        <strong>Not stable in the way a book is.</strong> The chapters change
+        when the compiler changes. The version in the footer is always the
+        compiler that verified the page that you read. The page{" "}
+        <a href={`${base}whats-new/`}>what's new</a> lists the new chapters.
       </li>
       <li>
-        <strong>Not published unreviewed.</strong> Drafting uses AI assistance;
-        nothing reaches the site on that basis alone. The code is proved by the
-        build, and the prose is read by engineers who can tell whether the
-        explanation is right.
+        <strong>Not published without review.</strong> The drafts use AI
+        assistance, but no draft goes on the site for that reason alone. The
+        build proves the code. Engineers read the prose, and they can tell if
+        the explanation is correct.
       </li>
     </ul>
 
     <h2>Reading it</h2>
     <p>
-      There are four tracks and one reading order through all of them. The
-      arrows at the foot of every chapter follow that order, so the guide can be
-      read straight through. If you already know what you are here for,{" "}
-      <a href={`${base}paths/`}>the reading paths</a> pick a route for five
-      common starting points, and <a href={guideHref}>the guide index</a> lists
+      There are seven tracks, and one reading order through all of them. The
+      arrows at the bottom of every chapter follow that order, so you can read
+      the guide from start to end. If you know what you want,{" "}
+      <a href={`${base}paths/`}>the reading paths</a> give a route for seven
+      common starting points. <a href={guideHref}>The guide index</a> lists
       every section.
     </p>
 

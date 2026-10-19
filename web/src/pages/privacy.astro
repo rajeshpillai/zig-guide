@@ -7,7 +7,7 @@ const base = import.meta.env.BASE_URL;
 
 <Base
   title="Privacy"
-  description="What this site collects, what it does not, and what third-party advertising does."
+  description="What this site collects, what it does not collect, and what third-party advertising does."
   crumbs={[{ label: "Privacy" }]}
 >
   <article>
@@ -21,29 +21,43 @@ const base = import.meta.env.BASE_URL;
 
     <h2>What the site itself stores</h2>
     <p>
-      Nothing. The guide sets no cookies of its own and runs no server that
-      could log you. Code you run in a playground is compiled and executed entirely in your
-      browser as WebAssembly: it is never uploaded, and edits you make to a
-      snippet are discarded when you leave the page. The search index is a
-      static JSON file your browser downloads and queries locally, so what you
-      type into the search box is never sent anywhere.
+      The guide sets no cookies of its own, and runs no server that could log
+      your visits. Your browser keeps four choices in its local storage: light
+      or dark, the palette, an open or closed sidebar, and decorations on or
+      off. A fifth value shows that the decoration animation played in this
+      tab. The browser deletes that value when you close the tab. These values stay in your browser, and the site never
+      sends them anywhere. Code that you run in a playground runs entirely
+      in your browser as WebAssembly. The code is never uploaded. When you
+      leave the page, your browser discards the edits that you made to a
+      snippet. The search index is a static JSON file. Your browser downloads
+      the file and searches it locally, so the text that you type into the
+      search box is never sent to a server.
     </p>
 
     <h2>Measurement</h2>
     <p>
       The site uses Google Analytics to count how many people read it, which
-      chapters they read, and roughly where in the world they are. It records
-      the page you are on, the link that sent you here, your browser and
-      device type, and a country-level location derived from your IP address.
-      It sets a cookie so that two page loads from the same browser are
-      counted as one visit rather than two. There is no login here and nothing
-      asks for your name or email, so none of this is tied to an identity.
+      chapters they read, and approximately where in the world they are.
+      Google Analytics records these items:
+    </p>
+    <ul>
+      <li>the page that you are on</li>
+      <li>the link that sent you here</li>
+      <li>your browser and your device type</li>
+      <li>a location at the level of a country, derived from your IP address</li>
+    </ul>
+    <p>
+      Google Analytics sets a cookie, so that it counts two page loads from the
+      same browser as one visit and not two. There is no login here, and
+      nothing asks for your name or email. Thus none of this data is tied to an
+      identity.
     </p>
     <p>
-      Blocking the domains <code>googletagmanager.com</code> and{" "}
-      <code>google-analytics.com</code>, or using a browser that blocks
-      trackers, stops the measurement entirely. Nothing on the site depends on
-      it: every page, playground and search works the same either way.
+      To stop the measurement entirely, block the domains{" "}
+      <code>googletagmanager.com</code> and <code>google-analytics.com</code>,
+      or use a browser that blocks trackers. Nothing on the site needs the
+      measurement. Every page, playground and search works in the same way
+      with it or without it.
     </p>
 
     {
@@ -62,65 +76,67 @@ const base = import.meta.env.BASE_URL;
     }
     <h2>Advertising</h2>
     <p>
-      This site may use Google AdSense to display advertisements. Where
+      This site may use Google AdSense to show advertisements. Where
       advertising is enabled, Google and its advertising partners may use
-      cookies and device identifiers to serve and measure ads, and, where
-      Google has a legal basis for it, to personalise them based on your prior
-      visits to this and other sites.
+      cookies and device identifiers to serve and measure ads. Where Google has
+      a legal basis, they may also use cookies and device identifiers to
+      personalise ads, based on your
+      earlier visits to this site and to other sites.
     </p>
     <p>
-      You can turn personalised advertising off at{" "}
+      You can disable personalised advertising at{" "}
       <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">
         Google Ad Settings</a>. Google explains how it uses data from sites that
-      use its services on its{" "}
+      use its services, on its{" "}
       <a
         href="https://policies.google.com/technologies/partner-sites"
         target="_blank"
         rel="noopener noreferrer"
-      >partner sites policy</a> page, and you can opt out of third-party vendor
-      cookies more broadly at{" "}
+      >partner sites policy</a> page. To refuse third-party vendor cookies from
+      more companies, go to{" "}
       <a href="https://optout.aboutads.info" target="_blank" rel="noopener noreferrer"
-        >aboutads.info</a>. Blocking cookies in your browser also works; the guide
-      itself does not need them.
+        >aboutads.info</a>. You can also block cookies in your browser. The
+      guide itself does not need cookies.
     </p>
 
     <h2>Third parties the pages contact</h2>
     <p>
-      Ad requests go to Google's advertising domains, and analytics beacons to
-      Google's measurement domains. Everything else the site needs, including
-      the compiler artifacts and the editor, is served from this domain. Links out to sites like ziglang.org or Codeberg are ordinary
-      links: following one is a visit to that site under its own policy.
+      Ad requests go to the advertising domains of Google. Analytics beacons go
+      to the measurement domains of Google. This domain serves everything else
+      that the site needs, for example the compiler artifacts and the editor.
+      Links to other sites, for example ziglang.org or Codeberg, are ordinary
+      links. If you click one, you visit that site under its own policy.
     </p>
 
     <h2>YouTube</h2>
     <p>
-      The short video card at the end of a chapter or blog post, and the ones
-      on the home page, are riddles and jokes from YouTube. The list of videos
-      is read from the channel's public feed when the site is built, not when
-      you visit.
+      The short video cards at the end of a chapter or blog post, and on the
+      home page, show riddles and jokes from YouTube. When the site is built,
+      the build reads the list of videos from the public feed of the channel.
+      The site does not read the feed when you visit.
     </p>
     <p>
-      The card at the end of a chapter or post starts playing by itself, with
-      the sound off, once half of it is on your screen. At that point the page
-      loads YouTube's player from <code>youtube-nocookie.com</code>, YouTube's
-      privacy-enhanced mode. YouTube then receives your IP address and browser
-      details, as any video site would, and may store data in your browser
-      once the video plays.{" "}
+      The card at the end of a chapter or post starts to play by itself, with
+      the sound off, when half of the card is on your screen. At that time, the
+      page loads the YouTube player from <code>youtube-nocookie.com</code>,
+      which is the privacy-enhanced mode of YouTube. YouTube then receives your
+      IP address and browser details, as any video site does. YouTube may
+      store data in your browser when the video plays.{" "}
       <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer"
-        >Google's privacy policy</a> applies to the player. If you never scroll
-      to the card, nothing from YouTube loads.
+        >The privacy policy of Google</a> applies to the player. If you never
+      scroll to the card, nothing from YouTube loads.
     </p>
     <p>
-      The video does not start by itself if your system is set to reduce
-      motion or your browser has data saver on. The cards on the home page
-      never start by themselves. In those cases nothing from YouTube loads
-      until you press Play. With JavaScript off, Play is a link that opens the
-      video on YouTube instead.
+      The video does not start by itself in these conditions: your system is
+      set to reduce motion, or your browser has data saver on. The cards on
+      the home page never start by themselves. In those cases, nothing from
+      YouTube loads until you press Play. With JavaScript off, Play is a link
+      that opens the video on YouTube.
     </p>
 
     <h2>Contact</h2>
     <p>
-      This guide is maintained by {AUTHOR}. Questions about this page can go to{" "}
+      {AUTHOR} maintains this guide. Send questions about this page to{" "}
       <a href={`mailto:${AUTHOR_EMAIL}`}>{AUTHOR_EMAIL}</a>, or to the{" "}
       <a
         href="https://github.com/rajeshpillai/zig-guide"

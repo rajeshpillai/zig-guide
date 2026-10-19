@@ -34,10 +34,10 @@ const PATHS: Path[] = [
   {
     title: "New to systems programming",
     who:
-      "You have written software, but never in a language that made you say " +
-      "where a value lives. Start in Groundwork, which teaches the machine " +
-      "rather than the language and assumes no C. Then read the first two " +
-      "sections in full.",
+      "You wrote software before, but never in a language that made you say " +
+      "where a value is in memory. Start in Groundwork. Groundwork teaches the " +
+      "machine, not the language, and assumes no C. Then read the first two " +
+      "sections completely.",
     chapters: [
       "systems-from-scratch/everything-is-bytes",
       "systems-from-scratch/numbers-have-a-size",
@@ -69,15 +69,15 @@ const PATHS: Path[] = [
       "standard-library/arraylist",
     ],
     then:
-      "Then Data Structures, which makes you answer who frees what, or the " +
-      "From Scratch track, which makes you build the tools you have been using.",
+      "Then read Data Structures, which makes you decide who frees what. Or read " +
+      "the From Scratch track, which makes you build the tools that you use.",
   },
   {
-    title: "Coming from C",
+    title: "From C",
     who:
-      "You already know pointers, the stack and undefined behaviour. Skip the " +
-      "tour and read the places where Zig differs from C, then go straight to " +
-      "the C interop chapters.",
+      "You already know pointers, the stack and undefined behaviour. Do not " +
+      "read the tour. Read the parts where Zig is different from C, then go " +
+      "directly to the C interop chapters.",
     chapters: [
       "getting-started/hello-world",
       "language-basics/integer-rules",
@@ -96,13 +96,13 @@ const PATHS: Path[] = [
       "working-with-c/cimport",
       "build-system/cross-compilation",
     ],
-    then: "Then the Cookbook, which shows in Zig the programs you would have written in C.",
+    then: "Then read the Cookbook. It shows, in Zig, the programs that you wrote in C before.",
   },
   {
-    title: "Coming from a garbage-collected language",
+    title: "From a garbage-collected language",
     who:
-      "Go, Java, C#, Python, JavaScript. The syntax will not be the hard part. " +
-      "Memory and error handling will, so this path puts both first.",
+      "Go, Java, C#, Python, JavaScript. The syntax is not the difficult part. " +
+      "Memory and error handling are difficult, so this path puts both first.",
     chapters: [
       "getting-started/hello-world",
       "getting-started/running-tests",
@@ -120,15 +120,15 @@ const PATHS: Path[] = [
       "language-basics/comptime",
       "standard-library/io-interface",
     ],
-    then: "Then Concurrency, which is the other thing your old runtime was doing for you.",
+    then: "Then read Concurrency. Your old runtime also did concurrency for you.",
   },
   {
     title: "Build it from scratch",
     who:
-      "You learn a thing by writing it. This is the spine of the From Scratch " +
-      "track: the primitives a shell needs, the tools you use every day, a " +
-      "language, and a web server. Each one is a complete program, and the " +
-      "track has more of each if one stage interests you.",
+      "You learn a thing when you write it. This path is the main line of the " +
+      "From Scratch track: the primitives that a shell needs, the tools that " +
+      "you use every day, a language, and a web server. Each one is a complete " +
+      "program. If one stage interests you, the track has more chapters on it.",
     chapters: [
       "terminal/strings",
       "terminal/tokenize",
@@ -144,14 +144,14 @@ const PATHS: Path[] = [
       "web-server/server",
     ],
     then:
-      "Then the chapters each section skips here: grep and printf, the bytecode " +
-      "compiler and its VM, and the rest of the web server.",
+      "Then read the chapters that this path does not include: grep and " +
+      "printf, the bytecode compiler and its VM, and the rest of the web server.",
   },
   {
-    title: "I want to ship something this week",
+    title: "Ship something this week",
     who:
-      "You will read the language later. This is the shortest route to a " +
-      "program that reads input, does work, and writes a result.",
+      "You will read about the language later. This path is the shortest " +
+      "route to a program that reads input, does work, and writes a result.",
     chapters: [
       "getting-started/installation",
       "getting-started/hello-world",
@@ -166,14 +166,14 @@ const PATHS: Path[] = [
       "build-system/build-modes",
       "build-system/cross-compilation",
     ],
-    then: "Then pick the recipe that matches what you are building.",
+    then: "Then select the recipe that matches what you build.",
   },
   {
-    title: "Writing a network service",
+    title: "Write a network service",
     who:
-      "A server, a client, or anything that speaks a protocol. The framing " +
-      "chapters decide whether it keeps working on a real network, so they " +
-      "come before the chapters where the sockets do most of the work.",
+      "A server, a client, or any program that uses a protocol. The framing " +
+      "chapters decide if your program continues to work on a real network. " +
+      "Thus they come before the chapters where the sockets do most of the work.",
     chapters: [
       "standard-library/readers-and-writers",
       "standard-library/io-interface",
@@ -193,13 +193,13 @@ const PATHS: Path[] = [
       "web-server/routes",
       "web-server/static",
     ],
-    then: "Then form bodies, sessions and templates, or the PostgreSQL wire protocol for a bigger one.",
+    then: "Then read about form bodies, sessions and templates, or the PostgreSQL wire protocol for a larger service.",
   },
   {
-    title: "Upgrading from an older Zig",
+    title: "Upgrade from an older Zig",
     who:
-      "Your code compiled on 0.13 or 0.14 and does not now. Read what moved, " +
-      "then the four areas that moved the most.",
+      "Your code compiled on 0.13 or 0.14, and it does not compile now. Read " +
+      "what moved, then read the four areas that moved the most.",
     chapters: [
       "getting-started/coming-from-older-zig",
       "standard-library/io-interface",
@@ -208,7 +208,7 @@ const PATHS: Path[] = [
       "standard-library/arraylist",
       "language-basics/arrays",
     ],
-    then: "Then re-run your own test suite against a master build.",
+    then: "Then run your own test suite again against a master build.",
   },
 ];
 
@@ -228,10 +228,8 @@ const paths = PATHS.map((path) => ({
 }));
 
 const description =
-  "Short routes through the Zig guide for people who arrived with a goal: new " +
-  "to systems programming, coming from C, coming from a garbage-collected " +
-  "language, building the tools from scratch, writing a network service, " +
-  "shipping something this week, or upgrading from an older Zig.";
+  "Seven short routes through the Zig guide: new to systems work, from C, from " +
+  "a garbage-collected language, tools from zero, a network service, and more.";
 
 const schema = {
   "@type": "CollectionPage",
@@ -250,10 +248,10 @@ const schema = {
   <article>
     <h1>Reading paths</h1>
     <p class="section-intro">
-      The guide has one order and the arrows at the foot of each page follow it.
-      These are the shortcuts. Each one is a run of chapters that answers a
-      particular starting point, and every link goes to the same chapter the
-      sidebar does.
+      The guide has one order, and the arrows at the bottom of each page follow
+      that order. The paths below are shortcuts. Each path is a list of
+      chapters for one starting point. Every link goes to the same chapter as
+      the link in the sidebar.
     </p>
 
     {
@@ -275,8 +273,9 @@ const schema = {
     }
 
     <p>
-      None of these fit? <a href={guideHref}>The section list</a> is the whole guide,
-      and the first chapter of Getting Started leads through all of it.
+      If no path fits, use <a href={guideHref}>the section list</a>. It shows
+      the full guide, and the first chapter of Getting Started is the start of
+      the full reading order.
     </p>
   </article>
 </Base>
