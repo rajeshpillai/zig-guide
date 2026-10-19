@@ -78,7 +78,7 @@ Then any server can verify it without shared state. A signed cookie or a JWT
 works this way. It removes the lookup but adds a new problem: you cannot
 revoke something you are not storing.
 
-## If you have written C
+## If you know C
 
 In C, this parsing is usually done with `strtok`, which has two flaws. It
 writes `\0` over each delimiter, which destroys the header. And it collapses

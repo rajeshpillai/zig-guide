@@ -63,7 +63,7 @@ physics, where recomputing on demand would mean walking from the root for
 every query. The cache is worth it when reads outnumber writes, which is the
 same question as [indexing a database](/learn/storage/indexes/).
 
-## If you have written C
+## If you know C
 
 The tree is `struct Node { int x, y; struct Node *first, *next; }` and the
 walk is the same recursion. Two familiar hazards apply.

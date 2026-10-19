@@ -92,7 +92,7 @@ characters, so an accidental collision does not happen in practice. A
 deliberate collision needs an attacker who already controls the boundary. That
 attacker can already send whatever parts they like.
 
-## If you have written C
+## If you know C
 
 The search uses `memmem` and not `strstr`, because file data contains nul
 bytes. So every C string function is wrong here. Code that calls `strlen` on a

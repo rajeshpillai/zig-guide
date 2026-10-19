@@ -76,7 +76,7 @@ every instruction. The JVM's bytecode verifier exists to do this. The checks
 are here because they are cheap at this size. Also, a hand-written bad chunk
 should report an error, not read memory it does not own.
 
-## If you have written C
+## If you know C
 
 The dispatch loop is a switch, and the standard trick to make it faster is
 computed goto. It is a GCC extension where each instruction ends by jumping

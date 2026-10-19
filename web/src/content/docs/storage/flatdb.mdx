@@ -66,7 +66,7 @@ variable. Because the history is kept, append-only stores are a natural fit for 
 anything where you need to answer "how did we get here". A store that updates
 in place loses this history.
 
-## If you have written C
+## If you know C
 
 The append is `open(path, O_WRONLY | O_APPEND)` and a `write`, and `O_APPEND`
 does more work than it seems to. It makes the seek-to-end and the write a

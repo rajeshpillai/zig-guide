@@ -78,7 +78,7 @@ Atomicity of the write and exclusivity across the read-modify-write are two
 separate properties, and a store needs both. Systems that confuse them end up
 with careful `rename` steps and corrupted counters.
 
-## If you have written C
+## If you know C
 
 There are two calls, and they differ in ways that matter. `flock` locks the
 open file description, so it is inherited across `fork` and released when the
