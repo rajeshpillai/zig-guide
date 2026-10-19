@@ -1,7 +1,7 @@
 //! title: Antialiasing by Supersampling
-//! A hard inside/outside test gives a staircase edge. Ask the same question at
-//! sixteen points inside each pixel and the answer becomes a coverage fraction,
-//! which is an alpha value.
+//! A hard inside/outside test gives a staircase edge. Do the same test at
+//! sixteen points inside each pixel. Then the answer is a coverage fraction,
+//! and that fraction is an alpha value.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
@@ -14,12 +14,14 @@ fn blendChannel(src: u8, dst: u8, a: u32) u8 {
     return @intCast((@as(u32, src) * a + @as(u32, dst) * (255 - a) + 127) / 255);
 }
 
-/// Coverage in 0..16: how many of the sub-positions inside this pixel fall
-/// within the circle. Sub-positions sit at the centres of a 4x4 grid, offset
-/// by half a sub-pixel, so the sampling is symmetric about the pixel centre.
+/// Coverage in 0..16: the number of sub-positions inside this pixel that are
+/// in the circle. The sub-positions are at the centres of a 4x4 grid, with an
+/// offset of half a sub-pixel. Thus the samples are symmetric about the
+/// centre of the pixel.
 ///
-/// Everything is scaled by `samples * 2` to stay in integers: a sub-position
-/// is at an odd multiple of half a sub-pixel, so doubling makes it whole.
+/// The code multiplies all values by `samples * 2` to keep integers. A
+/// sub-position is at an odd multiple of half a sub-pixel. Thus two times
+/// that value is a whole number.
 fn coverage(x: i32, y: i32, cx: i32, cy: i32, r: i32) u32 {
     const scale = samples * 2;
     const rs = r * scale;
@@ -62,8 +64,8 @@ fn smoothCircle(cx: i32, cy: i32, r: i32, color: u32) void {
             const uy: usize = @intCast(y);
             if (ux >= canvas.width or uy >= canvas.height) continue;
 
-            // 16 hits is fully inside; anything less is a partial pixel, and
-            // the fraction is exactly the alpha to composite with.
+            // 16 hits means fully inside. Fewer hits mean a partial pixel.
+            // The fraction is exactly the alpha for the composite.
             const alpha = (hits * 255) / (samples * samples);
             const i = uy * canvas.width + ux;
             const s = canvas.channels(color);

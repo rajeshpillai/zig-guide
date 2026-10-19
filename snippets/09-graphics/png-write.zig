@@ -1,6 +1,6 @@
 //! title: Writing a PNG
 //! A PNG is a signature and a list of chunks. The pixels go in one chunk,
-//! compressed with zlib, and every chunk ends with a CRC of its bytes.
+//! compressed with zlib. Each chunk ends with a CRC of its bytes.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
@@ -9,12 +9,12 @@ const flate = std.compress.flate;
 var scene: [canvas.width * canvas.height]u32 = undefined;
 var gradient: [canvas.width * canvas.height]u32 = undefined;
 
-/// Every PNG starts with these eight bytes. The `\r\n`, `\x1a` and `\n` are
-/// there to catch a file that was copied as text: a line-ending conversion or
-/// a truncation changes them, and a reader then refuses the file.
+/// All PNG files start with these eight bytes. The `\r\n`, `\x1a` and `\n`
+/// find a file that a text copy damaged. A line-ending conversion or a
+/// truncation changes these bytes, and then a reader refuses the file.
 const signature = "\x89PNG\r\n\x1a\n";
 
-/// One scanline: a filter byte, then R, G, B for every pixel in the row.
+/// One scanline: a filter byte, then R, G, B for each pixel in the row.
 const row_len = 1 + canvas.width * 3;
 var rows: [canvas.height * row_len]u8 = undefined;
 
@@ -35,9 +35,10 @@ fn filterRows(pixels: []const u32, filter: Filter) void {
             data[x * 3 ..][0..3].* = .{ c.r, c.g, c.b };
         }
         if (filter == .sub) {
-            // Walk backwards, so the byte to the left still holds its raw
-            // value when we subtract it. The first pixel has no left
-            // neighbour and stays as it is. `-%=` wraps, as the format says.
+            // Go backward, thus the byte to the left still holds its raw
+            // value at the time of the subtraction. The first pixel has no
+            // left neighbour and does not change. `-%=` wraps, because the
+            // format says so.
             var i = data.len;
             while (i > 3) {
                 i -= 1;
@@ -47,9 +48,9 @@ fn filterRows(pixels: []const u32, filter: Filter) void {
     }
 }
 
-/// The compressor keeps about 224 KB of state and needs a 64 KB window, so
-/// both live here rather than on the stack. The check below reuses the window
-/// for decompressing, which needs one of the same size.
+/// The compressor keeps about 224 KB of state and needs a 64 KB window. Thus
+/// both are here, not on the stack. Decompression needs a window of the same
+/// size, thus the check below uses this window again.
 var compressor: flate.Compress = undefined;
 var window: [flate.max_window_len]u8 = undefined;
 var compressed: [16 * 1024]u8 = undefined;
@@ -82,16 +83,16 @@ fn writePng(w: *std.Io.Writer, idat: []const u8) !void {
     std.mem.writeInt(u32, ihdr[4..8], canvas.height, .big);
     ihdr[8] = 8; // bits per channel
     ihdr[9] = 2; // colour type 2: RGB, no alpha
-    ihdr[10] = 0; // compression method: zlib, the only one there is
-    ihdr[11] = 0; // filter method: the five filters, the only set there is
+    ihdr[10] = 0; // compression method: zlib, the only method
+    ihdr[11] = 0; // filter method: the five filters, the only set
     ihdr[12] = 0; // no interlacing
     try writeChunk(w, "IHDR", &ihdr);
     try writeChunk(w, "IDAT", idat);
     try writeChunk(w, "IEND", "");
 }
 
-/// Read the file back the way a viewer would: walk the chunks, check every
-/// CRC, inflate the pixels, undo the filter, and compare with what we drew.
+/// Read the file again as a viewer does: read the chunks, check each CRC,
+/// inflate the pixels, remove the filter, and compare with the drawing.
 fn check(out: *std.Io.Writer, png: []const u8, pixels: []const u32) !void {
     if (!std.mem.startsWith(u8, png, signature)) return error.BadSignature;
     var at: usize = signature.len;
@@ -120,8 +121,8 @@ fn check(out: *std.Io.Writer, png: []const u8, pixels: []const u32) !void {
         const row = raw[y * row_len ..][0..row_len];
         const data = row[1..];
         if (row[0] == @intFromEnum(Filter.sub)) {
-            // Forwards this time: each byte adds back the already decoded
-            // byte to its left.
+            // Forward this time: each byte adds back the byte to its left,
+            // which the loop already decoded.
             for (3..data.len) |i| data[i] +%= data[i - 3];
         }
         for (0..canvas.width) |x| {
@@ -132,8 +133,8 @@ fn check(out: *std.Io.Writer, png: []const u8, pixels: []const u32) !void {
     try out.print("  decoded pixels match the drawing: {}\n", .{same});
 }
 
-/// Try both filters, keep the smaller result, write the file, then read it
-/// back from disk and check it.
+/// Try the two filters and keep the smaller result. Write the file, then read
+/// the file again from disk and check it.
 fn save(io: std.Io, out: *std.Io.Writer, name: []const u8, pixels: []const u32) !void {
     try out.print("{s}\n", .{name});
 
@@ -172,7 +173,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Flat areas and hard edges.
     canvas.scene(&scene);
-    // Every pixel different from its neighbours, but by the same amount.
+    // Each pixel is different from its neighbours, by the same quantity.
     for (0..canvas.height) |y| {
         for (0..canvas.width) |x| {
             gradient[y * canvas.width + x] = canvas.rgb(@intCast(x * 4), @intCast(y * 8), 128);

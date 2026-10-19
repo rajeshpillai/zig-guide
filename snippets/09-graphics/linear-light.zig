@@ -1,30 +1,33 @@
 //! title: Mixing in Linear Light
 //! A stored byte is not an amount of light. Decode to linear light, mix, and
-//! encode again. Both conversion tables are built by the compiler.
+//! encode again. The compiler builds both conversion tables.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
 
 var pixels: [canvas.width * canvas.height]u32 = undefined;
 
-/// sRGB byte to linear light, 0.0 to 1.0. The constants 0.04045, 12.92,
-/// 0.055 and 2.4 come from the sRGB standard. They are not tuning values.
+/// Change an sRGB byte to linear light, 0.0 to 1.0. The constants 0.04045,
+/// 12.92, 0.055 and 2.4 come from the sRGB standard. Do not adjust them.
 fn decode(byte: u8) f64 {
     const c = @as(f64, @floatFromInt(byte)) / 255.0;
     return if (c <= 0.04045) c / 12.92 else std.math.pow(f64, (c + 0.055) / 1.055, 2.4);
 }
 
-/// Linear light, 0.0 to 1.0, to sRGB, 0.0 to 1.0. The inverse of `decode`.
+/// Change linear light, 0.0 to 1.0, to sRGB, 0.0 to 1.0. This function is the
+/// inverse of `decode`.
 fn encode(light: f64) f64 {
     return if (light <= 0.0031308) light * 12.92 else 1.055 * std.math.pow(f64, light, 1.0 / 2.4) - 0.055;
 }
 
-/// Linear light is kept in 16 bits: 0 is black and 65535 is full white.
-/// Eight bits is not enough. The dark bytes 0 to 6 would all become 0.
+/// The program keeps linear light in 16 bits: 0 is black and 65535 is full
+/// white. Eight bits are not sufficient. The dark bytes 0 to 6 would all
+/// become 0.
 const Light = u16;
 
-/// One entry per byte. A `const` initialised by a block runs at compile time,
-/// so the program carries 512 bytes of table and does no `pow` at run time.
+/// One entry for each byte. A block that initialises a `const` runs at compile
+/// time. Thus the program contains a table of 512 bytes, and it does not call
+/// `pow` at run time.
 const to_light: [256]Light = blk: {
     @setEvalBranchQuota(1_000_000);
     var table: [256]Light = undefined;
@@ -34,9 +37,9 @@ const to_light: [256]Light = blk: {
     break :blk table;
 };
 
-/// The way back. 65536 entries would be 64 KB, so the table is indexed by the
-/// top 12 bits of the light value instead. Each entry holds the byte for the
-/// middle of its range of 16 light values.
+/// The conversion from light to a byte. 65536 entries would be 64 KB. Thus the
+/// index of the table is the top 12 bits of the light value. Each entry holds
+/// the byte for the middle of its range of 16 light values.
 const to_byte: [4096]u8 = blk: {
     @setEvalBranchQuota(10_000_000);
     var table: [4096]u8 = undefined;
@@ -55,13 +58,14 @@ fn toByte(light: Light) u8 {
     return to_byte[light >> 4];
 }
 
-/// Mix two stored bytes directly: `a` weighted (n - k) and `b` weighted k,
-/// rounded to the nearest byte. This is what most 8-bit code does.
+/// Mix two stored bytes directly. The weight of `a` is (n - k), and the weight
+/// of `b` is k. The result rounds to the nearest byte. Most 8-bit code mixes
+/// colours in this way.
 fn mixBytes(a: u8, b: u8, k: u32, n: u32) u8 {
     return @intCast((@as(u32, a) * (n - k) + @as(u32, b) * k + n / 2) / n);
 }
 
-/// The same mix, done on light: decode, mix, encode.
+/// The same mix on light: decode, mix, encode.
 fn mixLight(a: u8, b: u8, k: u32, n: u32) u8 {
     const la: u32 = toLight(a);
     const lb: u32 = toLight(b);
@@ -116,8 +120,8 @@ pub fn main(init: std.process.Init) !void {
     // Byte 128 holds about 22% of the light of byte 255, not 50%.
     try out.print("light in byte 128: {d}%\n", .{(@as(u32, toLight(128)) * 100 + 32767) / 65535});
 
-    // Every byte must come back as itself. If the encode table were too
-    // coarse, the dark bytes would be the first to fail this.
+    // Each byte must return as the same byte. If the steps of the encode
+    // table were too large, the dark bytes would fail this check first.
     var exact: u32 = 0;
     for (0..256) |i| {
         const byte: u8 = @intCast(i);
@@ -125,7 +129,7 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.print("bytes that survive byte -> light -> byte: {d} of 256\n", .{exact});
 
-    // The same trip through 8-bit light instead of 16-bit light.
+    // The same conversion, but with 8-bit light instead of 16-bit light.
     var seen: [256]bool = @splat(false);
     var kept: u32 = 0;
     for (0..256) |i| {

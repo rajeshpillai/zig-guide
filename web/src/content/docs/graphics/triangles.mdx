@@ -1,18 +1,18 @@
 ---
 title: Rasterizing Triangles
-description: Edge functions decide inside from outside, and the same three numbers interpolate across the face.
+description: Edge functions tell inside from outside, and the same three numbers interpolate values across the face.
 section: Graphics
 order: 125
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The triangle is the primitive a GPU actually draws. Everything else, including
-the quad you think you drew, is triangles by the time it reaches the
-rasterizer. Three vertices are always coplanar and always convex, which is
-what makes the inside test cheap enough to run per pixel.
+The triangle is the primitive that a GPU actually draws. All other shapes
+become triangles before they arrive at the rasterizer. A quad that you draw also
+becomes triangles. Three vertices are always coplanar and always convex. For
+this reason, the inside test is fast enough to run for each pixel.
 
-The test is one function, evaluated three times:
+The test is one function, and the rasterizer calls it three times:
 
 ```zig
 fn edge(a: Point, b: Point, p: Point) i32 {
@@ -20,19 +20,24 @@ fn edge(a: Point, b: Point, p: Point) i32 {
 }
 ```
 
-That is the 2D cross product of `b - a` and `p - a`, which is twice the signed
-area of the triangle `(a, b, p)`. Its **sign** says which side of the line
-`ab` the point `p` is on. Its **magnitude** turns out to be exactly the
-barycentric weight you need for interpolation, so a rasterizer computes it
-once and uses it twice.
+The function calculates the 2D cross product of `b - a` and `p - a`. The
+result is two times the signed area of the triangle `(a, b, p)`.
+
+- The **sign** of the result tells you on which side of the line `ab` the
+  point `p` is.
+- The **magnitude** of the result is exactly the barycentric weight that
+  interpolation needs.
+
+Thus a rasterizer calculates the value one time and uses it two times.
 
 <Playground name="09-graphics.triangle" />
 
 ## Inside is three signs
 
-A point is inside the triangle when all three edge functions agree in sign.
-The snippet normalizes the winding first so that "agree" means "all
-non-negative", which removes the second case entirely:
+A point is inside the triangle when all three edge functions have the same
+sign. The snippet first makes the winding the same for all triangles. Then
+"the same sign" means "all values are zero or more", and the second case is
+not necessary:
 
 ```zig
 if (edge(v0, v1, v2) < 0) {
@@ -41,66 +46,86 @@ if (edge(v0, v1, v2) < 0) {
 }
 ```
 
-Swap two vertices and you must swap their colours with them, or the shading
-comes out mirrored on triangles that happened to be wound the other way. That
-pairing is easy to lose when this code grows attributes.
+If you swap two vertices, also swap their colours. If you do not, the shading
+shows a mirror image on the triangles that have the other winding. When this
+code gets more attributes, it is easy to forget to keep each vertex with its
+attributes.
 
-A production pipeline usually does not normalize. It rejects one winding on
-purpose. That is *backface culling*, and it is how a renderer cheaply discards
-the far side of a closed mesh, before touching a single pixel.
+A production pipeline usually does not change the winding. It rejects one
+winding on purpose. This method is *backface culling*. With backface culling,
+a renderer quickly discards the far side of a closed mesh before it touches a
+pixel.
 
-## Barycentric coordinates come free
+## Barycentric coordinates at no extra cost
 
-Divide the three edge values by their total and you get three weights that sum
-to one, each measuring how close the pixel is to the opposite vertex. Weight
-any per-vertex quantity by them and it interpolates linearly across the face:
+Divide the three edge values by their total. The result is three weights, and
+the sum of the weights is one. Each weight measures how near the pixel is to
+the vertex opposite that edge.
+
+Multiply a value at each vertex by these weights. Then the value interpolates
+linearly across the face:
 
 ```zig
 const sum = w0 * c0 + w1 * c1 + w2 * c2;
 return @intCast(@divTrunc(sum, total));
 ```
 
-Colour is the demonstration. Press Run and the picture under the output shows
-it in full colour. The left triangle is Gouraud shading in three lines. The same three weights interpolate texture
-coordinates, normals, and depth. This is the main reason edge functions replaced
-scanline approaches: the inside test and the attribute interpolation are
-the same arithmetic.
+The snippet uses colour as the example. Press Run, and the picture under the
+output shows the colours. The left triangle is Gouraud shading in three
+lines.
 
-For a perspective projection the interpolation has to happen in `1/w` space,
-or textures visibly warp along the diagonal of a quad. That correction is
-where the "perspective-correct" in perspective-correct interpolation comes
-from.
+The same three weights also interpolate texture coordinates, normals and
+depth. This is the main reason that edge functions replaced scanline methods.
+The inside test and the interpolation of attributes use the same arithmetic.
+
+For a perspective projection, do the interpolation in `1/w` space. If you do
+not, the textures warp visibly along the diagonal of a quad. This correction
+is the origin of the name "perspective-correct" interpolation.
 
 ## Shared edges, and the top-left rule
 
-Two triangles that share an edge have a problem. A pixel whose centre lands
-exactly on the shared edge has an edge value of zero for both, so `>= 0` draws
-it twice, and `> 0` leaves a gap. Drawing twice is visible the moment blending
-is involved, and gaps are visible always.
+Two triangles that share an edge have a problem. Think of a pixel whose
+centre is exactly on the shared edge. For both triangles, the edge value of
+that pixel is zero:
 
-The fix is a tie-break that depends only on the edge, not on which triangle is
-being drawn. For an edge that is a top edge or a left edge, zero counts as
-inside; otherwise it does not. That is the **top-left rule**, and every
-hardware rasterizer implements it. This snippet leaves it out because it draws
-no shared edges, but any code that meshes triangles together needs it.
+- With `>= 0`, the rasterizer draws the pixel two times.
+- With `> 0`, the rasterizer leaves a gap.
+
+When the code uses blending, a pixel drawn two times is visible. A gap is
+always visible.
+
+The solution is a rule that decides the tie only from the edge. The rule does
+not look at the triangle that the code draws. For a top edge or a left edge,
+zero counts as inside. For other edges, zero does not count as inside.
+
+This rule is the **top-left rule**, and all hardware rasterizers use it. This
+snippet does not use the rule, because it draws no shared edges. But code
+that joins triangles into a mesh needs the rule.
 
 ## Why an incremental loop is faster
 
-`edge` is affine in `p`, so stepping one pixel to the right adds a constant,
-and stepping one row down adds another. A production rasterizer computes the
-three edge values once at the corner of the bounding box and then adds per
-pixel, which removes the multiplies from the inner loop entirely. From there
-the values for four or eight pixels fit in a SIMD register and the whole block
-is tested at once. The version here is written to be read; the transformation
-to the fast one is mechanical.
+`edge` is affine in `p`. Thus a step of one pixel to the right adds a
+constant, and a step of one row down adds a different constant.
+
+A production rasterizer calculates the three edge values one time, at the
+corner of the bounding box. Then it adds the constants for each pixel. This
+method removes all multiplies from the inner loop.
+
+After that change, the values for four or eight pixels fit in a SIMD
+register. Then the rasterizer tests the full group of pixels at the same
+time.
+
+The version on this page is easy to read. The change to the fast version is
+mechanical.
 
 ## Exercises
 
-1. **Backface culling.** Return early instead of swapping when the winding is
-   negative, then draw a cube's faces and watch the back ones vanish.
-2. **Two triangles sharing an edge.** Blend them at 50% and look for the bright
-   seam. Then implement the top-left rule and watch it go.
-3. **A depth buffer.** Interpolate a per-vertex `z` with the same weights, keep a
-   second array of the nearest `z` seen per pixel, and reject anything behind it.
-   That is the painter's algorithm replaced by something that handles
-   intersecting geometry.
+1. **Backface culling.** When the winding is negative, return early instead
+   of a swap. Then draw the faces of a cube, and see the back faces
+   disappear.
+2. **Two triangles that share an edge.** Blend them at 50%, and look for the
+   bright seam. Then add the top-left rule, and see the seam disappear.
+3. **A depth buffer.** Interpolate a `z` value at each vertex with the same
+   weights. Keep a second array with the nearest `z` for each pixel. Reject
+   each pixel that is behind that `z`. This method replaces the painter's
+   algorithm, and it works correctly for geometry that intersects.

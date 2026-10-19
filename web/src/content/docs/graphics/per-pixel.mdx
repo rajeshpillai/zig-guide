@@ -7,14 +7,18 @@ order: 127
 
 import Playground from "../../../components/Playground.astro";
 
-Everything up to here drew into an empty buffer. The rest of this section
-reads a buffer that already has a picture in it and writes back a changed one.
+All the chapters before this one draw into an empty buffer. The other
+chapters of this section read a buffer that already has a picture in it.
+Then they write a changed picture back.
 
-The simplest kind reads exactly one pixel to produce one pixel. Brightness,
-contrast, invert, threshold, gamma and every colour curve are point
-operations, and they share a useful property. On 8-bit channels there are
-only 256 possible inputs, so there are only 256 possible answers. Compute them
-once into an array, and the filter becomes an array index.
+The simplest type of filter reads exactly one pixel to make one pixel.
+Brightness, contrast, invert, threshold, gamma and all colour curves are
+point operations. Point operations share a useful property:
+
+- An 8-bit channel has only 256 possible inputs.
+- Thus there are only 256 possible answers.
+- Calculate the answers one time into an array. Then the filter is an array
+  index.
 
 ```zig
 const Lut = [256]u8;
@@ -27,15 +31,15 @@ fn apply(buf: []u32, lut: Lut) void {
 }
 ```
 
-That loop runs every filter of this kind. Brightness and threshold use the
-same code and differ only in 256 bytes of data.
+This loop runs all filters of this type. Brightness and threshold use the
+same code. The only difference is 256 bytes of data.
 
 <Playground name="09-graphics.per-pixel" />
 
 ## Brightness needs a saturating add
 
-Brightness adds a constant. On a `u8` at 250, adding 10 has three possible
-meanings and Zig makes you pick:
+Brightness adds a constant. For a `u8` with the value 250, an add of 10 has
+three possible meanings, and Zig makes you select one:
 
 ```zig
 value + 10    // illegal behaviour: traps in a safe build
@@ -43,17 +47,20 @@ value +% 10   // wraps: 250 + 10 = 4
 value +| 10   // saturates: 250 + 10 = 255
 ```
 
-Only the third is right here. The second is the bug that puts black speckles
-in a brightened sky. It is the default in C, where unsigned overflow is
-defined to wrap and nothing warns. The first is what most people want as a
-default, but no language gives it to them, because there is no sensible value
-to return.
+Only the third operator is correct here:
 
-`+|` and `-|` are language operators, and they compile to a single
-instruction on every target that has one. [Integer
-Rules](/learn/language-basics/integer-rules/) covers the full set.
+- The second operator is the bug that puts black spots in a brightened sky.
+  The second operator is the default in C. In C, an unsigned overflow wraps
+  by definition, and no warning occurs.
+- The first operator asks for the true sum, 260. A `u8` cannot hold 260, thus
+  no `u8` value is a correct result. A safe build stops the program.
 
-Contrast cannot use them. It pivots around mid-grey:
+`+|` and `-|` are operators of the language. They compile to a single
+instruction on each target that has such an instruction.
+[Integer Rules](/learn/language-basics/integer-rules/) explains the full set.
+
+Contrast cannot use these operators, because contrast pivots around
+mid-grey:
 
 ```zig
 const centred = @as(i32, value) - 128;
@@ -61,33 +68,40 @@ const scaled = @divTrunc(centred * factor, 256) + 128;
 lut[i] = @intCast(std.math.clamp(scaled, 0, 255));
 ```
 
-The intermediate goes negative for dark pixels, and a saturating `u8`
-operation cannot help with a value that was never a `u8`. So the code widens
-to `i32` first, clamps to 0..255, and only then narrows back to `u8`. Any
-other order gives wrong results.
+For dark pixels, the intermediate value is negative. A saturating `u8`
+operation cannot help with a value that was never a `u8`. Thus the code
+does these steps in this order:
+
+1. Change the value to `i32`.
+2. Clamp the value to 0..255.
+3. Change the value back to `u8`.
+
+A different order gives wrong results.
 
 ## Grayscale is the exception
 
-It looks like a point operation and it is, but the output channel depends on
-all three inputs, so there is no 256-entry table for it. There are 2^24
-possible inputs.
+Grayscale is a point operation. But each output channel depends on all three
+inputs. Thus a table of 256 entries cannot hold grayscale, because there are
+2^24 possible inputs.
 
-The weights are also not thirds:
+Also, the weights are not one third each:
 
 ```
 luma = (77*R + 150*G + 29*B) / 256
 ```
 
-Those are the Rec. 601 coefficients, scaled so the divide is a shift. Green
-carries roughly 59% of perceived brightness and blue about 11%, because the
-eye is far more sensitive to green. Averaging the three channels equally gives
-a grayscale image where reds and blues come out too light and the whole thing
-looks flat. The snippet prints both numbers for the red disc: 97 by luma, 103
-by average.
+These weights are the Rec. 601 coefficients, with a scale that changes the
+division into a shift. Green gives approximately 59% of the brightness that
+the eye sees, and blue gives about 11%. The reason is that the eye is much
+more sensitive to green.
 
-## Chains collapse
+If you average the three channels equally, reds and blues are too light in
+the grayscale image. The full image then looks flat. The snippet shows both
+numbers for the red disc: 97 with luma, and 103 with the average.
 
-Two tables become one:
+## A chain becomes one table
+
+Two tables become one table:
 
 ```zig
 fn compose(second: Lut, first: Lut) Lut {
@@ -97,23 +111,27 @@ fn compose(second: Lut, first: Lut) Lut {
 }
 ```
 
-Brightness then contrast then threshold is one table build and one pass over
-the image, however long the chain gets. The snippet checks this: the composed
-table matches running both passes at all 256 inputs, exactly, with no rounding
-difference. Every step maps bytes to bytes, so composing adds no error.
+Brightness, then contrast, then threshold is one table build and one pass
+over the image. The length of the chain does not change this cost.
 
-That exactness is specific to point operations on 8-bit channels. The [colour
-matrices](/learn/graphics/color-matrix/) in a later chapter also compose, and
-they do not compose exactly.
+The snippet checks this result. At all 256 inputs, the composed table gives
+exactly the same values as the two passes. There is no difference from
+rounding. Each step maps bytes to bytes, thus the composition adds no error.
+
+Only point operations on 8-bit channels have this exact result. The
+[colour matrices](/learn/graphics/color-matrix/) in a later chapter also
+compose, but their composition is not exact.
 
 ## Contrast does not create detail
 
-The second dump in the output is the scene brightened and then stretched. The
-background ramp is pushed to black and the yellow block to white, and neither
-comes back. Contrast spends the available range on the middle of the histogram
-and takes it from the ends. Pixels that clip at 0 or 255 are identical
-afterwards, no matter how different they were before.
+The second dump in the output shows the scene after a brightness change and
+then a contrast stretch. The background ramp becomes black, and the yellow
+block becomes white. Neither area returns to its old values.
 
-So editing pipelines that care about quality keep more than 8 bits per
-channel until the last step. At 8 bits every filter in the chain rounds, and the
-rounding is not recoverable.
+Contrast gives more of the available range to the middle of the histogram,
+and it takes that range from the ends. Pixels that clip at 0 or 255 become
+identical. The pixels stay identical, however different they were before.
+
+For this reason, image editors that must keep the quality high use more than
+8 bits for each channel until the last step. At 8 bits, each filter in the
+chain rounds, and you cannot recover from the rounding.

@@ -1,6 +1,6 @@
 //! title: Histograms and Levels
 //! A lookup table does not have to be a constant. Count what the image
-//! actually contains, and the table that fixes it falls out of the counts.
+//! contains. The table that corrects the image comes from the counts.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
@@ -9,14 +9,14 @@ var pixels: [canvas.width * canvas.height]u32 = undefined;
 
 const Lut = [256]u8;
 
-/// How many pixels sit at each luma value. 256 counters and one pass.
+/// The number of pixels at each luma value. 256 counters and one pass.
 fn histogram(src: []const u32) [256]u32 {
     var hist: [256]u32 = @splat(0);
     for (src) |p| hist[canvas.luma(p)] += 1;
     return hist;
 }
 
-/// Sixteen buckets, because 256 rows of text is too long to read, and 16 rows
+/// Sixteen buckets, because 256 rows of text are too many to read. 16 rows
 /// show the shape.
 fn printHistogram(out: *std.Io.Writer, hist: [256]u32, label: []const u8) !void {
     var buckets: [16]u32 = @splat(0);
@@ -27,8 +27,8 @@ fn printHistogram(out: *std.Io.Writer, hist: [256]u32, label: []const u8) !void 
 
     try out.print("{s}\n", .{label});
     for (buckets, 0..) |n, i| {
-        // Bars scaled to the tallest bucket, so the shape is readable whatever
-        // the absolute counts are.
+        // The program scales the bars to the tallest bucket. Thus you can read the
+        // shape for all values of the absolute counts.
         const bar = (n * 40) / peak;
         try out.print("{d:>3}..{d:>3} |", .{ i * 16, i * 16 + 15 });
         for (0..bar) |_| try out.writeByte('#');
@@ -36,9 +36,9 @@ fn printHistogram(out: *std.Io.Writer, hist: [256]u32, label: []const u8) !void 
     }
 }
 
-/// The luma value at which `fraction` of the pixels (in 1/1000ths) have been
-/// counted. Used to find where the image really starts and stops, rather than
-/// trusting 0 and 255.
+/// The luma value where the count reaches `per_mille` of the pixels (in
+/// 1/1000ths). The program uses it to find where the image really starts and
+/// stops. It does not assume 0 and 255.
 fn percentile(hist: [256]u32, total: u32, per_mille: u32) u8 {
     const target = (total * per_mille) / 1000;
     var seen: u32 = 0;
@@ -49,9 +49,10 @@ fn percentile(hist: [256]u32, total: u32, per_mille: u32) u8 {
     return 255;
 }
 
-/// Levels: map `black` to 0 and `white` to 255, linearly, clipping outside.
-/// This is the same shape as the contrast table from the per-pixel chapter,
-/// except the two endpoints are measured rather than chosen.
+/// Levels: map `black` to 0 and `white` to 255 linearly, and clip the values
+/// outside that range. The shape is the same as the contrast table from the
+/// per-pixel chapter. The difference is that the program measures the two
+/// endpoints. It does not get them as a choice.
 fn levelsLut(black: u8, white: u8) Lut {
     var lut: Lut = undefined;
     const span: i32 = @max(1, @as(i32, white) - @as(i32, black));
@@ -64,11 +65,11 @@ fn levelsLut(black: u8, white: u8) Lut {
 
 /// Equalization: the table is the cumulative distribution, rescaled.
 ///
-/// Where many pixels share a value the CDF climbs steeply, so that range gets
-/// spread over more output values. Where the image has nothing, the CDF is flat
-/// and the range is compressed away. The result uses the whole range with
-/// roughly equal population per level. That is the most contrast the data
-/// supports, and it is often too much.
+/// Where many pixels share a value, the CDF increases quickly. Thus that range
+/// spreads over more output values. Where the image has no pixels, the CDF is
+/// flat, and that range becomes almost nothing. The result uses the full range,
+/// with approximately the same number of pixels at each level. That is the
+/// maximum contrast that the data supports, and it is frequently too much.
 fn equalizeLut(hist: [256]u32, total: u32) Lut {
     var lut: Lut = undefined;
     var cdf: u32 = 0;
@@ -81,8 +82,8 @@ fn equalizeLut(hist: [256]u32, total: u32) Lut {
             cdf_min = cdf;
             found_min = true;
         }
-        // Subtracting cdf_min anchors the darkest occupied level at 0. Without
-        // it a picture with no true black never reaches black.
+        // The subtraction of cdf_min puts the darkest level that has pixels at
+        // 0. Without it, a picture with no true black never gets to black.
         const numerator = (cdf - cdf_min) * 255;
         const denominator = @max(1, total - cdf_min);
         lut[i] = @intCast(std.math.clamp(numerator / denominator, 0, 255));
@@ -90,7 +91,7 @@ fn equalizeLut(hist: [256]u32, total: u32) Lut {
     return lut;
 }
 
-/// The obvious way: run the table over each channel independently.
+/// The usual method: apply the table to each channel independently.
 fn applyPerChannel(buf: []u32, lut: Lut) void {
     for (buf) |*p| {
         const c = canvas.channels(p.*);
@@ -98,9 +99,9 @@ fn applyPerChannel(buf: []u32, lut: Lut) void {
     }
 }
 
-/// The other way: decide the new brightness from luma, then scale all three
-/// channels by the same ratio. Hue survives, because the ratios between the
-/// channels are what carry it.
+/// The other method: get the new brightness from luma, then scale the three
+/// channels by the same ratio. The hue does not change, because the ratios
+/// between the channels hold the hue.
 fn applyLuma(buf: []u32, lut: Lut) void {
     for (buf) |*p| {
         const before = canvas.luma(p.*);
@@ -130,9 +131,9 @@ pub fn main(init: std.process.Init) !void {
     const hist = histogram(&pixels);
     try printHistogram(out, hist, "original");
 
-    // Where the picture actually lives. Reading the extremes off the ends of
-    // the histogram would let a single stray pixel set the whole range. To
-    // avoid that, auto-levels implementations clip a fraction first.
+    // Find the range that the picture really uses. If the program reads the
+    // extremes from the ends of the histogram, one stray pixel can set the full
+    // range. To prevent this, auto-levels implementations clip a fraction first.
     const black = percentile(hist, total, 10); // 1%
     const white = percentile(hist, total, 990); // 99%
     try out.print("\n1st percentile: {d}   99th percentile: {d}\n", .{ black, white });
@@ -152,11 +153,11 @@ pub fn main(init: std.process.Init) !void {
     try out.writeByte('\n');
     try printHistogram(out, histogram(&pixels), "after equalization");
 
-    // Per-channel against luma-preserving, on a strongly coloured pixel, using
-    // the gentler levels table so nothing clips and the difference is the
-    // method rather than the ceiling. The per-channel version pushes each
-    // channel independently, so the ratios between them change and so does the
-    // hue.
+    // Compare the per-channel method with the luma method on a pixel with a
+    // strong colour. The program uses the levels table, which is gentler than
+    // the equalization table. The per-channel method changes each channel
+    // independently. Thus the ratios between the channels change, and the hue
+    // changes too. In the per-channel result, the red channel clips at 255.
     canvas.scene(&pixels);
     const red_before = pixels[10 * canvas.width + 44];
 

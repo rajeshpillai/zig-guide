@@ -1,20 +1,20 @@
 ---
 title: Bitmap Text
-description: A glyph is a small rectangle of bits, and drawing text is copying them.
+description: A glyph is a small rectangle of bits. To draw text, copy those bits.
 section: Graphics
 order: 133
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The earlier chapters drew shapes described by maths: a line from an
-equation, a circle from a radius. Text is not like that. There is no formula
-for the letter `G`, so the shape has to be stored, and the oldest way to store
-it is the simplest one that works.
+The earlier chapters drew shapes from maths: a line from an equation, a circle
+from a radius. Text is different. No formula gives the letter `G`, so the
+program must store the shape. The oldest method to store the shape is the
+simplest method that works.
 
-A glyph is a small rectangle of bits. One bit per pixel, on or off. Drawing a
-character means walking those bits and setting a pixel wherever there is a
-one.
+A glyph is a small rectangle of bits, with one bit per pixel, on or off. To
+draw a character, the program reads each bit. Where the bit is a one, the
+program sets a pixel.
 
 ## The program
 
@@ -22,51 +22,57 @@ one.
 
 ## What just happened
 
-**Each glyph is seven bytes.** Five bits used per row, seven rows, written in
-binary so the shape is visible in the source. Look at `Z` in the code and you
-can read the letter off the ones.
+**Each glyph is seven bytes.** Each row uses five bits, and there are seven
+rows. The source writes the rows in binary, so you can see the shape. Look at
+`Z` in the code, and you can read the letter from the ones.
 
-**The zeroes were skipped, not drawn.** That single `if` is what makes text
-composable: a glyph has no background of its own, so it draws *over* whatever
-is already there. Filling the zeroes with a background colour would put every
-character in an opaque box, which is what happens when you get this wrong and
-is immediately obvious.
+**The program skipped the zeroes. It did not draw them.** That one `if` lets
+text compose with other drawings. A glyph has no background of its own, so it
+draws *over* the pixels that are already there. If the program fills the
+zeroes with a background colour, each character is in an opaque box. This
+mistake is immediately visible.
 
-**The pen advanced by a fixed amount.** Six columns per character, always. That
-is a **monospaced** font, and it is why terminal output lines up. A
-proportional font stores an advance width per glyph. That one change is most
-of the difference between this and a text engine, because now the width of a
-string is a sum rather than a multiplication.
+**The pen moved by a fixed amount.** The step is always six columns per
+character. A font of this type is a **monospaced** font, and for this reason
+terminal output aligns in columns. A proportional font stores an advance width
+for each glyph. That one change is most of the difference between this program
+and a text engine. With that change, the width of a string is a sum and not a
+multiplication.
 
-**The whole font is 49 bytes.** Seven glyphs at seven bytes each. That is why
-this technique survived on machines with kilobytes of memory, and why it is
-still what a bootloader or an embedded display uses.
+**The full font is 49 bytes.** There are seven glyphs at seven bytes each. For
+this reason, machines with only kilobytes of memory used this method. A
+bootloader or an embedded display still uses this method.
 
 ## Check yourself
 
-The glyphs here are 5x7. What has to change to draw them at twice the size?
+The glyphs here are 5x7. What must change to draw them at twice the size?
 
-Nothing about the data, and one line of the drawing loop: write a 2x2 block of
-pixels instead of one. That works, and it is why doubled bitmap text has
-visibly chunky edges: the information for the in-between pixels was never
-there.
+The data does not change, and one line of the loop changes: write a 2x2 block
+of pixels and not one pixel. This method works. It is also the reason that
+doubled bitmap text has visibly blocky edges. The data never had the
+information for the pixels between.
 
-Getting a *good* larger size means storing the glyph as outlines, curves
-described by control points, and rasterising them at the requested size. That
-is what TrueType is. It is also why fonts need *hinting*: at small sizes the
-outline rarely lines up with the pixel grid, so the shapes need nudging to
-stop a stem landing half in one column and half in the next.
+A *good* larger size needs a different glyph format. Store the glyph as
+outlines, which are curves that control points define. Then rasterise the
+outlines at the requested size. TrueType uses this method.
+
+Outlines are also the reason that fonts need *hinting*. At small sizes, the
+outline rarely aligns with the pixel grid. Thus the shapes need small
+adjustments. Without the adjustments, a stem can be half in one column and half
+in the next column.
 
 ## If you know C
 
-The font table is `static const unsigned char font[][7]`, indexed by
-character, and the classic version indexes it directly with `c - 32` to skip
-the control characters. That is fast and is an out-of-bounds read the moment a
-byte above 127 arrives, and any non-ASCII input contains such bytes. The
-version above uses a switch that returns null for anything it does not know.
+The font table is `static const unsigned char font[][7]`, with the character as
+the index. The classic version uses `c - 32` as the index directly, to skip the
+control characters. This method is fast. But it is an out-of-bounds read when
+a byte above 127 arrives, and all non-ASCII input contains such bytes. The
+version above uses a switch that returns null for each character that it does
+not know.
 
-The other traditional detail is that fonts were stored column-major as often
-as row-major, because some displays wanted vertical strips of eight pixels,
-which is exactly one byte. The storage order followed what the hardware read.
+The other traditional detail is the storage order. Fonts were column-major as
+frequently as they were row-major. Some displays used vertical strips of
+eight pixels, and eight pixels are exactly one byte. The storage order followed
+the order that the hardware read.
 
-Next: sprites, which are the same copy with more than one bit per pixel.
+Next: sprites, which use the same copy with more than one bit per pixel.

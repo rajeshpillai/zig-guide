@@ -1,6 +1,6 @@
 ---
 title: Colour Matrices
-description: Grayscale, sepia and saturation are one 3x3 matrix, and a chain of them multiplies into a single matrix before the image is touched.
+description: Grayscale, sepia and saturation are one 3x3 matrix. A chain of these matrices multiplies into one matrix before the program changes the image.
 section: Graphics
 order: 129
 ---
@@ -8,8 +8,8 @@ order: 129
 import Playground from "../../../components/Playground.astro";
 
 Grayscale, sepia, saturation, hue rotation and channel swaps look like
-separate filters. They are one filter with different constants: a 3x3 matrix
-multiplying the channel vector.
+different filters. They are one filter with different constants: a 3x3 matrix
+that multiplies the channel vector.
 
 ```
 [ R' ]   [ a b c ] [ R ]
@@ -17,13 +17,13 @@ multiplying the channel vector.
 [ B' ]   [ g h i ] [ B ]
 ```
 
-Writing them this way lets them multiply. A chain of four colour filters
-becomes one matrix, computed before the image is touched, and then one pass
-over the image.
+When the filters have this form, you can multiply them together. A chain of
+four colour filters becomes one matrix. The program calculates that matrix
+before it changes the image, and then it makes one pass over the image.
 
 <Playground name="09-graphics.color-matrix" />
 
-## Grayscale, written as a matrix
+## Write grayscale as a matrix
 
 Put the luma weights in all three rows:
 
@@ -35,10 +35,13 @@ const luma_matrix: Matrix = .{
 };
 ```
 
-Every output channel becomes the same weighted average, which is grayscale.
-The entries are scaled by 256 and the multiply divides by 256 at the end, so
-this stays in integers throughout. Floats would add precision that the final
-cast to `u8` throws away, and would need a conversion at each end.
+Each output channel becomes the same weighted average, and the result is
+grayscale.
+
+The entries use a scale of 256, and the multiply divides by 256 at the end.
+Thus all of the arithmetic stays in integers. Floats add precision, but the
+last cast to `u8` removes that precision. Floats also need a conversion at
+each end.
 
 ## Saturation is a line through grey
 
@@ -46,9 +49,13 @@ cast to `u8` throws away, and would need a conversion at each end.
 out = luma + s * (in - luma)
 ```
 
-At `s = 0` that is grayscale, at `s = 1` the original, and above 1 it keeps
-going in the same direction, away from grey. As a matrix it is a blend of the
-luma matrix and the identity:
+The value of `s` controls the result:
+
+- At `s = 0`, the result is grayscale.
+- At `s = 1`, the result is the original.
+- Above 1, the result continues in the same direction, away from grey.
+
+As a matrix, saturation is a blend of the luma matrix and the identity:
 
 ```zig
 fn saturation(s: i32) Matrix {
@@ -60,9 +67,11 @@ fn saturation(s: i32) Matrix {
 }
 ```
 
-Because it is a matrix and not a special case, it composes with the others.
+Saturation is a matrix and not a special case. Thus it composes with the other
+matrices.
 
-The output shows that saturation moves chroma and leaves brightness alone:
+The output shows that saturation changes chroma and does not change
+brightness:
 
 ```
 luma under saturation (original, sat 0, sat 200%)
@@ -71,14 +80,17 @@ luma under saturation (original, sat 0, sat 200%)
  yellow block: 212 212 209
 ```
 
-Grayscale preserves luma exactly, because the grey it produces is defined as
-the luma. At 200% the numbers drift, and the red disc drops from 97 to 76.
-The cause is clipping. The maths is correct. Pushing red past 100% saturation
-pushes the channels past 0 or 255, where they are clamped. A clipped colour no
-longer has the luma the matrix asked for. So any saturation control, pushed
-far enough, loses brightness in the colours it was supposed to intensify.
+Grayscale keeps the luma exactly, because the definition of the grey that it
+makes is the luma. At 200%, the numbers change, and the red disc falls from 97
+to 76.
 
-## Sepia's rows do not sum to 256
+The cause is clipping. The maths is correct. When the saturation of red goes past
+100%, the channels go past 0 or 255, and the program clamps them. A clipped
+colour does not have the luma that the matrix asked for. Thus each saturation
+control, at a sufficiently high value, decreases the brightness of the colours
+that it makes stronger.
+
+## The rows of sepia do not sum to 256
 
 ```zig
 const sepia: Matrix = .{
@@ -88,18 +100,21 @@ const sepia: Matrix = .{
 };
 ```
 
-Those rows sum to 346, 308 and 241. A row summing to 256 preserves brightness.
-These rows do not, on purpose. Sepia is meant to brighten the image as it
-tints it, and the red row gains the most, which gives the warm colour. If you
-"correct" the rows to sum to 256, you get a muddy grey-brown that looks
-nothing like sepia.
+The rows sum to 346, 308 and 241. A row with a sum of 256 keeps the
+brightness. The sepia rows do not, and this is intentional.
 
-So know which kind of matrix you have. A matrix that sums to more than 256 by
-mistake blows out highlights for no reason.
+Sepia must make the image brighter while it tints the image. The red row gets
+the largest increase, and that increase gives the warm colour. If you
+"correct" the rows to a sum of 256, you get a dull grey-brown. That colour does
+not look like sepia.
 
-## Composition, and what it costs
+Thus, know which type of matrix you have. If a matrix sums to more than 256 by
+mistake, it makes the highlights too bright for no reason.
 
-The product of two colour matrices is the matrix that applies both:
+## Composition and its cost
+
+The product of two colour matrices is the matrix that applies the two
+matrices:
 
 ```zig
 fn compose(a: Matrix, b: Matrix) Matrix { ... }  // applies b first
@@ -113,9 +128,9 @@ Sepia after 62% saturation, as one matrix:
    +70 +138  +30
 ```
 
-One pass over the image instead of two, and the saving grows with the length
-of the chain. A photo app applying six adjustments does one matrix multiply
-per pixel instead of six.
+The program makes one pass over the image, not two. The saving increases with
+the length of the chain. A photo app with six adjustments does one matrix
+multiply per pixel, not six.
 
 The composition is not exact:
 
@@ -123,39 +138,43 @@ The composition is not exact:
 two passes vs one composed matrix: 1560 of 2048 pixels differ, by at most 1
 ```
 
-Two passes round to a byte in between. The composed matrix rounds once, inside
-the matrix product. The lookup tables in
-[per-pixel transforms](/learn/graphics/per-pixel/) were different: composing
-them was exact to the last bit. A table maps bytes to bytes, so composing adds
-no error. A matrix carries fractions, and rounding them earlier or later gives
-different answers.
+Two passes round to a byte between the two steps. The composed matrix rounds
+one time, inside the matrix product.
 
-Off by one per channel is too small for anyone to see, and the two-pass
-version is the more accurate of the two. Composing truncates the nine matrix
-entries themselves, and each of those errors is then multiplied by a channel
-value as large as 255. Rounding twice on the way through loses less than
-rounding the matrix once. This affects testing: the same filter with a
-different order of operations does not give bit-identical output, and a test
-that compares images byte for byte will fail on it.
+The lookup tables in [per-pixel transforms](/learn/graphics/per-pixel/) were
+different: a composition of tables was exact to the last bit. A table maps
+bytes to bytes, so a composition adds no error. A matrix holds fractions. If
+you round the fractions earlier or later, you get different answers.
+
+A difference of one per channel is too small to see, and the two-pass version
+is the more accurate of the two. Composition truncates the nine matrix entries.
+Then the program multiplies each of those errors by a channel value, which can
+be as large as 255. Two roundings during the passes lose less than one rounding
+of the matrix.
+
+This fact is important for tests. The same filter with a different order of
+operations does not give output that is identical bit for bit. A test that
+compares images byte for byte fails on this difference.
 
 ## What a matrix cannot do
 
-**Anything spatial.** A colour matrix reads one pixel. Blur, sharpen and edge
-detection need neighbours, which is
+**Spatial operations.** A colour matrix reads one pixel. Blur, sharpen and
+edge detection need neighbours. Those operations are
 [convolution](/learn/graphics/convolution/), a different loop with a different
 cost.
 
-**Anything non-linear.** Gamma, curves and thresholds are not linear functions of
-the channels, so no matrix expresses them. Those are lookup tables. A full
-pipeline mixes both: tables for the curves, a matrix for the colour mixing.
+**Non-linear operations.** Gamma, curves and thresholds are not linear
+functions of the channels, so no matrix can express them. Those operations are
+lookup tables. A full pipeline uses the two: tables for the curves, and a
+matrix for the colour mix.
 
-**Alpha.** These are 3x3 over RGB. Systems that include alpha use a 4x5 (four
-rows, four coefficients plus a constant offset), which is what the CSS
-`feColorMatrix` filter and Android's `ColorMatrix` both take. The extra column
-is what lets a matrix add a constant, and that is how tinting toward a fixed
-colour works.
+**Alpha.** The matrices on this page are 3x3 over RGB. Systems that include
+alpha use a 4x5 matrix: four rows, and four coefficients plus a constant
+offset in each row. The CSS `feColorMatrix` filter and the Android
+`ColorMatrix` both use this form. The extra column lets a matrix add a
+constant, and a tint toward a fixed colour needs that constant.
 
-Everything on this page also multiplies sRGB bytes directly. The warning from
-[alpha blending](/learn/graphics/blending/) applies here too: those bytes are
-not linear light. Colour operations that need to be accurate convert to
-linear first.
+All of the operations on this page also multiply sRGB bytes directly. The
+warning from [alpha blending](/learn/graphics/blending/) applies here too:
+sRGB bytes are not linear light. A colour operation that must be accurate
+converts to linear light first.

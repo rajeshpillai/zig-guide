@@ -1,134 +1,91 @@
 ---
 title: Onto the Screen
-description: The same buffer, handed to X11 through translate-c, and what changes on Wayland.
+description: The same buffer, given to X11 through translate-c, and what changes on Wayland.
 section: Graphics
 order: 140
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Writing a file goes one way: you produce bytes, and you are done. A window
-needs messages in both directions. The display server decides when you may paint, asks
-whether you are still alive, and reports input. Miss your side of any of that
-and the window is left blank, frozen, or killed.
+A file write goes in one direction: you make bytes, and then the work is complete. A window needs messages in the two directions. The display server decides when you can paint, asks if your program is still alive, and reports input. If your program does not do its part of this exchange, the window stays blank, freezes, or the server kills it.
 
-Three things change from [Writing an Image File](../image-files/).
+Three things are different from [Writing an Image File](../image-files/).
 
-**Pixels get wider.** Both X11 and Wayland want 32 bits per pixel, not 24. On a
-little-endian machine both want a `u32` holding `0x00RRGGBB`, which lands in
-memory as B, G, R, X. Writing whole `u32`s gets the byte order right without
-thinking about it, which is why the framebuffer in this section has been
-32-bit from the first chapter.
+**The pixels are wider.** X11 and Wayland both want 32 bits per pixel, not 24. On a little-endian computer, both want a `u32` that holds `0x00RRGGBB`. In memory, this value is B, G, R, X. When you write full `u32` values, the byte order is correct without more work. For this reason, the framebuffer in this section uses 32 bits from the first chapter.
 
-**The buffer may become shared.** A file write is a copy. Putting pixels on
-screen does not have to be: Wayland's `wl_shm` hands the compositor a file
-descriptor for the same pages you drew into, and nothing is copied at all.
-X11's `XPutImage` does copy, to the server. The `MIT-SHM` extension exists to
-avoid that copy.
+**Two programs can share the buffer.** A file write is a copy. To put pixels on screen, a copy is not always necessary. Wayland's `wl_shm` gives the compositor a file descriptor for the same pages that you drew into, and no copy occurs. X11's `XPutImage` copies the pixels to the server. The `MIT-SHM` extension exists to prevent that copy.
 
-**Drawing once is not enough.** The server tells you when to paint, and it will
-ask again.
+**One drawing is not sufficient.** The server tells you when to paint, and it asks again later.
 
 ## Xlib, the short version
 
-Open a display, create a window, map it, then answer events. It needs much
-less setup code than Wayland, and it still runs everywhere, including under
-XWayland on a Wayland desktop.
+Open a display, create a window and map it. Then answer the events. Xlib needs much less setup code than Wayland. It still runs on all Linux desktops, also under XWayland on a Wayland desktop.
 
 <Playground
   name="09-graphics.x11-window"
-  note="Opens a window and waits for a keypress, which CI cannot sit through. Compiled and linked against the real libX11 on every run."
+  note="Opens a window and waits for a keypress. A CI step cannot wait for a keypress. CI compiles the snippet and links it against the real libX11 on each run."
 />
 
-Four details in that code matter when you write your own.
+When you write your own version, four details in that code are important.
 
-**`@cImport` is gone.** C headers now arrive through a build-system step. In
-this repo that is what `//! link: X11` and `//! cinclude:` set up: `build.zig`
-synthesizes a header, runs `addTranslateC` over it, and hands the snippet the
-result as `@import("c")`. In your own project it is `b.addTranslateC(...)`
-followed by `translate.createModule()`. See [Importing
-C](../../working-with-c/cimport/) for the general shape.
+**`@cImport` does not exist now.** C headers now come through a build-system step. In this repo, `//! link: X11` and `//! cinclude:` configure that step. `build.zig` makes a header, runs `addTranslateC` on it, and gives the result to the snippet as `@import("c")`. In your own project, use `b.addTranslateC(...)` and then `translate.createModule()`. [Importing C](../../working-with-c/cimport/) shows the general shape.
 
-**Xlib's `Default*` macros do not survive translation.** `DefaultScreen(dpy)`,
-`RootWindow`, `DefaultVisual`, and `DefaultGC` all expand to member accesses
-on a private struct, and translate-c cannot give that meaning. Every one has a
-real function behind it (`XDefaultScreen`, `XRootWindow`, and so on), so call
-those. `XDestroyImage` is the same problem with a different answer: it expands
-to a call through the image's own function table, which Zig can do directly:
+**Xlib's `Default*` macros do not work after translation.** `DefaultScreen(dpy)`, `RootWindow`, `DefaultVisual` and `DefaultGC` all expand to member accesses on a private struct. translate-c cannot give those accesses a meaning. Each macro has a real function behind it (`XDefaultScreen`, `XRootWindow`, and others), thus call those functions.
+
+`XDestroyImage` has the same problem, but a different solution. The macro expands to a call through the function table of the image. Zig can make that call directly:
 
 ```zig
 _ = image.*.f.destroy_image.?(image);
 ```
 
-**`XCreateImage` takes ownership of your pixels.** It frees them with `free()`
-inside `XDestroyImage`, so the buffer has to come from `std.c.malloc` and not
-from a Zig allocator. Hand it a `GeneralPurposeAllocator` block and you get a
-free of a pointer that allocator never owned.
+**`XCreateImage` takes ownership of your pixels.** `XDestroyImage` frees them with `free()`. Thus the buffer must come from `std.c.malloc`, not from a Zig allocator. If you give it a block from a `GeneralPurposeAllocator`, the program calls `free` on a pointer that the C allocator never owned.
 
-**X11 keeps no copy of your pixels.** Every time the window is uncovered, the
-server sends `Expose` and expects the client to paint again. That is why the
-program keeps the image around instead of blitting once and forgetting it. The
-close button also needs opting into: without `WM_DELETE_WINDOW` registered
-through `XSetWMProtocols`, clicking it tears down the connection instead of
-sending an event you can act on.
+**X11 keeps no copy of your pixels.** Each time the window becomes visible again, the server sends `Expose`, and the client must paint again. For this reason, the program keeps the image. It does not blit the image one time and then discard it.
+
+The close button also needs a registration. Register `WM_DELETE_WINDOW` through `XSetWMProtocols`. If you do not, a click on the close button closes the connection. You get no event that the program can use.
 
 ## What Wayland changes
 
-Wayland is the newer protocol and the default on most current Linux desktops.
-The drawing code is unchanged. Everything around it is different, and the
-differences are all in the same direction: the compositor does less on your
-behalf.
+Wayland is the newer protocol, and it is the default on most current Linux desktops. The drawing code is the same. All the code around it is different. All the differences go in the same direction: the compositor does less work for you.
 
-**Discovery is a handshake.** You connect, ask for the registry, and the
-compositor advertises its globals. You bind the ones you need:
-`wl_compositor`, `wl_shm`, `xdg_wm_base`, `wl_seat`. This takes two
-roundtrips, not one, because the second is what runs the listeners you
-registered from inside the first.
+**Discovery is a handshake.** You connect and ask for the registry. Then the compositor advertises its globals. You bind the globals that you need: `wl_compositor`, `wl_shm`, `xdg_wm_base`, `wl_seat`. This takes two roundtrips, not one, because the second roundtrip runs the listeners that you registered inside the first.
 
-**A surface is not a window.** A bare `wl_surface` is just a rectangle of
-pixels. It becomes a window by being wrapped in an `xdg_surface` and then an
-`xdg_toplevel`. The toplevel carries the title and the app id.
+**A surface is not a window.** A bare `wl_surface` is only a rectangle of pixels. To make a window, put it in an `xdg_surface` and then in an `xdg_toplevel`. The toplevel holds the title and the app id.
 
-**The first commit carries no buffer.** It asks the compositor for the initial
-`configure`. Attaching a buffer before that handshake completes is a protocol
-error. The `configure` handler acks the serial, attaches, damages, and
-commits, and that last commit is the moment the window appears.
+**The first commit has no buffer.** The first commit asks the compositor for the initial `configure`. If you attach a buffer before that handshake is complete, the result is a protocol error. The `configure` handler does these steps:
 
-**You must answer `xdg_wm_base.ping` with `pong`.** It is the compositor's
-liveness check. Ignore it and your client is killed as unresponsive.
-It is easy to forget, because nothing fails until the compositor sends a ping.
+1. It acks the serial.
+2. It attaches the buffer.
+3. It damages the surface.
+4. It commits.
 
-**The shell protocol is not in the library.** `xdg-shell` ships as XML that
-`wayland-scanner` turns into a header plus glue at build time. A normal
-`addSystemCommand` step with `addOutputFileArg2` handles it, so the generated
-files can live in the Zig cache with nothing checked in.
+The window appears at that last commit.
 
-**There are no window decorations.** A compositor *may* offer to draw them via
-`zxdg_decoration_manager_v1`, but it is not obliged to, and GNOME's Mutter
-does not advertise that global at all. A client that just posts a buffer gets
-exactly that buffer: no titlebar, no close button, no way to move the window.
-Drawing your own means allocating a taller buffer, painting a strip, tracking
-the pointer, and turning a drag into a move request. Window positions belong
-to the compositor rather than to you. The cursor image is the client's job
-too: the pointer is undefined until you call `wl_pointer.set_cursor`, so
-without a cursor theme loaded it simply vanishes over your window.
+**You must answer `xdg_wm_base.ping` with `pong`.** The ping is the check of the compositor that your client is alive. If you ignore the ping, the compositor kills your client as unresponsive. It is easy to forget the ping, because nothing fails until the compositor sends one.
 
-These differences are why the X11 version above is one file and a Wayland one is not.
+**The shell protocol is not in the library.** `xdg-shell` comes as XML. At build time, `wayland-scanner` changes the XML into a header and glue code. A normal `addSystemCommand` step with `addOutputFileArg2` does this work. Thus the generated files can stay in the Zig cache, and you do not add them to the repo.
+
+**There are no window decorations.** A compositor *can* offer to draw them through `zxdg_decoration_manager_v1`, but it does not have to. GNOME's Mutter does not advertise that global. A client that only posts a buffer gets exactly that buffer: no titlebar, no close button, and no way to move the window.
+
+To draw your own decorations, do these steps:
+
+1. Allocate a taller buffer.
+2. Paint a strip.
+3. Track the pointer.
+4. Change a drag into a move request.
+
+The compositor controls the window positions, not you.
+
+The cursor image is also the work of the client. Until you call `wl_pointer.set_cursor`, the pointer is undefined. Thus, without a loaded cursor theme, the pointer disappears over your window.
+
+Because of these differences, the X11 version above is one file, and a Wayland version is not.
 
 ## What neither version here does
 
-**Animation.** One static frame. On Wayland, redraws are driven by a
-`wl_surface_frame` callback so they land in step with the compositor. On X11
-you drive them from a timer or an idle loop.
+**Animation.** The program shows one static frame. On Wayland, a `wl_surface_frame` callback controls the redraws, so that they occur at the same rate as the compositor. On X11, a timer or an idle loop controls the redraws.
 
-**Resizing.** A complete client allocates a new buffer on every `ConfigureNotify` or
-`configure`. Reusing a fixed one leaves the extra area unpainted on X11 and
-scaled on Wayland.
+**Resize.** A complete client allocates a new buffer at each `ConfigureNotify` or `configure`. If you use a fixed buffer again, X11 leaves the extra area unpainted, and Wayland scales the buffer.
 
-**Double buffering.** Writing into a buffer the compositor may be reading gets
-you a torn frame. A complete client keeps two and waits for `wl_buffer.release`.
+**Double buffering.** If you write into a buffer that the compositor can read at the same time, you get a torn frame. A complete client keeps two buffers and waits for `wl_buffer.release`.
 
-**Format negotiation.** `XRGB8888` is mandatory in the Wayland protocol so it is
-safe to assume. The X11 code above checks only that the default visual is 24-
-or 32-bit. That is true on any desktop from the last twenty years, and it is
-not the same as checking what is actually offered.
+**Format negotiation.** The Wayland protocol makes `XRGB8888` mandatory. Thus you can safely assume it. The X11 code above checks only that the default visual is 24-bit or 32-bit. That is true on all desktops from the last twenty years. But it is not the same as a check of the formats that the server really offers.

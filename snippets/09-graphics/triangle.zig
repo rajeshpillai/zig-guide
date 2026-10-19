@@ -1,6 +1,6 @@
 //! title: Rasterizing a Triangle
-//! Edge functions: one signed area per edge decides inside from outside, and
-//! the same three numbers interpolate colour across the face for free.
+//! Edge functions: one signed area for each edge tells inside from outside.
+//! The same three numbers interpolate colour across the face at no cost.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
@@ -9,16 +9,17 @@ var pixels: [canvas.width * canvas.height]u32 = undefined;
 
 const Point = struct { x: i32, y: i32 };
 
-/// Twice the signed area of triangle (a, b, p). Positive on one side of the
-/// line ab, negative on the other, zero exactly on it. The sign alone is the
-/// inside test, and the magnitude is the barycentric weight.
+/// Two times the signed area of triangle (a, b, p). The value is positive on
+/// one side of the line ab, negative on the other side, and zero on the line.
+/// The sign alone is the inside test. The magnitude is the barycentric weight.
 fn edge(a: Point, b: Point, p: Point) i32 {
     return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
 }
 
 fn fillTriangle(a: Point, b: Point, c: Point, ca: u32, cb: u32, cc: u32) void {
-    // Wind consistently, so "inside" is always the non-negative side. Without
-    // this a triangle given the other way round disappears.
+    // Make the winding the same for all triangles. Then "inside" is always
+    // the side where the values are zero or more. Without this step, a
+    // triangle with the other winding disappears.
     var v0 = a;
     var v1 = b;
     const v2 = c;
@@ -31,7 +32,7 @@ fn fillTriangle(a: Point, b: Point, c: Point, ca: u32, cb: u32, cc: u32) void {
         std.mem.swap(u32, &col0, &col1);
     }
     const total = edge(v0, v1, v2);
-    if (total == 0) return; // degenerate: three collinear points have no face
+    if (total == 0) return; // degenerate: three collinear points make no face
 
     const min_x = @min(v0.x, @min(v1.x, v2.x));
     const max_x = @max(v0.x, @max(v1.x, v2.x));
@@ -49,8 +50,9 @@ fn fillTriangle(a: Point, b: Point, c: Point, ca: u32, cb: u32, cc: u32) void {
             if (w0 < 0 or w1 < 0 or w2 < 0) continue;
 
             // The three edge values, divided by the total, are the barycentric
-            // coordinates: they sum to 1 and weight each vertex's colour by
-            // how close the pixel is to it.
+            // coordinates. Their sum is 1. Each coordinate is the weight for
+            // the colour of one vertex: the nearer the pixel, the larger the
+            // weight.
             const g0 = canvas.channels(col0);
             const g1 = canvas.channels(col1);
             const g2 = canvas.channels(col2);
@@ -75,7 +77,8 @@ pub fn main(init: std.process.Init) !void {
 
     canvas.fill(&pixels, canvas.rgb(0, 0, 30));
 
-    // Gouraud shading in three lines: one colour per vertex, interpolated.
+    // Gouraud shading in three lines: one colour for each vertex, and the
+    // colours interpolate across the face.
     fillTriangle(
         .{ .x = 4, .y = 28 },
         .{ .x = 30, .y = 2 },
@@ -85,8 +88,8 @@ pub fn main(init: std.process.Init) !void {
         canvas.rgb(120, 120, 160),
     );
 
-    // Wound the other way round, and drawn flat. It still appears, because
-    // fillTriangle normalises the winding.
+    // This triangle has the other winding and one flat colour. The triangle
+    // still appears, because fillTriangle makes the winding the same.
     fillTriangle(
         .{ .x = 62, .y = 4 },
         .{ .x = 44, .y = 20 },

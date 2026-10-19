@@ -1,7 +1,7 @@
 //! title: Median and Rank Filters
 //! A convolution is a weighted sum, so it cannot ignore a value. Sort the
-//! neighbourhood instead and pick by position, and one function becomes a
-//! denoiser, an eroder and a dilator depending on which position you pick.
+//! neighbourhood and select by position. Then one function is a denoiser, an
+//! eroder or a dilator. The position that you select decides which.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
@@ -17,13 +17,13 @@ fn sample(src: []const u32, x: i32, y: i32) u32 {
     return src[@as(usize, @intCast(cy)) * canvas.width + @as(usize, @intCast(cx))];
 }
 
-/// Salt and pepper: a fraction of pixels replaced outright by black or white.
-/// This is the noise a bad sensor or a lossy channel produces. The two filters
-/// here give very different results on it, because the corrupted values are
-/// nothing like their neighbours.
+/// Salt and pepper: black or white fully replaces a fraction of the pixels. A
+/// bad sensor or a lossy channel makes this noise. The two filters in this file
+/// give very different results on it, because the corrupted values are not
+/// similar to their neighbours.
 ///
-/// A fixed multiplier and seed, so the picture is the same on every run and the
-/// expected output can be checked in.
+/// The program uses a fixed multiplier and a fixed seed. Thus the picture is the same on each
+/// run, and the repository can store the expected output.
 fn addSaltAndPepper(buf: []u32, per_mille: u32) void {
     var state: u64 = 0x2545F4914F6CDD1D;
     for (buf) |*p| {
@@ -35,8 +35,9 @@ fn addSaltAndPepper(buf: []u32, per_mille: u32) void {
     }
 }
 
-/// A 3x3 gaussian, for comparison. Every neighbour contributes something, so a
-/// single white pixel is not removed. It is spread over nine pixels.
+/// A 3x3 gaussian, for comparison. Each neighbour adds something to the
+/// result. Thus the gaussian does not remove one white pixel. It spreads the
+/// pixel over nine pixels.
 fn blur(dst: []u32, src: []const u32) void {
     const weights = [9]i32{ 1, 2, 1, 2, 4, 2, 1, 2, 1 };
     for (0..canvas.height) |y| {
@@ -68,13 +69,13 @@ fn blur(dst: []u32, src: []const u32) void {
 
 /// Sort the nine neighbours by luma and take the one at `rank`.
 ///
-/// One function for the whole family. Rank 4 is the median, rank 0 the minimum
-/// and rank 8 the maximum, and `rank` being `comptime` means each instantiation
-/// is a separate specialised function rather than a branch in a hot loop.
+/// One function for the full family. Rank 4 is the median, rank 0 is the
+/// minimum and rank 8 is the maximum. `rank` is `comptime`, so each
+/// instantiation is a separate specialised function. A hot loop has no branch
+/// for the rank.
 ///
-/// The pixel is carried through whole rather than sorted per channel: taking
-/// the median of each channel separately can produce a colour that appears
-/// nowhere in the neighbourhood.
+/// The function sorts full pixels, not separate channels. A median of each
+/// channel separately can make a colour that is not in the neighbourhood.
 fn rankFilter(dst: []u32, src: []const u32, comptime rank: usize) void {
     comptime std.debug.assert(rank < 9);
     for (0..canvas.height) |y| {
@@ -89,10 +90,10 @@ fn rankFilter(dst: []u32, src: []const u32, comptime rank: usize) void {
                     );
                 }
             }
-            // Insertion sort. Nine elements is small enough that the O(n^2)
-            // bound is beaten in practice by having no branches to mispredict
-            // and no call overhead; production code uses a fixed sorting
-            // network here, which is straight-line code with no loop at all.
+            // Insertion sort. For nine elements, the O(n^2) bound is not
+            // important, and insertion sort has almost no constant overhead.
+            // Production code uses a fixed sorting network here. A network is
+            // straight-line code with no loop and no branches.
             var i: usize = 1;
             while (i < window.len) : (i += 1) {
                 const key = window[i];
@@ -107,8 +108,8 @@ fn rankFilter(dst: []u32, src: []const u32, comptime rank: usize) void {
     }
 }
 
-/// Count pixels that are pure black or pure white, which after the noise pass
-/// is very nearly a count of the surviving noise.
+/// Count the pixels that are pure black or pure white. After the noise pass,
+/// this count is almost equal to the count of the noise that remains.
 fn countExtremes(buf: []const u32) struct { black: usize, white: usize } {
     var black: usize = 0;
     var white: usize = 0;
@@ -120,8 +121,8 @@ fn countExtremes(buf: []const u32) struct { black: usize, white: usize } {
     return .{ .black = black, .white = white };
 }
 
-/// Mean absolute luma difference between two pictures, in 1/100ths so the
-/// integer print keeps two decimals.
+/// The mean absolute difference in luma between two pictures, in 1/100ths.
+/// Thus the integer print keeps two decimals.
 fn meanError(a: []const u32, b: []const u32) u32 {
     var total: u64 = 0;
     for (a, b) |pa, pb| {
@@ -161,11 +162,11 @@ pub fn main(init: std.process.Init) !void {
     blur(&scratch, &pixels);
     const blurred = countExtremes(&scratch);
 
-    // Two measurements, because the first one misleads. Counting pure black and
-    // pure white says the gaussian removed every noisy pixel, and it did: it
-    // averaged each one into a grey smudge nine pixels wide. Mean error against
-    // the clean picture is the measurement that says whether the noise is gone
-    // or merely spread out.
+    // Two measurements, because the first measurement gives a wrong idea. The
+    // count of pure black and pure white says that the gaussian removed each
+    // noisy pixel. That is true: the gaussian averaged each noisy pixel into a
+    // grey smudge nine pixels wide. The mean error against the clean picture
+    // tells you if the noise is gone or only spread.
     var clean: [count]u32 = undefined;
     canvas.scene(&clean);
 
@@ -179,9 +180,9 @@ pub fn main(init: std.process.Init) !void {
     try printRow(out, "gaussian", blurred.black, blurred.white, blur_error);
     try printRow(out, "median", medianed.black, medianed.white, median_error);
 
-    // The edge, before and after each filter. The gaussian softens it because
-    // it averages across it; the median does not, because on either side of the
-    // edge the majority of the window is still on that side.
+    // The edge, before and after each filter. The gaussian makes the edge soft,
+    // because it averages across the edge. The median does not, because on each
+    // side of the edge, most of the window is on that side.
     canvas.scene(&pixels);
     try out.writeAll("\nluma along y=10, x=5..12 (the block's left edge)\n     x    |");
     for (5..13) |x| try out.print(" {d:>4}", .{x});
@@ -193,8 +194,9 @@ pub fn main(init: std.process.Init) !void {
     try lumaRow(out, "median", &scratch);
 
     // Rank 0 and rank 8 are morphology. On a bright shape, the minimum filter
-    // shrinks it by a pixel and the maximum grows it: erosion and dilation,
-    // from the same function with a different index.
+    // shrinks the shape by one pixel, and the maximum filter grows the shape.
+    // These filters are erosion and dilation, from the same function with a
+    // different index.
     canvas.scene(&pixels);
     var bright_before: usize = 0;
     for (pixels) |p| {

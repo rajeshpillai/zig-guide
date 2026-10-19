@@ -1,98 +1,61 @@
 ---
 title: A Framebuffer Is an Array
-description: Row-major layout, top-left origin, packed pixels, and a clipping putPixel.
+description: Row-major layout, top-left origin, packed pixels, and a putPixel that clips.
 section: Graphics
 order: 120
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-There is no graphics library in this section. Every pixel is set by code you
-can read. The only thing between the code and an image is a block of numbers
-and a decision about how to interpret it.
+This section uses no graphics library. Code that you can read sets each pixel. Between the code and an image, there is only a block of numbers and a decision about how to interpret the numbers.
 
-That decision has three parts:
+The decision has three parts:
 
-- **Row-major.** Pixel `(x, y)` lives at `y * width + x`. A row is contiguous,
-  and the next row starts immediately after it.
-- **Top-left origin.** `y = 0` is the top row and `y` grows downward. Nearly
-  every display API works this way, and it is upside down from the convention
-  you learned in maths. You will probably get it wrong at least once.
-- **One value per pixel.** These chapters use a `u32` holding `0x00RRGGBB`,
-  because that is what X11 and Wayland want from a client buffer. Writing whole
-  `u32`s also keeps the byte order right without thinking about it: on a
-  little-endian machine that value sits in memory as B, G, R, X.
+- **Row-major.** Pixel `(x, y)` is at `y * width + x`. A row is contiguous, and the next row starts immediately after it.
+- **Top-left origin.** `y = 0` is the top row, and `y` increases downward. Almost all display APIs use this rule. It is upside down from the rule that you learned in maths, and you will probably make this mistake at least one time.
+- **One value per pixel.** These chapters use a `u32` that holds `0x00RRGGBB`, because X11 and Wayland want this format in a client buffer. When you write full `u32` values, the byte order is also correct without more work. On a little-endian computer, the value is in memory as B, G, R, X.
 
 <Playground name="09-graphics.framebuffer" />
 
 ## Why the buffer is global
 
-`640 * 480 * 4` is 1.2 MB. The default thread stack is 8 MB on Linux, 1 MB on
-Windows, and smaller still on some embedded targets. A full-size image
-declared as a local may work on one machine and overflow the stack on another.
-Make it global, or heap-allocate it.
+`640 * 480 * 4` is 1.2 MB. The default thread stack is 8 MB on Linux and 1 MB on Windows. On some embedded targets, the stack is smaller. A full-size image in a local variable can work on one computer and overflow the stack on a different computer. Make the image global, or allocate it on the heap.
 
-`undefined` is safe here only because `drawGradient` writes every cell
-before anything reads one. A scene that fills part of the buffer has to start
-from a known colour, or it ships whatever was in memory.
+`undefined` is safe here only because `drawGradient` writes each cell before the program reads a cell. A scene that fills only part of the buffer must start from a known colour. If it does not, the image contains the old data that was in memory.
 
-## The two arithmetic traps
+## Two arithmetic errors
 
 ```zig
 const r: u8 = @intCast((x * 255) / (width - 1));
 ```
 
-**Multiply before dividing.** `(x / (width - 1)) * 255` is zero in every column
-but the last, because integer division truncates. This is a common bug
-in integer scaling code, and it is invisible until you look at the output.
+**Multiply before you divide.** `(x / (width - 1)) * 255` is zero in all columns but the last, because integer division truncates. This is a common bug in integer scaling code. You cannot see the bug until you look at the output.
 
-**`width - 1`, not `width`.** With `width` the last column stops short: at 64
-wide it reaches 251, not 255. Nobody sees that in a gradient. It matters the
-moment the value is used as an index.
+**Use `width - 1`, not `width`.** With `width`, the last column does not reach the end value: at a width of 64, the value is 251, not 255. In a gradient, nobody sees the difference. When the value is an index, the difference is important.
 
-No floats appear anywhere in this section unless a chapter says otherwise.
-Integers are exact for this work, and exact values help a lot when you are
-debugging by reading pixel values.
+This section uses no floats, unless a chapter says otherwise. Integers are exact for this work. Exact values help you when you read pixel values to debug a program.
 
 ## Why putPixel takes signed coordinates
 
-Shapes arrive at their pixels by subtraction: a circle from its centre, a line
-from its start. Half of those results are negative. In `usize` a negative
-result underflows to an enormous number, which is a panic in Debug mode and a
-wrong answer everywhere else. Coordinates that can go negative need a signed
-type, and the cost is an `@intCast` where the value is used.
+A shape gets the coordinates of its pixels by subtraction: a circle from its centre, a line from its start. Half of these results are negative. In `usize`, a negative result underflows to a very large number. In Debug mode the result is a panic, and in the other modes the result is a wrong answer. Coordinates that can be negative need a signed type. The cost is an `@intCast` where the program uses the value.
 
-The bounds check in `putPixel` is doing more than safety. It is **clipping**:
-once "off-screen" is a legal thing to ask for, every shape routine can be
-written without an edge case for the edges. That is why the circle in
-[Circles](../circles/) is a handful of lines even when it hangs off two
-sides of the buffer at once.
+The bounds check in `putPixel` does more than make the code safe. It is **clipping**. When a request for an off-screen pixel is legal, a shape routine does not need special code for the edges. Thus the circle in [Circles](../circles/) has only a few lines, even when the circle goes past two sides of the buffer at the same time.
 
-`putPixel` is also the slow way to draw. A real renderer writes whole spans of
-a row at a time, because a per-pixel call and a per-pixel bounds check
-dominate the cost. It is fine for learning, but too slow for a hot loop.
+`putPixel` is also a slow way to draw. A real renderer writes full spans of a row at a time. The reason is that a call and a bounds check for each pixel are most of the cost. `putPixel` is good for learning, but it is too slow for a hot loop.
 
 ## Why the output is text
 
-The pages here run in your browser through the same WASI shim as every other
-snippet in this guide. That gives a program stdout and an empty working
-directory, and no window. So the buffer is printed: one character per pixel,
-picked from a ten-step ramp by luminance.
+The pages here run in your browser through the same WASI shim as all other snippets in this guide. The shim gives a program stdout and an empty working directory, but no window. Thus the program prints the buffer. Each pixel is one character, selected by luminance from a ramp of ten characters.
 
-A chapter that needs real colour also writes the buffer to a PPM file in that
-directory. The page paints any `.ppm` file the program leaves behind, under the
-text. The program prints one line for each file, with a hash of its pixels:
+A chapter that needs real colour also writes the buffer to a PPM file in that directory. The page paints, under the text, each `.ppm` file that the program leaves in the directory. The program prints one line for each file, with a hash of its pixels:
 
 ```
 wrote triangle.ppm: 64x32, fnv1a d62c1083
 ```
 
-CI checks the file against that line, and checks the line against the
-expected output. So the picture you see is checked like the text is.
+CI compares the file with that line, and compares the line with the expected output. Thus CI checks the picture that you see in the same way as it checks the text.
 
-Nothing is resampled. The canvas is 64x32 and the dump is 64 characters wide,
-so what you count on screen is what the code wrote. The chapters after this
-one share that dump through a helper module:
+The program does not resample the image. The canvas is 64x32 and the text is 64 characters wide. Thus the characters that you count on screen are the pixels that the code wrote. The chapters after this one share the text output through a helper module:
 
 ```zig
 pub const width: usize = 64;
@@ -111,19 +74,15 @@ pub fn putPixel(pixels: []u32, x: i32, y: i32, color: u32) void {
 }
 ```
 
-The file is `snippets/09-graphics/_canvas.zig`. The leading underscore is what
-keeps the build from treating it as a chapter of its own.
+The file is `snippets/09-graphics/_canvas.zig`. Because of the underscore at the start of the name, the build does not use the file as a chapter.
 
-## Where this goes
+## The next chapters
 
-The order is: get pixels into a buffer, get the buffer out of the process,
-then draw things worth looking at.
+The order is: put pixels into a buffer, move the buffer out of the process, then draw useful shapes.
 
-- [Writing an Image File](../image-files/) puts the buffer on disk as a PPM.
-- [Lines](../lines/) and [Circles](../circles/) are the two primitives every
-  rasterizer starts with.
-- [Alpha Blending](../blending/) is what you do when a later write should not
-  simply destroy an earlier one.
-- [Rasterizing Triangles](../triangles/) is the primitive a GPU actually draws.
-- [Antialiasing](../antialiasing/) turns a hard edge into a coverage value.
-- [Onto the Screen](../on-screen/) hands the same buffer to a display server.
+- [Writing an Image File](../image-files/) writes the buffer to disk as a PPM.
+- [Lines](../lines/) and [Circles](../circles/) are the first two primitives of each rasterizer.
+- [Alpha Blending](../blending/) is for when a later write must not fully replace an earlier write.
+- [Rasterizing Triangles](../triangles/) is about the primitive that a GPU really draws.
+- [Antialiasing](../antialiasing/) changes a hard edge into a coverage value.
+- [Onto the Screen](../on-screen/) gives the same buffer to a display server.

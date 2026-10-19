@@ -1,16 +1,13 @@
 ---
 title: Transforms
-description: Moving, turning and resizing are one operation, and composing them is a multiply whose order you do not get to choose freely.
+description: To move, turn and resize a shape is one operation. To combine them is a multiply, and you cannot select its order freely.
 section: Graphics
 order: 139
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-[The scene graph](/learn/graphics/scene/) stored two integers per node, and
-noted the limit: two integers only let a node move. A full scene graph stores
-a matrix, so a node can turn and resize as well. Composing a parent with a
-child then becomes a multiply. This chapter builds that matrix.
+[The scene graph](/learn/graphics/scene/) stored two integers for each node, and that chapter gave the limit: two integers only let a node move. A full scene graph stores a matrix. Thus a node can also turn and change its size. To combine a parent with a child, the walk then multiplies two matrices. This chapter builds that matrix.
 
 ## The program
 
@@ -18,36 +15,25 @@ child then becomes a multiply. This chapter builds that matrix.
 
 ## What just happened
 
-**Six numbers cover every case.** Moving, turning, scaling and shearing are
-four ways of filling in the same six slots. A routine that applies a transform
-does not know which of them it was handed.
+**Six numbers cover all cases.** A move, a turn, a scale and a shear are four ways to fill the same six slots. A routine that applies a transform does not know which of the four it got.
 
-**Order changes the answer.** The two arrows in the first picture come from the
-same quarter turn and the same offset, composed both ways round. Rotation is
-about the origin, so moving first means turning the offset too, and the shape
-travels a quarter circle to a different place. The picture shows that matrix
-multiplication is not commutative.
+**The order changes the answer.** The two arrows in the first picture come from the same quarter turn and the same offset, combined in the two possible orders. The rotation is about the origin. Thus, if the move occurs first, the turn also turns the offset. The shape goes a quarter circle to a different position. The picture shows that matrix multiplication is not commutative.
 
-**Turning about a point is three transforms.** There is no `rotate` that takes
-a centre. Move the pivot to the origin, turn, and move it back. Those three
-compose into a single matrix, and applying it costs the same as one rotation.
-The arrows numbered 1, 2 and 3 move around the `+`, but no code for an orbit
-exists. Each one is just this matrix with a different angle.
+**A turn about a point is three transforms.** No `rotate` function takes a centre. Do these three steps:
 
-**The shape is never modified.** `shape` is one array of seven points, `const`,
-drawn eight times across the three pictures. Every difference is in the
-matrix.
+1. Move the pivot to the origin.
+2. Turn.
+3. Move the pivot back.
 
-## Reading a composition
+The three steps combine into one matrix, and that matrix costs the same as one rotation. The arrows with the numbers 1, 2 and 3 move around the `+`, but the program has no code for an orbit. Each arrow is this matrix with a different angle.
 
-In practice, transforms are awkward because the usual way to write them runs
-backwards from the order things happen. As matrices, applying
-`A` and then `B` to a column vector is `B * A * p`: the one nearest the point
-acts first, so the chain reads right to left.
+**The program never changes the shape.** `shape` is one `const` array of seven points. The program draws it eight times in the three pictures. Each difference is in the matrix.
 
-`then` exists to hide that. `a.then(b)` means `a` first, and internally it
-computes `b * a`. The reversal happens once, in one function. Nobody reading
-the call has to reverse it in their head:
+## Read a composition
+
+In practice, transforms are difficult because the usual notation is in the reverse order of the operations. With matrices, to apply `A` and then `B` to a column vector, you write `B * A * p`. The matrix nearest the point acts first. Thus you read the chain from right to left.
+
+`then` hides that reverse order. `a.then(b)` means `a` first, and the function calculates `b * a` internally. The reversal occurs one time, in one function. A person who reads the call does not have to reverse the order mentally:
 
 ```zig
 const about_pivot = Transform.translate(-pivot_x, -pivot_y)
@@ -55,68 +41,38 @@ const about_pivot = Transform.translate(-pivot_x, -pivot_y)
     .then(Transform.translate(pivot_x, pivot_y));
 ```
 
-The code lists three operations in the order they occur. It builds the same
-matrix a graphics textbook would write as `T * R * T⁻¹`.
+The code gives the three operations in the order that they occur. The code builds the same matrix that a graphics textbook writes as `T * R * T⁻¹`.
 
-The display's aspect ratio is composed the same way. A character cell is about
-twice as tall as it is wide, so every point gets a final non-uniform scale of
-`(2, 1)`. This scale is kept out of the transforms above, so a rotation in
-this program keeps the shape's angles correct. The shape is worked out in
-square units and squashed once, at the end, by a matrix like any other.
+The program combines the aspect ratio of the display in the same way. A character cell is approximately two times as tall as it is wide. Thus each point gets a final non-uniform scale of `(2, 1)`.
 
-## What the bottom row is for
+The transforms above do not include this scale. Thus a rotation in this program keeps the angles of the shape correct. The program calculates the shape in square units. At the end, one matrix squashes the shape, and that matrix is the same as all the other matrices.
 
-The matrix is 3x3 but only six numbers are stored. The missing row is always
-`0 0 1`, so there is no need to store it.
+## The purpose of the bottom row
 
-The row exists because translation is not a linear operation. A 2x2 matrix multiply
-can rotate, scale and shear, and every one of those leaves the origin where it
-is. Nothing built from `a`, `b`, `c` and `d` alone can move a point away from
-the origin. Adding a third coordinate fixed at 1 gives translation a column to
-live in. The last column is that column: its entries are multiplied by the 1
-and added, which is exactly what a move does.
+The matrix is 3x3, but the program stores only six numbers. The row that the program does not store is always `0 0 1`. Thus the program does not need to store it.
 
-This extra coordinate is what homogeneous coordinates means. With it,
-translation becomes a multiply like the others. So a chain of moves, turns and
-scales collapses into one matrix. Each point is multiplied by that one matrix,
-instead of going through every step of the chain.
+The row exists because translation is not a linear operation. A 2x2 matrix multiply can rotate, scale and shear, and each of those operations keeps the origin at the same position. A matrix made only from `a`, `b`, `c` and `d` cannot move a point away from the origin. A third coordinate, always 1, gives translation a column. The last column is that column. The multiply multiplies its entries by the 1 and adds them, and a move does exactly that.
 
-Perspective goes one step further. Let the bottom row hold something other
-than 0 and 1, and divide by the third coordinate afterwards. The division is
-what makes the far end of a wall smaller. The trapezoid in [texture
-mapping](/learn/graphics/texture/) was missing this division.
+This extra coordinate is the meaning of homogeneous coordinates. With the extra coordinate, translation becomes a multiply, the same as the other operations. Thus a chain of moves, turns and scales becomes one matrix. The program multiplies each point by that one matrix. The point does not go through each step of the chain.
+
+Perspective goes one step more. Put values other than 0 and 1 in the bottom row, and divide by the third coordinate after the multiply. The division makes the far end of a wall smaller. The trapezoid in [texture mapping](/learn/graphics/texture/) did not have this division.
 
 ## Check yourself
 
-`then` builds a new matrix by multiplying. Why not skip it and apply each
-transform to the points in turn?
+`then` multiplies to build a new matrix. Why not apply each transform to the points, one after the other?
 
-For seven points it makes no difference. The reason is what happens when there
-are seven thousand, or when the chain is deep: composing costs one multiply
-per *transform*, applying costs one per *point*. Fold the chain first and
-every point pays for one matrix, regardless of how many operations went into
-it. For the same reason, the scene graph adds up an offset on the way down the
-tree, instead of walking again from the root at every node.
+For seven points, the result is the same. The reason applies to seven thousand points, or to a long chain. A composition costs one multiply for each *transform*. An application costs one multiply for each *point*.
 
-The second reason is accuracy. Each application rounds, so applying five
-transforms in turn rounds five times per point. Composing rounds once while
-building the matrix, and the points are transformed once.
+If you combine the chain first, each point pays for only one matrix, for any number of operations in the chain. For the same reason, the scene graph adds the offsets as it goes down the tree. It does not walk again from the root for each node.
+
+The second reason is accuracy. Each application rounds. Thus five transforms, applied one after the other, round five times for each point. A composition rounds while it builds the matrix, and the program transforms each point one time.
 
 ## If you know C
 
-The struct is the six-float affine matrix from every 2D graphics API you have
-met. Cairo's, Direct2D's, the six arguments to the web canvas `setTransform`,
-and Java's `AffineTransform`. Field order and naming differ, but the six
-numbers are the same.
+The struct is the six-float affine matrix from all the 2D graphics APIs that you know. Examples are the matrices of Cairo and Direct2D, the six arguments to the web canvas `setTransform`, and the `AffineTransform` of Java. The order and the names of the fields are different, but the six numbers are the same.
 
-The Zig version has two differences. The trigonometry uses builtins instead of
-libc calls, so this snippet has no dependency to link and runs unchanged in a
-browser, which is how the program above runs in this page.
+The Zig version has two differences. First, the trigonometry uses builtins, not libc calls. Thus this snippet has no dependency to link, and the snippet runs in a browser without changes. The program above runs on this page in that way.
 
-The default field values in the struct declaration also matter.
-`identity` is `.{}`, and each constructor sets only the fields it needs:
-`translate` writes `e` and `f`, and the other four keep the identity's
-`1, 0, 0, 1`. In C those are four more assignments per constructor. Forgetting
-one gives a common bug: a translate that silently sets the scale to zero.
+Second, the default field values in the struct declaration are important. `identity` is `.{}`, and each constructor sets only the fields that it needs. `translate` writes `e` and `f`, and the other four fields keep the `1, 0, 0, 1` of the identity. In C, each constructor needs four more assignments. If you forget one, you get a common bug: a translate that sets the scale to zero and gives no error.
 
-Next: the same buffer, handed to a display server rather than to a file.
+Next: the same buffer, but the program gives it to a display server, not to a file.

@@ -1,21 +1,18 @@
 ---
 title: A Canvas Is a View
-description: Four fields instead of a slice, and every routine draws inside a region without knowing it is one.
+description: Four fields, not a slice. Each routine draws inside a region, and the routine does not know that the canvas is a region.
 section: Graphics
 order: 137
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Every drawing routine in this section so far has assumed it owns the whole
-buffer. The type says so. There is one width, it is a constant, and the pixel
-at the end of a row is followed by the pixel at the start of the next.
+Until now, each drawing routine in this section assumed that it owned the full buffer. The type says so. There is one width, and the width is a constant. The pixel at the end of a row is immediately before the pixel at the start of the next row.
 
-Often you want to draw into a region of the buffer instead: a panel inside a
-window, a cell inside a chart, or a widget inside a toolbar. The region has
-its own origin and its own edges, which differ from the buffer's. You can pass
-an offset and a clip rectangle to every routine and apply them in every
-routine. Or you can change what a routine is given.
+Frequently you want to draw into a region of the buffer instead. Examples are a panel inside a window, a cell inside a chart, or a widget inside a toolbar. The region has its own origin and its own edges, and these are different from the origin and the edges of the buffer. You have two choices:
+
+- Give an offset and a clip rectangle to each routine, and apply them in each routine.
+- Change the value that each routine gets.
 
 ## The program
 
@@ -23,84 +20,49 @@ routine. Or you can change what a routine is given.
 
 ## What just happened
 
-**The bar is 40 pixels wide inside a panel 26 wide.** It stops at the panel's
-edge. The panel beside it is untouched, and neither `rect` nor the caller
-mentions the panel's position to make that happen.
+**The bar is 40 pixels wide inside a panel that is 26 pixels wide.** The bar stops at the edge of the panel. The program does not change the panel next to it. Neither `rect` nor the caller refers to the position of the panel to get this result.
 
-**Three canvases share one buffer and one stride.** The table at the end shows
-this in four rows. `width` differs for each region. `stride` is 60 for all of
-them, including the one nested two levels deep. All of them address the same
-memory, and that memory has not changed shape.
+**The three sub-canvases share one buffer and one stride with the root.** The table at the end shows this in four rows. `width` is different for each region. `stride` is 60 for all of them, and also for the region two levels deep. All of the canvases address the same memory, and the shape of that memory did not change.
 
-**The child does not know where it is.** `Canvas` has no `x` and no `y`. A
-sub-canvas is its pixels, its size, and the distance between its rows. A
-drawing routine needs nothing else. The canvas stores no parent coordinate,
-so no routine can forget to add one.
+**The child does not know its position.** `Canvas` has no `x` and no `y`. A sub-canvas is its pixels, its size, and the distance between its rows. A drawing routine needs nothing more. The canvas stores no parent coordinate, thus no routine can forget to add a parent coordinate.
 
-**Dumping the right panel copied nothing.** The second picture is the same
-memory as the first, read through different bounds.
+**The dump of the right panel copied nothing.** The second picture is the same memory as the first picture. The program reads that memory through different bounds.
 
-## Stride is what width cannot say
+## The stride gives what the width cannot give
 
-For a canvas over a whole buffer, stride and width are the same number. So the
-earlier chapters never needed to tell them apart. They differ as soon as a
-canvas is a region. The pixel below one in a region is one full
-buffer row further on, and the region's own width has nothing to do with how
-far that is.
+For a canvas over a full buffer, the stride and the width are the same number. Thus the earlier chapters did not need to tell them apart. When a canvas is a region, the two numbers are different. In a region, the pixel below a pixel is one full buffer row after it. The width of the region does not set that distance.
 
-So the addressing splits in two. `width` and `height` bound what the region
-*is*. `stride` says how its rows are *spaced*. If you use the width as the
-stride, every row after the first lands a little further left than the one
-before. The picture shears diagonally across the screen. It looks like a bug
-in whatever you were drawing, when the bug is in the addressing.
+Thus the addressing has two parts:
+
+- `width` and `height` give the bounds of the region: what the region *is*.
+- `stride` gives the *spacing* of the rows.
+
+With the width as the stride, each row after the first starts a small distance to the left of the row above. The picture shears diagonally across the screen. The result looks like a bug in the drawing code, but the bug is in the addressing.
 
 ## A rectangle is not a slice
 
-Here Zig raises a question that C does not.
+Zig asks a question here that C does not ask.
 
-`sub` has to hand back a `[]u32`, and no `[]u32` describes exactly these
-pixels. A rectangle inside a wider buffer is not contiguous. The slice
-returned runs from the region's first pixel to the last pixel of its bottom
-row. So it covers the region, and also the gap at the end of each row, which
-belongs to the parent. That bound protects less than it seems to. Indexing
-past the end of the framebuffer is caught. Writing into the panel next door is
-not caught, because those pixels are inside the slice.
+`sub` must return a `[]u32`, and no `[]u32` describes exactly these pixels. A rectangle inside a wider buffer is not contiguous. The returned slice starts at the first pixel of the region and ends at the last pixel of its bottom row. Thus the slice covers the region, and also the gap at the end of each row. That gap belongs to the parent.
 
-The clip in `set` keeps the panels apart. It compares against the region's
-own `width` and `height`. So there are two different guarantees from two
-different mechanisms, and only the bounds check comes from the language. If
-you skip `set` and index `pixels` directly, you keep the bounds check and lose
-the clip that keeps drawing inside the region.
+That bound gives less protection than it appears to give. If an index is past the end of the framebuffer, the bounds check catches the error. If code writes into the panel next to the region, nothing catches the error, because those pixels are inside the slice.
+
+The clip in `set` keeps the panels apart. The clip compares against the `width` and the `height` of the region. Thus two different mechanisms give two different guarantees, and only the bounds check comes from the language. If you do not use `set` and you index `pixels` directly, you keep the bounds check. But you lose the clip that keeps the drawing inside the region.
 
 ## Check yourself
 
-If the slice contains pixels the region does not own, what stops `fill` from
-painting them?
+The slice contains pixels that the region does not own. What stops `fill` from a write to those pixels?
 
-`fill` goes through `set`, and `set` rejects any `x` that is at least `width`.
-Those gap pixels sit at the end of a row, so reaching one means asking for an
-`x` past the region's right edge, which is exactly the case `set` refuses. The
-pixels can be reached through the slice but not through the API.
+`fill` calls `set`, and `set` rejects each `x` that is equal to or more than `width`. The pixels in the gap are at the end of a row. To get to one of them, a call must give an `x` past the right edge of the region. `set` refuses exactly this case. You can get to the pixels through the slice, but not through the API.
 
-The protection comes from one comparison in `set`, written by hand. The slice
-bound and the type do not provide it. When a widget paints over its
-neighbour, check that comparison first.
+The protection comes from one comparison in `set`, and a person wrote that comparison by hand. The slice bound and the type do not give this protection. When a widget paints over the widget next to it, examine that comparison first.
 
 ## If you know C
 
-This struct is `Olivec_Canvas` from
-[olive.c](https://github.com/tsoding/olive.c), Alexey Kutepov's
-dependency-free 2D graphics library, field for field, and `sub` is
-`olivec_subcanvas`. The C version carries a bare pointer with no length. The
-bounds check discussed above does not exist at all. Only the clip stops a
-widget from drawing over the rest of the window. A wrong comparison there
-silently writes into another widget's pixels. The symptom is a smear in a part
-of the screen whose code is correct.
+This struct is `Olivec_Canvas` from [olive.c](https://github.com/tsoding/olive.c), the 2D graphics library of Alexey Kutepov that has no dependencies. Each field is the same, and `sub` is `olivec_subcanvas`. The C version has a bare pointer with no length. Thus the bounds check above does not exist. Only the clip stops a widget from a write over the other parts of the window.
 
-The same design appears outside graphics libraries too. A GUI toolkit hands a
-widget a region to paint and a stride it does not own. A compositor hands a
-client a buffer with a stride the client did not choose, usually rounded up
-for alignment. That is the common case where stride is larger than width for a
-canvas that is not a sub-canvas of anything.
+If the comparison in the clip is wrong, the code writes into the pixels of a different widget and gives no error. The symptom is a smear in a part of the screen where the code is correct.
 
-Next: reading pixels out of one canvas to paint them onto another.
+The same design also occurs outside graphics libraries. A GUI toolkit gives a widget a region for its paint, and a stride that the widget does not own. A compositor gives a client a buffer with a stride that the client did not select. Usually the compositor rounds the stride up for alignment. This is the common case where the stride is larger than the width for a canvas that is not a sub-canvas.
+
+Next: read pixels from one canvas, and paint them onto a different canvas.

@@ -1,6 +1,6 @@
 //! title: Per-Pixel Transforms
-//! A point operation reads one pixel and nothing else. On 8-bit channels that
-//! means there are only 256 possible answers, which turns the whole family into
+//! A point operation reads one pixel and nothing else. On 8-bit channels,
+//! there are only 256 possible answers. Thus each operation of this type is
 //! one table lookup.
 
 const std = @import("std");
@@ -8,7 +8,8 @@ const canvas = @import("_canvas.zig");
 
 var pixels: [canvas.width * canvas.height]u32 = undefined;
 
-/// Every answer a point operation can give, indexed by the input value.
+/// All the answers that a point operation can give. The index is the input
+/// value.
 const Lut = [256]u8;
 
 fn identity() Lut {
@@ -23,12 +24,12 @@ fn invert() Lut {
     return lut;
 }
 
-/// Brightness is an add, and the kind of add decides the result.
+/// Brightness is an add, and the type of add decides the result.
 ///
-/// `+|` and `-|` are saturating: they clamp at the type's bounds instead of
-/// wrapping. Plain `+` on a `u8` at 250 + 10 is illegal behaviour in Zig and
-/// traps in a safe build. `+%` would wrap 250 + 10 to 4, and a brightness
-/// filter that wraps puts black spots in a white sky.
+/// `+|` and `-|` are saturating operators. They clamp at the limits of the
+/// type, and they do not wrap. In Zig, plain `+` on a `u8` at 250 + 10 is
+/// illegal behaviour, and it traps in a safe build. `+%` wraps 250 + 10 to 4.
+/// A brightness filter that wraps puts black spots in a white sky.
 fn brightness(delta: i16) Lut {
     var lut: Lut = undefined;
     for (&lut, 0..) |*v, i| {
@@ -41,13 +42,13 @@ fn brightness(delta: i16) Lut {
     return lut;
 }
 
-/// Contrast pivots around mid-grey: values above 128 move up, values below move
-/// down, and 128 stays put. `factor` is scaled by 256, so 256 is no change and
-/// 512 is double contrast.
+/// Contrast pivots around mid-grey. Values above 128 increase, values below
+/// 128 decrease, and 128 does not change. The scale of `factor` is 256. Thus
+/// 256 is no change, and 512 is double contrast.
 ///
-/// This one can overflow in both directions, so it clamps in a wider
-/// type rather than saturating in `u8`. Saturating a `u8` cannot help when the
-/// intermediate is already negative.
+/// Contrast can overflow in both directions. Thus this function clamps in a
+/// wider type, and it does not saturate in `u8`. A saturating `u8` operation
+/// cannot help when the intermediate value is already negative.
 fn contrast(factor: i32) Lut {
     var lut: Lut = undefined;
     for (&lut, 0..) |*v, i| {
@@ -64,16 +65,17 @@ fn threshold(cut: u8) Lut {
     return lut;
 }
 
-/// Two tables become one. `compose(b, a)` is "apply a, then b", so a chain of
-/// point operations costs one table build and one pass over the image no matter
-/// how long the chain gets.
+/// Two tables become one table. `compose(b, a)` is "apply a, then b". Thus a
+/// chain of point operations costs one table build and one pass over the
+/// image. The length of the chain does not change this cost.
 fn compose(second: Lut, first: Lut) Lut {
     var lut: Lut = undefined;
     for (&lut, 0..) |*v, i| v.* = second[first[i]];
     return lut;
 }
 
-/// One pass, three lookups. The image is the loop bound; the table is not.
+/// One pass, three lookups. The image sets the loop bound. The table does
+/// not set the loop bound.
 fn apply(buf: []u32, lut: Lut) void {
     for (buf) |*p| {
         const c = canvas.channels(p.*);
@@ -81,9 +83,9 @@ fn apply(buf: []u32, lut: Lut) void {
     }
 }
 
-/// Grayscale is the point operation that is *not* a per-channel table: the
-/// output channel depends on all three inputs, so there are 2^24 possible
-/// answers rather than 256.
+/// Grayscale is the point operation that is *not* a table for each channel.
+/// The output channel depends on all three inputs. Thus there are 2^24
+/// possible inputs, not 256.
 fn grayscale(buf: []u32) void {
     for (buf) |*p| {
         const y: u8 = @intCast(canvas.luma(p.*));
@@ -100,9 +102,10 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("original:\n");
     try canvas.dump(out, &pixels);
 
-    // Lift, then stretch around mid-grey. Built as one table, applied once.
-    // The background ramp is pushed to black and the block to white. Contrast
-    // adds no detail. It gives more of the output range to the middle values.
+    // Increase the brightness, then stretch around mid-grey. The code builds
+    // one table and applies it one time. The background ramp becomes black,
+    // and the block becomes white. Contrast adds no detail. Contrast gives
+    // more of the output range to the middle values.
     const chain = compose(contrast(400), brightness(30));
     apply(&pixels, chain);
     try out.writeAll("\nbrightness(+30) then contrast(x1.56):\n");
@@ -125,15 +128,16 @@ pub fn main(init: std.process.Init) !void {
         try out.writeByte('\n');
     }
 
-    // Saturating versus wrapping, on the one value where it shows.
+    // Saturation compared with wraparound, on one value that shows the
+    // difference.
     const near_white: u8 = 250;
     try out.print("\n250 +| 10 = {d}   250 +% 10 = {d}\n", .{
         near_white +| @as(u8, 10),
         near_white +% @as(u8, 10),
     });
 
-    // Composition is exact, not an approximation: the table built from two
-    // tables gives the same answer as running both passes.
+    // Composition is exact. It is not an approximation. The table from two
+    // tables gives the same answer as the two passes.
     const a = brightness(30);
     const b = contrast(400);
     var mismatches: usize = 0;

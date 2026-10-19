@@ -1,5 +1,5 @@
 //! title: Sprites and Transparency
-//! Copying a rectangle is easy. Deciding which pixels not to copy is the feature.
+//! A copy of a rectangle is easy. The feature is the decision about which pixels not to copy.
 
 const std = @import("std");
 
@@ -7,10 +7,10 @@ const width: usize = 40;
 const height: usize = 14;
 var canvas: [width * height]u8 = @splat('.');
 
-/// A sprite is a small image plus a rule for which pixels are see-through.
-/// Here the rule is a key colour: one value declared to mean "skip". That is
-/// how 8-bit and 16-bit consoles did it, because a per-pixel alpha
-/// channel costs memory those machines did not have.
+/// A sprite is a small image and a rule for the pixels that are transparent.
+/// Here the rule is a key colour: one value that means "skip". The 8-bit and
+/// 16-bit consoles used this method, because a per-pixel alpha channel costs
+/// memory that those machines did not have.
 const Sprite = struct {
     w: usize,
     h: usize,
@@ -33,8 +33,9 @@ fn blit(sprite: Sprite, x: i32, y: i32) void {
     for (0..sprite.h) |sy| {
         for (0..sprite.w) |sx| {
             const value = sprite.pixels[sy * sprite.w + sx];
-            // All of transparency is this one comparison. Without it a
-            // sprite is a rectangle and everything behind its corners is gone.
+            // All of transparency is this one comparison. Without it, a
+            // sprite is a rectangle, and the sprite hides all of the pixels
+            // behind its corners.
             if (value == sprite.transparent) continue;
 
             const dx = x + @as(i32, @intCast(sx));
@@ -68,11 +69,12 @@ pub fn main(init: std.process.Init) !void {
 
     fillBackground();
 
-    // Three copies of one sprite. Nothing is duplicated in memory: a sprite is
-    // data, and drawing it is a loop, so the second copy costs nothing.
+    // Three copies of one sprite. The program does not copy the data in
+    // memory. A sprite is data, and a loop draws it. Thus the second copy
+    // costs no memory.
     blit(ship, 2, 2);
     blit(ship, 14, 6);
-    // Deliberately over the edge, to show the clipping.
+    // This copy is over the edge intentionally, to show the clipping.
     blit(ship, 36, 9);
 
     try dump(out);

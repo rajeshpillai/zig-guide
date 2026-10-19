@@ -7,7 +7,7 @@ const std = @import("std");
 const width: usize = 640;
 const height: usize = 480;
 
-// Three bytes per pixel, 921,600 of them. Global, not on the stack.
+// Three bytes per pixel, 921,600 bytes in total. Global, not on the stack.
 var pixels: [width * height * 3]u8 = undefined;
 
 fn putPixel(x: usize, y: usize, r: u8, g: u8, b: u8) void {
@@ -27,8 +27,8 @@ fn drawScene() void {
         }
     }
 
-    // Painted second, so it lands on top. There is no depth buffer and no
-    // transparency here: a later write simply overwrites an earlier one.
+    // The circle comes second, thus it is on top. This code has no depth buffer
+    // and no transparency. A later write replaces an earlier write.
     const cx: i32 = @intCast(width / 2);
     const cy: i32 = @intCast(height / 2);
     const radius: i32 = 100;
@@ -56,12 +56,12 @@ pub fn main(init: std.process.Init) !void {
 
     var dir = std.Io.Dir.cwd();
 
-    // Written for real, then read back and removed, so the example leaves
-    // nothing behind on the machine that ran it.
+    // The program writes a real file, reads it again and deletes it. Thus the
+    // example leaves no file on the computer that ran it.
     defer dir.deleteFile(io, "output.ppm") catch {};
 
-    // `.read = true` so the check at the end can read through this handle
-    // without reopening the file: a createFile handle is write-only by default.
+    // A createFile handle is write-only by default. With `.read = true`, the
+    // check at the end can read through this handle and not open the file again.
     const file = try dir.createFile(io, "output.ppm", .{ .read = true });
     defer file.close(io);
 
@@ -71,9 +71,9 @@ pub fn main(init: std.process.Init) !void {
     try file.writeStreamingAll(io, header);
     try file.writeStreamingAll(io, &pixels);
 
-    // Reading the header back is the only way to know the two writes above
-    // landed in the right order. An image viewer would show the problem later.
-    // This check fails the build now.
+    // To know that the two writes above went in the correct order, read the
+    // header again. An image viewer shows the problem later. This check makes
+    // the build fail now.
     var check: [15]u8 = undefined;
     _ = try file.readPositionalAll(io, &check, 0);
 
@@ -83,6 +83,6 @@ pub fn main(init: std.process.Init) !void {
     try out.flush();
 }
 
-// This runs in wasm. The working directory is an empty directory the runner
-// provides: a temp directory in CI, a directory in memory in your browser. The
-// file is really written and read back in both.
+// This program runs in wasm. The runner gives it an empty working directory:
+// a temporary directory in CI, and a directory in memory in your browser. In
+// both, the program really writes the file and reads it again.

@@ -1,7 +1,7 @@
 //! title: Colour Matrices
 //! Grayscale, sepia and saturation look like three filters. They are one
-//! filter: a 3x3 matrix multiplying the channel vector, which means a chain of
-//! them can be multiplied into a single matrix before the image is touched.
+//! filter: a 3x3 matrix that multiplies the channel vector. Thus a chain of the
+//! matrices multiplies into one matrix before the program changes the image.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
@@ -9,10 +9,10 @@ const canvas = @import("_canvas.zig");
 var pixels: [canvas.width * canvas.height]u32 = undefined;
 var scratch: [canvas.width * canvas.height]u32 = undefined;
 
-/// Row-major, every entry scaled by 256. Fixed point rather than floats
-/// because the input and output are bytes: carrying `f32` through would add a
-/// conversion at each end to buy precision that the final `@intCast` throws
-/// away.
+/// Row-major, and each entry uses a scale of 256. The matrix uses fixed point
+/// and not floats, because the input and the output are bytes. With `f32`, the
+/// program needs a conversion at each end. The `f32` values add precision, but
+/// the last `@intCast` removes that precision.
 const Matrix = [9]i32;
 
 const scale = 256;
@@ -23,33 +23,33 @@ const identity: Matrix = .{
     0,     0,     scale,
 };
 
-/// Rec. 601 luma in all three rows: every output channel becomes the same
-/// weighted average, which is grayscale. The weights are the ones
-/// `canvas.luma` uses, and they sum to exactly 256.
+/// Rec. 601 luma in all three rows. Each output channel becomes the same
+/// weighted average, and the result is grayscale. `canvas.luma` uses the same
+/// weights, and the weights sum to exactly 256.
 const luma_matrix: Matrix = .{
     77, 150, 29,
     77, 150, 29,
     77, 150, 29,
 };
 
-/// The classic sepia matrix. Its rows sum to 346, 308 and 241 rather than 256,
-/// which is not a mistake: sepia is meant to lift the image as well as tint it,
-/// and the red row deliberately gains the most.
+/// The classic sepia matrix. The rows sum to 346, 308 and 241, not 256. This is
+/// not a mistake. Sepia must make the image brighter and also tint the image.
+/// The red row gets the largest increase, and this is intentional.
 const sepia: Matrix = .{
     101, 197, 48,
     89,  176, 43,
     70,  137, 34,
 };
 
-/// Saturation is a straight line between grayscale and the original, extended
-/// past both ends.
+/// Saturation is a straight line between grayscale and the original. The line
+/// continues past the two ends.
 ///
 ///     out = luma + s * (in - luma)
 ///
-/// At `s = 0` that is the luma matrix; at `s = 256` the identity; above 256 it
-/// extrapolates away from grey, which is what a saturation slider past 100%
-/// does. Writing it as a matrix rather than as a special case is what lets it
-/// compose with everything else here.
+/// At `s = 0`, the result is the luma matrix. At `s = 256`, the result is the
+/// identity. Above 256, the result moves away from grey, as a saturation slider
+/// does past 100%. Saturation is a matrix and not a special case. Thus it
+/// composes with the other matrices in this file.
 fn saturation(s: i32) Matrix {
     var m: Matrix = undefined;
     for (&m, identity, luma_matrix) |*out, i, l| {
@@ -58,7 +58,8 @@ fn saturation(s: i32) Matrix {
     return m;
 }
 
-/// Matrix product, in the same fixed point. `compose(a, b)` applies `b` first.
+/// The matrix product, in the same fixed point. `compose(a, b)` applies `b`
+/// first.
 fn compose(a: Matrix, b: Matrix) Matrix {
     var m: Matrix = undefined;
     for (0..3) |row| {
@@ -123,11 +124,10 @@ pub fn main(init: std.process.Init) !void {
         try out.writeByte('\n');
     }
 
-    // Saturation moves chroma without moving luma, because the weights that
-    // build the grey it interpolates against are the same weights that measure
-    // brightness. The dump of a saturated image is nearly identical to the dump
-    // of the original, and that is the correct result rather than a bug in the
-    // dump.
+    // Saturation changes chroma and does not change luma. The reason is that
+    // the weights that make the grey are the same weights that measure the
+    // brightness. Thus the dump of a saturated image is almost the same as the
+    // dump of the original. That result is correct. It is not a bug in the dump.
     try out.writeAll("\nluma under saturation (original, sat 0, sat 200%)\n");
     for (samples) |s| {
         try out.print("{s:>13}: {d:>3} {d:>3} {d:>3}\n", .{
@@ -138,10 +138,11 @@ pub fn main(init: std.process.Init) !void {
         });
     }
 
-    // Composition, and its cost. Two passes round to a byte twice; the composed
-    // matrix rounds once, in the matrix product instead. The results are close
-    // but not identical, which is the difference from a lookup table: composing
-    // point operations on 8-bit channels is exact, composing matrices is not.
+    // Composition and its cost. Two passes round to a byte two times. The
+    // composed matrix rounds one time, in the matrix product. The results are
+    // close, but they are not identical. A lookup table is different: a
+    // composition of point operations on 8-bit channels is exact. A composition
+    // of matrices is not exact.
     canvas.scene(&pixels);
     apply(&pixels, saturation(160));
     apply(&pixels, sepia);

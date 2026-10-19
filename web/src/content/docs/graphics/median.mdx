@@ -1,18 +1,18 @@
 ---
 title: Median and Rank Filters
-description: A convolution cannot ignore a value. Sorting the neighbourhood gives one function that is a denoiser, an eroder and a dilator depending on the index.
+description: A convolution cannot ignore a value. Sort the neighbourhood, and one function is a denoiser, an eroder or a dilator. The index decides which.
 section: Graphics
 order: 131
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A [convolution](/learn/graphics/convolution/) is a weighted sum. Every pixel
-under the kernel contributes something, and there is no weight that means
-"this value is wrong, ignore it". A family of filters, the rank filters, gets
-around that limit.
+A [convolution](/learn/graphics/convolution/) is a weighted sum. Each pixel
+under the kernel adds something to the result. No weight has the meaning
+"this value is wrong, ignore it". A family of filters, the rank filters, does
+not have this limit.
 
-Sort the neighbourhood and pick by position instead.
+Sort the neighbourhood, and then select a pixel by its position.
 
 <Playground name="09-graphics.median" />
 
@@ -22,24 +22,31 @@ Sort the neighbourhood and pick by position instead.
 fn rankFilter(dst: []u32, src: []const u32, comptime rank: usize) void
 ```
 
-Sort the nine pixels of a 3x3 window by brightness and take the one at `rank`.
-Rank 4 is the median. Rank 0 is the minimum, which is erosion. Rank 8 is the
-maximum, which is dilation. Basic morphology and the standard denoiser are
-all the same loop with a different index. Because the choice is comptime,
-each one compiles to its own specialised function instead of a branch in the
-inner loop.
+Sort the nine pixels of a 3x3 window by brightness, and take the pixel at
+`rank`:
 
-The output checks the morphology at the end: the block covers 153
-pixels brighter than 200, which erosion cuts to 105 and dilation grows to 209.
-Bright regions shrink and grow by a pixel of boundary. Running one then the
-other is opening and closing, which is how small specks get removed without
-changing the size of anything large.
+- Rank 4 is the median.
+- Rank 0 is the minimum, which is erosion.
+- Rank 8 is the maximum, which is dilation.
 
-## Why the median beats the blur on this noise
+Basic morphology and the standard denoiser are the same loop with a different
+index. The choice is comptime. Thus each rank compiles to its own specialised
+function, and the inner loop has no branch for the rank.
 
-Salt and pepper noise replaces a pixel completely with black or white. The
-corrupted value has no relationship to what was there. A weighted average
-handles this case badly:
+The output checks the morphology at the end. The block has 153 pixels that
+are brighter than 200. Erosion decreases this number to 105, and dilation
+increases it to 209. Thus bright regions shrink or grow by one pixel at the
+boundary.
+
+Erosion followed by dilation is opening, and dilation followed by erosion is
+closing. These operations remove small specks and do not change the size of
+large shapes.
+
+## Why the median is better than the blur on this noise
+
+Salt and pepper noise replaces a pixel fully with black or white. The
+corrupted value has no relation to the old value. A weighted average gives a
+bad result in this case:
 
 ```
             black white  mean luma error vs clean
@@ -48,24 +55,25 @@ handles this case badly:
     median:     0     2        1.59
 ```
 
-If you read only the first two columns, the gaussian looks perfect: not a
-single pure black or pure white pixel survives. But those two columns do not
-measure image quality. The gaussian removed each noisy pixel by averaging it
-into a grey smudge nine pixels wide. The third column shows the cost: mean
-error against the clean picture went *up*, from 9.03 to 11.80. After the
-gaussian, the image is further from the clean picture than the noisy input
-was.
+If you read only the first two columns, the gaussian looks perfect. Not one
+pure black or pure white pixel stays. But those two columns do not measure the
+quality of the image.
 
-The median throws the outlier away. In a window of nine where one value is
-extreme, the extreme value sorts to an end, and the middle element is one of
-the eight that were fine. Error drops to 1.59.
+The gaussian removed each noisy pixel because it averaged the pixel into a
+grey smudge nine pixels wide. The third column shows the cost. The mean error
+against the clean picture *increased*, from 9.03 to 11.80. After the gaussian,
+the image is further from the clean picture than the noisy input was.
 
-This holds in general. Even a few outliers pull a mean away from the true
-value. A median ignores outliers completely, as long as they are fewer than
-half of the values. For the same reason, statistics reports medians for
+The median discards the outlier. In a window of nine values with one extreme
+value, the extreme value goes to one end of the sorted window. The middle
+element is one of the eight correct values. The error decreases to 1.59.
+
+This rule is general. A small number of outliers moves a mean away from the
+true value. A median ignores outliers fully, if the outliers are fewer than
+half of the values. For the same reason, statistics uses the median for
 income.
 
-## And why it keeps the edge
+## Why the median keeps the edge
 
 ```
      x    |    5    6    7    8    9   10   11   12
@@ -74,19 +82,20 @@ income.
    median |   24   24   25  212  212  212  212  212
 ```
 
-The gaussian softens the block's edge, because at a pixel on the boundary the
-window straddles both sides and the average lands in between. The median does
-not move it at all. At any pixel on the dark side, at least five of the nine
-neighbours are still dark, so the middle element is dark. The edge stays
-exactly where it was.
+The gaussian makes the edge of the block soft. At a pixel on the boundary, the
+window covers the two sides, and the average is a value between them.
 
-Rank filters are used because they smooth without moving edges. They cost
-more than a blur: nine values sorted per pixel, against nine multiplies and
-one divide.
+The median does not move the edge. At each pixel on the dark side, five or
+more of the nine neighbours are dark. Thus the middle element is dark, and the
+edge stays exactly at the same position.
+
+Programs use rank filters because rank filters smooth an image and do not move
+edges. They cost more than a blur: the program sorts nine values per pixel,
+where a blur does nine multiplies and one divide.
 
 ## The sort
 
-Nine elements, so insertion sort:
+The window has nine elements, so the program uses insertion sort:
 
 ```zig
 var i: usize = 1;
@@ -100,32 +109,39 @@ while (i < window.len) : (i += 1) {
 }
 ```
 
-The quadratic bound does not matter at this size, and insertion sort has
-almost no constant overhead. Production implementations go further and use a
-fixed compare-exchange network, in straight-line code with no loop and no
-data-dependent branches at all. A mispredicted branch per pixel is expensive,
-and a network has no branches. A network can also be vectorised directly,
-which the loop above cannot.
+The quadratic bound is not important at this size, and insertion sort has
+almost no constant overhead.
 
-The size of the network depends on what you ask for. Sorting nine elements
-takes 25 compare-exchanges, but the median alone takes 19. A selection
-network only has to put the middle value in place, and may leave the rest of
-the window in any order.
+Production implementations use a fixed compare-exchange network. A network is
+straight-line code with no loop and no branches that depend on the data. One
+mispredicted branch per pixel is expensive, and a network has no branches. You
+can also vectorise a network directly, but you cannot vectorise the loop
+above.
 
-## Sort whole pixels, not channels
+The size of the network depends on the result that you need. A full sort of
+nine elements takes 25 compare-exchanges, but the median alone takes 19. A
+selection network must put only the middle value in its correct position. The
+other values in the window can be in any order.
 
-The window holds packed pixels and sorts them by luma, so the output is a
-colour that actually appeared in the neighbourhood. Taking the median of the
-red channel, the green channel and the blue channel independently is easier,
-and it is wrong. The three medians can come from three different pixels,
-producing a colour that was nowhere in the window. On coloured noise, this
-creates colours that were never in the image.
+## Sort full pixels, not channels
 
-## Where the family goes next
+The window holds packed pixels and sorts them by luma. Thus the output is a
+colour from the neighbourhood.
 
-The median's weakness is that it treats every pixel in the window as equally
-relevant regardless of how far away it is or how different it is. The
-bilateral filter fixes that by weighting each neighbour by both distance and
-colour difference, which smooths flat regions while leaving edges alone even
-better than a median does. It is a weighted average again, but with weights
-that depend on the data, so it is not a convolution either.
+A median of the red channel, the green channel and the blue channel
+independently is easier, but it is wrong. The three medians can come from
+three different pixels. The result is then a colour that was not in the
+window. On coloured noise, this method makes colours that were never in the
+image.
+
+## The next filters in the family
+
+The median has a weakness. It gives the same importance to each pixel in the
+window. The distance of a pixel and the difference in its colour have no
+effect.
+
+The bilateral filter corrects this weakness. It gives a weight to each
+neighbour from the distance and from the colour difference. Thus it smooths
+flat regions and keeps edges, and it keeps edges better than a median does.
+The bilateral filter is a weighted average again. But its weights depend on
+the data, so it is not a convolution either.

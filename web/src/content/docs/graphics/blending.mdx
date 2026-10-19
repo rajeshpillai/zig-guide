@@ -1,42 +1,47 @@
 ---
 title: Alpha Blending
-description: Source-over compositing in integers, why the /255 matters, and why order still does.
+description: Source-over compositing in integers, the reason for the /255, and the reason that order is still important.
 section: Graphics
 order: 124
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Every chapter so far has drawn by overwriting. Later writes replace earlier
-ones. This is the painter's algorithm, and it is all you need for opaque
-shapes. When the shape on top is not opaque, blending replaces it.
+Each chapter before this one draws a shape on top of the old pixels. A later
+write replaces an earlier write. This method is the painter's algorithm, and
+it is sufficient for opaque shapes. When the shape on top is not opaque, use
+blending instead.
 
-The standard operator is **source over destination**, one channel at a time:
+The standard operator is **source over destination**. It operates on one
+channel at a time:
 
 ```
 out = (src * a + dst * (255 - a)) / 255
 ```
 
-At `a = 255` the output is the source. At `a = 0` nothing happens. In between
-it is a weighted average. The weights sum to exactly one, so the result never
-brightens or darkens on its own.
+At `a = 255`, the output is the source. At `a = 0`, the output does not
+change. Between these two values, the output is a weighted average. The sum
+of the weights is exactly one. Thus the blend alone never makes the result
+brighter or darker.
 
 <Playground name="09-graphics.blending" />
 
-## The division you should not skip
+## Do not skip the division
 
-Dividing by 256 with a shift is faster than dividing by 255, but the error is
-visible:
+A division by 256 with a shift is faster than a division by 255. But the
+error is visible:
 
 ```zig
 (255 * a) >> 8   // a = 255 gives 254, not 255
 ```
 
-The output above prints both columns. An opaque white composite lands on 254.
-This is why a lot of older blending code cannot reach pure white. The error
-compounds every time you blend onto the same pixel again. `(s + d + 127) /
-255` rounds to nearest and costs one division the compiler usually turns into
-a multiply and a shift anyway.
+The output above shows both columns. An opaque white composite gives 254.
+For this reason, much older blending code cannot make pure white. The error
+increases each time that you blend onto the same pixel again.
+
+The expression `(s + d + 127) / 255` rounds to the nearest value. The cost is
+one division, and the compiler usually changes that division into a multiply
+and a shift.
 
 If you want a fast version that is also correct, the usual method is:
 
@@ -45,12 +50,12 @@ const t = @as(u32, src) * a + 128;
 const blended: u8 = @intCast((t + (t >> 8)) >> 8);
 ```
 
-That is exact for all 8-bit inputs. Use it only when a profile shows the
-division matters.
+This version is exact for all 8-bit inputs. Use it only when a profile shows
+that the division is important.
 
 ## Read, blend, write
 
-The only structural difference from `putPixel` is that the destination is now
+The only change in structure from `putPixel` is that the destination is now
 an input:
 
 ```zig
@@ -58,44 +63,58 @@ const i = uy * width + ux;
 pixels[i] = blend(color, pixels[i], a);
 ```
 
-With that one change, draw order affects the colour, instead of only deciding
-which shape hides which. Three discs at 60% opacity overlap in the output.
-Each overlap is a distinct colour, because it is the result of two blends in
+With this one change, the draw order changes the colour. Before, the draw
+order decided only which shape hid which shape.
+
+In the output, three discs at 60% opacity overlap. Each overlap has a
+different colour, because each overlap is the result of two blends in
 sequence.
 
 ## Blending is not commutative
 
-The snippet composites red over blue and blue over red at the same alpha, and
-gets different answers. This is why renderers draw back to front. A renderer
-that draws translucent geometry in arbitrary order produces arbitrary colours.
-Sort by depth, draw far to near, or use an order-independent technique.
+The snippet composites red over blue and blue over red at the same alpha. The
+two answers are different. For this reason, renderers draw from back to
+front. If a renderer draws translucent geometry in a random order, the
+colours are also random.
 
-## Where premultiplied alpha comes in
+Use one of these methods:
 
-The operator above is the simple model, and it has a known weakness. Filtering, scaling, or
-averaging colours that carry their own alpha gives wrong results at the edges,
-because a fully transparent pixel still contributes its colour to the average.
+- Sort by depth, and draw from far to near.
+- Use an order-independent technique.
 
-**Premultiplied alpha** stores `(r*a, g*a, b*a, a)` instead, and the operator
-loses a multiply:
+## Premultiplied alpha
+
+The operator above is the simple model, and the model has a known weakness.
+Some operations use colours that carry their own alpha: filters, changes of
+scale, and averages. These operations give wrong results at the edges. The
+cause is that a fully transparent pixel still adds its colour to the average.
+
+**Premultiplied alpha** stores `(r*a, g*a, b*a, a)` instead. Then the
+operator needs one less multiply:
 
 ```
 out = src + dst * (255 - a) / 255
 ```
 
-Compositing systems that scale or filter (a GPU, a compositor, a browser) use
-premultiplied alpha for this reason. It costs a conversion at the boundary,
-since most image files store straight alpha.
+Systems that scale or filter use premultiplied alpha for this reason, for
+example a GPU, a compositor or a browser. The cost is a conversion at the
+boundary, because most image files store straight alpha.
 
 ## sRGB bytes are not linear light
 
-Everything on this page averages the bytes as stored. Those bytes are not
-linear light: sRGB applies a transfer curve of roughly `x^2.2`, so a value of
-128 is about 22% of the light of 255, not 50%. Blending in that space makes a
-50% composite of black and white come out visibly darker than the eye expects.
+All the code on this page averages the bytes as the file stores them. These
+bytes are not linear light. sRGB applies a transfer curve of approximately
+`x^2.2`. Thus a value of 128 is about 22% of the light of 255, not 50%.
 
-Doing it correctly means converting to linear, blending, and converting back,
-or working in 16-bit linear throughout. [Linear Light](/learn/graphics/linear-light/)
-builds both conversions as lookup tables. Nearly all 8-bit graphics code,
-including this page, blends in sRGB anyway and accepts the error. That is a
-deliberate tradeoff. Make sure it is a choice in your code, and not a mistake.
+A blend in sRGB space makes a 50% composite of black and white too dark. The
+eye expects a lighter result, and the difference is visible.
+
+To blend correctly, convert to linear, blend, and then convert the result to
+sRGB again.
+Alternatively, use 16-bit linear values for all steps.
+[Linear Light](/learn/graphics/linear-light/) builds both conversions as
+lookup tables.
+
+Almost all 8-bit graphics code blends in sRGB and accepts the error. The code
+on this page also does this. This tradeoff is deliberate. In your code, make
+sure that a blend in sRGB is a choice and not a mistake.

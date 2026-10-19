@@ -7,26 +7,17 @@ order: 122
 
 import Playground from "../../../components/Playground.astro";
 
-A line between two pixels is a question about rounding. The ideal line passes
-between pixel centres almost everywhere, and the algorithm has to decide, at
-each step, which side to land on.
+A line between two pixels is a question about rounding. Almost everywhere, the ideal line goes between pixel centres. At each step, the algorithm must decide on which side to put the pixel.
 
-The obvious answer is to compute `y = y0 + slope * (x - x0)` and round it.
-That works, costs a float multiply and a rounding per pixel, and drifts on
-long lines because the error accumulates. Bresenham's algorithm asks the same
-question with an integer error term that is updated by addition, and it never
-drifts because nothing is ever rounded.
+The obvious answer is to calculate `y = y0 + slope * (x - x0)` and round the result. This method works, but it costs a float multiply and a rounding for each pixel. On long lines, the result drifts, because the error accumulates. Bresenham's algorithm asks the same question with an integer error term. The algorithm updates the error term by addition. It does not drift, because it never rounds a value.
 
 <Playground name="09-graphics.lines" />
 
-## What the error term is
+## The error term
 
-`err` tracks how far the ideal line has drifted from the pixel just plotted,
-scaled so it stays a whole number. Each step, the major axis always advances
-and the minor axis advances only when the accumulated error says it has fallen
-a full pixel behind. Comparing `2 * err` against `dx` and `dy` is where the
-scale factor of two comes from: it lets the comparison happen against a
-half-pixel threshold without ever dividing.
+`err` records how far the ideal line is from the pixel that the loop plotted last. The code scales the value, so that it stays a whole number.
+
+At each step, the major axis always advances. The minor axis advances only when the accumulated error shows that the line is a full pixel behind. The scale factor of two comes from the comparison of `2 * err` with `dx` and `dy`. With this factor, the comparison uses a half-pixel threshold, and the code does not divide.
 
 The form in the snippet keeps `dy` negative:
 
@@ -35,44 +26,29 @@ const dx: i32 = @intCast(@abs(x1 - x0));
 const dy: i32 = -@as(i32, @intCast(@abs(y1 - y0)));
 ```
 
-Keeping `dy` negative collapses the eight cases (four quadrants, shallow and steep)
-into one loop. Textbook presentations often swap the endpoints, or swap `x`
-and `y` for steep lines, and then need two nearly identical loops. This
-version needs neither.
+When `dy` is negative, the eight cases (four quadrants, shallow and steep) become one loop. Many textbooks swap the endpoints, or swap `x` and `y` for steep lines. Then they need two loops that are almost the same. This version needs neither change.
 
-The two tests are deliberately not an `if`/`else`:
+The two tests are intentionally not an `if`/`else`:
 
 ```zig
 if (e2 >= dy) { err += dy; x += sx; }
 if (e2 <= dx) { err += dx; y += sy; }
 ```
 
-On an exact diagonal both fire, and the line steps in both axes at once. Turn
-the second into an `else` and diagonals grow a stair-step.
+On an exact diagonal, the two tests are both true, and the line moves on the two axes at the same time. If you change the second test into an `else`, the diagonals get a stair-step.
 
 ## The pixel count
 
-A line lights up `max(|dx|, |dy|) + 1` pixels: exactly one per step of the
-major axis, whatever the slope. The snippet prints this for three slopes. It
-is a useful invariant to check when you write your own version. The two ways
-to get it wrong, an off-by-one at the end or a doubled step on diagonals, both
-show up in that number before they show up in the picture.
+A line sets `max(|dx|, |dy|) + 1` pixels: exactly one for each step of the major axis, at all slopes. The snippet prints this count for three slopes.
 
-The count holds only because the error term is symmetric. Check it, because a
-renderer that draws shared edges from both directions will otherwise leave
-seams.
+When you write your own version, check this invariant. There are two possible errors: an off-by-one at the end, or a double step on diagonals. Both errors show in the count before they show in the picture.
+
+The count is correct only because the error term is symmetric. Check that a line drawn backwards gives the same count. If it does not, a renderer that draws shared edges from the two directions leaves seams.
 
 ## What this version does not do
 
-**No thickness.** Every line here is one pixel wide. A thick line is a
-rectangle, or a polygon with round joins, and neither is a small change.
+**No thickness.** All lines here are one pixel wide. A thick line is a rectangle, or a polygon with round joins. Neither is a small change.
 
-**No antialiasing.** Every pixel is fully on or fully off, which is why the
-diagonals in the output have visible steps. Xiaolin Wu's line algorithm is
-Bresenham with the error term reused as a coverage value, and it is the same
-idea [Antialiasing](../antialiasing/) applies to a circle.
+**No antialiasing.** Each pixel is fully on or fully off. Thus the diagonals in the output have visible steps. Xiaolin Wu's line algorithm is Bresenham with the error term used again as a coverage value. [Antialiasing](../antialiasing/) applies the same idea to a circle.
 
-**No clipping beyond `putPixel`.** A line from far off one edge to far off
-another still walks every pixel in between and throws away most of them. That
-is fine at this size and wasteful at larger ones; the Cohen-Sutherland
-algorithm trims the endpoints to the buffer before the loop starts.
+**No clipping other than in `putPixel`.** Think of a line that starts far outside one edge and ends far outside a different edge. The loop still goes through each pixel between the endpoints, and `putPixel` discards most of them. At this size, the cost is small. At larger sizes, the cost is a waste. The Cohen-Sutherland algorithm cuts the endpoints to the buffer before the loop starts.

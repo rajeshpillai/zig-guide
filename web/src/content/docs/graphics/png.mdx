@@ -1,8 +1,8 @@
 ---
 title: Writing a PNG
 seoTitle: "Zig PNG Writer: Chunks, CRC-32, Filters and zlib with std.compress.flate"
-description: A signature, three chunks and a CRC on each. The pixels are filtered, then compressed with the zlib in the standard library.
-seoDescription: Writing a PNG file in Zig with no image library. The signature, IHDR, IDAT and IEND chunks, CRC-32 with std.hash.Crc32, scanline filters and why Sub shrinks a gradient from 3801 bytes to 133, and zlib compression with std.compress.flate.
+description: A signature, three chunks and a CRC on each chunk. The writer filters the pixels, then compresses them with the zlib in the standard library.
+seoDescription: Write a PNG in Zig with no image library. IHDR, IDAT and IEND chunks, CRC-32, why Sub shrinks a gradient from 3801 bytes to 133, and zlib in std.
 section: Graphics
 order: 121.5
 ---
@@ -10,25 +10,17 @@ order: 121.5
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-A PPM file is easy to write, but it is big.
+A PPM file is easy to write, but it is large. The 64 by 32 test picture of this section is 6157 bytes as a PPM. As a PNG, the picture is 680 bytes, and all image viewers and browsers open it.
 
-Our 64 by 32 test picture is 6157 bytes as a PPM.
-
-As a PNG it is 680 bytes, and every image viewer and browser opens it.
-
-A PNG needs two things beyond the pixels: zlib compression and a CRC-32 checksum.
-
-Zig's standard library has both, so a PNG writer is about a hundred lines.
+A PNG needs two things in addition to the pixels: zlib compression and a CRC-32 checksum. The Zig standard library has both. Thus a PNG writer is about a hundred lines.
 
 <Playground name="09-graphics.png-write" />
 
-The two pictures under the output are the two PNG files the program wrote.
-
-Your browser decoded them with its own PNG decoder. No code from this site decoded those files.
+The two pictures under the output are the two PNG files that the program wrote. Your browser decoded the files with its own PNG decoder. No code from this site decoded those files.
 
 ## The shape of the file
 
-A PNG is an 8-byte signature followed by a list of chunks.
+A PNG is an 8-byte signature and then a list of chunks.
 
 ```
 signature   89 50 4E 47 0D 0A 1A 0A
@@ -37,19 +29,20 @@ IDAT        the pixels, compressed
 IEND        nothing, it marks the end
 ```
 
-The signature is the same in every PNG.
+The signature is the same in all PNG files.
 
 <SnippetSource name="09-graphics.png-write" decl="signature" />
 
-`50 4E 47` is the text `PNG`.
+`50 4E 47` is the text `PNG`. The other bytes find a file that a text copy damaged:
 
-The other bytes catch a file that was damaged by being copied as text.
+- A tool that converts line endings changes `0D 0A`.
+- A tool that removes the top bit changes `89`.
 
-A tool that converts line endings changes `0D 0A`. A tool that strips the top bit changes `89`. A reader then refuses the file at the first eight bytes.
+In both cases, a reader refuses the file at the first eight bytes.
 
 ## A chunk
 
-Every chunk has the same four parts:
+All chunks have the same four parts:
 
 ```
 length   4 bytes, big-endian, the size of the data only
@@ -62,123 +55,108 @@ crc      4 bytes, CRC-32 of the type and the data
 
 The CRC covers the type and the data. It does not cover the length.
 
-All numbers in a PNG are big-endian, so `writeInt` is told `.big` every time.
+All numbers in a PNG are big-endian. Thus each call to `writeInt` gets `.big`.
 
-`std.hash.Crc32` is the same CRC-32 that zip and Ethernet use. `init`, `update` as many times as you need, then `final`.
+`std.hash.Crc32` is the same CRC-32 that zip and Ethernet use. Call `init`, then call `update` as many times as necessary, then call `final`.
 
 ## The header chunk
 
 <SnippetSource name="09-graphics.png-write" decl="writePng" />
 
-`IHDR` is always 13 bytes, and it must come first.
+`IHDR` is always 13 bytes, and it must be the first chunk.
 
-Colour type 2 means three bytes per pixel, R then G then B, with no alpha.
+Colour type 2 means three bytes for each pixel, in the order R, G, B, with no alpha.
 
-The two fields that are always 0 name the compression and filter methods. The format defines only one of each, so 0 is the only legal value.
+The two fields that are always 0 identify the compression method and the filter method. The format defines only one of each. Thus 0 is the only legal value.
 
 ## Scanlines and the filter byte
 
-The pixels are not compressed as they are.
+The writer does not compress the pixels in their original form. It cuts them into rows, and each row starts with one extra byte, the **filter byte**. Thus one row here is 1 + 64 × 3 = 193 bytes. Before compression, the 32 rows are 6176 bytes.
 
-They are cut into rows, and each row starts with one extra byte, the **filter byte**.
+The filter byte tells how the writer changed the bytes of the row before compression:
 
-So one row here is 1 + 64 × 3 = 193 bytes, and the 32 rows are 6176 bytes before compression.
-
-The filter byte says how the row's bytes were changed before compression.
-
-Filter 0, None, leaves them as they are.
-
-Filter 1, Sub, stores each byte minus the same channel of the pixel to its left.
+- Filter 0, None, keeps the bytes as they are.
+- Filter 1, Sub, stores each byte minus the same channel of the pixel to its left.
 
 <SnippetSource name="09-graphics.png-write" decl="filterRows" />
 
 ## The worked example
 
-The red channel of the gradient picture rises by 4 every pixel.
+In the gradient picture, the red channel increases by 4 at each pixel.
 
 ```
 red bytes, filter none:  0  4  8 12 16 20 ...
 red bytes, filter sub:   0  4  4  4  4  4 ...
 ```
 
-After Sub, the row is the same few bytes over and over.
+After Sub, the row is the same few bytes again and again. zlib compresses repeated bytes well.
 
-Repeated bytes are what zlib compresses well.
+The output shows the result. Without a filter, the compressed gradient is 3801 bytes. With Sub, it is 133 bytes.
 
-The output shows the result. The gradient is 3801 bytes compressed with no filter and 133 bytes with Sub.
+## A filter can also make the file larger
 
-## A filter can also hurt
+The scene picture shows the opposite result: 623 bytes with no filter, and 709 bytes with Sub. The scene has large flat areas and hard edges. Its rows already repeat, and Sub breaks some of those repeats. Thus `save` tries the two filters and keeps the smaller result.
 
-The scene picture goes the other way: 623 bytes with no filter and 709 with Sub.
+Real encoders select a filter for each row. There are five filters:
 
-The scene has large flat areas and hard edges. Its rows already repeat, and Sub breaks some of those repeats.
-
-So `save` tries both filters and keeps the smaller result.
-
-Real encoders choose a filter for every row, from five: None, Sub, Up, Average and Paeth. Up subtracts the byte above. Average subtracts the average of the left and above bytes. Paeth subtracts whichever of the left, above and above-left bytes is the best guess.
+- None.
+- Sub.
+- Up subtracts the byte above.
+- Average subtracts the average of the left byte and the byte above.
+- Paeth subtracts one of the left, above and above-left bytes: the one that is the best guess.
 
 ## Wrapping subtraction
 
-Sub can give a negative number.
+Sub can give a negative number. If a pixel with red 10 is to the right of a pixel with red 200, Sub stores 10 − 200.
 
-A pixel with red 10 to the right of a pixel with red 200 stores 10 − 200.
+The format says that this value wraps around 256: 10 − 200 + 256 = 66. The decoder adds the value back with the same wrap: 66 + 200 − 256 = 10.
 
-The format says this wraps around 256: 10 − 200 + 256 = 66.
+In Zig, you must write this wrap on purpose. A plain `-` on two `u8` values that goes below zero is integer overflow. Zig checks integer overflow in safe builds. The wrapping operators `-%` and `+%` tell Zig that the wrap is intentional.
 
-The decoder adds back with the same wrap: 66 + 200 − 256 = 10.
+## Compression
 
-Zig makes us say this on purpose.
-
-A plain `-` on two `u8` values that goes below zero is integer overflow, which Zig checks in safe builds. The wrapping operators `-%` and `+%` say that wrapping is what we want.
-
-## Compressing
-
-`std.compress.flate.Compress` writes deflate, and the `.zlib` container adds the 2-byte header and the Adler-32 checksum a PNG expects.
+`std.compress.flate.Compress` writes deflate. The `.zlib` container adds the 2-byte header and the Adler-32 checksum that a PNG expects.
 
 <SnippetSource name="09-graphics.png-write" decl="deflate" />
 
-The compressor keeps about 224 KB of state and needs a 64 KB window buffer.
+The compressor keeps about 224 KB of state and needs a 64 KB window buffer. That is too much for the stack. Thus both are global variables.
 
-That is a lot to put on the stack, so both are global variables.
+`finish` writes the end of the stream. Without `finish`, the data stops before the end, and a reader reports a truncated file.
 
-`finish` writes the end of the stream. Without it the data stops partway and a reader reports a truncated file.
+## Read the file again
 
-## Reading it back
-
-The program reads its own file back from disk and checks it the way a viewer would.
+The program reads its own file from disk and checks the file as a viewer does.
 
 <SnippetSource name="09-graphics.png-write" decl="check" />
 
-It walks the chunks, checks each CRC, inflates the pixels, undoes the filter and compares with what it drew.
+The `check` function does these steps:
 
-Undoing Sub runs forwards. Each byte adds back the byte to its left, which is already decoded.
+1. It reads each chunk and checks its CRC.
+2. It inflates the pixels.
+3. It removes the filter.
+4. It compares the result with the drawing.
 
-This check proves only that our writer and our reader agree.
+To remove Sub, the function goes forward through the row. Each byte adds back the byte to its left, which the function already decoded.
 
-They could share the same mistake.
+This check proves only that the writer and the reader of this program agree. The writer and the reader can have the same mistake. Thus the page checks the files two more times, with decoders that share no code with this one:
 
-So the page checks the files twice more, with decoders that share no code with this one.
+- CI decodes each file with zlib from Node and the five filters, written from the specification.
+- Your browser decodes each file with its own PNG decoder.
 
-CI decodes each file with zlib from Node and the five filters written from the specification. Your browser decodes it with its own PNG decoder.
+Both must give pixels with a hash equal to the hash in the `wrote` line that the program printed.
 
-Both must give pixels whose hash matches the `wrote` line the program printed.
+## What this writer does not do
 
-## What this writer leaves out
+This writer writes one kind of PNG: 8 bits for each channel, RGB, no interlacing.
 
-This writer handles one kind of PNG: 8 bits per channel, RGB, no interlacing.
+It does not write alpha (colour type 6), 16-bit channels, palettes, or the chunks for colour space and text.
 
-It leaves out alpha (colour type 6), 16-bit channels, palettes, and the chunks for colour space and text.
+A viewer shows a PNG with no colour space chunk as sRGB. Thus the bytes that you write are the encoded bytes from [Linear Light](/learn/graphics/linear-light/), not linear values.
 
-A PNG with no colour space chunk is shown as sRGB.
+## Explain before you read the answer
 
-So the bytes you write are the encoded bytes from [Linear Light](/learn/graphics/linear-light/), not linear values.
+A row has 64 pixels, all with the same colour `(30, 60, 90)`. The row goes through the Sub filter. What bytes come after the filter byte?
 
-## Explain before reading the answer
+The answer is `30 60 90` for the first pixel, then 189 zeros.
 
-A row of 64 pixels, all the same colour `(30, 60, 90)`, is filtered with Sub.
-
-What bytes come out after the filter byte?
-
-`30 60 90` for the first pixel, then 189 zeros.
-
-The first pixel has no left neighbour, so it stays as it is. Every other byte is equal to the byte three places to its left, so the difference is zero.
+The first pixel has no left neighbour, thus it does not change. Each other byte is equal to the byte three places to its left. Thus the difference is zero.

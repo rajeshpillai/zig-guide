@@ -1,5 +1,5 @@
 //! title: A Canvas Is a View
-//! Four fields instead of a slice, and every routine draws inside a region without knowing it is one.
+//! Four fields, not a slice. Each routine draws inside a region, and the routine does not know that the canvas is a region.
 
 const std = @import("std");
 
@@ -18,41 +18,45 @@ const green = rgb(63, 185, 80);
 const paper = rgb(240, 246, 243);
 const violet = rgb(120, 60, 180);
 
-/// The four fields that make a canvas something other than a slice.
+/// These four fields make a canvas different from a slice.
 ///
-/// `width` and `height` say how big this region is. `stride` says how far apart
-/// two vertically adjacent pixels are **in the buffer that actually holds
-/// them**, which is the parent's full width and has nothing to do with this
-/// region's. Keeping those two values separate is what makes a region work.
-/// Without `stride`, `y * width + x` is the only addressing a routine can do,
-/// and it is only correct for a canvas that owns the whole buffer.
+/// `width` and `height` give the size of this region. `stride` gives the
+/// distance between two vertically adjacent pixels **in the buffer that
+/// holds them**. That distance is the full width of the parent. The width of
+/// this region does not change it. A region works only if these two values
+/// stay separate.
+///
+/// Without `stride`, a routine can only address pixels with
+/// `y * width + x`. That address is correct only for a canvas that owns the
+/// full buffer.
 const Canvas = struct {
     pixels: []u32,
     width: usize,
     height: usize,
     stride: usize,
 
-    /// A canvas over a whole buffer is the case where the distinction does not
-    /// show: its stride is its width.
+    /// For a canvas over a full buffer, you cannot see the difference: the
+    /// stride is equal to the width.
     fn init(pixels: []u32, w: usize, h: usize) Canvas {
         return .{ .pixels = pixels, .width = w, .height = h, .stride = w };
     }
 
-    /// A window onto part of this canvas, sharing its memory. Nothing is
-    /// copied, and the child is not told where it sits: it has no x or y, so
-    /// there is no parent coordinate for a drawing routine to get wrong.
+    /// A window onto a part of this canvas. The window shares the memory of
+    /// this canvas, and the function copies nothing. The child does not know
+    /// its position. The child has no x or y, thus a drawing routine has no
+    /// parent coordinate that it can get wrong.
     fn sub(self: Canvas, x: usize, y: usize, w: usize, h: usize) Canvas {
         const cx = @min(x, self.width);
         const cy = @min(y, self.height);
         const cw = @min(w, self.width - cx);
         const ch = @min(h, self.height - cy);
 
-        // Here a slice can no longer describe the shape of the data. A
-        // rectangle inside a wider buffer is not contiguous, so no `[]u32` can
-        // describe exactly these pixels: this one runs from the region's first
-        // pixel to the last pixel of its bottom row, and every gap between one
-        // row and the next belongs to the parent. The length is a bound on the
-        // buffer, not a description of the region.
+        // Here a slice cannot describe the shape of the data. A rectangle
+        // inside a wider buffer is not contiguous. Thus no `[]u32` can
+        // describe exactly these pixels. This slice starts at the first pixel
+        // of the region and ends at the last pixel of its bottom row. Each gap
+        // between two rows belongs to the parent. The length is only a bound
+        // on the buffer.
         const span = if (ch == 0) 0 else (ch - 1) * self.stride + cw;
 
         return .{
@@ -63,9 +67,10 @@ const Canvas = struct {
         };
     }
 
-    /// The clip that actually protects the parent. `width` and `height` are
-    /// this region's, so a pixel rejected here is one the region does not own,
-    /// whether or not the slice above would have allowed the write.
+    /// This clip protects the parent. `width` and `height` belong to this
+    /// region. Thus the clip rejects only pixels that the region does not own.
+    /// The clip rejects these pixels also when the slice above permits the
+    /// write.
     fn set(self: Canvas, x: usize, y: usize, color: u32) void {
         if (x >= self.width or y >= self.height) return;
         self.pixels[y * self.stride + x] = color;
@@ -84,16 +89,17 @@ const Canvas = struct {
     }
 };
 
-/// Ten characters, dark to light, the same ramp the rest of this section dumps
-/// with, so these pictures can be read against those.
+/// Ten characters, from dark to light. The other chapters in this section use
+/// the same ramp for their dumps. Thus you can compare these pictures with
+/// those pictures.
 const ramp = " .:-=+*#%@";
 
 fn dump(canvas: Canvas, out: *std.Io.Writer) !void {
     var row: [root_width]u8 = undefined;
     for (0..canvas.height) |y| {
         for (0..canvas.width) |x| {
-            // `stride`, not `width`. With `width` here, a view reads the wrong
-            // pixels.
+            // Use `stride`, not `width`. With `width` here, a view reads the
+            // wrong pixels.
             const color = canvas.pixels[y * canvas.stride + x];
             const luma = (((color >> 16) & 0xff) * 77 +
                 ((color >> 8) & 0xff) * 150 +
@@ -113,8 +119,8 @@ pub fn main(init: std.process.Init) !void {
     const root = Canvas.init(&framebuffer, root_width, root_height);
     root.fill(backdrop);
 
-    // Two panels side by side, and one nested two levels deep. Every one of
-    // them is filled by the same `fill` that just filled the whole screen.
+    // Two panels side by side, and one panel two levels deep. The same `fill`
+    // that filled the full screen also fills each panel.
     const left = root.sub(2, 2, 26, 14);
     const right = root.sub(32, 2, 26, 14);
     left.fill(amber);
@@ -123,16 +129,17 @@ pub fn main(init: std.process.Init) !void {
     const inset = right.sub(3, 3, 14, 6);
     inset.fill(paper);
 
-    // 40 wide inside a panel that is 26 wide. The parent is untouched: the
-    // clip in `set` rejects every column past the panel's own edge, so the bar
-    // stops at the panel border instead of running into the one beside it.
+    // A bar 40 wide inside a panel that is 26 wide. The parent does not
+    // change. The clip in `set` rejects each column past the edge of the
+    // panel. Thus the bar stops at the border of the panel. The bar does not
+    // go into the panel next to it.
     left.rect(4, 5, 40, 3, violet);
 
     try out.writeAll("the whole framebuffer\n");
     try dump(root, out);
 
-    // The same pixels, addressed as a region. Nothing was copied to produce
-    // this; it is the parent's memory, read through different bounds.
+    // The same pixels, addressed as a region. The program copies nothing. The
+    // dump reads the memory of the parent through different bounds.
     try out.writeAll("\nthe right panel alone, same memory\n");
     try dump(right, out);
 

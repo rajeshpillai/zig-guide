@@ -1,5 +1,5 @@
 //! title: Texture Mapping
-//! The triangle already interpolates. Point it at a second image and it interpolates coordinates into that instead of colours.
+//! The triangle already interpolates. Point the triangle at a second image, and it interpolates coordinates into that image, not colours.
 
 const std = @import("std");
 
@@ -17,8 +17,9 @@ const dark = rgb(40, 44, 52);
 const light = rgb(240, 246, 243);
 const amber = rgb(247, 164, 29);
 
-/// The canvas from the previous chapter, trimmed to what this one uses. It is
-/// the thing being written to, so it carries a stride.
+/// The canvas from the previous chapter, with only the parts that this
+/// chapter uses. The program writes to the canvas, thus the canvas has a
+/// stride.
 const Canvas = struct {
     pixels: []u32,
     width: usize,
@@ -37,10 +38,10 @@ const Canvas = struct {
     }
 };
 
-/// A texture is only ever read, so it has no stride: nothing samples a
-/// rectangle out of the middle of one. Giving it its own type instead of
-/// reusing `Canvas` says that data only flows out of it. The compiler enforces
-/// that, because a `Texture` has no `set`.
+/// The program only reads a texture, thus a texture has no stride: no code
+/// samples a rectangle from the middle of a texture. A separate type, not
+/// `Canvas`, shows that data only comes out of a texture. The compiler makes
+/// sure of that rule, because a `Texture` has no `set`.
 const Texture = struct {
     pixels: []const u32,
     width: usize,
@@ -49,8 +50,9 @@ const Texture = struct {
 
 var texels: [8 * 8]u32 = undefined;
 
-/// Two-texel checks, so the pattern survives being scaled down, and one amber
-/// corner, so it is easy to see when a tile has been flipped or wrapped.
+/// Checks that are two texels wide, thus the pattern stays visible when the
+/// program scales the texture down. One amber corner shows when a tile flips
+/// or wraps.
 fn buildTexture() Texture {
     for (0..8) |y| {
         for (0..8) |x| {
@@ -64,10 +66,10 @@ fn buildTexture() Texture {
     return .{ .pixels = &texels, .width = 8, .height = 8 };
 }
 
-/// A corner of a triangle: where it lands on the canvas, and where it reads
-/// from in the texture. `u` and `v` run 0 to 1 across the image regardless of
-/// how many pixels the image has, which is what lets the same coordinates
-/// address a texture of any size.
+/// A corner of a triangle: its position on the canvas, and the position that
+/// it reads in the texture. `u` and `v` go from 0 to 1 across the image, for
+/// any number of pixels in the image. Thus the same coordinates address a
+/// texture of any size.
 const Vertex = struct { x: f32, y: f32, u: f32, v: f32 };
 
 /// Twice the signed area of the triangle abp. Positive on one side of the line
@@ -76,8 +78,8 @@ fn edge(ax: f32, ay: f32, bx: f32, by: f32, px: f32, py: f32) f32 {
     return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
 }
 
-/// Nearest-neighbour sampling. `wrap` decides what a coordinate outside 0..1
-/// means: repeat the image, or hold the edge texel.
+/// Nearest-neighbour sample. `wrap` sets the meaning of a coordinate outside
+/// 0..1: repeat the image, or keep the edge texel.
 fn sample(tex: Texture, u: f32, v: f32, wrap: bool) u32 {
     const w: i32 = @intCast(tex.width);
     const h: i32 = @intCast(tex.height);
@@ -85,8 +87,8 @@ fn sample(tex: Texture, u: f32, v: f32, wrap: bool) u32 {
     var ty: i32 = @intFromFloat(@floor(v * @as(f32, @floatFromInt(h))));
 
     if (wrap) {
-        // `@mod`, not `%`: the remainder operator keeps the sign of the
-        // dividend, so a u of -0.1 would index backwards out of the texture.
+        // Use `@mod`, not `%`. The remainder operator keeps the sign of the
+        // dividend. Thus a u of -0.1 would index backwards out of the texture.
         tx = @mod(tx, w);
         ty = @mod(ty, h);
     } else {
@@ -98,7 +100,7 @@ fn sample(tex: Texture, u: f32, v: f32, wrap: bool) u32 {
 }
 
 /// The same barycentric rasteriser as the triangles chapter, with one change:
-/// the three weights interpolate `u` and `v` instead of a colour.
+/// the three weights interpolate `u` and `v`, not a colour.
 fn triangle(dst: Canvas, tex: Texture, a: Vertex, b: Vertex, c: Vertex, wrap: bool) void {
     const area = edge(a.x, a.y, b.x, b.y, c.x, c.y);
     if (area == 0) return;
@@ -112,8 +114,8 @@ fn triangle(dst: Canvas, tex: Texture, a: Vertex, b: Vertex, c: Vertex, wrap: bo
     while (y <= max_y and y < dst.height) : (y += 1) {
         var x = min_x;
         while (x <= max_x and x < dst.width) : (x += 1) {
-            // Sample at the pixel's centre, which is what stops a shared edge
-            // between two triangles from dropping a line of pixels.
+            // Sample at the centre of the pixel. Thus a shared edge between two
+            // triangles does not lose a line of pixels.
             const px = @as(f32, @floatFromInt(x)) + 0.5;
             const py = @as(f32, @floatFromInt(y)) + 0.5;
 
@@ -122,8 +124,8 @@ fn triangle(dst: Canvas, tex: Texture, a: Vertex, b: Vertex, c: Vertex, wrap: bo
             const w2 = edge(a.x, a.y, b.x, b.y, px, py) / area;
             if (w0 < 0 or w1 < 0 or w2 < 0) continue;
 
-            // The interpolation. Three weights, applied to the corners' texture
-            // coordinates exactly as they would be to their colours.
+            // The interpolation. The three weights apply to the texture
+            // coordinates of the corners exactly as they apply to colours.
             const u = w0 * a.u + w1 * b.u + w2 * c.u;
             const v = w0 * a.v + w1 * b.v + w2 * c.v;
             dst.set(x, y, sample(tex, u, v, wrap));
@@ -131,7 +133,7 @@ fn triangle(dst: Canvas, tex: Texture, a: Vertex, b: Vertex, c: Vertex, wrap: bo
     }
 }
 
-/// Four corners, two triangles, sharing the diagonal.
+/// Four corners and two triangles. The two triangles share the diagonal.
 fn quad(dst: Canvas, tex: Texture, corners: [4]Vertex, wrap: bool) void {
     triangle(dst, tex, corners[0], corners[1], corners[2], wrap);
     triangle(dst, tex, corners[0], corners[2], corners[3], wrap);
@@ -167,9 +169,10 @@ pub fn main(init: std.process.Init) !void {
         .stride = dst_width,
     };
 
-    // Left: the image once, corner to corner. Right: the same rectangle with
-    // coordinates running to 2 instead of 1, so the sampler walks off the edge
-    // of the texture twice in each direction and wrapping brings it back.
+    // Left: the image one time, from corner to corner. Right: the same
+    // rectangle, but the coordinates go to 2, not 1. Thus the sampler goes
+    // past the edge of the texture in each direction. The wrap returns the
+    // sampler to the start of the texture, and the image shows two times.
     dst.fill(backdrop);
     quad(dst, tex, .{
         .{ .x = 2, .y = 0, .u = 0, .v = 0 },
@@ -186,9 +189,9 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("uv 0..1, and uv 0..2 wrapped\n");
     try dump(dst, out);
 
-    // A trapezoid: the top edge is shorter than the bottom, so no single
-    // affine map covers all four corners. Each triangle gets its own, and the
-    // shared diagonal is where the two disagree.
+    // A trapezoid: the top edge is shorter than the bottom edge. Thus no one
+    // affine map covers all four corners. Each triangle gets its own map, and
+    // the two maps do not agree on the shared diagonal.
     dst.fill(backdrop);
     quad(dst, tex, .{
         .{ .x = 19, .y = 0, .u = 0, .v = 0 },

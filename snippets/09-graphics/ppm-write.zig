@@ -1,14 +1,14 @@
 //! title: A PPM in Memory
-//! Assemble a binary P6 image byte by byte, then parse it straight back. PPM
-//! is the shortest path from a buffer you filled in yourself to a file an
-//! image viewer will open, and it needs no library at all.
+//! Make a binary P6 image byte by byte, then parse it again. PPM is the
+//! shortest path from a buffer that you filled to a file that an image viewer
+//! opens, and it needs no library.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
 
 var pixels: [canvas.width * canvas.height]u32 = undefined;
 
-// The header is at most a few dozen bytes; the body is three bytes per pixel.
+// The header is at most a few dozen bytes. The body is three bytes per pixel.
 var file_bytes: [64 + canvas.width * canvas.height * 3]u8 = undefined;
 
 fn drawScene() void {
@@ -21,12 +21,13 @@ fn drawScene() void {
     }
 }
 
-/// Write header then body, and return the slice actually used.
+/// Write the header, then the body, and return the part of the slice that
+/// the function used.
 ///
-/// The header is formatted from the same constants that size the buffer.
-/// Hardcoding "P6\n64 32\n255\n" works only until someone changes one of
-/// the constants. Then the header and the data disagree and the image tears
-/// diagonally, with no error reported anywhere.
+/// The header uses the same constants that set the size of the buffer.
+/// A hardcoded "P6\n64 32\n255\n" works only until somebody changes one of
+/// the constants. Then the header and the data do not agree, and the image
+/// tears diagonally. No part of the program reports an error.
 fn encodeP6(out: []u8) ![]const u8 {
     const header = try std.mem.print(out, "P6\n{d} {d}\n255\n", .{
         canvas.width, canvas.height,
@@ -45,8 +46,8 @@ fn encodeP6(out: []u8) ![]const u8 {
 
 const Image = struct { w: usize, h: usize, data: []const u8 };
 
-/// Enough of a reader for files this code writes. It does not handle `#`
-/// comments, which a general parser must.
+/// A reader that is sufficient for the files that this code writes. It does
+/// not remove `#` comments. A general parser must remove them.
 fn decodeP6(bytes: []const u8) !Image {
     if (!std.mem.startsWith(u8, bytes, "P6")) return error.NotP6;
 
@@ -56,8 +57,8 @@ fn decodeP6(bytes: []const u8) !Image {
     const maxval = try std.fmt.parseInt(usize, it.next() orelse return error.Truncated, 10);
     if (maxval != 255) return error.UnsupportedMaxval;
 
-    // Exactly one whitespace byte follows maxval, and everything after it is
-    // pixel data. The tokenizer stops before that byte, hence the `+ 1`.
+    // Exactly one whitespace byte follows maxval. All the bytes after it are
+    // pixel data. The tokenizer stops before that byte, thus the `+ 1`.
     const data_start = 2 + it.index + 1;
     if (data_start + w * h * 3 > bytes.len) return error.Truncated;
     return .{ .w = w, .h = h, .data = bytes[data_start..] };
@@ -100,8 +101,8 @@ pub fn main(init: std.process.Init) !void {
         decoded.data[last], decoded.data[last + 1], decoded.data[last + 2],
     });
 
-    // One extra newline after maxval would shift every pixel by a byte, and no
-    // parser can detect it: 0x0A is a legal pixel value.
+    // One extra newline after maxval moves each pixel by one byte. No parser
+    // can find this mistake, because 0x0A is a legal pixel value.
     const shifted = decodeP6("P6\n2 1\n255\n\n\x01\x02\x03\x04\x05\x06") catch unreachable;
     try out.print("shifted by one: first pixel reads {d} {d} {d}\n", .{
         shifted.data[0], shifted.data[1], shifted.data[2],

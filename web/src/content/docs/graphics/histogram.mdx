@@ -1,6 +1,6 @@
 ---
 title: Histograms and Levels
-description: Count what the image contains, and the lookup table that fixes it comes straight from the counts. Auto-levels, equalization, and why you apply them to luma.
+description: Count what the image contains, and get the correction table from the counts. Auto-levels, equalization, and why to apply them to luma.
 section: Graphics
 order: 130
 ---
@@ -8,9 +8,9 @@ order: 130
 import Playground from "../../../components/Playground.astro";
 
 The tables in [per-pixel transforms](/learn/graphics/per-pixel/) were
-constants: you chose a contrast factor and built a table from it. The tables
-here are measured. Count how many pixels sit at each luma value, and the
-correction the image needs falls out of the counts.
+constants: you selected a contrast factor and made a table from it. The tables
+on this page come from a measurement. Count the number of pixels at each luma
+value. The correction that the image needs comes directly from the counts.
 
 ```zig
 fn histogram(src: []const u32) [256]u32 {
@@ -20,83 +20,90 @@ fn histogram(src: []const u32) [256]u32 {
 }
 ```
 
-Two hundred and fifty six counters and one pass. The analysis needs nothing
-more, and everything else on this page is derived from these counts.
+The function uses 256 counters and one pass. The analysis needs nothing more.
+All of the other results on this page come from these counts.
 
 <Playground name="09-graphics.histogram" />
 
-## Reading the shape
+## Read the shape
 
-The histogram of the test picture is bunched into the low third. The
-background ramp lives between 13 and 68, and the block and discs are three
-isolated spikes higher up. Nothing at all occupies 80 to 95 or 112 to 143. The
-picture is using about half the range it has.
+Most of the histogram of the test picture is in the low third:
 
-That shape is what "the image looks flat" means numerically, and it is what
-levels and equalization each fix in a different way.
+- The background ramp is between 13 and 68.
+- The block and the discs are three separate spikes at higher values.
+- No pixel has a value from 80 to 95 or from 112 to 143.
+
+The picture uses approximately half of the range that it has.
+
+This shape is the numeric meaning of "the image looks flat". Levels and
+equalization each correct this shape in a different way.
 
 ## Levels: measure the ends
 
-The straightforward correction stretches whatever range the image occupies to
-fill 0 to 255. The only question is where the image really starts and stops,
-and the answer is not the first and last non-empty bin:
+The simple correction stretches the range of the image to fill 0 to 255. The
+only question is where the image really starts and stops. The answer is not
+the first and the last bin that is not empty:
 
 ```zig
 const black = percentile(hist, total, 10);   // 1%
 const white = percentile(hist, total, 990);  // 99%
 ```
 
-Clipping a fraction at each end first is deliberate. A single hot pixel at 255, or one dead pixel at 0, would otherwise set
-the whole range and the stretch would do nothing. Every auto-levels
-implementation clips, and the fraction is the only knob.
+The program clips a fraction at each end first, and this is intentional.
+Without the clip, one hot pixel at 255 or one dead pixel at 0 sets the full
+range. Then the stretch does nothing. All auto-levels implementations clip,
+and the fraction is the only setting.
 
-The table that results is the contrast table from two chapters ago with
-measured endpoints instead of chosen ones.
+The result is the contrast table from
+[per-pixel transforms](/learn/graphics/per-pixel/). The difference is that the
+endpoints come from a measurement, and the user does not select them.
 
 ## Equalization: the table is the distribution
 
-Equalization asks for more. Instead of a linear stretch it makes the output
-histogram as flat as it can, so that every output level holds about the same
-number of pixels. The table that does this is the cumulative distribution:
+Equalization does more. It does not use a linear stretch. It makes the output
+histogram as flat as possible, so each output level has approximately the
+same number of pixels. The table for this operation is the cumulative
+distribution:
 
 ```zig
 lut[i] = (cdf[i] - cdf_min) * 255 / (total - cdf_min);
 ```
 
-Where many pixels share a range the CDF climbs steeply, so that range gets
-spread over many output values. Where the image has nothing, the CDF is flat
-and the range is compressed to almost nothing. The `cdf_min` subtraction
-anchors the darkest occupied level at 0, without which a picture containing no
-true black never reaches black.
+Where many pixels share a range, the CDF increases quickly. Thus that range
+spreads over many output values. Where the image has no pixels, the CDF is
+flat, and that range becomes almost nothing.
 
-The change in the output is large: the background ramp, which was three
-barely distinguishable shades, becomes a broad gradient with visible
-structure.
+The subtraction of `cdf_min` puts the darkest level that has pixels at 0.
+Without the subtraction, a picture with no true black never gets to black.
+
+The change in the output is large. The background ramp had three shades that
+were almost the same. After equalization, the ramp is a wide gradient with
+visible structure.
 
 ## What equalization cannot do
 
 Look at the equalized histogram in the output. It is flatter, but it still has
-empty buckets, and one bucket holds 300 pixels while another holds 77.
+empty buckets. One bucket holds 300 pixels, and another bucket holds 77.
 
-Equalization redistributes values; it cannot invent them. If 153 pixels share
-a single luma value, they still share a single luma value afterwards. It moves
-that spike to wherever the CDF puts it and leaves the gaps on either side. A
-perfectly flat histogram is only achievable with as many distinct input values
-as output levels.
+Equalization moves values to different positions, but it cannot make new
+values. If 153 pixels share one luma value, the 153 pixels still share one
+luma value after equalization. The CDF moves that spike to a new position, and
+the gaps on each side of the spike stay. A fully flat histogram is possible
+only when the input has as many different values as the output has levels.
 
-Equalization also amplifies whatever is in the sparse regions, including
-noise. A flat sky with sensor grain becomes a
-flat sky with visible sensor grain, because the algorithm cannot tell the
-difference between detail that should be stretched and noise that should be
-left alone. This
-is why photo tools offer it and photographers rarely use it as-is. The usual
-answer is CLAHE, which equalizes small tiles independently and limits how far
-any one level may be stretched.
+Equalization also makes the sparse regions stronger, and the noise in those
+regions too. A flat sky with sensor grain becomes a flat sky with visible
+sensor grain. The algorithm cannot see the difference between detail to
+stretch and noise to keep as it is.
+
+For this reason, photo tools supply equalization, but photographers rarely use
+it without changes. The usual solution is CLAHE. CLAHE equalizes small tiles
+independently, and it limits how far each level can stretch.
 
 ## Apply it to brightness, not to channels
 
-There are two ways to run a table over a colour image and they are not the
-same:
+There are two ways to apply a table to a colour image, and the two ways give
+different results:
 
 ```zig
 // Per channel: run the table over R, G and B independently.
@@ -114,14 +121,18 @@ levels per channel: 255, 32, 32  R/B = 7.96
 levels on luma:     251, 43, 43  R/B = 5.83
 ```
 
-Hue is carried by the ratios between the channels. Pushing each channel
-through the same curve independently changes those ratios, because a curve is
-not linear, so a colour comes out more saturated and shifted. Deciding the new
-brightness from luma and scaling all three by that one factor keeps the ratios
-and moves only the brightness.
+The ratios between the channels hold the hue. A curve is not linear. Thus,
+when each channel goes through the same curve independently, the ratios
+change. The colour becomes more saturated, and the hue moves.
 
-Per-channel is not always wrong. It is what "auto colour" does deliberately.
-Running levels on each channel separately also removes a colour cast: if the
-blue channel never exceeds 200, stretching it to 255 corrects a yellow tint.
-Use per-channel when the colour cast is the problem. Use luma when the colours
-are part of the picture.
+The other method gets the new brightness from luma. Then it multiplies the
+three channels by that one factor. The ratios stay the same, and only the
+brightness changes.
+
+The per-channel method is not always wrong. The "auto colour" operation uses
+it intentionally. Levels on each channel separately also remove a colour cast.
+For example, if the blue channel is never more than 200, a stretch to 255
+corrects a yellow tint.
+
+- If the colour cast is the problem, use the per-channel method.
+- If the colours are part of the picture, use luma.

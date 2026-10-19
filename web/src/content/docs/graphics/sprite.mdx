@@ -1,18 +1,18 @@
 ---
 title: Sprites and Transparency
-description: Copying a rectangle is easy. Deciding which pixels not to copy is the feature.
+description: A copy of a rectangle is easy. The important feature is the decision about which pixels not to copy.
 section: Graphics
 order: 134
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A sprite is a small image copied onto a bigger one. The copy is a nested loop
-and takes a minute to write.
+A sprite is a small image that a program copies onto a larger image. The copy
+is a nested loop, and you can write it in a minute.
 
-What makes it a sprite rather than a rectangle is the part that decides which
-pixels to leave alone. Without that, every sprite is a box, and a spaceship
-drags a square of background around with it.
+A sprite is different from a rectangle because of one part: the part that
+decides which pixels to skip. Without that part, each sprite is a box. Then a
+spaceship moves a square of background with it.
 
 ## The program
 
@@ -20,55 +20,62 @@ drags a square of background around with it.
 
 ## What just happened
 
-**The background shows through the corners.** The checkerboard is visible
-inside the sprite's bounding box wherever the sprite's own pixel was the
-transparent value. 18 of the 35 pixels were drawn and 17 were skipped, which
-is printed so the ratio is visible: nearly half of a sprite is usually
-nothing.
+**The background shows through the corners.** Inside the bounding box of the
+sprite, you can see the checkerboard at each pixel where the sprite has the
+transparent value. The program drew 18 of the 35 pixels and skipped 17. The
+program prints these counts, so you can see the ratio: almost half of a sprite
+is usually empty.
 
-**Transparency is one comparison.** A **key colour**: one value declared to
-mean "skip". That is how every 8-bit and 16-bit console did it, because a
-per-pixel alpha channel costs a byte per pixel that those machines did not
-have. It has one famous drawback: the key colour cannot appear in the artwork.
-That is why so much sprite work of that era avoided a particular shade of
-magenta.
+**Transparency is one comparison.** The program uses a **key colour**: one
+value that means "skip". Each 8-bit and 16-bit console used this method. The
+reason is that a per-pixel alpha channel costs one byte per pixel, and those
+machines did not have that memory.
 
-**The third copy was clipped.** Drawn partly off the right edge, and the loop
-simply skipped the cells outside the canvas. No extra code does the clipping:
-it comes from the bounds check.
+The method has one well-known disadvantage: the artwork cannot use the key
+colour. For this reason, much sprite art of that time did not use one specific
+shade of magenta.
 
-**The sprite is stored once and drawn three times.** Nothing was duplicated in
-memory. A sprite is
-data and drawing it is a loop, so the second and third copies cost only the
-loop.
+**The program clipped the third copy.** The program drew the third copy
+partly off the right edge, and the loop skipped the cells outside the canvas.
+No extra code does the clipping. The clipping comes from the bounds check.
+
+**The program stores the sprite one time and draws it three times.** The
+program does not make a copy of the sprite data in memory. A sprite is data, and a loop draws it. Thus the second
+and third copies cost only the loop.
 
 ## Check yourself
 
-Key-colour transparency is binary: a pixel is drawn or it is not. What does an
-alpha channel add, and what does it cost?
+Key-colour transparency is binary: the program draws a pixel or it does not.
+What does an alpha channel add, and what is its cost?
 
-Partial transparency, so an edge pixel can be half sprite and half background,
-which is the difference between a jagged outline and a smooth one. The cost is
-memory, one more byte per pixel, and arithmetic: instead of copying, every
-pixel becomes a blend of source and destination weighted by alpha. The
-[blending](/learn/graphics/blending/) chapter builds exactly that, which is why
-it comes before this one.
+An alpha channel adds partial transparency. Thus an edge pixel can be half
+sprite and half background. This is the difference between a jagged outline
+and a smooth outline.
 
-The other cost is order. Opaque sprites can be drawn in any order if they do
-not overlap; translucent ones must be drawn back to front, because blending is
-not commutative.
+The cost has two parts:
+
+- Memory: one more byte per pixel.
+- Arithmetic: the program does not only copy. Each pixel becomes a blend of
+  the source and the destination, with alpha as the weight.
+
+The [blending](/learn/graphics/blending/) chapter makes exactly that blend.
+For this reason, the blending chapter comes before this chapter.
+
+The other cost is order. If opaque sprites do not overlap, you can draw them
+in any order. You must draw translucent sprites from back to front, because
+blending is not commutative.
 
 ## If you know C
 
-`memcpy` per row is the obvious optimisation and it is only available when
-there is no transparency, because `memcpy` cannot skip. This trade-off shapes
-all of 2D blitting: opaque rectangles are a fast row copy, and
-anything with holes in it is a per-pixel loop.
+The usual optimisation is a `memcpy` for each row. You can use it only when
+there is no transparency, because `memcpy` cannot skip. This trade-off
+controls all of 2D blitting. An opaque rectangle is a fast copy of rows. An
+image with holes is a loop over each pixel.
 
 Hardware sprite units existed for this reason. The machines that made this
-technique famous had silicon that read a sprite and a key colour and
-composited during the scan-out. The CPU never touched those pixels at all.
-When people say a 1985 console did something a faster PC could not, this is
-usually what they mean.
+method famous had silicon that read a sprite and a key colour. The silicon
+composited the sprite during the scan-out, and the CPU did not touch those
+pixels. Sometimes people say that a 1985 console did something that a faster
+PC could not do. Usually, they mean this hardware.
 
-Next: a scene graph, which is how you move a lot of these at once.
+Next: a scene graph, which moves many sprites at the same time.

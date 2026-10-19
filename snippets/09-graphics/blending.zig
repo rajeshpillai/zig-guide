@@ -1,19 +1,20 @@
 //! title: Alpha Blending
-//! Overwriting a pixel is the painter's algorithm. Blending is what you do
-//! instead when the thing on top is not opaque.
+//! To write over a pixel is the painter's algorithm. When the shape on top
+//! is not opaque, use blending instead.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
 
 var pixels: [canvas.width * canvas.height]u32 = undefined;
 
-/// Source-over compositing on one channel:
+/// The source-over operator on one channel:
 ///
 ///     out = (src * a + dst * (255 - a)) / 255
 ///
-/// The `+ 127` rounds to nearest instead of truncating. Dividing by 256 with a
-/// shift looks like a faster choice, but at a = 255 it returns 254, so blending
-/// code that does it cannot reach pure white.
+/// The `+ 127` rounds to the nearest value. Without it, the division removes
+/// the fraction. A division by 256 with a shift looks faster. But at a = 255
+/// the shift gives 254. Thus blending code that uses the shift cannot make
+/// pure white.
 fn blendChannel(src: u8, dst: u8, a: u8) u8 {
     const s = @as(u32, src) * @as(u32, a);
     const d = @as(u32, dst) * (255 - @as(u32, a));
@@ -30,9 +31,9 @@ fn blend(src: u32, dst: u32, a: u8) u32 {
     );
 }
 
-/// Read, blend, write back. The difference from `putPixel` is that the
-/// destination is now an input. A later draw no longer erases an earlier one,
-/// and the order of the draws changes the result.
+/// Read, blend, then write the result. The difference from `putPixel` is that
+/// the destination is now an input. A later draw does not erase an earlier
+/// draw, and the order of the draws changes the result.
 fn blendPixel(x: i32, y: i32, color: u32, a: u8) void {
     if (x < 0 or y < 0) return;
     const ux: usize = @intCast(x);
@@ -67,8 +68,8 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // Three discs at 60% opacity. Where two overlap the background shows
-    // through both, and the overlap is brighter than either disc alone.
+    // Three discs at 60% opacity. Where two discs overlap, the background
+    // shows through both discs. The overlap is brighter than each disc alone.
     blendCircle(24, 13, 11, canvas.rgb(255, 80, 80), 153);
     blendCircle(40, 13, 11, canvas.rgb(80, 255, 120), 153);
     blendCircle(32, 24, 11, canvas.rgb(120, 160, 255), 153);
@@ -86,8 +87,8 @@ pub fn main(init: std.process.Init) !void {
         });
     }
 
-    // Blending is not commutative. Half of red on top of blue is not half of
-    // blue on top of red. Because of this, draw order still matters.
+    // Blending is not commutative. Half of red on top of blue is not equal to
+    // half of blue on top of red. Thus the draw order is still important.
     const red = canvas.rgb(255, 0, 0);
     const blue = canvas.rgb(0, 0, 255);
     const r_over_b = canvas.channels(blend(red, blue, 64));

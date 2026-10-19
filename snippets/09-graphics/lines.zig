@@ -6,13 +6,13 @@ const canvas = @import("_canvas.zig");
 
 var pixels: [canvas.width * canvas.height]u32 = undefined;
 
-/// The error term `err` tracks twice the distance from the ideal line to the
-/// pixel centre, scaled so it stays an integer. Each step it decides whether
-/// the minor axis has drifted far enough to advance too.
+/// The error term `err` records twice the distance from the ideal line to the
+/// pixel centre, scaled so that it stays an integer. At each step, it decides
+/// if the minor axis is far enough behind to advance too.
 ///
-/// Written in the symmetric form: `dy` is kept negative so both axes are
-/// handled by the same two ifs, with no separate case for steep lines and no
-/// swapping of endpoints.
+/// This is the symmetric form: `dy` stays negative, thus the same two ifs
+/// move the two axes. There is no special case for steep lines, and no swap
+/// of the endpoints.
 fn drawLine(x0: i32, y0: i32, x1: i32, y1: i32, color: u32) usize {
     var x = x0;
     var y = y0;
@@ -31,8 +31,8 @@ fn drawLine(x0: i32, y0: i32, x1: i32, y1: i32, color: u32) usize {
         if (x == x1 and y == y1) break;
 
         const e2 = 2 * err;
-        // Two independent tests, not an if/else: on a perfect diagonal both
-        // fire and the line steps in both axes at once.
+        // Two independent tests, not an if/else. On a perfect diagonal, the
+        // two tests are both true, and the line moves on the two axes at once.
         if (e2 >= dy) {
             err += dy;
             x += sx;
@@ -58,8 +58,8 @@ pub fn main(init: std.process.Init) !void {
     const w: i32 = @intCast(canvas.width);
     const h: i32 = @intCast(canvas.height);
 
-    // A fan out to evenly spaced points along the border. Every slope from
-    // near-horizontal to near-vertical goes through the same code path.
+    // A fan of lines to points at equal distances along the border. All slopes,
+    // from almost horizontal to almost vertical, use the same code path.
     var i: i32 = 0;
     while (i < 16) : (i += 1) {
         const t = @divTrunc(i * (w - 1), 16);
@@ -67,7 +67,7 @@ pub fn main(init: std.process.Init) !void {
         _ = drawLine(cx, cy, w - 1 - t, h - 1, canvas.rgb(120, 200, 255));
     }
 
-    // A border, drawn as four lines, to show the endpoints land exactly.
+    // A border of four lines, to show that the endpoints are exact.
     _ = drawLine(0, 0, w - 1, 0, canvas.rgb(255, 255, 255));
     _ = drawLine(w - 1, 0, w - 1, h - 1, canvas.rgb(255, 255, 255));
     _ = drawLine(w - 1, h - 1, 0, h - 1, canvas.rgb(255, 255, 255));
@@ -75,8 +75,8 @@ pub fn main(init: std.process.Init) !void {
 
     try canvas.dump(out, &pixels);
 
-    // A line lights up max(|dx|, |dy|) + 1 pixels: exactly one per step of the
-    // major axis, whatever the slope.
+    // A line sets max(|dx|, |dy|) + 1 pixels: exactly one for each step of the
+    // major axis, at all slopes.
     const probe = canvas.rgb(0, 0, 40);
     try out.print("\n(0,0)->(40,10): {d} pixels\n", .{drawLine(0, 0, 40, 10, probe)});
     try out.print("(0,0)->(10,30): {d} pixels\n", .{drawLine(0, 0, 10, 30, probe)});

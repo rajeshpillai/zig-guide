@@ -1,5 +1,5 @@
 //! title: A Scene Graph
-//! Position a thing once, relative to its parent, and moving the parent moves everything.
+//! Position each thing relative to its parent. When the parent moves, everything below the parent moves with it.
 
 const std = @import("std");
 
@@ -7,9 +7,9 @@ const width: usize = 44;
 const height: usize = 12;
 var canvas: [width * height]u8 = @splat('.');
 
-/// A node's position is **local**: relative to its parent, not to the canvas.
-/// An arm is at "shoulder plus two", always, and the shoulder is free to
-/// move.
+/// The position of a node is **local**: it is relative to its parent, not to
+/// the canvas. An arm is always at "shoulder plus two", and the shoulder can
+/// move to any position.
 const Node = struct {
     x: i32,
     y: i32,
@@ -36,13 +36,14 @@ fn fill(x: i32, y: i32, w: i32, h: i32, ink: u8) void {
     }
 }
 
-/// Walk the tree accumulating the offset. Each node draws at parent plus its
-/// own, then hands that total to its children. One addition per level, and
-/// that addition is the transform.
+/// Walk the tree and add up the offsets. Each node draws at the position of
+/// its parent plus its own offset. Then the node gives that total to its
+/// children. The walk adds one time for each level, and that addition is the
+/// transform.
 ///
-/// A real engine carries a 3x3 matrix instead of two integers, so a node can
-/// rotate and scale as well as move, and the accumulation is a matrix multiply
-/// rather than an add. The structure of the walk is identical.
+/// A real engine stores a 3x3 matrix, not two integers. Thus a node can also
+/// rotate and scale. To combine the values, the walk multiplies matrices. It
+/// does not add numbers. The structure of the walk is the same.
 fn draw(nodes: []const Node, index: u32, ox: i32, oy: i32) void {
     const node = nodes[index];
     const x = ox + node.x;
@@ -66,8 +67,9 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // index 0 is the body; the rest hang off it and are positioned relative
-    // to it. Nothing below index 0 mentions the canvas.
+    // Index 0 is the body. The other nodes are children of the body, and
+    // their positions are relative to the body. Only index 0 refers to the
+    // canvas.
     var nodes = [_]Node{
         .{ .x = 4, .y = 3, .w = 6, .h = 4, .ink = '#', .first = 1 }, // body
         .{ .x = -3, .y = 1, .w = 3, .h = 1, .ink = '=', .next = 2 }, // left arm
@@ -80,8 +82,8 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("body at (4, 3)\n");
     try dump(out);
 
-    // One number changed. Every child follows, because no child stores where
-    // it is on the canvas.
+    // Two numbers change. Each child follows the body, because no child
+    // stores its position on the canvas.
     nodes[0].x = 26;
     nodes[0].y = 5;
 

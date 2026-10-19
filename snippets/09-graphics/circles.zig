@@ -1,14 +1,14 @@
 //! title: Circles Without a Square Root
-//! A point is inside a circle when dx*dx + dy*dy <= r*r. Square both sides of
-//! the distance test and the sqrt disappears, along with the floats.
+//! A point is inside a circle when dx*dx + dy*dy <= r*r. Square the two sides
+//! of the distance test, and the sqrt and the floats go away.
 
 const std = @import("std");
 const canvas = @import("_canvas.zig");
 
 var pixels: [canvas.width * canvas.height]u32 = undefined;
 
-/// Scans every pixel in the buffer. This is the simple version, and it wastes
-/// work: at r = 7 it tests 2048 pixels to fill about 150.
+/// Scans each pixel in the buffer. This is the simple version, and it does
+/// too much work: at r = 7 it tests 2048 pixels to fill about 150.
 fn fillCircleNaive(cx: i32, cy: i32, r: i32, color: u32) usize {
     var tested: usize = 0;
     for (0..canvas.height) |y| {
@@ -24,8 +24,8 @@ fn fillCircleNaive(cx: i32, cy: i32, r: i32, color: u32) usize {
     return tested;
 }
 
-/// The same circle, looping only over its bounding box. `putPixel` already
-/// clips, so a circle hanging off an edge needs no extra handling here.
+/// The same circle, with a loop over only its bounding box. `putPixel`
+/// clips, thus a circle that goes past an edge needs no extra code here.
 fn fillCircle(cx: i32, cy: i32, r: i32, color: u32) usize {
     var tested: usize = 0;
     var y = cy - r;
@@ -43,8 +43,8 @@ fn fillCircle(cx: i32, cy: i32, r: i32, color: u32) usize {
     return tested;
 }
 
-/// An outline is the same test twice: inside the outer radius and outside the
-/// inner one. The algorithm is the same, and the result is a band.
+/// An outline is the same test two times: inside the outer radius and outside
+/// the inner radius. The algorithm is the same, and the result is a band.
 fn strokeCircle(cx: i32, cy: i32, r: i32, thickness: i32, color: u32) void {
     const outer = r * r;
     const inner = (r - thickness) * (r - thickness);
@@ -73,8 +73,8 @@ pub fn main(init: std.process.Init) !void {
     const naive = fillCircleNaive(20, 16, 7, canvas.rgb(255, 220, 40));
     const boxed = fillCircle(45, 16, 10, canvas.rgb(180, 255, 140));
 
-    // Hangs off three edges at once. Nothing here checks for that; the clip in
-    // putPixel does.
+    // This circle goes past two edges at the same time: the right edge and the
+    // bottom edge. No code here checks for that. The clip in putPixel does.
     _ = fillCircle(62, 30, 8, canvas.rgb(255, 120, 120));
 
     try canvas.dump(out, &pixels);

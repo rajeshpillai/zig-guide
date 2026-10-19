@@ -1,5 +1,5 @@
 //! title: Transforms
-//! Moving, turning and resizing are one operation, and composing them is a multiply whose order you do not get to choose freely.
+//! To move, turn and resize a shape is one operation. To combine them is a multiply, and you cannot select its order freely.
 
 const std = @import("std");
 
@@ -14,9 +14,9 @@ var framebuffer: [width * height]u8 = undefined;
 ///     | b d f |     y' = b*x + d*y + f
 ///     | 0 0 1 |
 ///
-/// The bottom row is always `0 0 1` for an affine transform, so storing it
-/// would be storing a constant. Six numbers hold every combination of moving,
-/// turning, scaling and shearing there is.
+/// For an affine transform, the bottom row is always `0 0 1`. Thus the struct
+/// does not store the bottom row, because it is a constant. Six numbers hold
+/// each possible combination of move, turn, scale and shear.
 const Transform = struct {
     a: f32 = 1,
     b: f32 = 0,
@@ -41,10 +41,11 @@ const Transform = struct {
         return .{ .a = cos, .b = sin, .c = -sin, .d = cos };
     }
 
-    /// `self.then(next)` is the transform that applies `self` first. Written
-    /// as matrices that is `next * self`, because a point is a column on the
-    /// right and the matrix nearest it acts first. Reading a chain left to
-    /// right in the order things happen is the reason for the name.
+    /// `self.then(next)` is the transform that applies `self` first. As
+    /// matrices, the transform is `next * self`, because a point is a column
+    /// on the right, and the matrix nearest the point acts first. With `then`,
+    /// you read a chain from left to right, in the order of the operations.
+    /// That is the reason for the name.
     fn then(self: Transform, next: Transform) Transform {
         return .{
             .a = next.a * self.a + next.c * self.b,
@@ -64,8 +65,9 @@ const Transform = struct {
     }
 };
 
-/// The shape, in its own coordinates. An arrow, because it has no symmetry:
-/// a rotated square looks like a square, which proves nothing.
+/// The shape, in its own coordinates. The shape is an arrow because an arrow
+/// has no symmetry. A rotated square looks like a square, and thus shows
+/// nothing.
 const shape = [_][2]f32{
     .{ 0, -3 },
     .{ 2, 0 },
@@ -88,7 +90,8 @@ fn plot(x: i32, y: i32, ink: u8) void {
     framebuffer[uy * width + ux] = ink;
 }
 
-/// Bresenham, so an edge of the shape is drawn rather than sampled.
+/// Bresenham. Thus the program draws each edge of the shape as a line. It
+/// does not sample the edge.
 fn line(x0: i32, y0: i32, x1: i32, y1: i32, ink: u8) void {
     var x = x0;
     var y = y0;
@@ -113,16 +116,18 @@ fn line(x0: i32, y0: i32, x1: i32, y1: i32, ink: u8) void {
     }
 }
 
-/// A character cell is about twice as tall as it is wide, so the last thing
-/// done to every point is a non-uniform scale that undoes it. It is composed
-/// here instead of multiplying by two at the call site, and that is the main
-/// reason `then` exists. The transforms above stay in square units, where a
-/// rotation keeps its shape. The display's uneven aspect is one matrix applied
-/// after everything else.
+/// A character cell is approximately two times as tall as it is wide. Thus
+/// the last operation on each point is a non-uniform scale that cancels that
+/// difference. The program combines the scale here with `then`. It does not
+/// multiply by two at the call site, and that is the main reason for `then`.
+/// The transforms above stay in square units, where a rotation keeps the
+/// shape. The uneven aspect of the display is one matrix, and the program
+/// applies it after all the other matrices.
 const aspect = Transform.scale(2, 1);
 
-/// Transform every point, then draw the outline through the results. The shape
-/// itself is never modified: it is one array, drawn through different matrices.
+/// Transform each point, then draw the outline through the results. The
+/// program never changes the shape. The shape is one array, and the program
+/// draws it through different matrices.
 fn draw(t: Transform, ink: u8) void {
     const view = t.then(aspect);
     for (shape, 0..) |point, i| {
@@ -154,10 +159,11 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // Rotate then move, against move then rotate. Same quarter turn, same
-    // offset, composed in the two possible orders. Both are then shifted by the
-    // same amount so each lands on the canvas, which changes where the pair
-    // sits but not how far apart they are.
+    // Rotate then move, compared with move then rotate. The same quarter turn
+    // and the same offset, combined in the two possible orders. Then the
+    // program moves the two shapes by the same distance to put them on the
+    // canvas. This move changes the position of the pair, but not the
+    // distance between the two shapes.
     const view = Transform.translate(13, 6);
     const spin_then_move = Transform.rotate(quarter_turn)
         .then(Transform.translate(7, 0))
@@ -172,9 +178,10 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("# rotate then move, o move then rotate\n");
     try dump(out);
 
-    // Turning a shape about a point that is not the origin is three transforms:
-    // bring the point to the origin, turn, put it back. There is no rotate
-    // that takes a centre, because these three steps do the same job.
+    // Three transforms turn a shape about a point that is not the origin.
+    // Move the point to the origin, turn, and move the point back.
+    // No rotate function takes a centre, because these three steps do the
+    // same work.
     const pivot_x: f32 = 16;
     const pivot_y: f32 = 7;
     clear();
@@ -182,15 +189,16 @@ pub fn main(init: std.process.Init) !void {
         const about_pivot = Transform.translate(-pivot_x, -pivot_y)
             .then(Transform.rotate(quarter_turn * steps))
             .then(Transform.translate(pivot_x, pivot_y));
-        // Placed five units to the right of the pivot, then turned about it,
-        // so the arrow orbits rather than spinning where it stands.
+        // Put the arrow five units to the right of the pivot, then turn the
+        // arrow about the pivot. Thus the arrow moves in an orbit. The arrow
+        // does not turn at its own position.
         draw(Transform.translate(pivot_x + 5, pivot_y).then(about_pivot), ink);
     }
     plot(@intFromFloat(pivot_x * 2), @intFromFloat(pivot_y), '+');
     try out.writeAll("\n+ is the pivot; 1, 2 and 3 are quarter turns about it\n");
     try dump(out);
 
-    // Scale lives in the same six numbers and composes the same way.
+    // A scale uses the same six numbers, and it combines in the same way.
     clear();
     draw(Transform.scale(1, 1).then(Transform.translate(5, 8)), '.');
     draw(Transform.scale(1.6, 1.6).then(Transform.translate(13, 8)), '+');

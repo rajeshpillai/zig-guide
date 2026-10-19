@@ -1,5 +1,5 @@
 //! title: Bitmap Text
-//! A glyph is a small rectangle of bits, and drawing text is copying them.
+//! A glyph is a small rectangle of bits. To draw text, copy those bits.
 
 const std = @import("std");
 
@@ -7,9 +7,10 @@ const width: usize = 60;
 const height: usize = 16;
 var pixels: [width * height]u8 = @splat(' ');
 
-/// Each glyph is 7 rows of 5 bits, most significant bit on the left. This is
-/// the oldest way to store a font, and it is still the right one for a fixed
-/// size. It needs no curves, hinting or scaling. Drawing a glyph copies bits.
+/// Each glyph is 7 rows of 5 bits, with the most significant bit on the left.
+/// This is the oldest method to store a font, and it is still correct for a
+/// fixed size. It needs no curves, hinting or scaling. To draw a glyph, the
+/// program copies bits.
 const glyph_width = 5;
 const glyph_height = 7;
 
@@ -36,9 +37,9 @@ fn putPixel(x: i32, y: i32, ink: u8) void {
     pixels[uy * width + ux] = ink;
 }
 
-/// Draw one glyph. Testing the bit and skipping the zeroes is what makes text
-/// draw *over* a background rather than in a box: a glyph has no background of
-/// its own, only the pixels it sets.
+/// Draw one glyph. The function tests each bit and skips the zeroes. Thus text
+/// draws *over* a background and not in a box. A glyph has no background of
+/// its own. It has only the pixels that it sets.
 fn drawGlyph(g: Glyph, x: i32, y: i32, ink: u8) void {
     for (g, 0..) |row, dy| {
         var bit: u3 = 0;
@@ -51,8 +52,8 @@ fn drawGlyph(g: Glyph, x: i32, y: i32, ink: u8) void {
     }
 }
 
-/// Advance by the glyph width plus one column of spacing. A proportional font
-/// stores a per-glyph advance instead, and that single change is most of the
+/// Move the pen by the glyph width plus one column of spacing. A proportional
+/// font stores an advance for each glyph. That one change is most of the
 /// difference between a terminal font and a text engine.
 fn drawText(text: []const u8, x: i32, y: i32, ink: u8) i32 {
     var pen = x;

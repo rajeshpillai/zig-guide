@@ -1,5 +1,5 @@
 //! title: A Bar Chart
-//! Turning numbers into pixels is one division, and getting it wrong is a lie.
+//! One division changes numbers into pixels. If the division is wrong, the chart lies.
 
 const std = @import("std");
 
@@ -8,7 +8,7 @@ const height: usize = 17;
 var canvas: [width * height]u8 = @splat(' ');
 
 const plot_left: usize = 5;
-// Two rows spare below the plot: one for the axis, one for the labels.
+// Keep two rows below the plot: one row for the axis, one row for the labels.
 const plot_bottom: usize = height - 3;
 const plot_top: usize = 1;
 
@@ -17,9 +17,9 @@ fn put(x: usize, y: usize, ink: u8) void {
     canvas[y * width + x] = ink;
 }
 
-/// Map a value onto pixels. The denominator chooses the scale: dividing by the
-/// largest value makes the tallest bar fill the plot. Because of this, two
-/// charts side by side cannot be compared unless they share a scale.
+/// Map a value to pixels. The denominator sets the scale. When the function
+/// divides by the largest value, the tallest bar fills the plot. Thus you can
+/// compare two charts only if the two charts use the same scale.
 fn barHeight(value: u32, max: u32, rows: usize) usize {
     if (max == 0) return 0;
     return @intCast(@as(usize, value) * rows / max);
@@ -67,8 +67,8 @@ pub fn main(init: std.process.Init) !void {
         drawBar(i, v, max, '#');
         put(plot_left + i * 5 + 1, plot_bottom + 2, labels[i]);
     }
-    // The scale, written down. Without it the reader cannot tell what the bar
-    // heights mean.
+    // Write the scale on the chart. Without the scale, the reader cannot tell
+    // what the heights of the bars mean.
     put(0, plot_top, '4');
     put(1, plot_top, '0');
     put(0, plot_bottom, '0');

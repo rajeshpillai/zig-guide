@@ -7,10 +7,16 @@ order: 128
 
 import Playground from "../../../components/Playground.astro";
 
-A point operation reads one pixel. A convolution reads a neighbourhood: slide
-a small matrix over the image, multiply each weight by the pixel under it,
-sum, divide. Blur, sharpen, emboss and edge detection are all that loop with
-different numbers in the matrix.
+A point operation reads one pixel. A convolution reads a neighbourhood. The
+steps are:
+
+1. Move a small matrix over the image.
+2. Multiply each weight by the pixel under it.
+3. Add the products.
+4. Divide the sum.
+
+Blur, sharpen, emboss and edge detection all use this loop. Only the numbers
+in the matrix are different.
 
 <Playground name="09-graphics.convolution" />
 
@@ -28,41 +34,47 @@ fn Kernel(comptime side: usize) type {
 }
 ```
 
-`Kernel(3)` and `Kernel(5)` are different types. The side length is a
-compile-time constant inside the convolution loop, so the bounds are known and
-the inner loops unroll. A 5x5 kernel also cannot be passed where a 3x3 is
-expected. A runtime `side: usize` field would compile just as well and give up
-both. [Comptime](/learn/language-basics/comptime/) covers type functions in
-general; here the benefit is easy to see.
+`Kernel(3)` and `Kernel(5)` are different types. Inside the convolution loop,
+the side length is a compile-time constant. Thus the compiler knows the
+bounds, and the inner loops unroll. Also, you cannot give a 5x5 kernel to code
+that expects a 3x3 kernel.
 
-The `comptime std.debug.assert` runs at compile time. An even side length is a
-compile error, not a runtime panic, because a kernel with no centre pixel has
-no meaningful answer.
+A runtime `side: usize` field also compiles, but it loses both of these
+advantages. [Comptime](/learn/language-basics/comptime/) explains type
+functions in general. Here the advantage is easy to see.
 
-## The divisor is not decoration
+The `comptime std.debug.assert` runs at compile time. An even side length is
+a compile error, not a runtime panic. The reason is that a kernel with no
+centre pixel has no meaningful answer.
 
-The weights of the gaussian sum to 16 and the divisor is 16. That is what
-keeps the image at the brightness it started at. A kernel whose weights sum to
-something other than its divisor scales the whole image, which is occasionally
-what you want and usually a bug you notice three filters later.
+## The divisor is necessary
+
+The sum of the gaussian weights is 16, and the divisor is 16. Thus the image
+keeps its initial brightness.
+
+If the sum of the weights is not equal to the divisor, the kernel changes the
+brightness of the full image. Sometimes you want this result. Usually it is a
+bug, and you see the bug three filters later.
 
 Two useful special cases:
 
-- **Sharpen** weights sum to 1 with a divisor of 1. Flat areas come out
-  unchanged (the neighbours cancel the centre boost), edges are exaggerated.
-- **Sobel** weights sum to zero. A flat area produces exactly zero, so the
-  output is not an image at all: it is a measurement of change.
+- The **sharpen** weights have a sum of 1, with a divisor of 1. Flat areas do
+  not change, because the neighbours cancel the increase at the centre. Edges
+  become stronger than before.
+- The **Sobel** weights have a sum of zero. A flat area gives exactly zero.
+  Thus the output is not an image. The output is a measurement of change.
 
 ## Bug one: the border
 
-At the edge of the image part of the kernel hangs off it. Something has to
-happen, and the three choices are all visible:
+At the edge of the image, part of the kernel is outside the image. The code
+must do something there. There are three choices, and you can see the result
+of each choice:
 
-- Return black for out-of-range coordinates and every blurred image gets a dark
-  frame that gets thicker with each pass.
-- Wrap to the far side and the top row bleeds into the bottom.
-- Clamp the coordinate to the edge and the edge pixel repeats. This is invisible
-  and is what most image libraries default to.
+- Return black for coordinates outside the image. Then each blurred image
+  gets a dark frame, and the frame becomes thicker with each pass.
+- Wrap to the far side. Then the top row mixes into the bottom row.
+- Clamp the coordinate to the edge. Then the edge pixel repeats. You cannot
+  see this result, and most image libraries use this choice by default.
 
 ```zig
 fn sample(src: []const u32, x: i32, y: i32) u32 {
@@ -72,33 +84,39 @@ fn sample(src: []const u32, x: i32, y: i32) u32 {
 }
 ```
 
-Signed coordinates, again for the reason [circles](/learn/graphics/circles/)
-needed them: the kernel offset makes half the candidate coordinates negative
-before they are clamped.
+The code uses signed coordinates, for the same reason as in
+[circles](/learn/graphics/circles/). Because of the kernel offset, half of
+the possible coordinates are negative before the clamp.
 
 ## Bug two: the buffer
 
-A convolution must not write into the buffer it is reading.
+A convolution must not write into the buffer that it reads.
 
 ```zig
 convolve(3, &output, &input, gaussian3);  // correct
 convolve(3, &input, &input, gaussian3);   // wrong
 ```
 
-Writing an output pixel back over its input corrupts the input of every pixel
-still to come, so the result depends on the order the loop happens to run in.
-The snippet does it both ways at the block's top-left corner and prints the
-two answers: `255 220 60` against `231 199 58`. Nothing crashes. The image
-just comes out slightly smeared in the direction of the scan, so code review
-often misses this bug.
+If the code writes an output pixel over its input, it corrupts the input of
+each pixel that comes after it. Then the result depends on the order of the
+loop.
 
-Image pipelines either keep two buffers and swap them, or write to a fresh one
-each pass. The three-pass blur in the snippet does exactly that.
+The snippet does the convolution in both ways at the top-left corner of the
+block. It prints the two answers: `255 220 60` and `231 199 58`. Nothing
+crashes. The image only shows a small smear in the direction of the scan.
+Thus a code review often does not find this bug.
 
-## Sharpening rings
+Image pipelines use one of two solutions:
 
-The output prints luma across the block's left edge before and after a
-sharpen:
+- Keep two buffers, and swap them.
+- Write to a new buffer for each pass.
+
+The three-pass blur in the snippet uses a second buffer for each pass.
+
+## A sharpen kernel causes ringing
+
+The output prints the luma across the left edge of the block, before and after
+a sharpen:
 
 ```
      x |    5    6    7    8    9   10   11   12
@@ -106,30 +124,37 @@ sharpen:
  sharp |   25   23    6  233  212  212  212  212
 ```
 
-The dark side of the edge got darker than it was (25 to 6) and the bright side
-got brighter (212 to 233). A sharpen kernel adds no detail. It exaggerates the
-difference it already found. On a hard edge, that overshoot is called ringing.
-A sharpen slider trades sharpness against ringing, and pushing one far enough
-always produces a halo.
+The dark side of the edge became darker than before (25 to 6). The bright
+side became brighter (212 to 233). A sharpen kernel adds no detail. It makes
+the difference that it finds larger.
 
-## Repeating a small kernel
+On a hard edge, this overshoot has the name ringing. A sharpen slider
+balances sharpness against ringing. If you move the slider far enough, a halo
+always appears.
 
-Three passes of a 3x3 gaussian approximate one 7x7, at 27 multiplies per pixel
-instead of 49. Repeated box blurs converge on a true gaussian for the same
-reason repeated sums of anything converge on a normal distribution, which is
-the trick behind most fast blurs.
+## Repeat a small kernel
+
+Three passes of a 3x3 gaussian are approximately equal to one 7x7 pass. The
+three passes need 27 multiplies for each pixel, and the 7x7 pass needs 49.
+
+Repeated box blurs converge on a true gaussian. The reason is the same reason
+that repeated sums of any values converge on a normal distribution. Most fast
+blurs use this method.
 
 Separability saves more. The gaussian above factors into a horizontal
-`[1 2 1]` and a vertical `[1 2 1]`, so 9 multiplies per pixel become 6. For a
-9x9 kernel it is 81 against 18, and the gap grows with the square of the side.
+`[1 2 1]` and a vertical `[1 2 1]`. Thus 9 multiplies for each pixel become 6.
+For a 9x9 kernel, the numbers are 81 and 18. The difference increases with
+the square of the side.
 
-The snippet runs both and prints the results: `42 42 94` for the single pass,
-`42 42 93` for the two 1D passes. They agree to within the rounding of the
-extra divide, not exactly. Two passes round to a byte twice.
+The snippet runs both versions and prints the results: `42 42 94` for the
+single pass, and `42 42 93` for the two 1D passes. The results are not
+exactly equal. The difference is the rounding of the extra division, because
+two passes round to a byte two times.
 
 ## Sobel, and what the sign means
 
-Two kernels, one measuring change left to right and one top to bottom:
+There are two kernels. One kernel measures change from left to right. The
+other kernel measures change from top to bottom:
 
 ```
 gx = -1  0  1      gy = -1 -2 -1
@@ -137,7 +162,7 @@ gx = -1  0  1      gy = -1 -2 -1
      -1  0  1            1  2  1
 ```
 
-The snippet probes three points and prints both:
+The snippet tests three points and prints both values:
 
 ```
            point |    gx    gy  |gx|+|gy|
@@ -146,14 +171,16 @@ The snippet probes three points and prints both:
   block top edge |    +1  +751       752
 ```
 
-Flat interior, no gradient. The left edge has a large horizontal gradient and
-no vertical one; the top edge the reverse. The sign is the direction. A
-positive gradient means the image gets brighter to the right, and an edge
-detector that discards it loses the difference between a light-to-dark edge
-and a dark-to-light one.
+- The interior is flat, and it has no gradient.
+- The left edge has a large horizontal gradient and no vertical gradient.
+- The top edge has a large vertical gradient and no horizontal gradient.
 
-The magnitude should be `sqrt(gx*gx + gy*gy)`. `|gx| + |gy|` overestimates by
-up to 41% on diagonals and needs no square root. That approximation is what
-the original hardware implementations used, and what most edge detectors still
-use. The next step is almost always a threshold, and the threshold absorbs the
+The sign is the direction. A positive gradient means that the image becomes
+brighter to the right. If an edge detector discards the sign, it cannot tell
+a light-to-dark edge from a dark-to-light edge.
+
+The correct magnitude is `sqrt(gx*gx + gy*gy)`. On diagonals, `|gx| + |gy|`
+is up to 41% too large, but it needs no square root. The original hardware
+implementations used this approximation, and most edge detectors still use
+it. The next step is almost always a threshold, and the threshold hides the
 error.
