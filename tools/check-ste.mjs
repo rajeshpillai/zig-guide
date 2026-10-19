@@ -31,12 +31,16 @@ const TECHNICAL = new Set(
    addressing probing chaining clustering splicing bookkeeping coupling
    ascending descending operating
    blocking networking interleaving publishing outstanding dangling aliasing
-   programming framing self-describing reordering sliding`.split(/\s+/).filter(Boolean),
+   programming framing self-describing reordering sliding
+   working coloring spanning folding saving substring combining allocating
+   signalling saturating learning calling narrowing wrapping mixing
+   closing nesting packing counting pipelining handling spelling sharing
+   profiling moving boxing debugging balancing meeting trailing ranking`.split(/\s+/).filter(Boolean),
 );
 
 // Words after "is" that end like a participle but are not one.
 const NOT_PARTICIPLE = new Set(
-  "open often even then when token seven eleven heaven garden kitchen".split(" "),
+  "open often even then when token seven eleven heaven garden kitchen between".split(" "),
 );
 
 const PHRASAL = [
@@ -54,7 +58,7 @@ const PHRASAL_RE = new RegExp(`\\b(${PHRASAL.join("|")})\\b`, "i");
 const RULES = [
   ["we", /\b(we|us|our|ours|ourselves|let's)\b/i],
   ["contraction", /\b\w+(n't|'re|'ll|'ve|'d)\b|\b(it|that|there|here|what|who)'s\b/i],
-  ["perfect", /\b(has|have|had)\s+(been|\w+ed|\w+en|done|made|gone|found|read|written|run|got)\b/i],
+  ["perfect", /\b(has|have|had)\s+(been|\w+ed|\w+en|done|made|gone|found|read|written|run|got)\b/i, (m) => !NOT_PARTICIPLE.has(m[2].toLowerCase())],
   ["progressive", /\b(am|is|are|was|were|be|been)\s+(\w{2,}ing)\b/i, (m) => !TECHNICAL.has(m[2].toLowerCase())],
   ["passive?", /\b(is|are|was|were|be|been|being)\s+(\w+ed|\w+en|done|made|found|read|written|run|kept|held|built|sent|set)\b/i, (m) => !NOT_PARTICIPLE.has(m[2].toLowerCase())],
   ["phrasal", PHRASAL_RE],
