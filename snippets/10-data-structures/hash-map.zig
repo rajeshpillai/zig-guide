@@ -1,16 +1,16 @@
 //! title: A Hash Map from Scratch
 //! Open addressing in about a hundred lines: probe on collision, grow on load,
-//! and leave a tombstone on delete. The last one looks like a hack until you
-//! delete without it and watch a lookup fail.
+//! and leave a tombstone on delete. The tombstone looks like a hack. Delete
+//! without it, and a lookup fails.
 
 const std = @import("std");
 
 const Map = struct {
     entries: []Entry,
     count: usize = 0,
-    /// Live entries plus tombstones. Probing cost depends on this, not on
-    /// `count`. So a map that is repeatedly filled and emptied still needs
-    /// to grow.
+    /// Live entries plus tombstones. The cost of a probe depends on this
+    /// value, not on `count`. Thus a map that you fill and empty many times
+    /// must still grow.
     occupied: usize = 0,
     allocator: std.mem.Allocator,
 
@@ -20,16 +20,16 @@ const Map = struct {
         state: enum { empty, used, tombstone } = .empty,
     };
 
-    /// Grow at 75%. Higher packs more into the same memory and lengthens every
-    /// probe. Lower wastes memory. Three quarters is the usual compromise, and
-    /// the arithmetic below avoids floats by comparing `4 * occupied` to
-    /// `3 * capacity`.
+    /// Grow at 75%. A higher limit puts more into the same memory and makes
+    /// each probe longer. A lower limit wastes memory. Three quarters is the
+    /// usual compromise. The arithmetic below uses no floats: it compares
+    /// `4 * (occupied + 1)` to `3 * capacity`.
     const load_numerator = 3;
     const load_denominator = 4;
 
     fn init(allocator: std.mem.Allocator, capacity: usize) !Map {
-        // A power of two so the modulo is a mask. With a prime capacity you
-        // would need a full division on every probe.
+        // A power of two, so that the modulo is a mask. A prime capacity
+        // needs a full division on each probe.
         std.debug.assert(std.math.isPowerOfTwo(capacity));
         const entries = try allocator.alloc(Entry, capacity);
         @memset(entries, .{});
@@ -45,12 +45,12 @@ const Map = struct {
         return std.hash.Wyhash.hash(0, key);
     }
 
-    /// Where a key belongs, and how many steps it took to get there.
+    /// The slot for a key, and the number of steps to get to that slot.
     ///
     /// Linear probing: on collision, try the next slot. It has the best cache
-    /// behaviour of any probe sequence, because the next slot is usually in the
-    /// same cache line. It also has the worst clustering, because runs of
-    /// occupied slots merge and grow.
+    /// behaviour of all probe sequences, because the next slot is usually in
+    /// the same cache line. It also has the worst clustering, because runs of
+    /// occupied slots join and grow.
     fn probe(self: *const Map, key: []const u8) struct { index: usize, steps: usize } {
         const mask = self.entries.len - 1;
         var index: usize = @intCast(hash(key) & mask);
@@ -60,8 +60,8 @@ const Map = struct {
         while (true) : (steps += 1) {
             const entry = &self.entries[index];
             switch (entry.state) {
-                // Insertion may reuse a tombstone, but only after confirming
-                // the key is not further along the chain.
+                // An insert can use a tombstone again, but only after the
+                // probe confirms that the key is not farther along the chain.
                 .empty => return .{ .index = first_tombstone orelse index, .steps = steps },
                 .tombstone => {
                     if (first_tombstone == null) first_tombstone = index;
@@ -88,11 +88,11 @@ const Map = struct {
 
     /// The insert itself, with no load check.
     ///
-    /// Split out because `grow` needs to reinsert every live entry, and a
-    /// `grow` that called `put` would be checking the load factor of the buffer
-    /// it is in the middle of filling. Zig catches that particular shape at
-    /// compile time: two functions with inferred error sets calling each other
-    /// is a dependency loop, and the error names both ends.
+    /// This is a separate function, because `grow` must insert each live
+    /// entry again. If `grow` called `put`, `put` would check the load factor
+    /// of the buffer that `grow` fills. Zig finds that shape at compile time.
+    /// Two functions with inferred error sets that call each other make a
+    /// dependency loop, and the error gives the names of the two functions.
     fn insertNoGrow(self: *Map, key: []const u8, value: i32) void {
         const slot = self.probe(key);
         const entry = &self.entries[slot.index];
@@ -103,7 +103,7 @@ const Map = struct {
         entry.* = .{ .key = key, .value = value, .state = .used };
     }
 
-    /// Delete leaves a marker rather than an empty slot.
+    /// Delete leaves a marker, not an empty slot.
     fn remove(self: *Map, key: []const u8) bool {
         const slot = self.probe(key);
         const entry = &self.entries[slot.index];
@@ -113,8 +113,8 @@ const Map = struct {
         return true;
     }
 
-    /// The bug this structure is usually explained with. Clearing the slot
-    /// outright breaks every probe chain that ran through it.
+    /// The bug that explanations of this structure usually show. If you
+    /// empty the slot, you break each probe chain that went through it.
     fn removeWithoutTombstone(self: *Map, key: []const u8) bool {
         const slot = self.probe(key);
         const entry = &self.entries[slot.index];
@@ -124,8 +124,8 @@ const Map = struct {
         return true;
     }
 
-    /// Rehash into a buffer twice the size. Tombstones are not carried over.
-    /// Removing them is the other purpose of growth.
+    /// Rehash into a buffer of double the size. The rehash does not copy the
+    /// tombstones. Their removal is the other purpose of growth.
     fn grow(self: *Map) !void {
         const old = self.entries;
         const bigger = try self.allocator.alloc(Entry, old.len * 2);
@@ -194,8 +194,8 @@ pub fn main(init: std.process.Init) !void {
     try out.print("get(\"elixir\") -> {?d}\n", .{map.get("elixir")});
     try out.print("get(\"perl\")   -> {?d}\n", .{map.get("perl")});
 
-    // Delete a third of the keys and confirm the rest are still reachable.
-    // Every one of these leaves a tombstone behind.
+    // Delete a third of the keys, and confirm that the program can still get
+    // to the other keys. Each of these deletes leaves a tombstone.
     var removed: usize = 0;
     for (keys, 0..) |key, i| {
         if (i % 3 == 0 and map.remove(key)) removed += 1;
@@ -209,9 +209,9 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.print("survivors still reachable: {d} of {d}\n", .{ found, keys.len - removed });
 
-    // The same experiment with the tombstone left out. Nothing errors and no
-    // memory is corrupted. Keys simply stop being found, because a probe that
-    // used to walk past a filled slot now stops at an empty one.
+    // The same experiment without the tombstone. No error occurs, and no
+    // memory becomes corrupt. The map does not find some keys, because a
+    // probe that walked past a full slot before now stops at an empty slot.
     var naive = try Map.init(allocator, 8);
     defer naive.deinit();
     for (keys, 1..) |key, i| try naive.put(key, @intCast(i));
@@ -231,9 +231,9 @@ pub fn main(init: std.process.Init) !void {
         (keys.len - naive_removed) - naive_found,
     });
 
-    // std's map, for the same keys. It is open addressing too, with metadata
-    // bytes held apart from the entries so a probe scans a compact array of
-    // one-byte fingerprints instead of full-sized entries.
+    // The map from std, for the same keys. It also uses open addressing. Its
+    // metadata bytes are separate from the entries. Thus a probe scans a small
+    // array of one-byte fingerprints, not the full-size entries.
     var std_map: std.StringHashMapUnmanaged(i32) = .empty;
     defer std_map.deinit(allocator);
     for (keys, 1..) |key, i| try std_map.put(allocator, key, @intCast(i));

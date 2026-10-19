@@ -1,24 +1,21 @@
 ---
 title: A Binary Search Tree
-description: Two pointers instead of one buys ordered iteration and O(log n) lookup, on a condition the structure does nothing to enforce.
+description: Two pointers instead of one give ordered iteration and O(log n) lookup, on a condition that the structure does not enforce.
 section: Data Structures
 order: 65
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Give the node a second pointer and keep everything smaller on the left, larger
-on the right. Lookup halves the search space at each step, and an in-order
-walk visits the values in sorted order with no extra work.
+Give the node a second pointer. Keep all smaller values on the left and all larger values on the right. Then each step of a lookup removes half of the search space. An in-order walk visits the values in sorted order, with no extra work.
 
-Both savings hold only while the tree stays roughly balanced. Nothing in the
-insert code makes it stay balanced.
+These two advantages are true only while the tree stays approximately balanced. Nothing in the insert code keeps the tree balanced.
 
 <Playground name="10-data-structures.bst" />
 
 ## Insert through a pointer to a pointer
 
-The recursive version is what textbooks show. This one is a loop:
+Textbooks usually show a recursive version. This version is a loop:
 
 ```zig
 var link: *?*Node = &self.root;
@@ -32,16 +29,11 @@ node.* = .{ .value = value };
 link.* = node;
 ```
 
-`link` points at the slot the new node will go into, rather than at the node
-above it. Inserting into an empty tree writes through `&self.root`; inserting
-at a leaf writes through `&node.left`. Both are the same two lines, so there
-is no special case for the empty tree and no "was this the root" branch.
+`link` points at the slot that will hold the new node. It does not point at the node above that slot. An insert into an empty tree writes through `&self.root`. An insert at a leaf writes through `&node.left`. The two cases use the same two lines. Thus the empty tree needs no special case, and the code needs no "was this the root" branch.
 
-Read `*?*Node` slowly: a pointer, to an optional, to a node. Each
-layer is doing something. The optional is the empty slot; the outer pointer is
-what lets you write into it.
+Read `*?*Node` slowly: a pointer, to an optional, to a node. Each layer has a function. The optional is the empty slot. The outer pointer lets you write into that slot.
 
-## The deinit has to be post-order
+## The deinit must be post-order
 
 ```zig
 fn freeSubtree(allocator: std.mem.Allocator, maybe: ?*Node) void {
@@ -52,18 +44,13 @@ fn freeSubtree(allocator: std.mem.Allocator, maybe: ?*Node) void {
 }
 ```
 
-Children first, then the node. Freeing the node first loses the only pointers
-to its subtrees, and that leak is unreachable memory rather than a crash. The
-snippet runs under a leak-checking allocator, so the order is enforced rather
-than remembered.
+Free the children first, then the node. If you free the node first, you lose the only pointers to its subtrees. The result is a leak of unreachable memory, not a crash. The snippet uses an allocator that checks for leaks. Thus the allocator enforces the order, and you do not have to remember it.
 
-Recursion here is bounded by the tree's height, the number the next section is
-about. On a degenerate tree of a million nodes it would overflow the stack.
-Production tree code often keeps an explicit stack for that reason.
+The height of the tree is the limit for the depth of this recursion. The next section is about that height. On a degenerate tree of a million nodes, the recursion overflows the stack. For this reason, production code for trees often keeps an explicit stack.
 
-## Insertion order decides everything
+## The order of insertion decides the shape
 
-The same fifteen values, inserted two ways:
+The program inserts the same fifteen values in two different orders:
 
 ```
   sorted input:   height 15  (a linked list wearing a tree's type)
@@ -71,10 +58,7 @@ The same fifteen values, inserted two ways:
   ideal for 15 nodes: 4
 ```
 
-Sorted input never branches. Every value is larger than the last, so it goes
-right, every time, and the result is a linked list with an unused `left`
-pointer in every node. The search property still holds and in-order traversal
-still prints the values in order. Only the cost changed:
+A tree from sorted input never branches. Each value is larger than the previous value, so each value goes to the right. The result is a linked list with an unused `left` pointer in each node. The search property is still true, and an in-order traversal still prints the values in order. Only the cost changed:
 
 ```
 lookups to find 15:
@@ -82,26 +66,15 @@ lookups to find 15:
   balanced tree:   4 comparisons
 ```
 
-An unbalanced binary search tree fails exactly there, and sorted input is not
-an unusual case. It is what you get from a database export, a
-sorted file, a monotonic ID, or a timestamp. Those are exactly the inputs most
-likely to show up in production, and least likely to appear in a test written
-with hand-picked literals.
+An unbalanced binary search tree fails at exactly this point, and sorted input is not an unusual case. You get sorted input from a database export, a sorted file, a monotonic ID, or a timestamp. These inputs are the most likely in production. They are the least likely in a test with literal values that a person selected by hand.
 
 ## What the standard library gives you
 
-There is no general-purpose balanced tree in `std`. The options are:
+`std` has no general-purpose balanced tree. You have these options:
 
-- **[Hash maps](/learn/standard-library/hash-maps/)** when you need lookup and not
-  order. Faster than any tree for that, and what most code actually wants.
-- **Sort an ArrayList and binary search it** when the data is built once and
-  queried many times. Contiguous, cache-friendly, and it beats a tree at
-  everything except interleaved inserts and lookups.
-- **[PriorityQueue](/learn/standard-library/priority-queue/)** when you only ever need
-  the smallest element. That is a heap, and a different structure.
-- **`std.Treap`**, already in `std`, which keeps itself balanced
-  probabilistically rather than by rotation.
+- **[Hash maps](/learn/standard-library/hash-maps/)**, when you need lookup and not order. A hash map is faster than all trees for lookup, and most code needs only lookup.
+- **Sort an ArrayList and do a binary search on it**, when you build the data one time and query it many times. The array is contiguous and cache-friendly. It is better than a tree for all uses, except inserts and lookups that alternate.
+- **[PriorityQueue](/learn/standard-library/priority-queue/)**, when you need only the smallest element. That is a heap, which is a different structure.
+- **`std.Treap`**, which is already in `std`. A treap uses probability to keep itself balanced, not rotations.
 
-Which leaves the case where you really need ordered iteration with
-interleaved inserts. For that the tree has to repair its own shape. The next
-chapter makes it do so.
+One case remains: you need ordered iteration, and inserts and lookups alternate. For that case, the tree must repair its own shape. The next chapter adds this repair to the tree.

@@ -1,20 +1,19 @@
 ---
 title: A Linked List by Hand
-description: The smallest structure that needs an allocator, an optional pointer and a deinit that gets the order right.
+description: The smallest structure that needs an allocator, an optional pointer and a deinit with the correct order.
 section: Data Structures
 order: 62
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A linked list is a poor container. It scatters its elements across memory, so
-walking one is a chain of dependent loads that the prefetcher cannot help
-with. An `ArrayList` beats it at almost everything you would use a list for.
+A linked list is a poor container. Its elements are at many different places in memory. Thus a walk through the list is a chain of dependent loads, and the prefetcher cannot make these loads faster. For almost all the uses of a list, an `ArrayList` is better.
 
-It is still the right first structure to build. It is the smallest one that
-forces you to answer the three questions every container in Zig has to answer.
-Who allocates. What "no next element" looks like in the type system. And who
-frees.
+But a linked list is the correct first structure to build. It is the smallest structure that makes you answer the three questions that each container in Zig must answer:
+
+- Who allocates?
+- How does the type system show "no next element"?
+- Who frees?
 
 <Playground name="10-data-structures.linked-list" />
 
@@ -27,26 +26,18 @@ const Node = struct {
 };
 ```
 
-`?*Node` is an optional pointer: either null, or the address of a node.
-`*?Node` would be a pointer to a slot that may contain a node, which needs the
-slot to exist somewhere and is a different structure entirely. The order reads
-outside in, and getting it backwards is a common early mistake with
-linked structures.
+`?*Node` is an optional pointer: it is null, or it is the address of a node. `*?Node` is a pointer to a slot that can contain a node. That slot must exist in a different location, and `*?Node` is a fully different structure. Read the order from the outside to the inside. Beginners with linked structures often write the order the wrong way around.
 
-The optional is free:
+The optional costs no space:
 
 ```
 @sizeOf(?*Node) == @sizeOf(*Node) -> true
 @sizeOf(?i32)    > @sizeOf(i32)   -> true
 ```
 
-A pointer can never validly be zero, so Zig uses zero as the null
-representation rather than storing a flag beside it. An optional integer has
-no spare value to use that way, so it does grow. This is why `?*T` is the
-idiomatic way to say "maybe a node" and why inventing a sentinel value buys
-nothing.
+A valid pointer can never be zero. Thus Zig uses zero as the null value, and does not store a flag beside the pointer. An optional integer has no spare value for this purpose, so an optional integer is larger. For this reason, `?*T` is the idiomatic way to say "maybe a node". A sentinel value of your own gives no advantage.
 
-## The deinit has an ordering rule
+## The deinit has a rule about order
 
 ```zig
 var current = self.head;
@@ -57,32 +48,21 @@ while (current) |node| {
 }
 ```
 
-Reading `node.next` after destroying `node` is a use-after-free. It usually
-appears to work, because the allocator has not yet handed that memory to
-anyone else, so the bug often ships.
+If you read `node.next` after you destroy `node`, that read is a use-after-free. Usually the code seems to work, because the allocator did not yet give that memory to a different user. Thus the bug often gets into a release.
 
-The snippet runs under `std.heap.SafeAllocator` (`DebugAllocator` in older
-code), whose `deinit` returns the number of allocations that were never freed.
-A container that hands out memory is exactly where a leak comes from, so let the allocator check rather than reasoning about it. [Catching
-Memory Leaks](/learn/how-to/catching-leaks/) covers the tooling.
+The snippet uses `std.heap.SafeAllocator` (`DebugAllocator` in older code). Its `deinit` returns the number of allocations that the program did not free. A container that gives out memory is exactly the place where a leak starts. Thus let the allocator do the check, and do not try to find leaks by thought alone. [Catching Memory Leaks](/learn/how-to/catching-leaks/) explains the tools.
 
-## Two fields that are not obvious
+## Two fields with a reason that is not clear
 
-**`tail`** exists so `append` is O(1). Without it, appending walks the whole
-list first, and building a list of n items is O(n²). Many hand-written lists leave it out.
+**`tail`** makes `append` O(1). Without `tail`, each append walks the full list first, and a list of n items costs O(n²) to build. Many hand-written lists do not have this field.
 
-**`len`** is stored rather than counted. Counting is O(n), and a `len()` that
-walks the list turns an innocent `if (list.len() > 0)` inside a loop into a
-quadratic bug.
+**`len`** is a stored value, not a count. A count is O(n). If `len()` walks the list, an innocent `if (list.len() > 0)` inside a loop becomes a quadratic bug.
 
-Both are the same trade: a few bytes of bookkeeping in exchange for a whole
-class of accidental quadratic behaviour.
+Both fields make the same trade. They cost a few bytes of bookkeeping, and they remove a full class of accidental quadratic behaviour.
 
-## Where a singly linked list stops being pleasant
+## Where a singly linked list becomes difficult
 
-Removal needs the node *before* the one being removed, and you cannot get
-there from the node itself. So `remove` tracks `previous` through the walk and
-special cases the head:
+To remove a node, you need the node *before* it, and you cannot get to that node from the node itself. Thus `remove` keeps `previous` during the walk, and it has a special case for the head:
 
 ```zig
 if (previous) |prev| {
@@ -92,20 +72,14 @@ if (previous) |prev| {
 }
 ```
 
-This is the shape that pushes people to a doubly linked list, and then to
-wondering why `std`'s lists look nothing like this one. Both are the next two
-chapters.
+This shape makes people change to a doubly linked list. Then they ask why the lists in `std` look very different from this one. The chapter after the next one shows the lists in `std`.
 
-## When a linked list is actually right
+## When a linked list is the correct choice
 
-Not often, but the cases are real and they are all about pointer stability:
+The cases are not frequent, but they are real. All of them are about pointer stability:
 
-- Elements must not move when the collection grows. An ArrayList reallocates,
-  which invalidates every pointer into it; a linked list never moves a node.
-- Splicing a whole run from one list into another in O(1), without touching the
-  elements.
-- Insertion must never fail, or must not allocate at the moment of insertion.
-  This is what the intrusive design two chapters from now is for, and it is why
-  allocators and schedulers are full of linked lists.
+- The elements must not move when the collection grows. An ArrayList reallocates, and that makes all pointers into it invalid. A linked list never moves a node.
+- You must move a full run of nodes from one list into a different list in O(1), and not touch the elements.
+- An insertion must never fail, or must not allocate at the time of the insertion. The intrusive design two chapters from now is for this case. This is also the reason that allocators and schedulers contain many linked lists.
 
-If none of those apply, use an ArrayList.
+If none of these cases applies, use an ArrayList.

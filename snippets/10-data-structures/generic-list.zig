@@ -1,13 +1,13 @@
 //! title: Making It Generic
 //! Zig has no separate generics syntax. A generic container is a function that
-//! takes a type at compile time and returns a type, which is why the same
-//! mechanism that writes `List(T)` also writes `ArrayList` and `HashMap`.
+//! takes a type at compile time and returns a type. The same mechanism makes
+//! `List(T)`, `ArrayList` and `HashMap`.
 
 const std = @import("std");
 
-/// A function from a type to a type. Called at compile time, so by the time the
-/// program runs `List(i32)` is an ordinary struct with no type parameter left
-/// in it and no extra indirection at run time.
+/// A function from a type to a type. The call occurs at compile time. Thus,
+/// when the program runs, `List(i32)` is an ordinary struct. It has no type
+/// parameter and no extra indirection at run time.
 fn List(comptime T: type) type {
     return struct {
         head: ?*Node = null,
@@ -15,13 +15,13 @@ fn List(comptime T: type) type {
         len: usize = 0,
         allocator: std.mem.Allocator,
 
-        /// `@This()` names the struct being defined. Inside a type function the
-        /// struct is anonymous, so there is no other way to refer to it, and
-        /// `Self` is the conventional name for the result.
+        /// `@This()` gives the struct that this code defines. Inside a type
+        /// function, the struct is anonymous. No other way to refer to the
+        /// struct exists. `Self` is the conventional name for the result.
         const Self = @This();
 
-        /// The node type is nested, so `List(i32).Node` and `List(u8).Node` are
-        /// distinct types and neither can be passed to the other's list.
+        /// The node type is nested. Thus `List(i32).Node` and `List(u8).Node`
+        /// are different types, and you cannot give one to the other list.
         pub const Node = struct {
             value: T,
             next: ?*Node = null,
@@ -50,10 +50,10 @@ fn List(comptime T: type) type {
             self.len += 1;
         }
 
-        /// Equality has to come from somewhere. `std.meta.eql` compares field
-        /// by field and works for integers, structs of integers and enums. It
-        /// compares slices by pointer, not by content, so the string list
-        /// below uses its own comparison.
+        /// Equality must have a definition. `std.meta.eql` compares field by
+        /// field. It works for integers, structs of integers and enums. It
+        /// compares slices by pointer, not by content. Thus a list of strings
+        /// needs its own comparison.
         pub fn contains(self: *const Self, value: T) bool {
             var current = self.head;
             while (current) |node| : (current = node.next) {
@@ -102,25 +102,25 @@ pub fn main(init: std.process.Init) !void {
     try out.print("contains(9)          -> {}\n", .{numbers.contains(9)});
     try out.print("contains(Point 3,4)  -> {}\n", .{points.contains(.{ .x = 3, .y = 4 })});
 
-    // The type function is memoized: calling it twice with the same argument
-    // returns the same type, not two structurally identical ones. Memoization
-    // makes `List(i32)` usable as a type annotation in a signature.
+    // The type function is memoized. Two calls with the same argument return
+    // the same type, not two types with the same structure. Memoization lets
+    // you use `List(i32)` as a type annotation in a signature.
     try out.print("\n@typeName(List(i32))  = {s}\n", .{@typeName(List(i32))});
     try out.print("List(i32) == List(i32) -> {}\n", .{List(i32) == List(i32)});
     try out.print("List(i32) == List(u8)  -> {}\n", .{List(i32) == List(u8)});
 
-    // The nested node type is instantiated along with its list, so each
-    // instantiation gets its own node type laid out for its own T. Values are
-    // not boxed and code paths are not shared. This is monomorphization, the
-    // same thing a C++ template or a Rust generic does, but Zig uses ordinary
-    // function syntax for it instead of a separate generics syntax.
+    // The compiler instantiates the nested node type together with its list.
+    // Thus each instantiation gets its own node type, with a layout for its
+    // own T. The values are not boxed, and the types share no code path. This is
+    // monomorphization. A C++ template or a Rust generic does the same thing.
+    // Zig uses ordinary function syntax for it, not a separate syntax.
     try out.print("\n@typeName(List(u8).Node)    = {s}\n", .{@typeName(List(u8).Node)});
     try out.print("@typeName(List(Point).Node) = {s}\n", .{@typeName(List(Point).Node)});
     try out.print("List(u8).Node == List(i32).Node -> {}\n", .{List(u8).Node == List(i32).Node});
 
-    // `std.ArrayList` is the same idea with contiguous storage instead of
-    // nodes. It is a type function too, and on master it does not hold the
-    // allocator: every method that can allocate takes one.
+    // `std.ArrayList` uses the same idea, with contiguous storage instead of
+    // nodes. It is also a type function. On master, it does not hold the
+    // allocator: each method that can allocate takes an allocator.
     var array: std.ArrayList(i32) = .empty;
     defer array.deinit(allocator);
     for ([_]i32{ 3, 1, 4 }) |v| try array.append(allocator, v);

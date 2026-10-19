@@ -1,21 +1,21 @@
 //! title: A Growable Array
-//! The container every other one assumes. A length, a capacity, and one rule
-//! about what happens when they meet. Growth is where the cost lives, and
-//! where the pointer you were holding stops being yours.
+//! The container that all other containers assume. A length, a capacity, and
+//! one rule for when the length reaches the capacity. A growth has a cost, and
+//! a growth makes your old pointer into the buffer invalid.
 
 const std = @import("std");
 
-/// Concrete `i32` on purpose. Making it work for any type is the next
-/// chapter, and it is a smaller change than it looks.
+/// This array holds only `i32`, on purpose. The next chapter changes it to
+/// hold any type. That change is smaller than it looks.
 const Array = struct {
-    /// The whole allocation. `buffer.len` is the capacity, which is how many
-    /// items would fit, not how many are there.
+    /// The full allocation. `buffer.len` is the capacity: the number of items
+    /// that fit, not the number of items that are there.
     buffer: []i32 = &.{},
-    /// How many of those slots hold a value. Always <= buffer.len.
+    /// The number of slots that hold a value. Always <= buffer.len.
     len: usize = 0,
     allocator: std.mem.Allocator,
 
-    /// Counters so the output can show the growth policy at work.
+    /// Counters, so that the output can show the growth policy.
     growths: usize = 0,
     carried: usize = 0,
 
@@ -30,17 +30,17 @@ const Array = struct {
     }
 
     /// The live values. A slice into the buffer, valid until the next growth.
-    /// Using the slice after a growth is the main hazard of this structure.
+    /// The main hazard of this structure is a slice used after a growth.
     fn items(self: *const Array) []i32 {
         return self.buffer[0..self.len];
     }
 
-    /// Make room for at least `wanted` slots.
+    /// Make space for at least `wanted` slots.
     ///
-    /// Written as allocate, copy, free instead of `realloc`, because growing
-    /// an array means those three steps and the copy is the cost being counted.
-    /// `Allocator.realloc` does exactly this and may skip the copy when the
-    /// allocation can be extended where it already sits.
+    /// This function does three steps (allocate, copy, free) and does not use
+    /// `realloc`. A growth is those three steps, and the program counts the
+    /// copy. `Allocator.realloc` does the same steps. It can omit the copy
+    /// when it can make the allocation larger at its current address.
     fn ensureCapacity(self: *Array, wanted: usize) !void {
         if (wanted <= self.buffer.len) return;
 
@@ -53,10 +53,10 @@ const Array = struct {
         self.carried += self.len;
     }
 
-    /// Doubling. This choice makes append amortised O(1).
-    /// Growing by a fixed number of slots instead would make building an
-    /// array of n items cost O(n^2), because the copy happens n/k times and
-    /// each one copies an average of n/2 items.
+    /// The capacity doubles. This choice makes append amortised O(1).
+    /// If the array grows by a fixed number k of slots, an array of n items
+    /// costs O(n^2). The copy occurs n/k times, and each copy moves an
+    /// average of n/2 items.
     fn append(self: *Array, value: i32) !void {
         if (self.len == self.buffer.len) {
             try self.ensureCapacity(if (self.buffer.len == 0) 1 else self.buffer.len * 2);
@@ -71,9 +71,9 @@ const Array = struct {
         return self.buffer[self.len];
     }
 
-    /// Hand the memory to the caller and empty the array. The buffer is
-    /// trimmed to the live values first, so the caller is not handed the
-    /// unused capacity it never asked for and would have to free anyway.
+    /// Give the memory to the caller and make the array empty. First, the
+    /// function cuts the buffer to the live values. Thus the caller does not
+    /// get unused capacity that it did not ask for and must free.
     fn toOwnedSlice(self: *Array) ![]i32 {
         const exact = try self.allocator.alloc(i32, self.len);
         @memcpy(exact, self.items());
@@ -96,8 +96,8 @@ pub fn main(init: std.process.Init) !void {
     var array = Array.init(allocator);
     defer array.deinit();
 
-    // Every append that finds len == capacity pays for a copy. This loop
-    // prints the capacity so you can see the rule at work.
+    // Each append that finds len == capacity must copy. This loop prints
+    // the capacity, so that you can see the rule.
     try out.writeAll("appending 1..16\n");
     for (1..17) |i| {
         const growths_before = array.growths;
@@ -120,8 +120,8 @@ pub fn main(init: std.process.Init) !void {
 
     try out.print("len={d} capacity={d} last={d}\n", .{ array.len, array.buffer.len, array.items()[15] });
 
-    // Reserving ahead removes every growth from the loop that follows, and
-    // with no growth the buffer does not move.
+    // A reserve before the loop removes all growths from the loop. With no
+    // growth, the buffer does not move.
     try array.ensureCapacity(64);
     const reserved_ptr = array.buffer.ptr;
     for (17..40) |i| try array.append(@intCast(i));
@@ -139,9 +139,10 @@ pub fn main(init: std.process.Init) !void {
         .{ owned.len, array.len, array.buffer.len },
     );
 
-    // One allocation holding many values, against one allocation per value.
-    // That difference is why this is the container to use first. The
-    // containers in the next chapters use pointers and must justify that cost.
+    // One allocation holds many values here. A linked list needs one
+    // allocation for each value. Thus this is the container to use first.
+    // The containers in the next chapters use pointers, and that cost must
+    // have a good reason.
     try out.print("\nreaching 39 values took {d} buffer allocations\n", .{buffers_allocated});
     try out.writeAll("the same values in a linked list take one allocation each\n");
 

@@ -1,7 +1,7 @@
 //! title: A Binary Search Tree
-//! Two pointers instead of one buys ordered iteration and O(log n) lookup, on
-//! one condition that the structure itself does nothing to enforce. This
-//! chapter is mostly about what happens when that condition fails.
+//! Two pointers instead of one give ordered iteration and O(log n) lookup, on
+//! one condition that the structure does not enforce. This chapter is mostly
+//! about what occurs when that condition fails.
 
 const std = @import("std");
 
@@ -20,9 +20,9 @@ const Tree = struct {
         return .{ .allocator = allocator };
     }
 
-    /// Post-order, because it must be. Freeing a node before its children
-    /// leaves no way to reach them. The compiler cannot catch that leak, but
-    /// the leak-checking allocator in `main` will.
+    /// Post-order, because no other order is correct. If you free a node
+    /// before its children, you cannot get to the children. The compiler
+    /// cannot find that leak, but the allocator in `main` checks for leaks.
     fn deinit(self: *Tree) void {
         freeSubtree(self.allocator, self.root);
         self.root = null;
@@ -36,12 +36,12 @@ const Tree = struct {
         allocator.destroy(node);
     }
 
-    /// Insert, iteratively.
+    /// Insert, with a loop.
     ///
-    /// The recursive version is easier to read and is what most textbooks
-    /// show. This one is a loop over a pointer-to-pointer. `link` points at
-    /// the slot the new node goes in, so the null case and the ordinary case
-    /// are the same code. An empty tree needs no special handling.
+    /// The recursive version is easier to read, and most textbooks show it.
+    /// This version is a loop over a pointer to a pointer. `link` points at
+    /// the slot for the new node. Thus the null case and the ordinary case
+    /// use the same code. An empty tree needs no special case.
     fn insert(self: *Tree, value: i32) !void {
         var link: *?*Node = &self.root;
         while (link.*) |node| {
@@ -64,9 +64,9 @@ const Tree = struct {
         return false;
     }
 
-    /// Left, self, right. This visits the values in sorted order. Sorted
-    /// order is the reason to use a tree instead of a hash table when order
-    /// matters.
+    /// Left, self, right. This visits the values in sorted order. When order
+    /// is important, sorted order is the reason to use a tree instead of a
+    /// hash table.
     fn writeInOrder(self: *const Tree, out: *std.Io.Writer) !void {
         try walk(out, self.root);
         try out.writeByte('\n');
@@ -79,7 +79,7 @@ const Tree = struct {
         try walk(out, node.right);
     }
 
-    /// Longest path from the root to a leaf. This number decides whether
+    /// The longest path from the root to a leaf. This number decides if
     /// lookup is fast, and nothing in `insert` controls it.
     fn height(self: *const Tree) usize {
         return subtreeHeight(self.root);
@@ -115,9 +115,9 @@ pub fn main(init: std.process.Init) !void {
     try out.print("contains(45) -> {}\n", .{tree.contains(45)});
     try out.print("len {d}, height {d}\n", .{ tree.len, tree.height() });
 
-    // Insertion order decides the shape. The shape decides everything else.
-    // A tree built from sorted input never branches: every value is larger than
-    // the last, so it always goes right.
+    // The order of insertion decides the shape. The shape decides all the
+    // other properties. A tree from sorted input never branches: each value
+    // is larger than the previous value, so each value goes to the right.
     var sorted_values: [15]i32 = undefined;
     for (&sorted_values, 1..) |*v, i| v.* = @intCast(i);
 
@@ -137,7 +137,7 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("\ndegenerate tree, in-order: ");
     try degenerate.writeInOrder(out);
 
-    // Count the comparisons needed to find the largest value, and print them.
+    // Count the comparisons to find the largest value, and print the count.
     try out.print("\nlookups to find 15:\n", .{});
     try out.print("  degenerate tree: {d} comparisons\n", .{countSteps(&degenerate, 15)});
     try out.print("  balanced tree:   {d} comparisons\n", .{countSteps(&balanced, 15)});

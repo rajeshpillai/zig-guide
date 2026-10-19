@@ -1,15 +1,13 @@
 ---
 title: Making It Generic
-description: Zig has no generics syntax. A generic container is a function that takes a type and returns a type, evaluated at compile time.
+description: Zig has no generics syntax. A generic container is a function that takes a type and returns a type at compile time.
 section: Data Structures
 order: 63
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The list in the previous chapter holds `i32` and nothing else. Making it hold
-anything does not need a new language feature, because Zig already has
-functions and types are already values at compile time.
+The list in the previous chapter holds only `i32`. To make the list hold any type, you do not need a new language feature. Zig already has functions, and types are values at compile time.
 
 ```zig
 fn List(comptime T: type) type {
@@ -25,31 +23,22 @@ fn List(comptime T: type) type {
 }
 ```
 
-`List` is an ordinary function. Its argument happens to be a type, its return
-value happens to be a type, and `comptime` on the parameter says it must be
-known when the function is called. There is no separate generics system to
-learn; this is the same mechanism [comptime](/learn/language-basics/comptime/)
-describes, applied to a struct definition.
+`List` is an ordinary function. Its argument is a type, and its return value is a type. The word `comptime` on the parameter tells that the argument must be known when the call occurs. You do not learn a separate generics system. This is the mechanism that [comptime](/learn/language-basics/comptime/) describes, applied to a struct definition.
 
 <Playground name="10-data-structures.generic-list" />
 
-## `@This()` and why `Self` is a convention
+## `@This()` and the reason for the name `Self`
 
-Inside a type function the struct being defined is anonymous, so there is no
-name to refer to it by. `@This()` returns it, and `const Self = @This()` gives
-that name locally. It appears in almost every Zig container because it has to.
+Inside a type function, the struct is anonymous. Thus the struct has no name that you can use. `@This()` returns the struct, and `const Self = @This()` gives it a local name. Almost all Zig containers have this line, because they must have it.
 
-## The call is memoized
+## The result of the call is memoized
 
 ```
 List(i32) == List(i32) -> true
 List(i32) == List(u8)  -> false
 ```
 
-Calling a type function twice with the same argument returns *the same type*,
-not two structurally identical ones. Without that, `fn takes(list: List(i32))`
-could not be called with a `List(i32)` built elsewhere, because they would be
-different types. It is what makes type functions usable in signatures at all.
+When you call a type function two times with the same argument, the two calls return *the same type*. They do not return two types with the same structure. Without this rule, you could not give a `List(i32)` from a different part of the program to `fn takes(list: List(i32))`, because the two would be different types. This rule lets you use type functions in signatures.
 
 ## Each instantiation is a real struct
 
@@ -59,33 +48,19 @@ different types. It is what makes type functions usable in signatures at all.
 List(u8).Node == List(i32).Node -> false
 ```
 
-The nested `Node` is instantiated along with its list, so every `List(T)` gets
-its own node type laid out for its own `T`. There is no boxing, no type
-erasure and no shared code path with a size parameter threaded through it.
-This is monomorphization, the same thing a C++ template or a Rust generic
-does, reached without a second syntax and without a separate compilation
-phase.
+The compiler instantiates the nested `Node` together with its list. Thus each `List(T)` gets its own node type, with a layout for its own `T`. The values are not boxed, the compiler erases no type information, and no shared code path takes a size parameter. This is monomorphization. A C++ template or a Rust generic does the same thing. Zig does it without a second syntax and without a separate compilation phase.
 
-The nesting also means `List(i32).Node` and `List(u8).Node` are unrelated
-types, so a node from one list cannot be handed to the other. This follows from the structure. Nobody had to write it down as a rule.
+Because `Node` is nested, `List(i32).Node` and `List(u8).Node` are unrelated types. Thus you cannot give a node from one list to the other list. This rule comes from the structure. Nobody had to write it as a rule.
 
-## Equality has to come from somewhere
+## Where equality comes from
 
-`contains` needs to compare two `T` values, and `T` is not known when the code
-is written. `std.meta.eql` compares field by field and handles integers,
-enums, and structs of those, which covers the two examples in the snippet.
+`contains` must compare two `T` values, but `T` is not known when you write the code. `std.meta.eql` compares field by field. It works for integers, enums, and structs of those types. This covers the two examples in the snippet.
 
-Be careful with one case: it compares slices by pointer and length,
-not by content. `std.meta.eql` on two `[]const u8` holding the same characters
-at different addresses returns false. A container that needs to compare
-strings has to be told how. That is why `StringHashMap` exists as a separate
-thing from `AutoHashMap`, rather than being a special case inside it.
+Be careful with one case: `std.meta.eql` compares slices by pointer and length, not by content. Two `[]const u8` slices can hold the same characters at different addresses. For these two slices, `std.meta.eql` returns false. A container that compares strings must get a comparison from you. This is the reason that `StringHashMap` is separate from `AutoHashMap`, and not a special case inside `AutoHashMap`.
 
-The general answer is to take the comparison as a parameter, the same way
-[sorting](/learn/standard-library/sorting/) takes a `lessThan`. A container
-that hardcodes `std.meta.eql` works until the first type it is wrong for.
+The general answer is to take the comparison as a parameter. [Sorting](/learn/standard-library/sorting/) does the same with a `lessThan` function. A container that always uses `std.meta.eql` works until it gets the first type for which `std.meta.eql` is wrong.
 
-## This is what std is
+## The standard library uses the same mechanism
 
 ```zig
 var array: std.ArrayList(i32) = .empty;
@@ -93,13 +68,6 @@ defer array.deinit(allocator);
 try array.append(allocator, 3);
 ```
 
-[ArrayList](/learn/standard-library/arraylist/) is the same idea with
-contiguous storage instead of nodes, and `std.ArrayList(i32)` is a call to a
-type function exactly like `List(i32)`. Reading `std` gets easier once that
-stops looking like special syntax.
+[ArrayList](/learn/standard-library/arraylist/) uses the same idea, with contiguous storage instead of nodes. `std.ArrayList(i32)` is a call to a type function, exactly like `List(i32)`. When this call no longer looks like special syntax, the source of `std` becomes easier to read.
 
-One difference to copy: on master `ArrayList` does not store the
-allocator. Every method that can allocate takes one as an argument. The list
-in this chapter stores it, which is more convenient and costs a pointer in
-every instance, and means two lists can never share one arena's worth of
-bookkeeping. The unmanaged form is the direction std has moved in.
+Copy one difference: on master, `ArrayList` does not store the allocator. Each method that can allocate takes an allocator as an argument. The list in this chapter stores the allocator. This is more convenient, but it costs one pointer in each instance. Also, two lists can then never share the bookkeeping of one arena. The standard library moved in the direction of the unmanaged form.

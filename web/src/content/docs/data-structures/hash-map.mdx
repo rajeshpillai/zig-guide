@@ -1,54 +1,41 @@
 ---
 title: A Hash Map from Scratch
-description: Open addressing with linear probing, growth at 75%, and the tombstone, which looks like a hack but is what makes delete work.
+description: Open addressing with linear probing, growth at 75%, and the tombstone. The tombstone looks like a hack, but it makes delete work.
 section: Data Structures
 order: 67
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A hash map turns a key into an index and looks there. Everything difficult
-about it follows from two keys sometimes landing on the same index.
+A hash map changes a key into an index and looks at that index. All of the difficult parts of a hash map come from one fact: sometimes two keys get the same index.
 
-The version here uses open addressing: every entry lives in the array itself
-and collisions are resolved by trying the next slot. The alternative, separate
-chaining, hangs a linked list off each bucket, and is what most textbooks
-show. Open addressing is what `std` uses, and what almost every modern
-implementation uses. A probe that walks forward through one array touches far
-fewer cache lines than one that chases pointers.
+This version uses open addressing. Each entry is in the array itself. When a collision occurs, the map tries the next slot.
+
+The alternative is separate chaining, where each bucket has a linked list. Most textbooks show separate chaining. `std` uses open addressing, and almost all modern implementations use it too. A probe that moves forward through one array touches far fewer cache lines than a probe that follows pointers.
 
 <Playground name="10-data-structures.hash-map" />
 
-## Capacity is a power of two
+## The capacity is a power of two
 
 ```zig
 var index: usize = @intCast(hash(key) & mask);
 ```
 
-With a power-of-two capacity the modulo is a bitwise and. A prime capacity
-spreads a weak hash function better, but costs a real division on every probe
-step. The modern answer is a power of two plus a hash function good enough not
-to need the prime, which is what `std.hash.Wyhash` is for.
+With a capacity that is a power of two, the modulo is a bitwise and. A prime capacity spreads the results of a weak hash function better. But a prime capacity costs a real division on each probe step. The modern answer is a power of two, plus a hash function that is good enough without the prime. `std.hash.Wyhash` has this purpose.
 
 ## Linear probing, and its known flaw
 
-On collision, try the next slot. It has the best cache behaviour of any probe
-sequence, because the next slot is usually in the same cache line already
-loaded.
+On a collision, try the next slot. Linear probing has the best cache behaviour of all probe sequences. The reason is that the next slot is usually in the cache line that the CPU already loaded.
 
-It also has the worst clustering. Two separate runs of occupied slots that
-grow into each other become one longer run, and every key that hashes anywhere
-into that run now probes through all of it. The output shows the effect:
+Linear probing also has the worst clustering. Two separate runs of occupied slots can grow until they touch. Then they become one longer run. Each key with a hash anywhere in that run must then probe through all of the run. The output shows the effect:
 
 ```
 after inserts: 14 live,  0 tombstones, capacity 32, mean probe 1.57, worst 6
 ```
 
-Most keys are found on the first try; one took six steps. Quadratic probing
-and double hashing scatter the probes to avoid clustering, at the cost of the
-cache locality that made linear probing attractive.
+The map finds most keys on the first try, but one key needed six steps. Quadratic probing and double hashing scatter the probes to prevent clustering. The cost is the cache locality that made linear probing attractive.
 
-## Growth is about the load factor
+## Growth depends on the load factor
 
 ```zig
 if ((self.occupied + 1) * load_denominator > self.entries.len * load_numerator) {
@@ -56,29 +43,21 @@ if ((self.occupied + 1) * load_denominator > self.entries.len * load_numerator) 
 }
 ```
 
-At 75% full, allocate double and reinsert everything. Higher packs more into
-the same memory and lengthens every probe; the cost of a probe grows sharply
-as the table fills, because a nearly full table means long runs. Three
-quarters is the usual compromise.
+When the table is 75% full, allocate double the space and insert all the entries again. A higher limit puts more entries into the same memory, but it makes each probe longer. The cost of a probe increases quickly as the table fills, because a table that is almost full has long runs. Three quarters is the usual compromise.
 
-Note what the check counts. `occupied` is live entries *plus* tombstones, not
-`count`. A map that is repeatedly filled and emptied accumulates tombstones
-and must still grow. Probe length depends on how many slots are not empty, not
-on how many hold real data.
+Look at what the check counts. `occupied` is the live entries *plus* the tombstones, not `count`. If you fill and empty a map many times, it collects tombstones, and it must still grow. The length of a probe depends on the number of slots that are not empty. It does not depend on the number of slots that hold real data.
 
-Growth is also the only thing that clears tombstones, since a rehash into a
-fresh buffer just does not carry them over.
+Growth is also the only operation that removes tombstones. A rehash into a new buffer does not copy the tombstones.
 
 ## The tombstone
 
-Deleting cannot simply empty the slot:
+A delete cannot only empty the slot:
 
 ```zig
 entry.* = .{ .state = .tombstone };
 ```
 
-That looks like an unnecessary complication until you skip it. The snippet
-runs the same deletes both ways:
+This line looks like an unnecessary complication, until you remove it. The snippet does the same deletes in the two ways:
 
 ```
 removed 5 keys with tombstones
@@ -89,29 +68,20 @@ survivors still reachable: 7 of 9
 lost by breaking the probe chain: 2
 ```
 
-Two keys became unreachable. Nothing errored and no memory was corrupted. A
-lookup simply walked to where the key should be, found an empty slot where a
-filled one used to be, concluded the key was absent, and returned null.
+Two keys became unreachable. No error occurred, and no memory became corrupt. These are the steps of each failed lookup:
 
-A probe chain is a run of occupied slots, and every key whose home slot is
-earlier in that run depends on the whole run staying unbroken. Emptying a slot
-in the middle cuts every chain that passed through it. The tombstone says
-"keep going, something used to be here", which is exactly the information the
-chain needs.
+1. The lookup walked to the correct position for the key.
+2. It found an empty slot, where a full slot was before.
+3. It decided that the key was not in the map.
+4. It returned null.
 
-The tombstone also has to be handled correctly on insert. The probe remembers
-the first tombstone it saw, but keeps walking, because the key might already
-exist further along the chain. Only when it reaches an empty slot
-does it go back and reuse the tombstone. Reusing it immediately would let the
-same key be inserted twice.
+A probe chain is a run of occupied slots. If the home slot of a key is earlier in that run, the key needs all of the run to stay unbroken. When you empty a slot in the middle, you cut each chain that went through that slot. The tombstone says "continue, something was here before". The chain needs exactly that information.
 
-## Deleting properly without tombstones
+The insert must also handle the tombstone correctly. The probe remembers the first tombstone that it sees, but it continues the walk, because the key can already exist farther along the chain. Only when the probe gets to an empty slot does it return to the tombstone and use it again. If the probe used the tombstone immediately, the same key could go into the map two times.
 
-There is a way, called backward-shift deletion. After removing an entry, walk
-forward through the rest of the run and move any entry back to its home slot
-if the removal made room. It keeps the table free of tombstones and costs more
-work per delete. Robin Hood hashing usually pairs with it. So tombstones are a design choice. The choice is between cheaper deletes and
-shorter probes.
+## Delete correctly without tombstones
+
+One method is backward-shift deletion. After you remove an entry, walk forward through the rest of the run. Move an entry back to its home slot if the removal made space for it. This method keeps the table free of tombstones, but each delete costs more work. Robin Hood hashing usually uses this method. Thus tombstones are a design choice: cheaper deletes, or shorter probes.
 
 ## What std does differently
 
@@ -120,25 +90,14 @@ var std_map: std.StringHashMapUnmanaged(i32) = .empty;
 try std_map.put(allocator, key, 1);
 ```
 
-[Hash maps](/learn/standard-library/hash-maps/) covers the API. The main structural difference is that `std` stores a separate array of one-byte
-metadata alongside the entries. Each byte holds a few bits of the key's hash,
-plus the empty and tombstone flags. A probe scans that compact byte array
-instead of the full-sized entries. Many more probe steps fit in a cache line,
-and a key can be ruled out by comparing one byte before touching the entry at
-all. That layout is why the same algorithm performs so differently in `std`
-than in a straightforward implementation like this one.
+[Hash maps](/learn/standard-library/hash-maps/) explains the API. The main structural difference is that `std` stores a separate array of one-byte metadata next to the entries. Each byte holds a few bits of the hash of the key, plus the empty and tombstone flags.
 
-The `Unmanaged` suffix and the allocator argument on every method are the same
-pattern [ArrayList](/learn/standard-library/arraylist/) uses on master: the
-container does not store the allocator.
+A probe scans that small byte array, not the full-size entries. Thus many more probe steps fit in a cache line. Also, a comparison of one byte can show that a key is not the correct key, before the probe touches the entry. Because of that layout, the same algorithm performs very differently in `std` and in a simple implementation like this one.
 
-## Keys are borrowed here
+[ArrayList](/learn/standard-library/arraylist/) uses the same pattern on master: the `Unmanaged` suffix, and an allocator argument on each method. The container does not store the allocator.
 
-The map in this chapter stores `[]const u8` keys without copying them, so it
-depends on the caller keeping the strings alive. That is fine for the string
-literals in the snippet, which live in the binary. Store a key that came from
-a buffer you later reuse and the map is left pointing at whatever replaced it.
+## The map borrows its keys
 
-`std.StringHashMap` has the same property, which is why `putClone`-style
-helpers and arenas show up around it so often. A container that borrows has to
-say so, and this one says so here.
+The map in this chapter stores `[]const u8` keys, but it does not copy them. Thus the caller must keep the strings alive. For the string literals in the snippet, this is not a problem, because they are in the binary. But if you store a key from a buffer that you use again later, the map points at the new data in that buffer.
+
+`std.StringHashMap` has the same property. For this reason, helpers in the style of `putClone`, and arenas, are frequently used together with it. A container that borrows must tell you so, and this chapter tells you here.

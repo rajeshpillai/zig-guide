@@ -1,7 +1,7 @@
 //! title: Keeping It Balanced
-//! The previous chapter's tree degenerates into a list on sorted input. Store a
-//! height in each node, check it after every insert, and repair it with a local
-//! rotation: four cases, none of them longer than five lines.
+//! On sorted input, the tree from the previous chapter becomes a list. Store a
+//! height in each node, and check it after each insert. Repair the shape with
+//! a local rotation: four cases, each of five lines or fewer.
 
 const std = @import("std");
 
@@ -9,17 +9,17 @@ const Tree = struct {
     root: ?*Node = null,
     len: usize = 0,
     allocator: std.mem.Allocator,
-    /// Counted so the output can show that balancing is cheap: a few
-    /// rotations for a whole tree, not one per node.
+    /// The program counts rotations. The output shows that the balance is
+    /// cheap: a few rotations for a full tree, not one per node.
     rotations: usize = 0,
 
     const Node = struct {
         value: i32,
         left: ?*Node = null,
         right: ?*Node = null,
-        /// A leaf has height 1. Stored in the node instead of recomputed.
-        /// Recomputing it is an O(n) walk, and this structure exists to
-        /// avoid that walk.
+        /// A leaf has height 1. The node stores the height, and the code does
+        /// not compute it again. To compute it again is an O(n) walk, and this
+        /// structure exists to prevent that walk.
         height: i32 = 1,
     };
 
@@ -48,9 +48,9 @@ const Tree = struct {
         node.height = 1 + @max(heightOf(node.left), heightOf(node.right));
     }
 
-    /// Left height minus right height. The invariant is that this stays in
-    /// -1..1 for every node in the tree. Two means one side is a full level
-    /// deeper than the other, and the node must be rotated.
+    /// Left height minus right height. The invariant is that this value stays
+    /// in -1..1 for each node in the tree. Two means that one side is a full
+    /// level deeper than the other side, and the node must rotate.
     fn balance(maybe: ?*Node) i32 {
         const node = maybe orelse return 0;
         return heightOf(node.left) - heightOf(node.right);
@@ -64,9 +64,9 @@ const Tree = struct {
     ///    / \              / \
     ///   A   B            B   C
     ///
-    /// B changes parent and nothing else moves. The in-order sequence is
-    /// A x B y C both before and after. So a rotation keeps the search
-    /// property with no extra work.
+    /// B gets a different parent, and nothing else moves. The in-order
+    /// sequence is A x B y C before and after. Thus a rotation keeps the
+    /// search property with no extra work.
     fn rotateRight(self: *Tree, y: *Node) *Node {
         const x = y.left.?;
         y.left = x.right;
@@ -91,11 +91,11 @@ const Tree = struct {
         self.root = try self.insertInto(self.root, value);
     }
 
-    /// Recursive, because rebalancing happens on the way back *up*. Each node
-    /// on the path from the insertion point to the root gets its height
-    /// updated and its balance checked. The function returns the subtree
-    /// root, which may be new, and that return links a rotation into its
-    /// parent.
+    /// Recursive, because the rebalance occurs on the path back *up*. On the
+    /// path from the insertion point to the root, the code updates the height
+    /// of each node and checks its balance. The function returns the root of
+    /// the subtree, which can be a new root. That return links a rotation into
+    /// its parent.
     fn insertInto(self: *Tree, maybe: ?*Node, value: i32) !?*Node {
         const node = maybe orelse {
             const fresh = try self.allocator.create(Node);
@@ -114,9 +114,9 @@ const Tree = struct {
 
         refresh(node);
 
-        // Four cases. The outer test says which side is too deep. The inner
-        // test says whether the new node went to the outside of that side (one
-        // rotation) or the inside (rotate the child first, then this node).
+        // Four cases. The outer test tells which side is too deep. The inner
+        // test tells where the new node went on that side. On the outside,
+        // do one rotation. On the inside, rotate the child, then this node.
         const bias = balance(node);
 
         if (bias > 1 and value < node.left.?.value) {
@@ -157,9 +157,9 @@ const Tree = struct {
         try walk(out, node.right);
     }
 
-    /// Check the invariant at every node instead of trusting the insert code.
-    /// The chapter is about this invariant, so the program checks it instead
-    /// of only claiming it.
+    /// Check the invariant at each node, and do not trust the insert code.
+    /// The chapter is about this invariant. Thus the program checks it, and
+    /// does not only claim it.
     fn isBalanced(maybe: ?*Node) bool {
         const node = maybe orelse return true;
         if (@abs(balance(node)) > 1) return false;
@@ -188,7 +188,7 @@ pub fn main(init: std.process.Init) !void {
     defer std.debug.assert(safe.deinit() == 0);
     const allocator = safe.allocator();
 
-    // The input that made the plain tree one long chain: 1 through 15, in order.
+    // The input that made the plain tree into one long chain: 1 to 15, in order.
     var tree = Tree.init(allocator);
     defer tree.deinit();
 
@@ -213,15 +213,15 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("\nshape (rotate the page 90 degrees clockwise):\n");
     try tree.writeShape(out);
 
-    // Every rotation preserves the in-order sequence, so a rebalanced tree
-    // answers exactly the same questions as the tree it replaced.
+    // Each rotation keeps the in-order sequence. Thus a rebalanced tree gives
+    // exactly the same answers as the tree that it replaced.
     var missing: usize = 0;
     for (1..16) |i| {
         if (!tree.contains(@intCast(i))) missing += 1;
     }
     try out.print("\nvalues 1..15 still present: {d} of 15\n", .{15 - missing});
 
-    // A worse input: strictly descending, which drives the mirror-image cases.
+    // A different input: strictly descending. It causes the mirror-image cases.
     var descending = Tree.init(allocator);
     defer descending.deinit();
     var i: i32 = 15;
@@ -232,7 +232,7 @@ pub fn main(init: std.process.Init) !void {
         Tree.isBalanced(descending.root),
     });
 
-    // The zig-zag input, which needs the two-rotation cases.
+    // The zig-zag input. It needs the cases with two rotations.
     var zigzag = Tree.init(allocator);
     defer zigzag.deinit();
     for ([_]i32{ 1, 15, 2, 14, 3, 13, 4, 12, 5, 11, 6, 10, 7, 9, 8 }) |v| try zigzag.insert(v);

@@ -1,33 +1,32 @@
 ---
 title: Keeping It Balanced
-description: Store a height, check it after every insert, repair it with a local rotation. Four cases, none longer than five lines.
+description: Store a height, check it after each insert, and repair the shape with a local rotation. Four cases, and each case has five lines or fewer.
 section: Data Structures
 order: 66
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The previous chapter's tree turns into a linked list on sorted input. An AVL
-tree fixes that with three additions: a height stored in each node, a check
-after every insert, and a rotation to repair the shape when the check fails.
+On sorted input, the tree from the previous chapter becomes a linked list. An AVL tree prevents this problem with three additions:
 
-The result on the input that broke the plain tree:
+- A height, stored in each node.
+- A check after each insert.
+- A rotation that repairs the shape when the check fails.
+
+This is the result on the input that broke the plain tree:
 
 ```
 final height 4, ideal 4, rotations 11
 balanced everywhere: true
 ```
 
-Fifteen values inserted in ascending order, and the tree comes out at the
-minimum possible height, having done eleven rotations to get there.
+The program inserts fifteen values in ascending order. The tree has the minimum possible height, after eleven rotations.
 
 <Playground name="10-data-structures.avl" />
 
 ## The invariant
 
-Each node stores its height, a leaf being 1. The balance factor is the left
-height minus the right height, and the rule is that it stays within -1 to 1 at
-every node in the tree.
+Each node stores its height, and the height of a leaf is 1. The balance factor is the left height minus the right height. The rule is that the balance factor stays in the range -1 to 1 at each node in the tree.
 
 ```zig
 fn balance(maybe: ?*Node) i32 {
@@ -36,13 +35,9 @@ fn balance(maybe: ?*Node) i32 {
 }
 ```
 
-A factor of 2 means one side is a full level deeper than the other, and that
-is the moment to rotate. The bound keeps the height within about 1.44 log₂(n).
-A red-black tree allows a looser one, so an AVL tree does more rotations on
-insert and gives slightly faster lookups in exchange.
+A factor of 2 means that one side is a full level deeper than the other side. At that time, the tree must rotate. The bound keeps the height below approximately 1.44 log₂(n). A red-black tree allows a looser bound. Thus an AVL tree does more rotations on insert, and in exchange it gives slightly faster lookups.
 
-The height is stored rather than computed. Computing it is the O(n) walk the
-structure exists to avoid.
+The height is a stored value, not a computed value. To compute the height, the code must do an O(n) walk, and the structure exists to prevent that walk.
 
 ## A rotation is four pointer writes
 
@@ -54,9 +49,7 @@ structure exists to avoid.
   A   B            B   C
 ```
 
-Read both trees in order: `A x B y C`, before and after. The rotation
-preserves the ordering, so it can be applied anywhere at any time without
-checking whether it breaks the search property. Only `B` changes parent.
+Read the two trees in order: `A x B y C`, before and after. The rotation keeps the order. Thus you can apply a rotation at any location and at any time, and you do not have to check the search property. Only `B` gets a different parent.
 
 ```zig
 fn rotateRight(self: *Tree, y: *Node) *Node {
@@ -70,24 +63,19 @@ fn rotateRight(self: *Tree, y: *Node) *Node {
 }
 ```
 
-The `refresh` order matters. `y` is now below `x`, so its height has to be
-correct before `x`'s can be computed from it.
+The order of the `refresh` calls is important. `y` is now below `x`. Thus the height of `y` must be correct before the code computes the height of `x` from it.
 
-## Four cases, and the reason there are four
+## Four cases, and the reason for four
 
-Rebalancing happens on the way back *up* from the insertion point. Each node
-on that path gets its height refreshed and its balance checked, and the
-function returns the subtree's new root so a rotation relinks itself into its
-parent:
+The tree rebalances on the path back *up* from the insertion point. On that path, the code refreshes the height of each node and checks its balance. The function returns the new root of the subtree. Thus a rotation links itself into its parent:
 
 ```zig
 node.left = try self.insertInto(node.left, value);
 ```
 
-That assignment is the relink. It is why this insert is recursive when the
-plain tree's was a loop.
+That assignment is the relink. Because of the relink, this insert is recursive, but the insert of the plain tree was a loop.
 
-Then:
+Then the code does these tests:
 
 ```zig
 if (bias > 1 and value < node.left.?.value) return self.rotateRight(node);
@@ -102,39 +90,34 @@ if (bias < -1) {
 }
 ```
 
-The outer test says which side got too deep. The inner test says whether the
-new node went to the *outside* of that side or the *inside*. Outside is one
-rotation. Inside is two. A single rotation on a zig-zag shape just produces
-the mirror image of the same problem. Rotate the child first to straighten it
-out, then rotate the node.
+The outer test tells which side became too deep. The inner test tells if the new node went to the *outside* of that side or to the *inside*:
 
-Four cases, and they are mirror images in pairs.
+- On the outside, one rotation is sufficient.
+- On the inside, two rotations are necessary.
 
-## It is cheap
+A single rotation on a zig-zag shape only makes the mirror image of the same problem. First, rotate the child to make the shape straight. Then rotate the node.
+
+The four cases are two pairs of mirror images.
+
+## The balance is cheap
 
 ```
 inserting 1..15 in order, height after each:
  1 2 2 3 3 3 3 4 4 4 4 4 4 4 4
 ```
 
-The height climbs to 4 and stops. Eleven rotations across fifteen inserts, and
-each rotation is a handful of pointer writes on nodes that were just visited
-and are still in cache. Rebalancing is not a periodic expensive pass; it is a
-constant amount of work folded into the insert that caused it.
+The height increases to 4 and stops. Fifteen inserts cause eleven rotations. Each rotation is a small number of pointer writes. The insert visited these nodes a short time before, and the nodes are still in cache. The rebalance is not a periodic expensive pass. It is a constant quantity of work inside the insert that caused it.
 
-Three inputs, all landing balanced:
+Three inputs, and each result has a good balance:
 
 ```
 inserting 15..1: height 4, rotations 11, balanced true
 zig-zag input:   height 5, rotations 16, balanced true
 ```
 
-Descending input is the mirror of ascending and costs the same. The zig-zag
-input, which alternates between extremes, is what drives the two-rotation
-cases, and it costs more rotations for a slightly taller tree, still within
-the bound.
+Descending input is the mirror of ascending input and has the same cost. The zig-zag input alternates between the extremes, and it causes the cases with two rotations. It costs more rotations and makes a slightly taller tree, but the height is still in the bound.
 
-## Checking rather than claiming
+## Check the invariant, do not only claim it
 
 ```zig
 fn isBalanced(maybe: ?*Node) bool {
@@ -144,22 +127,12 @@ fn isBalanced(maybe: ?*Node) bool {
 }
 ```
 
-The snippet walks the whole tree and checks the invariant at every node,
-rather than trusting that the four cases were written correctly. It also
-confirms all fifteen values are still findable afterwards, because a rotation
-that is subtly wrong produces a tree that is well balanced and has lost a
-subtree.
+The snippet walks the full tree and checks the invariant at each node. It does not trust that the four cases are correct. After the inserts, the snippet also checks that it can still find all fifteen values. A rotation with a small error can make a tree that is well balanced but has lost a subtree.
 
-When a structure exists to maintain an invariant, the invariant check belongs in the code and not only in the prose.
+When a structure exists to keep an invariant, the check for the invariant must be in the code, and not only in the prose.
 
-## Deletion, and why it is not here
+## Deletion, and why this chapter does not include it
 
-Insert is the easy half. Deleting an internal node means replacing it with its
-in-order predecessor or successor, then rebalancing the whole path back to the
-root. Unlike insertion, one deletion can require rotations at every level
-rather than stopping after the first fix.
+Insert is the easy half. To delete an internal node, replace the node with its in-order predecessor or successor. Then rebalance the full path back to the root. Insertion stops after the first repair, but one deletion can need rotations at each level.
 
-Most people switch to a red-black tree at that point, since its looser rule
-makes deletion cheaper. The other option is a treap, which avoids the case
-analysis entirely by giving each node a random priority and keeping a heap on
-it.
+At that point, most people change to a red-black tree, because its looser rule makes deletion cheaper. The other option is a treap. A treap gives each node a random priority and keeps a heap on these priorities. Thus a treap does not need the analysis of cases at all.

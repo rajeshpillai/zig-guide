@@ -1,23 +1,23 @@
 //! title: A Linked List by Hand
 //! The smallest structure that needs an allocator, a nullable pointer and a
-//! deinit that gets the order right. All three are the parts of Zig that a
-//! first container teaches better than any explanation of them separately.
+//! deinit with the correct order. A first container teaches these three parts
+//! of Zig better than a separate explanation of each part.
 
 const std = @import("std");
 
 const Node = struct {
     value: i32,
     /// `?*Node`, not `*?Node`. This is an optional pointer to a node: it is
-    /// either null or the address of a node. `*?Node` would be a pointer to a
-    /// slot that might hold a node, which is a different thing and needs the
-    /// slot to exist somewhere.
+    /// null or the address of a node. `*?Node` is a pointer to a slot that can
+    /// hold a node. That is a different thing, and the slot must exist in a
+    /// different location.
     next: ?*Node = null,
 };
 
 const List = struct {
     head: ?*Node = null,
-    /// Kept so `append` is O(1). Without it, appending to a list of n items
-    /// walks all n, and building a list of n items becomes O(n^2).
+    /// This field makes `append` O(1). Without it, an append to a list of n
+    /// items walks all n items, and a list of n items costs O(n^2) to build.
     tail: ?*Node = null,
     len: usize = 0,
     allocator: std.mem.Allocator,
@@ -26,9 +26,9 @@ const List = struct {
         return .{ .allocator = allocator };
     }
 
-    /// The list owns every node it allocates, so it is the list that frees
-    /// them. Walking and freeing has one ordering rule and it is easy to get
-    /// wrong: read `next` *before* destroying the node it lives in.
+    /// The list owns each node that it allocates. Thus the list frees the
+    /// nodes. The walk has one rule about order, and the rule is easy to
+    /// break: read `next` *before* you destroy the node that contains it.
     fn deinit(self: *List) void {
         var current = self.head;
         while (current) |node| {
@@ -71,11 +71,11 @@ const List = struct {
         return null;
     }
 
-    /// Remove the first node holding `value`.
+    /// Remove the first node that holds `value`.
     ///
-    /// The awkward part of a singly linked list: unlinking a node needs the
-    /// node *before* it, which cannot be reached from the node itself. Tracking
-    /// `previous` through the walk is the usual solution. The cost is a
+    /// The difficult part of a singly linked list: to unlink a node, you need
+    /// the node *before* it. You cannot get to that node from the node itself.
+    /// The usual solution is to keep `previous` during the walk. The cost is a
     /// special case for the head.
     fn remove(self: *List, value: i32) bool {
         var previous: ?*Node = null;
@@ -115,9 +115,9 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // A leak-checking allocator, because a container that hands out memory is
-    // exactly where a leak comes from. `deinit` reports `.leak` if anything
-    // this program allocated was not freed.
+    // An allocator that checks for leaks. A container that gives out memory is
+    // exactly the place where a leak starts. `deinit` returns the number of
+    // allocations that the program did not free.
     var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
     defer std.debug.assert(safe.deinit() == 0);
     const allocator = safe.allocator();
@@ -144,15 +144,15 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("after remove(30): ");
     try list.write(out);
 
-    // An optional pointer takes no extra space. Zig knows a pointer can never
-    // validly be zero, so it uses zero as the null tag instead of adding a
-    // flag beside it. So `?*T` is the idiomatic way to express "maybe a
-    // node", and a hand-written sentinel value saves nothing.
+    // An optional pointer takes no extra space. Zig knows that a valid pointer
+    // can never be zero. Thus Zig uses zero as the null tag, and adds no flag
+    // beside the pointer. `?*T` is the idiomatic way to say "maybe a node",
+    // and a hand-written sentinel value saves nothing.
     //
-    // Sizes are printed in pointer widths rather than bytes, so the answers are
-    // the same whether this runs as wasm32 in your browser or natively on a
-    // 64-bit machine. The relationships between the sizes are what matter
-    // here. The byte counts depend on the target.
+    // The program prints sizes in pointer widths, not bytes. Thus the answers
+    // are the same as wasm32 in your browser and natively on a 64-bit
+    // computer. The relations between the sizes are important here. The byte
+    // counts depend on the target.
     try out.print("\n@sizeOf(?*Node) == @sizeOf(*Node) -> {}\n", .{@sizeOf(?*Node) == @sizeOf(*Node)});
     try out.print("@sizeOf(?i32)    > @sizeOf(i32)    -> {} (an integer has no spare value to mean null)\n", .{@sizeOf(?i32) > @sizeOf(i32)});
     try out.print("@sizeOf(Node) in pointers = {d}\n", .{@sizeOf(Node) / @sizeOf(usize)});

@@ -1,18 +1,15 @@
 ---
 title: A Growable Array
-description: A length, a capacity, and one rule about what happens when they meet.
+description: A length, a capacity, and one rule for what occurs when the length reaches the capacity.
 section: Data Structures
 order: 61
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-An array whose length changes. The standard library calls it `ArrayList`, and
-it is the container most programs reach for and never move away from.
+A growable array is an array whose length can change. The standard library calls it `ArrayList`. Most programs use it first, and many programs never need a different container.
 
-Building one takes three fields and a single rule about what happens when the
-values fill the space they were given. Everything expensive about the
-structure lives in that rule.
+The structure has three fields and one rule. The rule tells what occurs when the values fill all of the space. All of the cost of the structure comes from that rule.
 
 <Playground name="10-data-structures.growable-array" />
 
@@ -26,18 +23,13 @@ const Array = struct {
 };
 ```
 
-`buffer.len` is how many values would fit. `len` is how many are actually
-there, and it is never larger. The live values are `buffer[0..len]`.
+`buffer.len` is the number of values that the buffer can hold. `len` is the number of values that are in the buffer, and `len` is never larger than `buffer.len`. The live values are `buffer[0..len]`.
 
-An empty array allocates nothing. `&.{}` is a slice of length zero with no
-allocation behind it, so `init` cannot fail and an array that never receives
-an append never touches the allocator.
+An empty array allocates no memory. `&.{}` is a slice of length zero with no allocation behind it. Thus `init` cannot fail. If an array gets no append, the array never uses the allocator.
 
-## Doubling is what makes append cheap
+## Double the capacity to make append cheap
 
-An append that finds `len == buffer.len` has nowhere to put the value. It
-allocates a larger buffer, copies the values across, and frees the old one.
-The size it asks for is what decides the cost of everything built on top:
+When an append finds `len == buffer.len`, the buffer has no space for the value. The append allocates a larger buffer, copies the values into the new buffer, and frees the old buffer. The size of the new buffer decides the cost of all the operations that use the array:
 
 ```zig
 if (self.len == self.buffer.len) {
@@ -45,31 +37,24 @@ if (self.len == self.buffer.len) {
 }
 ```
 
-The program counts the copies rather than asserting the result:
+The program counts the copies. It does not only assert the result:
 
 ```
-append  1: capacity  1, copied  0
-append  2: capacity  2, copied  1
-append  3: capacity  4, copied  2
-append  5: capacity  8, copied  4
+  append  1: capacity  1, copied  0
+  append  2: capacity  2, copied  1
+  append  3: capacity  4, copied  2
+  append  5: capacity  8, copied  4
 append  9: capacity 16, copied  8
 16 appends: 5 growths, 15 values copied in total
 ```
 
-Sixteen appends copied fifteen values. The copies form a geometric series, so
-their total stays below the final length however far the array grows, and the
-average cost of an append settles to a constant. Amortised O(1) is a property
-of the doubling, not of the copy being fast.
+Sixteen appends copied fifteen values. The copies make a geometric series. Thus the total number of copies stays below the final length, for all sizes of the array. The average cost of an append becomes a constant. Amortised O(1) is a property of the rule that doubles the capacity. It is not a property of a fast copy.
 
-Growing by a fixed number of slots breaks it. Eight extra slots per growth
-means a copy every eighth append, each one copying the entire array, and
-building `n` values costs O(n^2).
+If the array grows by a fixed number of slots, this property is lost. With eight extra slots for each growth, a copy occurs on each eighth append, and each copy moves the full array. Then the cost to put `n` values in the array is O(n^2).
 
-## Growing moves the buffer
+## Growth moves the buffer
 
-`ensureCapacity` allocates, copies and frees, in that order. The address
-changes, so a pointer or slice taken before a growth points into memory that
-has been handed back:
+`ensureCapacity` allocates, copies and frees, in that order. The address of the buffer changes. Thus a pointer or a slice that you got before a growth points into memory that the array gave back to the allocator:
 
 ```zig
 const bigger = try self.allocator.alloc(i32, wanted);
@@ -78,21 +63,15 @@ self.allocator.free(self.buffer);
 self.buffer = bigger;
 ```
 
-Nothing marks the old slice as dead. It still holds a valid pointer and a
-valid length, and it reads whatever the allocator put there next. Take the
-slice when you need it and do not keep it across an append.
+Nothing marks the old slice as dead. The old slice still has a valid pointer and a valid length. It reads the data that the allocator put in that memory after the free. Get the slice when you need it. Do not keep the slice across an append.
 
-`std.ArrayList` has the same hazard for the same reason, and it now ships
-`lockPointers` to turn the mistake into a panic in a safety build.
-[ArrayList](/learn/standard-library/arraylist/) covers both.
+`std.ArrayList` has the same problem for the same reason. It now has `lockPointers`, which changes the mistake into a panic in a safety build. [ArrayList](/learn/standard-library/arraylist/) explains both.
 
-Written with `Allocator.realloc` this is one call, and the copy is sometimes
-skipped when the allocation can be extended where it already sits. The three
-steps are spelled out here because the copy is the thing being counted.
+With `Allocator.realloc`, the three steps are one call. Sometimes `realloc` does not copy, because it can make the allocation larger at its current address. This chapter shows the three steps separately, because the program counts the copy.
 
-## Reserving removes the growth
+## Reserve space to remove the growth
 
-When the final size is known, ask for it once:
+When you know the final size, ask for it one time:
 
 ```
 after reserving 64, then 23 more appends:
@@ -100,20 +79,16 @@ after reserving 64, then 23 more appends:
   buffer moved during those 23 appends -> false
 ```
 
-Twenty-three appends, no allocation and no copy. The buffer stays where it is,
-so a pointer taken after the reserve survives all of them.
+The twenty-three appends cause no allocation and no copy. The buffer stays at the same address. Thus a pointer that you get after the reserve stays valid during all of these appends.
 
-It is also why the standard library separates `append` from
-`appendAssumeCapacity`. Once the room is reserved the append cannot fail, so
-the version that assumes the space returns no error.
+This is also the reason that the standard library has two functions, `append` and `appendAssumeCapacity`. When you reserve the space, an append cannot fail. Thus the version that assumes the space returns no error.
 
 ## What the standard library gives you
 
-`std.ArrayList` is this structure with a type parameter, alignment handling,
-and a growth policy tuned at the margins. The names line up: `items` is a
-field rather than a method, `ensureCapacity` is `ensureTotalCapacity`, and
-`toOwnedSlice` does what it does here.
+`std.ArrayList` is this structure with a type parameter, support for alignment, and a growth policy with small adjustments. The names agree:
 
-Reaching thirty-nine values took six allocations. The same values in a linked
-list take thirty-nine, one for every node, scattered wherever the allocator
-had room. The next chapter builds that list.
+- `items` is a field, not a method.
+- `ensureCapacity` is `ensureTotalCapacity`.
+- `toOwnedSlice` does the same thing as in this chapter.
+
+Thirty-nine values needed six allocations. In a linked list, the same values need thirty-nine allocations, one for each node. These nodes are at the addresses where the allocator had space. The next chapter builds that list.
