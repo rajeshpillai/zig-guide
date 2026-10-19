@@ -1,8 +1,8 @@
 ---
 title: Writing CSV
 seoTitle: "Zig Write CSV: Quoting Fields and Testing the Round Trip"
-description: Quote a field only when it needs it, double the quotes inside it, and prove the writer by reading its output back.
-seoDescription: Writing CSV in Zig. Which fields need quotes, how to escape a quote, CRLF record endings, and a round-trip test with the CSV reader from the previous chapter. Also what joining fields with commas does to the same data.
+description: Quote a field only when it needs quotes, write each quote in it two times, and read the output again to prove the writer.
+seoDescription: How to write CSV in Zig. Which fields need quotes, how to escape a quote, CRLF record ends, a round-trip test, and the result of a plain comma join.
 section: Working with Files
 order: 70
 ---
@@ -10,15 +10,9 @@ order: 70
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Writing CSV is shorter than reading it.
+To write CSV needs less code than to read CSV. The writer writes most fields with no change. If a field contains a comma, a quote or a line break, the writer puts the field in quotes. It also writes each quote in the field two times.
 
-Most fields are written as they are.
-
-A field that contains a comma, a quote or a line break goes inside quotes, and any quote inside it is written twice.
-
-The program below writes six records with the rule, and six more without it.
-
-Then it reads both files back with the reader from [Reading CSV](/learn/files/csv-read/), and compares every field with what it wrote.
+The program below writes six records with this rule, and six more records without the rule. Then it reads the two files with the reader from [Reading CSV](/learn/files/csv-read/). It compares each field with the field that it wrote.
 
 <Playground name="24-files.csv-write" />
 
@@ -26,41 +20,33 @@ Then it reads both files back with the reader from [Reading CSV](/learn/files/cs
 
 <SnippetSource name="24-files.csv-write" decl="needsQuotes" />
 
-A field needs quotes if it contains a byte that means something to a CSV reader.
+A field needs quotes if it contains a byte that has a special meaning for a CSV reader:
 
-A comma would end the field.
+- A comma ends the field.
+- A line break ends the record.
+- A quote starts or ends a quoted field.
 
-A line break would end the record.
+`std.mem.findAny` looks for the four bytes `,"\r\n`. It returns the position of the first of these bytes, or `null`.
 
-A quote would start or end a quoted field.
+The writer writes all other fields without quotes. Thus a file of plain numbers and names looks the same as in a text editor.
 
-`std.mem.findAny` looks for any of the four bytes `,"\r\n` and returns the position of the first one, or `null`.
-
-Every other field is written without quotes, so a file of plain numbers and names looks the same as it would in a text editor.
-
-## Writing one field
+## Write one field
 
 <SnippetSource name="24-files.csv-write" decl="writeField" />
 
-A field without special bytes is written as it is.
+If a field has no special bytes, the function writes the field with no change. If not, it writes a quote, then the field, then one more quote.
 
-Otherwise we write a quote, then the field, then a closing quote.
+When the function copies the field, it writes each `"` two times. The reader changes each pair back into one quote.
 
-While copying the field, each `"` is written twice.
-
-The reader turns each pair back into one quote.
-
-## Writing a record
+## Write a record
 
 <SnippetSource name="24-files.csv-write" decl="writeRecord" />
 
-Fields are separated by commas, and each record ends with `"\r\n"`.
+Commas separate the fields, and each record ends with `"\r\n"`. RFC 4180, the document that describes CSV, uses `"\r\n"`.
 
-RFC 4180, the document that describes CSV, uses `"\r\n"`.
+The reader in this guide removes a `'\r'` outside quotes. Thus the reader reads `"\r\n"` and `"\n"`.
 
-Our reader drops a `'\r'` outside quotes, so it reads both `"\r\n"` and `"\n"`.
-
-Here is the file, with `\r` and `\n` shown as text so we can see them.
+Here is the file. The program shows `\r` and `\n` as text, so that you can see them.
 
 ```
    id,name,note\r\n
@@ -72,11 +58,11 @@ Here is the file, with `\r` and `\n` shown as text so we can see them.
    5, padded ,"ends with a quote"""\r\n
 ```
 
-Only four fields have quotes: the comma, the newline, and the two with a `"` inside.
+Only four fields have quotes: the field with the comma, the field with the newline, and the two fields with a `"` in them.
 
-Record 3 continues onto a second line of the file, because its note contains a newline.
+Record 3 continues on a second line of the file, because its note contains a newline.
 
-The last field ends with a quote, so it ends with three: one escaped quote written as two, then the closing quote.
+The last field ends with a quote. Thus the field ends with three quotes: an escaped quote as two quotes, then the quote that ends the field.
 
 ## The round trip
 
@@ -85,25 +71,15 @@ The last field ends with a quote, so it ends with three: one escaped quote writt
    read 6 records, wrote 6
 ```
 
-`roundTrip` reads the file with `CsvReader` and compares every field with the row it came from.
+`roundTrip` reads the file with `CsvReader`. It compares each field with the field in the original row. No field is different. Thus the function prints only the count.
 
-Nothing differs, so the only line it prints is the count.
+Test all writers in this way. A writer can make output that looks correct, but that does not agree with what its reader expects. When the real reader reads the output again, the test checks the writer and the reader together.
 
-Test every writer this way.
+The snippet does not contain a copy of the reader. It imports the reader with `@import("csv-read.zig")`. Thus, if the reader changes, this test runs against the new version.
 
-A writer can produce output that looks right and still not match what its reader expects.
+## Join with commas
 
-Reading the output back with the real reader checks both halves together.
-
-The reader is not copied into this snippet. It is imported with `@import("csv-read.zig")`.
-
-So if the reader changes, this test runs against the new version.
-
-## Joining with commas
-
-The third part writes the same rows with `writeRecordNaive`.
-
-It joins the fields with commas, and does nothing else.
+The third part writes the same rows with `writeRecordNaive`. That function puts commas between the fields, and it does nothing more.
 
 ```
    2,Widget, large,blue\r\n
@@ -112,7 +88,7 @@ It joins the fields with commas, and does nothing else.
    4,Sign,the "best" one\r\n
 ```
 
-Then it reads the file back.
+Then the program reads the file again.
 
 ```
    record 2: field count 4, wrote 3
@@ -121,42 +97,26 @@ Then it reads the file back.
    record 5: QuoteInUnquotedField on line 6
 ```
 
-Record 2 now has four fields. The comma in `Widget, large` became a separator.
+Record 2 now has four fields. The comma in `Widget, large` became a separator, and the reader reported no error for it. A program that reads this file puts `large` in the note column, and `blue` in a column that does not exist.
 
-No error was reported for it.
+The newline cuts record 3, and `lines` becomes a separate record. Thus each record after record 3 moves by one position.
 
-A program reading this file would put `large` in the note column, and `blue` in a column that does not exist.
+Only record 5 fails with an error. The quote in `the "best" one` is in an unquoted field, and the reader rejects the quote.
 
-Record 3 is cut at the newline, and `lines` becomes a record of its own. That moves every record after it by one.
-
-Only record 5 fails with an error. The quote in `the "best" one` is in an unquoted field, and the reader rejects it.
-
-So two of the three mistakes produce wrong data without any error.
+Thus two of the three mistakes make incorrect data, and no error occurs.
 
 ## Spaces
 
-Record 5 has a name with a space at each end, `" padded "`.
+Record 5 has a name with a space at each end, `" padded "`. The writer does not put the name in quotes, and the round trip keeps the two spaces.
 
-The writer does not quote it, and the round trip keeps both spaces.
-
-RFC 4180 says spaces are part of the field.
-
-Some other programs trim spaces from unquoted fields.
-
-If a file is for one of those programs, add `' '` to the bytes in `needsQuotes`, and fields with spaces will be quoted.
+RFC 4180 says that spaces are part of the field. Some other programs remove spaces from the ends of unquoted fields. If a file is for one of these programs, add `' '` to the bytes in `needsQuotes`. Then the writer puts quotes around fields with spaces.
 
 ## Formulas in spreadsheets
 
-A CSV file is often opened in a spreadsheet program.
+Frequently, a person opens a CSV file in a spreadsheet program. A spreadsheet uses a cell that starts with `=`, `+`, `-` or `@` as a formula.
 
-Spreadsheets treat a cell that starts with `=`, `+`, `-` or `@` as a formula.
+If a field comes from a user, a value such as `=HYPERLINK(...)` becomes a formula when a person opens the file. The name of this attack is [CSV injection](https://owasp.org/www-community/attacks/CSV_Injection).
 
-If a field comes from a user, a value like `=HYPERLINK(...)` becomes a formula when someone opens the file.
+The problem is not in the CSV format. The file is correct. The spreadsheet decides to run the text.
 
-This is called [CSV injection](https://owasp.org/www-community/attacks/CSV_Injection).
-
-The CSV format is not the problem here. The file is correct. The spreadsheet decides to run the text.
-
-A common defence is to put a `'` in front of such fields when the file is meant for a spreadsheet.
-
-That changes the data, so it belongs in the program that knows who will open the file, not in a general CSV writer like this one.
+A common defence is to put a `'` before these fields when the file is for a spreadsheet. That change makes the data different. Thus the change must be in the program that knows who will open the file. It must not be in a general CSV writer such as this one.

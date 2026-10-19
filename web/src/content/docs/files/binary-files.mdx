@@ -1,8 +1,8 @@
 ---
 title: Binary Files
 seoTitle: "Zig Binary File I/O: writeInt, takeInt, Headers and Endianness"
-description: A small binary format with a header, written one field at a time, and a reader that checks every byte it did not write.
-seoDescription: Reading and writing binary files in Zig with std.Io. Byte order and writeInt, a magic number and version in the header, length-prefixed strings, and a reader that rejects a wrong, newer or truncated file before acting on it.
+description: A small binary format with a header, written one field at a time, and a reader that checks each byte that it did not write.
+seoDescription: Binary files in Zig with std.Io. Byte order and writeInt, a magic number and a version, strings with a length prefix, and checks for a bad or short file.
 section: Working with Files
 order: 40
 ---
@@ -10,27 +10,19 @@ order: 40
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-A text file stores numbers as characters.
+A text file stores numbers as characters. The number 1200 is four bytes: `'1'`, `'2'`, `'0'`, `'0'`.
 
-The number 1200 is four bytes: `'1'`, `'2'`, `'0'`, `'0'`.
+A binary file stores the number itself. As a `u32`, 1200 is also four bytes. But the bytes are the bits of the number, not digits.
 
-A binary file stores the number itself.
+Binary files are smaller and faster to read, because the program does not have to parse them. But a person cannot read them. Thus you must write down the format exactly.
 
-As a `u32`, 1200 is also four bytes, but they are the bits of the number, not digits.
-
-Binary files are smaller and faster to read, because there is nothing to parse.
-
-But a person cannot read them, so the format has to be written down exactly.
-
-The program below defines a small format for a list of players, writes a file in it, and reads it back.
-
-Then it gives the reader three broken files.
+The program below defines a small format for a list of players. It writes a file in that format and reads the file again. Then it gives the reader three bad files.
 
 <Playground name="24-files.binary-files" />
 
-## The format comes first
+## Write the format first
 
-Before any code, the snippet writes the format down in a comment.
+Before the code, the snippet writes down the format in a comment.
 
 ```
 //   header, 10 bytes
@@ -45,50 +37,39 @@ Before any code, the snippet writes the format down in a comment.
 //     9  name      name_len bytes
 ```
 
-Every byte has a position, a size and a meaning.
+Each byte has a position, a size and a meaning. All integers are little-endian.
 
-All integers are little-endian.
-
-This table is the format. The code only follows it.
-
-A program in another language can read our file if it follows the same table.
+This table is the format. The code only obeys the table. A program in a different language can read the file if it obeys the same table.
 
 ## Byte order
 
-A `u32` is four bytes, and they can be stored in two orders.
+A `u32` is four bytes, and a computer can store the four bytes in two orders.
 
 ```
    little  04030201
    big     01020304
 ```
 
-Little-endian puts the smallest byte first. x86 and ARM machines work this way.
+- Little-endian puts the smallest byte first. x86 and ARM computers use this order.
+- Big-endian puts the largest byte first. Network protocols frequently use this order.
 
-Big-endian puts the largest byte first. Network protocols often use it.
+The two orders are equally correct. The important thing is that the format says which order it uses, and that the code gives the order on each read and write.
 
-Neither is more correct.
+For this reason, `writeInt` and `takeInt` both take the byte order as an argument. There is no default.
 
-What matters is that the format says which one, and the code names it on every read and write.
-
-That is why `writeInt` and `takeInt` both take the byte order as an argument. There is no default.
-
-## Writing the file
+## Write the file
 
 <SnippetSource name="24-files.binary-files" decl="save" />
 
-We write each field on its own.
+The program writes each field separately:
 
-`writeAll(magic)` writes the four letters `SCOR`.
+- `writeAll(magic)` writes the four letters `SCOR`.
+- `writeInt(u16, version, .little)` writes the version as two bytes.
+- The name is a string of any length. Thus the program first writes the length of the name as one byte, then the bytes of the name.
 
-`writeInt(u16, version, .little)` writes the version as two bytes.
+The name of this method is a length prefix. The length prefix tells the reader where one name ends and the next record starts.
 
-The name is a string of any length, so we write its length first as one byte, then the bytes of the name.
-
-This is called a length prefix.
-
-It is how the reader knows where one name ends and the next record starts.
-
-Here is every byte of the file.
+Here is each byte of the file.
 
 ```
    0000  53 43 4f 52 01 00 03 00 00 00 07 00 00 00 b0 04  SCOR............
@@ -98,53 +79,35 @@ Here is every byte of the file.
    50 bytes
 ```
 
-We can find each field in it.
+You can find each field in the dump:
 
-`53 43 4f 52` is `SCOR`.
+- `53 43 4f 52` is `SCOR`.
+- `01 00` is version 1, and `03 00 00 00` is a count of 3. The small byte is first in the two values.
+- Then the first record: id `07 00 00 00`, score `b0 04 00 00` (0x04b0 or 1200), name length `03`, and `ada`.
 
-`01 00` is version 1, and `03 00 00 00` is a count of 3, both with the small byte first.
-
-Then the first record: id `07 00 00 00`, score `b0 04 00 00`, which is 0x04b0 or 1200, name length `03`, and `ada`.
-
-Linus's score of -15 is `f1 ff ff ff`, because negative numbers are stored in two's complement.
+The score of Linus, -15, is `f1 ff ff ff`, because a computer stores negative numbers in two's complement.
 
 ## Why not write the struct directly
 
-We could copy a `Player` struct's memory to the file in one call.
+The program can copy the memory of a `Player` struct to the file in one call. That code is shorter, but it is incorrect.
 
-It would be shorter, and it would be wrong.
+A usual Zig struct has no fixed layout. The compiler can change the order of the fields and add padding. The integers in the struct are in the byte order of the computer that wrote them. Thus the bytes can change with a new compiler, a different target, or a different build mode.
 
-A normal Zig struct has no fixed layout. The compiler can reorder the fields and add padding.
+[A Binary Wire Format](/learn/how-to/binary-roundtrip/) gives more information about this. The short rule: write the fields one at a time, and give the byte order each time.
 
-Its integers are in the byte order of the machine that wrote them.
-
-So the bytes could change with a new compiler, a different target, or a different build mode.
-
-[A Binary Wire Format](/learn/how-to/binary-roundtrip/) covers this in more detail. The short rule: write fields one at a time, and name the byte order each time.
-
-## Reading it back
+## Read the file again
 
 <SnippetSource name="24-files.binary-files" decl="readRecords" />
 
-The reader follows the same table, in the same order.
+The reader obeys the same table, in the same order. But the reader does not trust the file. The file can contain any data: a different format, a newer version of this format, or a file that a copy operation cut short.
 
-But it does not trust the file.
+Thus the reader checks each value before it uses the value:
 
-Anything could be in it: a different format, a newer version of ours, or a file that was cut short while copying.
+1. First the magic. If the first four bytes are not `SCOR`, the file is not a file of this format, and the reader stops.
+2. Then the version. A file from a newer program can have fields that this reader does not know. Thus the reader also stops for a newer version.
+3. Then the count. The count comes from the file. Thus the count is also not trusted.
 
-So the reader checks before it uses each value.
-
-First the magic. If the first four bytes are not `SCOR`, this is not our file, and we stop.
-
-Then the version. A file from a newer program might have fields we do not know about, so we stop there too.
-
-Then the count.
-
-The count comes from the file, so it is untrusted too.
-
-A broken file could say it holds four billion records. So we compare it with how many we have room for.
-
-The name length gets the same check against the size of `name_buf`.
+A bad file can say that it holds four billion records. Thus the reader compares the count with the number of records that it has space for. The name length gets the same check against the size of `name_buf`.
 
 ## Three bad files
 
@@ -154,40 +117,26 @@ The name length gets the same check against the size of `name_buf`.
    cut.bin: Truncated
 ```
 
-`photo.png` starts with the PNG signature, so the magic check rejects it.
+- `photo.png` starts with the PNG signature. Thus the magic check rejects the file.
+- `newer.bin` is the header of this format, with the version changed to 2.
+- `cut.bin` is the file of this format without the last four bytes.
 
-`newer.bin` is our header with the version changed to 2.
+In `cut.bin`, the reader reads the first two records correctly. The third record ends in the middle of its name.
 
-`cut.bin` is our file with the last four bytes removed.
+When too few bytes remain, `take` returns `error.EndOfStream`. In a text file, the end of the stream is normal. It means that the input is complete.
 
-The first two records read fine. The third one ends in the middle of its name.
+In the middle of a record, the end of the stream means that the file is bad. Thus `printFile` changes `EndOfStream` into the error of this format, `error.Truncated`.
 
-`take` returns `error.EndOfStream` when there are not enough bytes left.
-
-At the start of a text file, end of stream is normal. It means the input is finished.
-
-In the middle of a record, it means the file is broken. So `printFile` turns `EndOfStream` into our own `error.Truncated`.
-
-## Check everything, then act
+## Check all data, then act
 
 <SnippetSource name="24-files.binary-files" decl="printFile" />
 
-`printFile` reads every record into an array first.
+`printFile` first reads all records into an array. It prints only after `readRecords` checked the full file.
 
-It prints only after `readRecords` has checked the whole file.
+The first version of this program printed each record when it read the record. For `cut.bin`, the program printed two players and then reported the error.
 
-The first version of this program printed each record as it read it.
+In a real program, an action on each record when the record arrives can cause damage. For example, the action is "update the database" and not "print". Then the program saves half of a bad file before it finds the error.
 
-For `cut.bin`, it printed two players and then reported the error.
+Thus read and check all data first. Act only when all of the data is valid.
 
-In a real program, acting on each record as it arrives can do damage.
-
-If "print" had been "update the database", half of a broken file would already be saved.
-
-So we read and check everything first, and act only when all of it is valid.
-
-There is one more detail in `readRecords`.
-
-`take(name_len)` returns a slice of the reader's buffer, and the next read can overwrite that buffer.
-
-So we copy the name into `name_buf` with `@memcpy`. The [line reading chapter](/learn/files/read-lines/#keeping-a-line) has the same rule for lines.
+`readRecords` has one more detail. `take(name_len)` returns a slice of the buffer of the reader, and the next read can write over that buffer. Thus the program copies the name into `name_buf` with `@memcpy`. [Reading Line by Line](/learn/files/read-lines/#keep-a-line) has the same rule for lines.

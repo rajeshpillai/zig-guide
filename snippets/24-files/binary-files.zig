@@ -1,12 +1,12 @@
 //! title: Binary Files
-//! A small file format with a header, written field by field and read back
-//! with every check a reader of untrusted bytes needs.
+//! A small file format with a header. The program writes it field by field,
+//! then reads it with each check that a reader of untrusted bytes needs.
 
 const std = @import("std");
 
 const Io = std.Io;
 
-// The format, on paper first. All integers are little-endian.
+// First, write down the format. All integers are little-endian.
 //
 //   header, 10 bytes
 //     0  magic    4 bytes  "SCOR"
@@ -51,12 +51,12 @@ pub fn main(init: std.process.Init) !void {
         try out.print("   {t:<7} {x}\n", .{ endian, bytes });
     }
 
-    // 2. Write the file and dump every byte.
+    // 2. Write the file and dump each byte.
     try out.print("2. scores.bin\n", .{});
     try save(io, dir, "scores.bin", &players);
     try hexDump(io, dir, "scores.bin", out);
 
-    // 3. Read it back.
+    // 3. Read the file again.
     try out.print("3. read back\n", .{});
     try printFile(io, dir, "scores.bin", out);
 
@@ -104,8 +104,8 @@ fn save(io: Io, dir: Io.Dir, name: []const u8, list: []const Player) !void {
 
 const FormatError = error{ NotScoresFile, UnsupportedVersion, Truncated, TooManyRecords, NameTooLong };
 
-/// A record read from disk. The name is copied out of the reader's buffer,
-/// because the next read can overwrite that buffer.
+/// A record from the disk. The reader copies the name out of its buffer,
+/// because the next read can write over that buffer.
 const Record = struct {
     id: u32,
     score: i32,
@@ -128,14 +128,14 @@ fn printFile(io: Io, dir: Io.Dir, name: []const u8, out: *Io.Writer) !void {
 
     var records: [max_records]Record = undefined;
     const n = readRecords(&fr.interface, &records) catch |err| switch (err) {
-        // The file ended in the middle of something. For a reader of a
-        // format, that is a broken file, not the normal end of input.
+        // The file ended in the middle of a value. For a reader of a
+        // format, this is a bad file, not the normal end of input.
         error.EndOfStream => return error.Truncated,
         error.ReadFailed => return fr.err.?,
         else => |e| return e,
     };
 
-    // Only now, with the whole file checked, do we act on it.
+    // Act on the data only now, after the check of the full file.
     for (records[0..n]) |*rec| {
         var num: [12]u8 = undefined;
         const score = try std.mem.print(&num, "{d}", .{rec.score});
@@ -144,11 +144,11 @@ fn printFile(io: Io, dir: Io.Dir, name: []const u8, out: *Io.Writer) !void {
 }
 
 fn readRecords(r: *Io.Reader, records: []Record) !usize {
-    // Check what the file claims to be before trusting anything after it.
+    // Check what the file says it is, before the reader uses the bytes after it.
     if (!std.mem.eql(u8, try r.takeArray(4), magic)) return FormatError.NotScoresFile;
     if (try r.takeInt(u16, .little) != version) return FormatError.UnsupportedVersion;
 
-    // `count` comes from the file, so it is untrusted like everything else.
+    // `count` comes from the file. Thus it is untrusted, the same as all data.
     const count = try r.takeInt(u32, .little);
     if (count > records.len) return FormatError.TooManyRecords;
 

@@ -1,6 +1,6 @@
 //! title: Random Access
-//! A file of fixed-size records: read record N without reading the ones
-//! before it, change one in place, and grow and shrink the file.
+//! A file of records of fixed size: read record N directly, change one
+//! record in place, and make the file larger and smaller.
 
 const std = @import("std");
 
@@ -48,7 +48,7 @@ pub fn main(init: std.process.Init) !void {
     const file = try dir.createFile(io, "accounts.db", .{ .read = true });
     defer file.close(io);
 
-    // 1. Write five records, each at its own offset.
+    // 1. Write five records. Each record is at its own offset.
     try out.print("1. five records\n", .{});
     for (0..5) |i| {
         const a: Account = .{ .id = @intCast(100 + i), .balance = @intCast(1000 * (i + 1)), .active = true };
@@ -61,7 +61,7 @@ pub fn main(init: std.process.Init) !void {
     const a3 = try readRecord(io, file, 3);
     try out.print("   read 16 bytes at offset {d}: id {d}\n", .{ 3 * record_size, a3.id });
 
-    // 3. Change one record in place. Nothing else in the file moves.
+    // 3. Change one record in place. No other byte in the file moves.
     try out.print("3. update record 1\n", .{});
     var a1 = try readRecord(io, file, 1);
     a1.balance -= 750;
@@ -70,12 +70,12 @@ pub fn main(init: std.process.Init) !void {
     try out.print("   record 1 is now id {d}  balance {d}\n", .{ updated.id, updated.balance });
     try list(io, file, out, false);
 
-    // 4. Write past the end. The gap reads back as zero bytes.
+    // 4. Write past the end. A read of the gap gives zero bytes.
     try out.print("4. write record 7\n", .{});
     try writeRecord(io, file, 7, .{ .id = 107, .balance = 99, .active = true });
     try list(io, file, out, true);
 
-    // 5. A reader that seeks, instead of an offset on every call.
+    // 5. A reader that seeks, and not an offset on each call.
     try out.print("5. seek to the last record\n", .{});
     {
         var buf: [record_size]u8 = undefined;
@@ -86,7 +86,7 @@ pub fn main(init: std.process.Init) !void {
         try out.print("   size {d}, seekTo({d}), id {d}\n", .{ size, size - record_size, last.id });
     }
 
-    // 6. Shrink the file to drop the tail.
+    // 6. Make the file smaller to remove the last records.
     try out.print("6. setLength to 5 records\n", .{});
     try file.setLength(io, 5 * record_size);
     try list(io, file, out, false);

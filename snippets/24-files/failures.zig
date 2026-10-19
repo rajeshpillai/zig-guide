@@ -1,6 +1,6 @@
 //! title: When Things Go Wrong
-//! What a file or directory is, six operations that fail and the error each
-//! one names, turning errors into messages, and cleaning up after a failure.
+//! What is at a path, six operations that fail, errors as messages, and how
+//! to delete a half-written file after a failure.
 
 const std = @import("std");
 
@@ -18,13 +18,13 @@ pub fn main(init: std.process.Init) !void {
     try dir.writeFile(io, .{ .sub_path = "notes.txt", .data = "hello\n" });
     try dir.createDirPath(io, "archive");
 
-    // 1. stat: what is at a path, without opening it.
+    // 1. stat: what is at a path. stat does not open the path.
     try out.print("1. stat\n", .{});
     for ([_][]const u8{ "notes.txt", "archive" }) |path| {
         const st = try dir.statFile(io, path, .{});
         try out.print("   {s:<10} kind {t}", .{ path, st.kind });
-        // A directory's size is up to the filesystem (4096 on ext4, 0 in
-        // memory) and says nothing about what is in it.
+        // The filesystem decides the size of a directory (4096 on ext4, 0 in
+        // memory). The size tells you nothing about the contents.
         if (st.kind == .file) try out.print(", size {d}", .{st.size});
         try out.writeByte('\n');
     }
@@ -63,8 +63,8 @@ pub fn main(init: std.process.Init) !void {
     try dir.deleteDir(io, "archive");
 }
 
-/// The error an operation returned. The operation is expected to fail, so
-/// a success is closed and reported as a mistake in this program.
+/// The error that an operation returned. The operation must fail. Thus, on
+/// a success, the function closes the file and returns a mistake.
 fn fails(result: anytype, io: Io) anyerror {
     if (result) |file| {
         file.close(io);
@@ -77,8 +77,9 @@ fn failsVoid(result: anytype) anyerror {
 }
 
 fn loadNotes(io: Io, dir: Io.Dir, path: []const u8, out: *Io.Writer) !void {
-    // Without `.allow_directory = false`, opening a directory succeeds and
-    // the error only arrives on the first read, and differs by system.
+    // Without `.allow_directory = false`, the open of a directory succeeds.
+    // The error comes only at the first read, and each system gives a
+    // different error.
     const file = try dir.openFile(io, path, .{ .allow_directory = false });
     defer file.close(io);
     var buf: [64]u8 = undefined;
@@ -86,8 +87,8 @@ fn loadNotes(io: Io, dir: Io.Dir, path: []const u8, out: *Io.Writer) !void {
     try out.print("loaded {d} bytes\n", .{n});
 }
 
-/// One sentence per error a person can act on. Everything else is printed
-/// by name, because hiding it helps nobody.
+/// One sentence for each error that a person can correct. The function
+/// gives the name of all other errors, because a hidden error helps nobody.
 fn message(err: anyerror) []const u8 {
     return switch (err) {
         error.FileNotFound => "not found: check the name and the folder",
@@ -99,13 +100,13 @@ fn message(err: anyerror) []const u8 {
     };
 }
 
-/// Writes three lines of a report. The third one fails, as a real check
-/// on the data might.
+/// Writes two lines of a report, then fails at the third line, as a real
+/// check on the data can fail.
 fn exportReport(io: Io, dir: Io.Dir, name: []const u8, cleanup: bool) !void {
     const file = try dir.createFile(io, name, .{});
     defer file.close(io);
-    // Runs only if this function returns an error. `defer` above still
-    // closes the file first, because defers run in reverse order.
+    // Runs only if this function returns an error. Deferred statements run
+    // in reverse order. Thus this delete runs before `defer` closes the file.
     errdefer if (cleanup) dir.deleteFile(io, name) catch {};
 
     var buf: [64]u8 = undefined;

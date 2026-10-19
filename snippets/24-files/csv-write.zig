@@ -1,14 +1,14 @@
 //! title: Writing CSV
-//! Quote a field only when it needs it, double the quotes inside, and prove
-//! the writer by reading its output back.
+//! Quote a field only when it needs quotes, write each quote two times, and
+//! read the output again to prove the writer.
 
 const std = @import("std");
 const csv = @import("csv-read.zig");
 
 const Io = std.Io;
 
-/// A field needs quotes if it contains a byte that means something to a
-/// CSV reader: the separator, a quote, or a line break.
+/// A field needs quotes if it contains a special byte for a CSV reader:
+/// the separator, a quote, or a line break.
 fn needsQuotes(field: []const u8) bool {
     return std.mem.findAny(u8, field, ",\"\r\n") != null;
 }
@@ -18,7 +18,7 @@ fn writeField(w: *Io.Writer, field: []const u8) !void {
 
     try w.writeByte('"');
     for (field) |b| {
-        // A quote inside the field is written twice.
+        // Write each quote in the field two times.
         if (b == '"') try w.writeByte('"');
         try w.writeByte(b);
     }
@@ -30,12 +30,12 @@ fn writeRecord(w: *Io.Writer, fields: []const []const u8) !void {
         if (i > 0) try w.writeByte(',');
         try writeField(w, field);
     }
-    // RFC 4180 ends each record with "\r\n", and spreadsheet programs expect
-    // it. A reader that accepts "\n" also accepts "\r\n".
+    // In RFC 4180, each record ends with "\r\n", and spreadsheet programs
+    // expect "\r\n". A reader that accepts "\n" also accepts "\r\n".
     try w.writeAll("\r\n");
 }
 
-/// The mistake this chapter exists to prevent: join the fields with commas.
+/// The mistake that this chapter prevents: a plain join with commas.
 fn writeRecordNaive(w: *Io.Writer, fields: []const []const u8) !void {
     for (fields, 0..) |field, i| {
         if (i > 0) try w.writeByte(',');
@@ -64,17 +64,17 @@ pub fn main(init: std.process.Init) !void {
 
     const dir = Io.Dir.cwd();
 
-    // 1. Write the rows and show the bytes, with \r and \n made visible.
+    // 1. Write the rows and show the bytes. Show \r and \n as text.
     try out.print("1. the file\n", .{});
     try save(io, dir, "out.csv", writeRecord);
     try showBytes(io, dir, "out.csv", out);
 
-    // 2. Read the file back with the reader from the previous chapter, and
-    //    compare every field with what we wrote.
+    // 2. Read the file again with the reader from the previous chapter.
+    //    Compare each field with the field that the program wrote.
     try out.print("2. round trip\n", .{});
     try roundTrip(io, gpa, dir, "out.csv", out);
 
-    // 3. The same rows, joined with commas and nothing else.
+    // 3. The same rows, with only commas between the fields.
     try out.print("3. naive join\n", .{});
     try save(io, dir, "naive.csv", writeRecordNaive);
     try showBytes(io, dir, "naive.csv", out);
@@ -121,7 +121,8 @@ fn roundTrip(io: Io, gpa: std.mem.Allocator, dir: Io.Dir, name: []const u8, out:
     try out.print("   read {d} records, wrote {d}\n", .{ i, rows.len });
 }
 
-/// Formats a field with its newlines shown as \n, so it stays on one line.
+/// Formats a field and shows each newline as \n. Thus the field stays on
+/// one line.
 fn visible(field: []const u8) std.fmt.Alt([]const u8, writeVisible) {
     return .{ .data = field };
 }

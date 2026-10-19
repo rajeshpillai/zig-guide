@@ -1,37 +1,38 @@
 //! title: Reading CSV
-//! A CSV reader as a four-state machine over a `*std.Io.Reader`, with a
-//! trace of every byte it reads.
+//! A CSV reader as a state machine with four states over a `*std.Io.Reader`,
+//! with a trace of each byte that it reads.
 
 const std = @import("std");
 
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
 
-/// Reads one record at a time. The fields it returns stay valid until the
-/// next call to `next`.
+/// Reads one record at a time. The fields that it returns stay valid until
+/// the next call to `next`.
 pub const CsvReader = struct {
     r: *Io.Reader,
     gpa: Allocator,
-    /// The text of every field in the current record, back to back.
+    /// The text of each field in the current record, with no space between.
     text: std.ArrayList(u8) = .empty,
     /// Where each field ends in `text`.
     ends: std.ArrayList(usize) = .empty,
     fields: std.ArrayList([]const u8) = .empty,
     line: usize = 1,
-    /// The line a quoted field opened on, for reporting one never closed.
+    /// The line where a quoted field opened. The error for a quote that
+    /// never closes gives this line.
     quote_line: usize = 0,
-    /// When set, one row per byte read.
+    /// If not null, the reader writes one row for each byte that it reads.
     trace: ?*Io.Writer = null,
 
     const State = enum {
         /// At the start of a field. A quote here opens a quoted field.
         field_start,
-        /// Inside a field that did not start with a quote.
+        /// In a field that did not start with a quote.
         unquoted,
-        /// Inside a quoted field. Commas and newlines are ordinary text.
+        /// In a quoted field. Commas and newlines are usual text.
         quoted,
-        /// Just read a quote inside a quoted field. The next byte decides:
-        /// another quote is an escaped quote, anything else ends the field.
+        /// The reader read a quote in a quoted field. The next byte decides:
+        /// another quote is an escaped quote, and all other bytes end the field.
         quote_in_quoted,
     };
 
@@ -53,8 +54,8 @@ pub const CsvReader = struct {
         while (true) {
             const byte = c.r.takeByte() catch |err| switch (err) {
                 error.EndOfStream => {
-                    // End of input. Inside quotes that is an error, and
-                    // with nothing read there is no record at all.
+                    // End of input. In quotes, the end is an error. If the
+                    // reader read no bytes, there is no record.
                     if (state == .quoted) {
                         c.line = c.quote_line;
                         return Error.UnterminatedQuote;
@@ -80,7 +81,7 @@ pub const CsvReader = struct {
                         c.line += 1;
                         return try c.finish();
                     },
-                    // Part of a "\r\n" line ending. Dropped outside quotes.
+                    // Part of a "\r\n" line ending. Discard it outside quotes.
                     '\r' => {},
                     '"' => if (state == .field_start) {
                         c.quote_line = c.line;
@@ -99,7 +100,7 @@ pub const CsvReader = struct {
                     },
                 },
                 .quote_in_quoted => switch (byte) {
-                    // Two quotes in a row are one quote in the text.
+                    // Two quotes in a sequence are one quote in the text.
                     '"' => {
                         try c.text.append(c.gpa, '"');
                         state = .quoted;
@@ -126,8 +127,8 @@ pub const CsvReader = struct {
         try c.ends.append(c.gpa, c.text.items.len);
     }
 
-    /// Slices are made only here, once `text` has stopped growing. A slice
-    /// taken earlier would point at memory that `append` may have moved.
+    /// Make the slices only here, when `text` does not grow any more. An
+    /// earlier slice can point at memory that `append` moved.
     fn finish(c: *CsvReader) ![]const []const u8 {
         var start: usize = 0;
         for (c.ends.items) |end| {
@@ -169,7 +170,7 @@ pub fn main(init: std.process.Init) !void {
     const out = &stdout.interface;
     defer out.flush() catch {};
 
-    // 1. Every byte of one short line, and the state after it.
+    // 1. Each byte of one short line, and the state after the byte.
     try out.print("1. trace of: 7,\"say \"\"hi\"\"\",x\n", .{});
     {
         var r: Io.Reader = .fixed("7,\"say \"\"hi\"\"\",x\n");
@@ -179,7 +180,7 @@ pub fn main(init: std.process.Init) !void {
         try printRecord(out, fields);
     }
 
-    // 2. A file with every case the format allows.
+    // 2. A file with each case that the format allows.
     try out.print("2. products.csv\n", .{});
     const dir = Io.Dir.cwd();
     try dir.writeFile(io, .{ .sub_path = "products.csv", .data = "id,name,price,note\r\n" ++
@@ -199,7 +200,7 @@ pub fn main(init: std.process.Init) !void {
     }
     try dir.deleteFile(io, "products.csv");
 
-    // 3. Input that is not valid CSV, and the line where it breaks.
+    // 3. Input that is not valid CSV, and the line where the error occurs.
     try out.print("3. errors\n", .{});
     for ([_][]const u8{
         "a,b\nc,d\"e\n",
@@ -224,7 +225,7 @@ pub fn main(init: std.process.Init) !void {
 fn printRecord(out: *Io.Writer, fields: []const []const u8) !void {
     try out.print("   {d} fields:", .{fields.len});
     for (fields) |f| {
-        // A newline inside a field is shown as \n so a record stays on one line.
+        // Show a newline in a field as \n, so that a record stays on one line.
         try out.writeAll(" [");
         for (f) |b| if (b == '\n') try out.writeAll("\\n") else try out.writeByte(b);
         try out.writeByte(']');

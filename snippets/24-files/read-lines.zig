@@ -37,7 +37,7 @@ pub fn main(init: std.process.Init) !void {
     });
     try readSkippingLong(io, dir, "long.txt", out);
 
-    // 3. A file much bigger than the buffer that reads it.
+    // 3. A file that is much larger than the buffer that reads it.
     try out.print("3. a large file\n", .{});
     try writeNumberedLines(io, dir, "big.txt", 10_000);
     try countLines(io, dir, "big.txt", out);
@@ -56,8 +56,8 @@ fn printLines(io: Io, dir: Io.Dir, name: []const u8, out: *Io.Writer) !void {
 
     var n: usize = 1;
     while (try reader.interface.takeDelimiter('\n')) |raw| : (n += 1) {
-        // A file written on Windows ends each line with "\r\n". Splitting on
-        // '\n' leaves the '\r' on the end of the line, so strip it.
+        // A file from Windows has "\r\n" at the end of each line. A split at
+        // '\n' keeps the '\r' at the end of the line. Thus remove the '\r'.
         const line = std.mem.trimEnd(u8, raw, "\r");
         try out.print("     line {d}: \"{f}\" -> \"{s}\"\n", .{ n, std.zig.fmtString(raw), line });
     }
@@ -67,8 +67,8 @@ fn readSkippingLong(io: Io, dir: Io.Dir, name: []const u8, out: *Io.Writer) !voi
     const file = try dir.openFile(io, name, .{});
     defer file.close(io);
 
-    // 16 bytes of buffer. The longest line the reader can return is 15
-    // characters plus the newline.
+    // The buffer is 16 bytes. The longest line that the reader can return
+    // is 15 characters and the newline.
     var buf: [16]u8 = undefined;
     var reader = file.reader(io, &buf);
     const r = &reader.interface;
@@ -77,7 +77,8 @@ fn readSkippingLong(io: Io, dir: Io.Dir, name: []const u8, out: *Io.Writer) !voi
     while (true) : (n += 1) {
         const line = r.takeDelimiter('\n') catch |err| switch (err) {
             error.StreamTooLong => {
-                // Nothing was consumed. Skip to the end of this line and go on.
+                // The reader consumed no bytes. Skip to the end of this line,
+                // then continue.
                 const skipped = try r.discardDelimiterInclusive('\n');
                 try out.print("   line {d}: StreamTooLong, skipped {d} bytes\n", .{ n, skipped });
                 continue;
@@ -112,8 +113,8 @@ fn countLines(io: Io, dir: Io.Dir, name: []const u8, out: *Io.Writer) !void {
     while (try reader.interface.takeDelimiter('\n')) |line| {
         lines += 1;
         bytes += line.len + 1;
-        // `line` points into `buf`, and the next read overwrites it.
-        // Keeping it past this iteration means copying it out.
+        // `line` points into `buf`, and the next read writes over `buf`.
+        // To keep the line after this iteration, copy the line.
         @memcpy(last[0..line.len], line);
         last_len = line.len;
     }

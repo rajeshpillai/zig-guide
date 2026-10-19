@@ -17,8 +17,8 @@ pub fn main(init: std.process.Init) !void {
 
     const cwd = Io.Dir.cwd();
 
-    // 1. Create a small project tree. createDirPath makes every missing
-    //    directory on the way, like `mkdir -p`.
+    // 1. Create a small project tree. createDirPath makes each directory
+    //    in the path that does not exist, the same as `mkdir -p`.
     try out.print("1. create\n", .{});
     try cwd.createDirPath(io, "project/src/util");
     try cwd.createDirPath(io, "project/docs");
@@ -31,7 +31,8 @@ pub fn main(init: std.process.Init) !void {
     for (files) |f| try cwd.writeFile(io, .{ .sub_path = f.path, .data = f.data });
     try out.print("   {d} files written\n", .{files.len});
 
-    // Creating a directory that exists is an error. createDirPath is not.
+    // createDir on a directory that exists is an error. createDirPath on
+    // the same directory is not an error.
     if (cwd.createDir(io, "project", .default_dir)) |_| {
         try out.print("   createDir again: ok\n", .{});
     } else |err| try out.print("   createDir again: {t}\n", .{err});
@@ -46,18 +47,18 @@ pub fn main(init: std.process.Init) !void {
         try listSorted(io, gpa, dir, out);
     }
 
-    // 3. Every level, sorted, with sizes.
+    // 3. All levels, sorted, with sizes.
     try out.print("3. walk project/\n", .{});
     try walkSorted(io, gpa, cwd, "project", out);
 
-    // 4. Rename a directory. Everything inside it moves too.
+    // 4. Rename a directory. All of its contents move with it.
     try out.print("4. rename project/docs -> project/doc\n", .{});
     try cwd.rename("project/docs", cwd, "project/doc", io);
     if (cwd.statFile(io, "project/doc/notes.txt", .{})) |st| {
         try out.print("   project/doc/notes.txt is {d} bytes\n", .{st.size});
     } else |err| return err;
 
-    // 5. Delete. deleteDir only removes an empty directory.
+    // 5. Delete. deleteDir removes only an empty directory.
     try out.print("5. delete\n", .{});
     if (cwd.deleteDir(io, "project")) |_| {
         try out.print("   deleteDir: ok\n", .{});
@@ -82,12 +83,12 @@ fn listSorted(io: Io, gpa: Allocator, dir: Io.Dir, out: *Io.Writer) !void {
     defer arena_state.deinit();
     const arena = arena_state.allocator();
 
-    // The order entries come back in is up to the filesystem. Collect them
-    // and sort, so the output is the same everywhere.
+    // The filesystem decides the order of the entries. Collect the entries
+    // and sort them, so that the output is the same on all systems.
     var items: std.ArrayList(Item) = .empty;
     var it = dir.iterate();
     while (try it.next(io)) |entry| {
-        // `entry.name` is only valid until the next call to `next`.
+        // `entry.name` is valid only until the next call to `next`.
         try items.append(arena, .{ .name = try arena.dupe(u8, entry.name), .kind = entry.kind });
     }
     std.mem.sort(Item, items.items, {}, Item.lessThan);
@@ -110,8 +111,8 @@ fn walkSorted(io: Io, gpa: Allocator, parent: Io.Dir, name: []const u8, out: *Io
     while (try walker.next(io)) |entry| {
         try items.append(arena, .{ .name = try arena.dupe(u8, entry.path), .kind = entry.kind });
         if (entry.kind == .file) {
-            // `entry.dir` is the directory that holds this entry, so stat
-            // by basename there rather than building a path from the top.
+            // `entry.dir` is the directory that holds this entry. Thus stat
+            // by basename in that directory. Do not make a path from the top.
             total += (try entry.dir.statFile(io, entry.basename, .{})).size;
         }
     }

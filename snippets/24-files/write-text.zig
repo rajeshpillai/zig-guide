@@ -1,6 +1,6 @@
 //! title: Writing Text Files
-//! Truncate or not, create only if new, append, the flush that was forgotten,
-//! and replacing a file so a reader never sees half of it.
+//! Truncate or not, create only if new, append, the forgotten flush, and
+//! how to replace a file so a reader never sees half of it.
 
 const std = @import("std");
 
@@ -17,8 +17,8 @@ pub fn main(init: std.process.Init) !void {
 
     const dir = Io.Dir.cwd();
 
-    // 1. createFile truncates by default. With `.truncate = false`, the new
-    //    bytes are written over the start of the old ones and the rest stays.
+    // 1. By default, createFile truncates. With `.truncate = false`, the new
+    //    bytes replace the start of the old bytes, and the other bytes stay.
     try out.print("1. truncate\n", .{});
     try writeText(io, dir, "note.txt", .{}, "first version\n");
     try writeText(io, dir, "note.txt", .{}, "v2\n");
@@ -27,7 +27,7 @@ pub fn main(init: std.process.Init) !void {
     try writeText(io, dir, "note.txt", .{ .truncate = false }, "v2\n");
     try show(io, gpa, dir, "note.txt", "   truncate = false:", out);
 
-    // 2. Create a file only if it does not exist yet.
+    // 2. Create a file only if the file does not exist.
     try out.print("2. exclusive\n", .{});
     for (0..2) |attempt| {
         if (dir.createFile(io, "id.txt", .{ .exclusive = true })) |file| {
@@ -39,8 +39,8 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // 3. Append: open the file, then start the writer at the end. The mode
-    //    is read_write because asking for the length needs read access on
-    //    WASI; on Linux or macOS write_only would do.
+    //    is read_write because, on WASI, a request for the length needs read
+    //    access. On Linux or macOS, write_only is sufficient.
     try out.print("3. append\n", .{});
     try writeText(io, dir, "log.txt", .{}, "started\n");
     for ([_][]const u8{ "loaded 3 items\n", "stopped\n" }) |line| {
@@ -54,7 +54,7 @@ pub fn main(init: std.process.Init) !void {
     }
     try show(io, gpa, dir, "log.txt", "", out);
 
-    // 4. The bytes wait in the writer's buffer until a flush.
+    // 4. The bytes stay in the buffer of the writer until a flush.
     try out.print("4. flush\n", .{});
     {
         const file = try dir.createFile(io, "lost.txt", .{});
@@ -62,12 +62,12 @@ pub fn main(init: std.process.Init) !void {
         var writer = file.writer(io, &buf);
         try writer.interface.writeAll("this line never reaches the file\n");
         try out.print("   buffered {d} bytes, file length {d}\n", .{ writer.interface.buffered().len, try file.length(io) });
-        file.close(io); // closed without flush
+        file.close(io); // close without flush
     }
     try out.print("   after close: {d} bytes on disk\n", .{(try dir.statFile(io, "lost.txt", .{})).size});
 
-    // 5. Replace a file in one step. The new content goes to a temporary
-    //    file next to it, and a rename puts it in place.
+    // 5. Replace a file in one step. The new contents go to a temporary
+    //    file in the same directory. A rename then moves that file into place.
     try out.print("5. atomic replace\n", .{});
     try writeText(io, dir, "config.txt", .{}, "port = 8080\n");
     {
@@ -84,13 +84,13 @@ pub fn main(init: std.process.Init) !void {
     }
     try show(io, gpa, dir, "config.txt", "   after replace:", out);
 
-    // The same, but the program fails before `replace`. `deinit` deletes
-    // the temporary file and the old content is untouched.
+    // The same steps, but the program fails before `replace`. `deinit`
+    // deletes the temporary file, and the old contents do not change.
     {
         var atomic = try dir.createFileAtomic(io, "config.txt", .{ .replace = true });
         defer atomic.deinit(io);
         try atomic.file.writeStreamingAll(io, "port = ");
-        // ...an error happens here, and we return before replace.
+        // ...an error occurs here, and the block returns before replace.
     }
     try show(io, gpa, dir, "config.txt", "   after a failed write:", out);
     try out.print("   files in the directory: {d}\n", .{try countEntries(io, dir)});

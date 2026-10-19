@@ -1,8 +1,8 @@
 ---
 title: Reading CSV
 seoTitle: "Zig CSV Parser: Quoted Fields, Escaped Quotes and Newlines"
-description: A CSV reader as a four-state machine, with a trace of every byte, the cases splitting on commas gets wrong, and errors with line numbers.
-seoDescription: Parsing CSV in Zig without a library. A four-state machine over std.Io.Reader that handles quoted commas, doubled quotes, newlines inside a field and CRLF, prints its state for every byte, and reports malformed input with a line number.
+description: A CSV reader as a state machine with four states, a trace of each byte, the errors of a comma split, and line numbers.
+seoDescription: How to parse CSV in Zig without a library. A state machine over std.Io.Reader for quoted commas, doubled quotes, newlines in a field, CRLF and bad input.
 section: Working with Files
 order: 60
 ---
@@ -10,27 +10,18 @@ order: 60
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-CSV looks like the easiest file format there is.
+CSV looks like the easiest file format of all. Each line is a record, and commas separate the fields. Thus the first idea is to read a line and split the line at each `','`.
 
-Each line is a record, and commas separate the fields.
+That method works until a field contains a comma. `2,"Widget, large",12.00` is three fields, not four. The quotes tell the reader that the comma in them is part of the text.
 
-So the first idea is to read a line, and split it on `','`.
+There are two more cases:
 
-That works until a field contains a comma.
+- A field can contain a quote, as two quotes: `"the ""best"" one"`.
+- A quoted field can contain a newline. Thus one record can use two lines of the file.
 
-`2,"Widget, large",12.00` is three fields, not four.
+A split at commas and newlines gives incorrect results for all three cases.
 
-The quotes say the comma inside them is part of the text.
-
-Then a field can contain a quote, written as two quotes: `"the ""best"" one"`.
-
-And a quoted field can contain a newline, so one record can cover two lines of the file.
-
-Splitting on commas and newlines gets all three cases wrong.
-
-Zig's standard library does not include a CSV reader, so we write one.
-
-It is 150 lines, including comments and the code that prints the trace. At its centre is a state machine with four states.
+The Zig standard library does not include a CSV reader. Thus this chapter writes one. The reader is 150 lines, with comments and the code that prints the trace. At its centre is a state machine with four states.
 
 <Playground name="24-files.csv-read" />
 
@@ -38,37 +29,27 @@ It is 150 lines, including comments and the code that prints the trace. At its c
 
 <SnippetSource name="24-files.csv-read" decl="State" />
 
-The reader looks at one byte at a time.
+The reader looks at one byte at a time. The meaning of a byte changes with the current state:
 
-What a byte means depends on where we are.
+- A comma in `field_start` or `unquoted` ends the field.
+- A comma in `quoted` is only a comma.
 
-A comma in `field_start` or `unquoted` ends the field.
+Thus the reader keeps one variable, `state`. A `switch` on `state` handles each byte.
 
-A comma in `quoted` is just a comma.
+`quote_in_quoted` is the only state that is not easy to understand. In quotes, `"` can have two meanings:
 
-So the reader keeps one variable, `state`, and every byte is handled by a `switch` on it.
+- It can end the quoted field, as in `"abc",`.
+- It can be the first half of an escaped quote, as in `"say ""hi"""`.
 
-`quote_in_quoted` is the only state that is not obvious.
+The reader cannot know which meaning is correct until it sees the next byte. Thus, after a quote, the reader goes to `quote_in_quoted` and waits for one more byte:
 
-Inside quotes, `"` can mean two things.
-
-It can end the quoted field, as in `"abc",`.
-
-Or it can be the first half of an escaped quote, as in `"say ""hi"""`.
-
-We cannot tell which until we see the next byte.
-
-So after a quote, we go to `quote_in_quoted` and wait for one more byte.
-
-Another `"` means an escaped quote. We add one `"` to the text and go back to `quoted`.
-
-A comma or a newline means the field has ended.
-
-Anything else is an error.
+- Another `"` means an escaped quote. The reader adds one `"` to the text and returns to `quoted`.
+- A comma or a newline means that the field ended.
+- All other bytes cause an error.
 
 ## One line, byte by byte
 
-The first part of the program reads `7,"say ""hi""",x` and prints one row per byte.
+The first part of the program reads `7,"say ""hi""",x` and prints one row for each byte.
 
 ```
    '7'  field_start     -> unquoted        [7]
@@ -76,9 +57,7 @@ The first part of the program reads `7,"say ""hi""",x` and prints one row per by
    '"'  field_start     -> quoted          []
 ```
 
-The first field is `7`. The comma ends it.
-
-The quote opens a quoted field. It is not added to the text.
+The first field is `7`. The comma ends the field. The quote starts a quoted field, and the reader does not add the quote to the text.
 
 ```
    ' '  quoted          -> quoted          [say ]
@@ -86,11 +65,7 @@ The quote opens a quoted field. It is not added to the text.
    '"'  quote_in_quoted -> quoted          [say "]
 ```
 
-After `say `, two quotes arrive.
-
-The first moves us to `quote_in_quoted`, and nothing is added yet.
-
-The second is another quote, so one `"` goes into the text and we are back in `quoted`.
+After `say `, two quotes come. The first quote moves the reader to `quote_in_quoted`, and the reader adds nothing to the text. The second byte is also a quote. Thus the reader adds one `"` to the text and returns to `quoted`.
 
 ```
    '"'  quote_in_quoted -> quoted          [say "hi"]
@@ -98,63 +73,41 @@ The second is another quote, so one `"` goes into the text and we are back in `q
    ','  quote_in_quoted -> field_start     field done: [say "hi"]
 ```
 
-The end of the field has three quotes in a row.
-
-The first two are an escaped quote.
-
-The third is followed by a comma, so it was the closing quote.
+At the end of the field, there are three quotes in a sequence. The first two quotes are an escaped quote. A comma comes after the third quote. Thus the third quote was the quote that ends the field.
 
 ```
    3 fields: [7] [say "hi"] [x]
 ```
 
-The brackets in the output show where each field starts and ends. They are not part of the text.
+The brackets in the output show where each field starts and ends. The brackets are not part of the text.
 
 ## The reader
 
 <SnippetSource name="24-files.csv-read" decl="next" />
 
-`next` reads until the end of one record and returns its fields.
+`next` reads until the end of one record and returns the fields of the record. At the end of the input, `next` returns `null`. Thus a `while` loop over `next` stops, the same as the line loop in [Reading Line by Line](/learn/files/read-lines/).
 
-At the end of the input it returns `null`, so a `while` loop over it stops, like the line loop in [Reading Line by Line](/learn/files/read-lines/).
+`next` reads from a `*std.Io.Reader`, not from a file. The trace reads from `.fixed(...)`, which is a reader over a string in memory. The second part reads from a file, through `file.reader(io, &buf)`. `next` cannot see the difference, and it does not have to.
 
-It reads from a `*std.Io.Reader`, not from a file.
+The reader discards a `'\r'` outside quotes. In this way, the reader handles `"\r\n"` line endings, which are common in CSV files from spreadsheets.
 
-The trace reads from `.fixed(...)`, a reader over a string in memory.
+The reader handles the end of input in one location, at the top of the loop:
 
-The second part reads from a file, through `file.reader(io, &buf)`.
+- If the reader is in quotes, the quote never closed. This is an error.
+- If the reader read no bytes, there is no record. The reader returns `null`.
+- If not, the last field ends at that position, also without a final newline.
 
-`next` cannot tell the difference, and does not need to.
+## The fields, and when the reader makes them
 
-A `'\r'` outside quotes is dropped. That is how `"\r\n"` line endings, which are common in CSV files from spreadsheets, are handled.
-
-End of input is handled in one place, at the top of the loop.
-
-If we are inside quotes, the quote was never closed, which is an error.
-
-If no bytes were read at all, there is no record, and we return `null`.
-
-Otherwise the last field ends there, even without a final newline.
-
-## The fields, and when they are made
-
-The text of every field goes into one growing list, `text`.
-
-`ends` records where each field stops.
-
-The slices are made in `finish`, after the whole record has been read.
+The text of each field goes into one list, `text`, which becomes larger with each byte. `ends` records where each field stops. The reader makes the slices in `finish`, after it reads the full record.
 
 <SnippetSource name="24-files.csv-read" decl="finish" />
 
-This order matters.
+This order is important. `text.append` can need more space, and then it moves the full list to a new location in memory. A slice from before the move still points to the old location.
 
-`text.append` may need more room, and then it moves the whole list to a new place in memory.
+Thus the reader waits until `text` gets no more bytes. The reader makes slices into `text` only after that.
 
-A slice taken before that move still points to the old place.
-
-So we wait until `text` has stopped growing, and only then make slices into it.
-
-The slices are valid until the next call to `next`, which clears the lists and reuses them.
+The slices are valid until the next call to `next`. That call clears the lists and uses them again.
 
 ## A real file
 
@@ -166,15 +119,15 @@ The slices are valid until the next call to `next`, which clears the lists and r
    4 fields: [4] [Mug] [8.25] [no final newline]
 ```
 
-Every line in the file ends with `"\r\n"`, and none of the fields ends with a `'\r'`.
+Each line in the file ends with `"\r\n"`, and no field ends with a `'\r'`.
 
-The first record is the header. The reader does not treat it differently. Deciding what a header means is the caller's job.
+The first record is the header. The reader does not handle the header differently. The caller must decide what a header means.
 
-Pencil's note is empty. `1,Pencil,0.50,` ends with a comma, so there is a fourth field with no text.
+The note for Pencil is empty. `1,Pencil,0.50,` ends with a comma. Thus there is a fourth field with no text.
 
-The Lamp record covers two lines of the file, and its note contains a newline. It is shown as `\n` here so each record fits on one line.
+The Lamp record uses two lines of the file, and its note contains a newline. The output shows the newline as `\n`, so that each record fits on one line.
 
-The last line has no final newline and still reads.
+The last line has no final newline, and the reader reads it correctly.
 
 ## Errors with line numbers
 
@@ -184,32 +137,18 @@ The last line has no final newline and still reads.
    "a,b\nc,\"never closed\n": UnterminatedQuote on line 2
 ```
 
-The first input has a quote in the middle of an unquoted field, `d"e`.
+The first input has a quote in the middle of an unquoted field, `d"e`. RFC 4180, the standard for CSV, does not allow this. Some readers accept the quote and keep it. This reader stops, because the file is probably not what its writer intended.
 
-The standard for CSV, RFC 4180, does not allow this.
+The second input has text after the quote that ends the field, `"b"c`.
 
-Some readers accept it and keep the quote. This one stops, because the file is probably not what its writer meant.
+The third input opens a quote on line 2 and never closes it. The reader comes to the end of the input, and it is still in quotes. That end is on line 3, but the error gives line 2, where the quote opened. A person must look at line 2. Thus the reader keeps that line number in `quote_line`.
 
-The second input has text after a closing quote, `"b"c`.
-
-The third opens a quote on line 2 and never closes it.
-
-The reader reaches the end of the input still inside quotes.
-
-That end is on line 3, but the error names line 2, where the quote opened.
-
-That is the line a person needs to look at, so the reader remembers it in `quote_line`.
-
-The count of lines is not the count of records.
-
-A newline inside quotes is a new line of the file, but not a new record. So `line` goes up in the `quoted` state too.
+The count of lines is not the count of records. A newline in quotes is a new line of the file, but not a new record. Thus `line` also increases in the `quoted` state.
 
 ## What this reader does not do
 
-It reads bytes and does not check that the text is valid UTF-8.
+- The reader reads bytes. It does not make sure that the text is valid UTF-8.
+- It does not change fields to numbers. `"12.00"` stays text, and the caller parses it.
+- It does not skip blank lines. A blank line is a record with one empty field.
 
-It does not convert fields to numbers. `"12.00"` stays text, and the caller parses it.
-
-It does not skip blank lines. A blank line is a record with one empty field.
-
-Each of these is a choice for the program that uses the reader. The [next chapter](/learn/files/csv-write/) writes CSV, and checks that this reader reads back what it wrote.
+Each of these is a decision for the program that uses the reader. The [next chapter](/learn/files/csv-write/) writes CSV. It also makes sure that this reader reads the same data that the writer wrote.
