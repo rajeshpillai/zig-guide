@@ -1,4 +1,4 @@
-//! title: Exiting
+//! title: Exit the Process
 //! `exit` stops the process. It does not return from your program.
 
 const std = @import("std");

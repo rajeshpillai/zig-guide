@@ -139,4 +139,4 @@ In a real program, an action on each record when the record arrives can cause da
 
 Thus read and check all data first. Act only when all of the data is valid.
 
-`readRecords` has one more detail. `take(name_len)` returns a slice of the buffer of the reader, and the next read can write over that buffer. Thus the program copies the name into `name_buf` with `@memcpy`. [Reading Line by Line](/learn/files/read-lines/#keep-a-line) has the same rule for lines.
+`readRecords` has one more detail. `take(name_len)` returns a slice of the buffer of the reader, and the next read can write over that buffer. Thus the program copies the name into `name_buf` with `@memcpy`. [Read Line by Line](/learn/files/read-lines/#keep-a-line) has the same rule for lines.

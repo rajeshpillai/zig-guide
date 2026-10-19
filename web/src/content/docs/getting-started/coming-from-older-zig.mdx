@@ -1,5 +1,5 @@
 ---
-title: Coming from an Older Zig
+title: Migrate from an Older Zig
 seoTitle: "Zig Migration Guide: Writergate, Io and Unmanaged Containers"
 seoDescription: "Code written for a tagged release will not build on Zig master. What changed and what it looks like now: buffered writers, Io, and unmanaged containers."
 description: The changes between the last stable releases and the master that this guide uses.
@@ -157,7 +157,7 @@ The only cause of a failure in `lock` is a *cancel* operation.
 
 Seven declarations had the same change, and none of them has a deprecated alias. `Mutex`, `RwLock`, `Semaphore`, `Condition`, `ResetEvent`, `WaitGroup` and `Pool` are not on `std.Thread` now. Each declaration that waits now takes an `Io` and is in `std.Io`. `std.Thread.spawn` did not move, and the four other calls for an OS thread also did not move. Structured concurrency with `io.async` and `Io.Group` is the better default. It also works on targets that have no threads.
 
-→ [Coming from `std.Thread`](/learn/concurrency/coming-from-std-thread/) ·
+→ [Migrate from `std.Thread`](/learn/concurrency/coming-from-std-thread/) ·
 [Threads](/learn/concurrency/threads/) ·
 [Concurrency](/learn/concurrency/async-future-group/)
 

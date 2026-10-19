@@ -7,7 +7,7 @@
  * the Node one would fail there.
  *
  * A PNG is decoded by the browser itself, not by code on this site. The
- * Writing a PNG chapter's encoder is then checked by a decoder it shares no
+ * Write a PNG chapter's encoder is then checked by a decoder it shares no
  * code with, which is the check a reader opening the file elsewhere would
  * make.
  */

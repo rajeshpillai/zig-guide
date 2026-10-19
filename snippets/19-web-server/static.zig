@@ -1,4 +1,4 @@
-//! title: Serving Files Safely
+//! title: Serve Files Safely
 //! Decode first, then check. The opposite order is the bug.
 
 const std = @import("std");

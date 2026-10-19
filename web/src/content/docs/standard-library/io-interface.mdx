@@ -19,7 +19,7 @@ Nothing blocks secretly, as nothing allocates secretly. If the signature of a fu
 
 `std.Io` is an interface: a pointer and a vtable. This is exactly the shape of `std.mem.Allocator`. The vtable holds function pointers for the primitive operations: read, write, wait and schedule. A concrete implementation supplies these pointers.
 
-The standard implementation is `std.Io.Threaded`, and a real thread pool is behind it. [Choosing an Io](/learn/concurrency/choosing-an-io/) tells you about the other implementations, and when to change to one of them.
+The standard implementation is `std.Io.Threaded`, and a real thread pool is behind it. [Choose an Io](/learn/concurrency/choosing-an-io/) tells you about the other implementations, and when to change to one of them.
 
 The allocator uses the same dependency-injection pattern for memory, and `Io` uses it for blocking. For this reason, this chapter is next to [Allocators](/learn/standard-library/allocators/). When you know the two interfaces, you know the pattern of most of the standard library.
 

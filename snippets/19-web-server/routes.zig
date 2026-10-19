@@ -1,4 +1,4 @@
-//! title: Routing and Query Strings
+//! title: Routes and Query Strings
 //! All text after the `?`, and the dispatch table that ignores that text.
 
 const std = @import("std");

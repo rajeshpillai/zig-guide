@@ -111,7 +111,7 @@ The order is important here. The code has `defer file.close(io)` first and `errd
 
 On Linux and macOS, you can delete a file that is still open. The name goes away immediately. The data goes away when the last handle closes.
 
-For a file that replaces an old file, [Writing Text Files](/learn/files/write-text/#replace-a-file-in-one-step) shows `createFileAtomic`. That function gives the same result, and it also keeps the old file safe.
+For a file that replaces an old file, [Write Text Files](/learn/files/write-text/#replace-a-file-in-one-step) shows `createFileAtomic`. That function gives the same result, and it also keeps the old file safe.
 
 ## What this page cannot show
 

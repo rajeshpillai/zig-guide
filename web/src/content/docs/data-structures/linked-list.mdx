@@ -50,7 +50,7 @@ while (current) |node| {
 
 If you read `node.next` after you destroy `node`, that read is a use-after-free. Usually the code seems to work, because the allocator did not yet give that memory to a different user. Thus the bug often gets into a release.
 
-The snippet uses `std.heap.SafeAllocator` (`DebugAllocator` in older code). Its `deinit` returns the number of allocations that the program did not free. A container that gives out memory is exactly the place where a leak starts. Thus let the allocator do the check, and do not try to find leaks by thought alone. [Catching Memory Leaks](/learn/how-to/catching-leaks/) explains the tools.
+The snippet uses `std.heap.SafeAllocator` (`DebugAllocator` in older code). Its `deinit` returns the number of allocations that the program did not free. A container that gives out memory is exactly the place where a leak starts. Thus let the allocator do the check, and do not try to find leaks by thought alone. [Catch Memory Leaks](/learn/how-to/catching-leaks/) explains the tools.
 
 ## Two fields with a reason that is not clear
 

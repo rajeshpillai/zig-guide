@@ -1,4 +1,4 @@
-//! title: Writing Text Files
+//! title: Write Text Files
 //! Truncate or not, create only if new, append, the forgotten flush, and
 //! how to replace a file so a reader never sees half of it.
 

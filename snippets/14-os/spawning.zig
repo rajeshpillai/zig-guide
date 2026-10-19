@@ -1,4 +1,4 @@
-//! title: Spawning a Process
+//! title: Spawn a Process
 //! native
 //! A child is a program, an argument list, and a status code for the parent.
 

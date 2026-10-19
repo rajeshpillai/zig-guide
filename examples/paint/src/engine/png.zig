@@ -1,6 +1,6 @@
 //! Saving the picture as a PNG.
 //!
-//! This is the writer from the Writing a PNG chapter, grown in two ways for a
+//! This is the writer from the Write a PNG chapter, grown in two ways for a
 //! real document. It takes an allocator, because a document can be any size.
 //! And it chooses a filter for every row instead of one for the whole image,
 //! as real encoders do.

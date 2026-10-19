@@ -1,5 +1,5 @@
 ---
-title: Exiting
+title: Exit the Process
 seoTitle: "Zig process.exit: Skipped defers and Lost Output"
 seoDescription: "process.exit stops the process immediately. Registered defers do not run, and buffered output never gets to the terminal. The snippet shows both."
 description: exit stops the process. It does not return from your program.
@@ -46,7 +46,7 @@ When `main` returns normally, every `defer` runs. Thus an error return from
 
 `exit` takes a `u8`. Zero means success, and you decide the meaning of each
 other value. This is the same one-bit protocol that the parent sees as `Term`
-in [Spawning a Process](/learn/os/spawning/).
+in [Spawn a Process](/learn/os/spawning/).
 
 When `main` returns an error, Zig sets a nonzero status for you. In debug
 builds, Zig also prints the error name with a stack trace. For a tool, that

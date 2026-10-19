@@ -9,7 +9,7 @@ import Playground from "../../../components/Playground.astro";
 
 A file write goes in one direction: you make bytes, and then the work is complete. A window needs messages in the two directions. The display server decides when you can paint, asks if your program is still alive, and reports input. If your program does not do its part of this exchange, the window stays blank, freezes, or the server kills it.
 
-Three things are different from [Writing an Image File](../image-files/).
+Three things are different from [Write an Image File](../image-files/).
 
 **The pixels are wider.** X11 and Wayland both want 32 bits per pixel, not 24. On a little-endian computer, both want a `u32` that holds `0x00RRGGBB`. In memory, this value is B, G, R, X. When you write full `u32` values, the byte order is correct without more work. For this reason, the framebuffer in this section uses 32 bits from the first chapter.
 
@@ -28,7 +28,7 @@ Open a display, create a window and map it. Then answer the events. Xlib needs m
 
 When you write your own version, four details in that code are important.
 
-**`@cImport` does not exist now.** C headers now come through a build-system step. In this repo, `//! link: X11` and `//! cinclude:` configure that step. `build.zig` makes a header, runs `addTranslateC` on it, and gives the result to the snippet as `@import("c")`. In your own project, use `b.addTranslateC(...)` and then `translate.createModule()`. [Importing C](../../working-with-c/cimport/) shows the general shape.
+**`@cImport` does not exist now.** C headers now come through a build-system step. In this repo, `//! link: X11` and `//! cinclude:` configure that step. `build.zig` makes a header, runs `addTranslateC` on it, and gives the result to the snippet as `@import("c")`. In your own project, use `b.addTranslateC(...)` and then `translate.createModule()`. [Import C](../../working-with-c/cimport/) shows the general shape.
 
 **Xlib's `Default*` macros do not work after translation.** `DefaultScreen(dpy)`, `RootWindow`, `DefaultVisual` and `DefaultGC` all expand to member accesses on a private struct. translate-c cannot give those accesses a meaning. Each macro has a real function behind it (`XDefaultScreen`, `XRootWindow`, and others), thus call those functions.
 

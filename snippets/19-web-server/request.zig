@@ -1,4 +1,4 @@
-//! title: Parsing an HTTP Request
+//! title: Parse an HTTP Request
 //! A request line, some headers, a blank line. The blank line is the difficult part.
 
 const std = @import("std");

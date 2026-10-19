@@ -1,4 +1,4 @@
-//! title: When Datagrams Go Missing
+//! title: Lost Datagrams
 //! A channel that loses, repeats and delays messages, so that you can see it.
 
 const std = @import("std");

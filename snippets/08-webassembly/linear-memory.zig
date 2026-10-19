@@ -1,4 +1,4 @@
-//! title: Passing Data Across the Boundary
+//! title: Pass Data Across the Boundary
 //! A wasm call takes only numbers: i32, i64, f32, f64. Larger data (a string,
 //! a buffer) is in the linear memory of the module, and it goes across as an
 //! offset and a length. The host writes into that memory, calls in, and reads

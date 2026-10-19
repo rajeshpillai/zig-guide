@@ -1,4 +1,4 @@
-//! title: Running Tests
+//! title: Run Tests
 //! `test` blocks are part of the language, not a framework.
 
 const std = @import("std");

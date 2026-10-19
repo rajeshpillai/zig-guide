@@ -1,4 +1,4 @@
-//! title: Writing Rows
+//! title: Write Rows
 //! INSERT and UPDATE derived from the schema, with values in a typed array.
 
 const std = @import("std");

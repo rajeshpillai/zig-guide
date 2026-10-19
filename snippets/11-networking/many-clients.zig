@@ -1,4 +1,4 @@
-//! title: Serving Many Clients
+//! title: Serve Many Clients
 //! One handler for each connection, through `Io`. The source runs with and without threads.
 
 const std = @import("std");

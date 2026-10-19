@@ -1,4 +1,4 @@
-//! title: Reading CSV
+//! title: Read CSV
 //! A CSV reader as a state machine with four states over a `*std.Io.Reader`,
 //! with a trace of each byte that it reads.
 

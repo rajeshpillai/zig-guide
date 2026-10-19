@@ -1,4 +1,4 @@
-//! title: Talking to the Operating System
+//! title: Talk to the Operating System
 //! A program gets streams that it did not open, and must return a status.
 
 const std = @import("std");

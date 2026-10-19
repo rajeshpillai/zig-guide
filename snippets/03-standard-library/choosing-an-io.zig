@@ -1,4 +1,4 @@
-//! title: Choosing an Io
+//! title: Choose an Io
 //! native
 //! Make an `Io` yourself. Do not use the `Io` that `main` got.
 //! Built and run for the host. The program shows the difference between an

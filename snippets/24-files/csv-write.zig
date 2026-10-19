@@ -1,4 +1,4 @@
-//! title: Writing CSV
+//! title: Write CSV
 //! Quote a field only when it needs quotes, write each quote two times, and
 //! read the output again to prove the writer.
 

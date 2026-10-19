@@ -1,5 +1,5 @@
 ---
-title: Writing an Image File
+title: Write an Image File
 description: PPM, the image format that you can write without a library, and the one strict rule that is easy to break.
 section: Graphics
 order: 121
@@ -90,7 +90,7 @@ head -c 20 output.ppm | xxd
 
 ## When to use a different format
 
-PPM is not compressed. A 4K frame is 24 MB, and a sequence of frames quickly fills a disk. PPM is the correct tool when you want to get pixels out of a program that you write. It is the wrong tool when you want to store or share the pixels. When the image is correct, convert the image, or write a PNG directly. [Writing a PNG](/learn/graphics/png/) does this with the zlib in the Zig standard library.
+PPM is not compressed. A 4K frame is 24 MB, and a sequence of frames quickly fills a disk. PPM is the correct tool when you want to get pixels out of a program that you write. It is the wrong tool when you want to store or share the pixels. When the image is correct, convert the image, or write a PNG directly. [Write a PNG](/learn/graphics/png/) does this with the zlib in the Zig standard library.
 
 Video is the exception. `ffmpeg` reads a stream of PPM files, one after the other. Thus PPM is a good pipe format for a software renderer that makes frames:
 

@@ -1,4 +1,4 @@
-//! title: Painting
+//! title: Paint
 //! A rectangle of memory, filled back to front. The last write wins.
 
 const std = @import("std");

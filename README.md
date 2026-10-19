@@ -104,9 +104,9 @@ button, with a note saying why.
 | Graphics | 8 |
 
 Two pages show code that is *not* CI-verified, and both say so on the page:
-[Importing C](web/src/content/docs/working-with-c/cimport.mdx), because
+[Import C](web/src/content/docs/working-with-c/cimport.mdx), because
 `@cImport` needs real headers and a libc the wasm sandbox lacks; and
-[Coming from an Older Zig](web/src/content/docs/getting-started/coming-from-older-zig.mdx),
+[Migrate from an Older Zig](web/src/content/docs/getting-started/coming-from-older-zig.mdx),
 whose "before" examples *deliberately* do not compile — that is the point of
 them. Its "after" side is verified in the chapter each entry links to.
 

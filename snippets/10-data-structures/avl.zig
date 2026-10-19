@@ -1,4 +1,4 @@
-//! title: Keeping It Balanced
+//! title: Keep It Balanced
 //! On sorted input, the tree from the previous chapter becomes a list. Store a
 //! height in each node, and check it after each insert. Repair the shape with
 //! a local rotation: four cases, each of five lines or fewer.

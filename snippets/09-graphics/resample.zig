@@ -1,4 +1,4 @@
-//! title: Scaling and Resampling
+//! title: Scale and Resample
 //! Each earlier filter kept the grid that it got. When the grid changes, the
 //! output pixels do not align with the input pixels. Each resampler gives a
 //! different colour for a point that is not a pixel.

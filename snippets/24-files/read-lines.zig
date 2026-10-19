@@ -1,4 +1,4 @@
-//! title: Reading Line by Line
+//! title: Read Line by Line
 //! Line endings, a line longer than the buffer, and a large file read
 //! through a small one.
 

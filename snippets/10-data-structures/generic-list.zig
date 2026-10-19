@@ -1,4 +1,4 @@
-//! title: Making It Generic
+//! title: Make It Generic
 //! Zig has no separate generics syntax. A generic container is a function that
 //! takes a type at compile time and returns a type. The same mechanism makes
 //! `List(T)`, `ArrayList` and `HashMap`.

@@ -1,5 +1,5 @@
 ---
-title: Coming from `std.Thread`
+title: Migrate from `std.Thread`
 seoTitle: "Zig: std.Thread Has No Member Named Mutex, Pool or WaitGroup"
 seoDescription: "Zig removed std.Thread.Mutex, RwLock, Semaphore, Condition, ResetEvent, WaitGroup and Pool. Where each went on std.Io, and how to change old code."
 description: Seven names that Zig removed, where each one went, and why lock can now fail.
@@ -75,7 +75,7 @@ Thus you do not need to find a new `Pool` type. Do these steps instead:
 
 Then the same code runs on an implementation that has no threads. Because of that, the other chapters in this section have Run buttons.
 
-[Choosing an Io](/learn/concurrency/choosing-an-io/) explains the options.
+[Choose an Io](/learn/concurrency/choosing-an-io/) explains the options.
 
 ## The rest of the table
 

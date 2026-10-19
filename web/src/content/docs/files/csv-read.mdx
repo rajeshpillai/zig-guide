@@ -1,5 +1,5 @@
 ---
-title: Reading CSV
+title: Read CSV
 seoTitle: "Zig CSV Parser: Quoted Fields, Escaped Quotes and Newlines"
 description: A CSV reader as a state machine with four states, a trace of each byte, the errors of a comma split, and line numbers.
 seoDescription: How to parse CSV in Zig without a library. A state machine over std.Io.Reader for quoted commas, doubled quotes, newlines in a field, CRLF and bad input.
@@ -85,7 +85,7 @@ The brackets in the output show where each field starts and ends. The brackets a
 
 <SnippetSource name="24-files.csv-read" decl="next" />
 
-`next` reads until the end of one record and returns the fields of the record. At the end of the input, `next` returns `null`. Thus a `while` loop over `next` stops, the same as the line loop in [Reading Line by Line](/learn/files/read-lines/).
+`next` reads until the end of one record and returns the fields of the record. At the end of the input, `next` returns `null`. Thus a `while` loop over `next` stops, the same as the line loop in [Read Line by Line](/learn/files/read-lines/).
 
 `next` reads from a `*std.Io.Reader`, not from a file. The trace reads from `.fixed(...)`, which is a reader over a string in memory. The second part reads from a file, through `file.reader(io, &buf)`. `next` cannot see the difference, and it does not have to.
 

@@ -1,4 +1,4 @@
-//! title: Writing a PNG
+//! title: Write a PNG
 //! A PNG is a signature and a list of chunks. The pixels go in one chunk,
 //! compressed with zlib. Each chunk ends with a CRC of its bytes.
 

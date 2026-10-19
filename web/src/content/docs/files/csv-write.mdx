@@ -1,5 +1,5 @@
 ---
-title: Writing CSV
+title: Write CSV
 seoTitle: "Zig Write CSV: Quoting Fields and Testing the Round Trip"
 description: Quote a field only when it needs quotes, write each quote in it two times, and read the output again to prove the writer.
 seoDescription: How to write CSV in Zig. Which fields need quotes, how to escape a quote, CRLF record ends, a round-trip test, and the result of a plain comma join.
@@ -12,7 +12,7 @@ import SnippetSource from "../../../components/SnippetSource.astro";
 
 To write CSV needs less code than to read CSV. The writer writes most fields with no change. If a field contains a comma, a quote or a line break, the writer puts the field in quotes. It also writes each quote in the field two times.
 
-The program below writes six records with this rule, and six more records without the rule. Then it reads the two files with the reader from [Reading CSV](/learn/files/csv-read/). It compares each field with the field that it wrote.
+The program below writes six records with this rule, and six more records without the rule. Then it reads the two files with the reader from [Read CSV](/learn/files/csv-read/). It compares each field with the field that it wrote.
 
 <Playground name="24-files.csv-write" />
 

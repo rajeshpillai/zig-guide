@@ -62,7 +62,7 @@ the script downloads is 13 MB, thus the copy stays out of Git.
 that value into the file.
 
 raylib is *not* in `.dependencies`. This is intentional, and
-[Vendoring raylib](/learn/lane-dodger/the-build/) gives the reason.
+[Vendor raylib](/learn/lane-dodger/the-build/) gives the reason.
 
 **4. Write the fetch script.**
 
@@ -91,8 +91,8 @@ Write these nine files in this order. Each file uses only the files above it.
     { path: "src/sim/sim.zig", what: "The world, the tick, collision and spawning.", chapter: "/learn/lane-dodger/the-world/", chapterTitle: "The World" },
     { path: "src/sim/bot.zig", what: "A policy that plays the game.", chapter: "/learn/lane-dodger/fair-by-design/", chapterTitle: "Difficulty You Can Prove" },
     { path: "src/sim/tests.zig", what: "The tests that play the game.", chapter: "/learn/lane-dodger/fair-by-design/", chapterTitle: "Difficulty You Can Prove" },
-    { path: "src/render/palette.zig", what: "Colours as plain data, no raylib.", chapter: "/learn/lane-dodger/drawing/", chapterTitle: "Drawing It" },
-    { path: "src/render/particles.zig", what: "Sparks and debris, using the same pool.", chapter: "/learn/lane-dodger/drawing/", chapterTitle: "Drawing It" },
+    { path: "src/render/palette.zig", what: "Colours as plain data, no raylib.", chapter: "/learn/lane-dodger/drawing/", chapterTitle: "Draw It" },
+    { path: "src/render/particles.zig", what: "Sparks and debris, using the same pool.", chapter: "/learn/lane-dodger/drawing/", chapterTitle: "Draw It" },
     { path: "src/audio/synth.zig", what: "Five sound effects, generated.", chapter: "/learn/lane-dodger/sound/", chapterTitle: "Sound Without Sound Files" },
   ]}
 />
@@ -122,7 +122,7 @@ Write four more files.
 
 <GameFiles
   files={[
-    { path: "src/render/draw.zig", what: "The view transform and every raylib call.", chapter: "/learn/lane-dodger/drawing/", chapterTitle: "Drawing It" },
+    { path: "src/render/draw.zig", what: "The view transform and every raylib call.", chapter: "/learn/lane-dodger/drawing/", chapterTitle: "Draw It" },
     { path: "src/platform/input.zig", what: "Keys and taps, read one time in each frame.", chapter: "/learn/lane-dodger/input/", chapterTitle: "Input" },
     { path: "src/platform/audio.zig", what: "The audio device, and the sounds on it.", chapter: "/learn/lane-dodger/sound/", chapterTitle: "Sound Without Sound Files" },
     { path: "src/main.zig", what: "The window and the fixed timestep loop.", chapter: "/learn/lane-dodger/the-loop/", chapterTitle: "The Loop Takes No dt" },

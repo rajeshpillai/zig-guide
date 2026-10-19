@@ -1,5 +1,5 @@
 ---
-title: Saving
+title: Save a PNG
 seoTitle: "Zig Paint Program: Saving a PNG with a Filter Chosen for Every Row"
 description: The program flattens the picture onto white paper and writes it as a PNG. Each row gets the filter, of five, that makes its bytes smallest.
 seoDescription: "How a Zig paint program saves a PNG: flatten the layers, give an allocator to the zlib compressor, and select one of five PNG filters for each row."
@@ -11,7 +11,7 @@ import PaintSource from "../../../components/PaintSource.astro";
 
 Save PNG in the studio writes the picture that you see: each visible layer over white paper.
 
-The [Writing a PNG](/learn/graphics/png/) chapter makes a PNG writer by hand: the signature, the chunks, a CRC on each chunk, and zlib compression. Read that chapter first. This chapter shows the changes for a real document.
+The [Write a PNG](/learn/graphics/png/) chapter makes a PNG writer by hand: the signature, the chunks, a CRC on each chunk, and zlib compression. Read that chapter first. This chapter shows the changes for a real document.
 
 There are two changes. The writer takes an allocator, and it selects a filter for each row.
 

@@ -16,7 +16,7 @@ This page gives a list of the changes between the 0.16.0 release and master. The
 
 No person announced a release date, thus this page does not give a date. Master continues to change, and the list can change before 0.17.0 ships.
 
-[Coming from an Older Zig](/learn/getting-started/coming-from-older-zig/) explains the larger changes from before 0.16, for example the buffered writers and the `Init` parameter of `main`. This page explains only the last step.
+[Migrate from an Older Zig](/learn/getting-started/coming-from-older-zig/) explains the larger changes from before 0.16, for example the buffered writers and the `Init` parameter of `main`. This page explains only the last step.
 
 ## The checks on this page
 
@@ -144,7 +144,7 @@ error: invalid builtin function: '@cImport'
 
 Now the build system translates C headers. `b.addTranslateC` reads the header, and your code imports the result as it imports each other module.
 
-→ [Importing C](/learn/working-with-c/cimport/) shows the full configuration, with snippets that CI checks against master.
+→ [Import C](/learn/working-with-c/cimport/) shows the full configuration, with snippets that CI checks against master.
 
 ## Build modes are lowercase
 
@@ -360,4 +360,4 @@ For each item in this list, a comparison of the public declarations in 0.16.0 an
 
 The larger changes occurred before 0.16.0. For example, `main` started to take `std.process.Init`, the writers got a buffer, the filesystem functions moved onto `Io`, and `ArrayList` became unmanaged. `std.mem.find` also replaced `indexOf` before 0.16.0.
 
-If your code already builds on 0.16.0, those changes have no effect on your code. [Coming from an Older Zig](/learn/getting-started/coming-from-older-zig/) explains them.
+If your code already builds on 0.16.0, those changes have no effect on your code. [Migrate from an Older Zig](/learn/getting-started/coming-from-older-zig/) explains them.

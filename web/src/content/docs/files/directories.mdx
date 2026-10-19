@@ -56,7 +56,7 @@ Thus the program collects the names and sorts them before it prints them. All ou
 
 `README.md` is first, because the sort compares bytes. Uppercase letters have smaller byte values than lowercase letters.
 
-The program copies the names with `arena.dupe`. `entry.name` points into the buffer of the iterator, and the next call to `next` can write over that buffer. The same rule applies to lines in [Reading Line by Line](/learn/files/read-lines/#keep-a-line).
+The program copies the names with `arena.dupe`. `entry.name` points into the buffer of the iterator, and the next call to `next` can write over that buffer. The same rule applies to lines in [Read Line by Line](/learn/files/read-lines/#keep-a-line).
 
 ## Walk all levels
 

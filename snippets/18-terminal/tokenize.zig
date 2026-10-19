@@ -1,4 +1,4 @@
-//! title: Tokenizing a Command Line
+//! title: Tokenize a Command Line
 //! Change "ls -la /tmp" into the argv that a shell needs, and copy nothing.
 
 const std = @import("std");
