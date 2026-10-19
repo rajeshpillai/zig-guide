@@ -22,11 +22,7 @@ With records of fixed size, a read or an update of one record is one positional 
 3. Read or update record `N` at its fixed offset.
 4. To update in place, read the slot, change a field, and write the slot again to the same offset.
 
-<Playground
-  name="06-cookbook.todo-store"
-  note="The program uses the real filesystem. Thus CI builds and runs it natively. The browser WASI sandbox has no directories to open."
-  tryLocally="zig run todo-store.zig"
-/>
+<Playground name="06-cookbook.todo-store" />
 
 ## Why all records are the same size
 

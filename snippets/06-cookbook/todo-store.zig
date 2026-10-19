@@ -1,5 +1,4 @@
 //! title: A File-Backed To-Do Store
-//! native
 //! Records of fixed size give random access by id: append, read, update in place.
 
 const std = @import("std");
