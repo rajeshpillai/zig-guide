@@ -1,52 +1,52 @@
 ---
 title: The Server
-description: The client, the slugs and the routes assembled into one file, run against a real Postgres.
+description: The client, the slugs and the routes put together into one file, and run against a real Postgres.
 section: A URL Shortener
 order: 50
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A URL shortener in Zig fits in one file: a Postgres wire client, base62
-slugs and a CRUD `handle` function behind a store seam, served by an
-accept loop on real sockets. It runs against a local Postgres started
-with one `docker run` command.
+A URL shortener in Zig fits in one file. The file contains a Postgres wire
+client, base62 slugs, and a CRUD `handle` function behind a store seam. An
+accept loop serves the routes on real sockets. The server runs against a local
+Postgres that one `docker run` command starts.
 
 ## The problem
 
-Three chapters built three pieces, each tested against bytes. What
-remains is the part that cannot run in a browser: real sockets on both
-sides. With everything in one file, you can read the whole service top
-to bottom.
+Three chapters built three parts, and the tests of each part used bytes. The
+last part cannot run in a browser: real sockets on both sides. All the
+code is in one file. Thus you can read the full service from the top to the
+bottom.
 
-CI compiles this file on every run, which is what keeps it correct
-against Zig master like every other snippet. It cannot run it, because
-CI has no Postgres server. You can run it on your machine against a
-local Postgres.
+CI compiles this file on each run. Thus the file stays correct against Zig
+master, the same as each other snippet. CI cannot run the file, because CI has
+no Postgres server. You can run the file on your computer against a local
+Postgres.
 
 ## The plan
 
-1. Connect to Postgres on 127.0.0.1:5432 and reuse the client
-   chapter's `PgClient`, trimmed to what the server calls.
-2. `SqlStore`: the routes chapter's store interface, backed by SQL.
-   Values are quoted into statement text by `sqlQuote`, every `'`
-   doubled, so a value cannot end its own quotes.
+1. Connect to Postgres on 127.0.0.1:5432. Use the `PgClient` from the client
+   chapter again, with only the parts that the server calls.
+2. `SqlStore`: the store interface from the routes chapter, with SQL behind
+   it. `sqlQuote` puts values into the statement text, and doubles each `'`.
+   Thus a value cannot end its own quotes.
 3. The same `handle` function, behind the same seam.
-4. An accept loop: parse one request, answer it, close. One Postgres
-   connection serves everything.
+4. An accept loop: parse one request, answer it, and close the connection. One
+   Postgres connection serves all requests.
 
 <Playground
   name="22-url-shortener.the-server"
-  note="Needs a Postgres answering on localhost, which CI does not have. Compiled against Zig master on every run; the commands below run it against a throwaway database."
+  note="This program needs a Postgres that answers on localhost, and CI does not have one. CI compiles the program against Zig master on each run. The commands below run the program against a temporary database."
   tryLocally="zig run the-server.zig"
 />
 
 ## Run it
 
-A stock Postgres asks for SCRAM authentication, which this client
-does not speak. The container flag `POSTGRES_HOST_AUTH_METHOD=password`
-selects the cleartext method the client knows; that is acceptable on
-loopback and nowhere else.
+A standard Postgres asks for SCRAM authentication, and this client does not
+support SCRAM. The container flag `POSTGRES_HOST_AUTH_METHOD=password` selects
+the cleartext method that the client knows. That method is acceptable on
+loopback, and nowhere else.
 
 ```bash
 docker run --rm -d --name shortener-pg \
@@ -57,7 +57,7 @@ docker run --rm -d --name shortener-pg \
 zig run the-server.zig
 ```
 
-Then, from another terminal, the whole CRUD surface:
+Then, in a different terminal, use the full CRUD surface:
 
 ```bash
 curl -X POST --data-binary 'https://ziglang.org' localhost:8080/links
@@ -70,39 +70,41 @@ curl -X PUT --data-binary 'https://ziglang.org/download/' localhost:8080/links/1
 curl -X DELETE localhost:8080/links/1
 ```
 
-`docker stop shortener-pg` removes the database when you are done.
+When you finish, `docker stop shortener-pg` removes the database.
 
-## What changed behind the seam, and what did not
+## What changed behind the seam, and what did not change
 
-Compare `handle` here with the routes chapter: the dispatch, the
-status codes and the bodies are the same, because the seam did not change. What
-changed is ownership. The in-memory store handed out pointers into its
-own array; SQL hands out bytes in a message buffer that the next query
-overwrites, so every store method copies what it returns and drains
-the row iterator before handing back control. The redirect also
-improved: `UPDATE ... SET hits = hits + 1 ...
-RETURNING target` reads the target and counts the hit in one
-statement, so two simultaneous visitors cannot lose an update.
+Compare `handle` here with the routes chapter. The dispatch, the status codes
+and the bodies are the same, because the seam did not change.
 
-## Quoting is a defense with a known edge
+The ownership changed. The in-memory store gave pointers into its own array.
+SQL gives bytes in a message buffer, and the next query writes over that
+buffer. Thus each store method copies the values that it returns. Each method
+also reads all of the row iterator before it returns control.
 
-`sqlQuote` doubles every `'`. That stops a value from ending its own
-string literal, which is the classic injection. The simple query
-protocol forces this method. Keeping it correct forever is a burden
-that real drivers avoid: they use the extended protocol, where values
-travel in separate messages and are never part of the SQL text at all.
-The extended protocol adds more message types but no new concepts, and
-the client chapter's `switch` is where `Parse`, `Bind` and `Execute`
-would go.
+The redirect is also better. `UPDATE ... SET hits = hits + 1 ... RETURNING
+target` reads the target and counts the hit in one statement. Thus two visitors
+at the same time cannot lose an update.
+
+## SQL quotes are a defense with a known limit
+
+`sqlQuote` doubles each `'`. Thus a value cannot end its own string literal,
+and this stops the usual injection. The simple query protocol makes this
+method necessary.
+
+To keep this method correct for all time is a burden, and real drivers do not
+use it. They use the extended protocol. In the extended protocol, values go in
+separate messages and are never part of the SQL text. The extended protocol
+adds more message types, but no new concepts. `Parse`, `Bind` and `Execute`
+go into the `switch` of the client chapter.
 
 ## What to build next
 
-- **Pooling:** one Postgres connection means one query at a time. A
-  pool is a fixed array of clients and a free list, and the
-  [many-clients chapter](/learn/networking/many-clients/) supplies the
-  concurrency model.
-- **The extended protocol:** replace `sqlQuote` with real parameters.
-  The messages are in the Postgres manual; the framing code does not
-  change.
-- **SCRAM:** one more arm in the auth `switch`, and the loopback-only
-  configuration above stops being necessary.
+- **Pooling:** with one Postgres connection, the server can do only one query
+  at a time. A pool is a fixed array of clients and a free list. The
+  [many-clients chapter](/learn/networking/many-clients/) gives the concurrency
+  model.
+- **The extended protocol:** replace `sqlQuote` with real parameters. The
+  Postgres manual describes the messages. The framing code does not change.
+- **SCRAM:** add one more arm in the auth `switch`. Then the loopback-only
+  configuration above is not necessary.

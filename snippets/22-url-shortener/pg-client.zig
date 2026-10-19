@@ -1,10 +1,10 @@
 //! title: A Postgres Client
-//! The cookbook's wire recipe grown into a client: auth, rows, errors.
+//! The wire recipe from the cookbook, made into a client: auth, rows, errors.
 
 const std = @import("std");
 
-// ------------------------------------------------- framing, as the recipe
-// Postgres frames everything big-endian: a tag byte, an Int32 length that
+// ------------------------------------------- framing, the same as the recipe
+// Postgres frames all data big-endian: a tag byte, an Int32 length that
 // counts itself but not the tag, then the payload.
 
 fn putInt(comptime T: type, w: *std.Io.Writer, v: T) !void {
@@ -40,10 +40,9 @@ const Cursor = struct {
 
 const max_columns = 8;
 
-/// A Postgres connection: a reader, a writer, and enough state to know
-/// what the server last said. It never touches a socket. The owner of
-/// the connection passes in the two streams, so the demo below can pass
-/// a script instead.
+/// A Postgres connection: a reader, a writer, and the state of the last
+/// server message. It never uses a socket. The owner of the connection
+/// gives the two streams to it. Thus the demo below can give a script.
 const PgClient = struct {
     r: *std.Io.Reader,
     w: *std.Io.Writer,
@@ -68,10 +67,10 @@ const PgClient = struct {
         return .{ .tag = tag[0], .payload = payload };
     }
 
-    /// Startup and authentication, up to the first ReadyForQuery. The
-    /// server chooses the auth method; this client speaks "none" and
-    /// "cleartext password", which is what loopback setups use. SCRAM,
-    /// the production method, would be one more case here.
+    /// Startup and authentication, until the first ReadyForQuery. The
+    /// server selects the auth method. This client supports "none" and
+    /// "cleartext password", and loopback setups use these methods. SCRAM,
+    /// the production method, is one more case here.
     fn connect(r: *std.Io.Reader, w: *std.Io.Writer, user: []const u8, database: []const u8, password: []const u8) !PgClient {
         var body_buf: [128]u8 = undefined;
         var body: std.Io.Writer = .fixed(&body_buf);
@@ -104,7 +103,7 @@ const PgClient = struct {
                     },
                     else => return error.UnsupportedAuth,
                 },
-                'S', 'K' => {}, // parameters and cancel key: noted, unused
+                'S', 'K' => {}, // parameters and cancel key: the client ignores them
                 'E' => {
                     client.storeError(m.payload);
                     return error.ConnectFailed;
@@ -119,8 +118,8 @@ const PgClient = struct {
     }
 
     fn storeError(self: *PgClient, payload: []const u8) void {
-        // ErrorResponse is a list of fields: a type byte, a C string,
-        // ending at a zero byte. Code and message are the useful two.
+        // ErrorResponse is a list of fields: a type byte and a C string.
+        // The list ends at a zero byte. The useful fields are code and message.
         var c = Cursor{ .b = payload };
         while (c.b[c.i] != 0) {
             const kind = c.b[c.i];
@@ -153,9 +152,9 @@ const PgClient = struct {
     }
 };
 
-/// Row iteration. Column values are slices into the client's message
-/// buffer: valid until the next call, exactly like a real driver's
-/// zero-copy row. Copy anything you keep.
+/// Row iteration. Column values are slices into the message buffer of the
+/// client. They are valid until the next call, exactly like the zero-copy
+/// row of a real driver. Copy the values that you keep.
 const Rows = struct {
     client: *PgClient,
     column_count: usize = 0,
@@ -173,7 +172,7 @@ const Rows = struct {
             const m = try self.client.readMsg();
             var c = Cursor{ .b = m.payload };
             switch (m.tag) {
-                'T' => { // RowDescription: names now, values in 'D' messages
+                'T' => { // RowDescription: the names come now, the values come in 'D' messages
                     self.column_count = @intCast(c.int(i16));
                     for (0..self.column_count) |i| {
                         const n = c.cstr();
@@ -181,7 +180,7 @@ const Rows = struct {
                         @memcpy(self.names[i][0..len], n[0..len]);
                         self.name_lens[i] = len;
                         // table oid, attnum, type oid, typlen, typmod,
-                        // format: 18 bytes this client has no use for.
+                        // format: 18 bytes that this client does not use.
                         c.i += 18;
                     }
                 },
@@ -198,10 +197,10 @@ const Rows = struct {
                     }
                     return row;
                 },
-                'C' => {}, // CommandComplete; the tag repeats what we sent
+                'C' => {}, // CommandComplete. The tag repeats the command that the client sent.
                 'E' => {
                     self.client.storeError(m.payload);
-                    // Drain to ReadyForQuery so the connection stays usable.
+                    // Read until ReadyForQuery, to keep the connection usable.
                     while ((try self.client.readMsg()).tag != 'Z') {}
                     self.client.ready_status = 'I';
                     return error.QueryFailed;
@@ -218,16 +217,16 @@ const Rows = struct {
 
 // ---------------------------------------------------- a scripted backend
 
-/// The server half of two conversations, written into a buffer in
-/// advance. The client cannot tell the difference: it parses a `Reader`,
-/// and bytes from a script look the same as bytes from a socket. This site
-/// uses the same method often. It is also how you get regression tests for
-/// a driver without a database in CI.
+/// The server half of two conversations, written into a buffer before the
+/// demo starts. The client cannot see a difference. It parses a `Reader`, and
+/// bytes from a script look the same as bytes from a socket. This site uses
+/// the same method frequently. With this method, a driver can have
+/// regression tests without a database in CI.
 fn scriptBackend(w: *std.Io.Writer) !void {
     var pbuf: [256]u8 = undefined;
     var p: std.Io.Writer = .fixed(&pbuf);
 
-    // Connection: demand a password, accept it, ready.
+    // Connection: ask for a password, accept it, then send ready.
     try putInt(i32, &p, 3); // AuthenticationCleartextPassword
     try sendMsg(w, 'R', p.buffered());
     p = .fixed(&pbuf);
@@ -236,7 +235,7 @@ fn scriptBackend(w: *std.Io.Writer) !void {
     try sendMsg(w, 'S', "server_version\x0016.4\x00");
     try sendMsg(w, 'Z', "I");
 
-    // The SELECT: three columns, one row, done.
+    // The SELECT: three columns, one row, then complete.
     p = .fixed(&pbuf);
     try putInt(i16, &p, 3);
     for ([_][]const u8{ "id", "target", "hits" }) |col| {
@@ -260,7 +259,7 @@ fn scriptBackend(w: *std.Io.Writer) !void {
     try sendMsg(w, 'C', "SELECT 1\x00");
     try sendMsg(w, 'Z', "I");
 
-    // The INSERT: rejected, then ready again anyway.
+    // The INSERT: the server rejects it, but then sends ready again.
     try sendMsg(w, 'E', "SERROR\x00C23505\x00" ++
         "Mduplicate key value violates unique constraint \"links_slug_key\"\x00\x00");
     try sendMsg(w, 'Z', "I");
@@ -275,7 +274,7 @@ pub fn main(init: std.process.Init) !void {
     var backend: std.Io.Writer = .fixed(&backend_bytes);
     try scriptBackend(&backend);
 
-    var sent: [512]u8 = undefined; // what the client says, not checked here
+    var sent: [512]u8 = undefined; // what the client sends. The demo does not check it.
     var to_server: std.Io.Writer = .fixed(&sent);
     var from_server: std.Io.Reader = .fixed(backend.buffered());
 

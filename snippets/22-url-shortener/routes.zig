@@ -1,9 +1,9 @@
 //! title: Routes Over a Seam
-//! The whole HTTP surface as one function: request bytes in, response bytes out.
+//! The full HTTP surface as one function: request bytes in, response bytes out.
 
 const std = @import("std");
 
-// From the slugs chapter, unchanged.
+// From the slugs chapter, without a change.
 const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 fn encode(id: u64, buf: *[11]u8) []const u8 {
@@ -29,11 +29,11 @@ fn checkTarget(url: []const u8) !void {
 
 // ---------------------------------------------------------------- store
 
-/// Everything the routes are allowed to ask of storage, and nothing
-/// else. The final chapter replaces this struct with one whose methods
-/// write SQL, and not one line of the handler changes. The ORM's
-/// recording driver uses the same split for the same reason: the route
-/// logic can be tested without a database.
+/// All the operations that the routes can ask of storage, and no other
+/// operations. The final chapter replaces this struct with a struct whose
+/// methods write SQL, and no line of the handler changes. The recording
+/// driver of the ORM uses the same split for the same reason: you can test
+/// the route logic without a database.
 const Store = struct {
     const Link = struct {
         id: u64 = 0,
@@ -61,7 +61,7 @@ const Store = struct {
             const id = self.next_id;
             self.next_id += 1;
             link.* = .{ .id = id, .live = true };
-            // encode fills the tail of its buffer, and the slug belongs at
+            // encode fills the end of its buffer, and the slug must be at
             // the front. The ranges can overlap, and @memmove handles that.
             const s = encode(id, &link.slug_buf);
             @memmove(link.slug_buf[0..s.len], s);
@@ -89,9 +89,9 @@ fn respond(w: *std.Io.Writer, status: []const u8, extra_header: []const u8, body
     try w.print("Content-Length: {d}\r\n\r\n{s}", .{ body.len, body });
 }
 
-/// One request in, one response out, nothing else touched. The request
-/// parsing here is the minimum that works. The web server track does it
-/// fully, including headers.
+/// One request in, one response out, and no other effects. The request
+/// parsing here is the minimum that works. The web server track shows the
+/// full parsing, with headers.
 fn handle(store: *Store, request: []const u8, w: *std.Io.Writer) !void {
     const line_end = std.mem.find(u8, request, "\r\n") orelse return error.BadRequest;
     var line = std.mem.tokenizeScalar(u8, request[0..line_end], ' ');
@@ -102,7 +102,7 @@ fn handle(store: *Store, request: []const u8, w: *std.Io.Writer) !void {
 
     var scratch: [300]u8 = undefined;
 
-    // Create: the body is the URL to shorten, the answer is the slug.
+    // Create: the body is the URL to shorten, and the answer is the slug.
     if (std.mem.eql(u8, method, "POST") and std.mem.eql(u8, path, "/links")) {
         checkTarget(body) catch |err| {
             const msg = try std.mem.print(&scratch, "{t}\n", .{err});
@@ -114,7 +114,7 @@ fn handle(store: *Store, request: []const u8, w: *std.Io.Writer) !void {
         return respond(w, "201 Created", "", msg);
     }
 
-    // The management routes share a prefix and a lookup.
+    // The management routes use the same prefix and the same lookup.
     if (std.mem.startsWith(u8, path, "/links/")) {
         const link = store.find(path["/links/".len..]) orelse
             return respond(w, "404 Not Found", "", "no such link\n");
@@ -140,7 +140,7 @@ fn handle(store: *Store, request: []const u8, w: *std.Io.Writer) !void {
         return respond(w, "405 Method Not Allowed", "", "");
     }
 
-    // The main route of the service: anything else is a slug.
+    // The main route of the service: all other paths are slugs.
     if (std.mem.eql(u8, method, "GET")) {
         if (store.find(path[1..])) |link| {
             link.hits += 1;
@@ -179,7 +179,7 @@ pub fn main(init: std.process.Init) !void {
         var response: std.Io.Writer = .fixed(&response_buf);
         try handle(&store, request, &response);
 
-        // Print the response minus HTTP's \r, one prefixed line each.
+        // Print the response without the HTTP \r, with a prefix on each line.
         var lines = std.mem.splitSequence(u8, response.buffered(), "\r\n");
         while (lines.next()) |l| {
             const line = std.mem.trimEnd(u8, l, "\n");

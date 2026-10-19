@@ -1,88 +1,100 @@
 ---
 title: A Postgres Client
-description: Startup, password auth, a row iterator and error recovery, tested against scripted bytes.
+description: Startup, password auth, a row iterator and error recovery, with tests against scripted bytes.
 section: A URL Shortener
 order: 20
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A PostgreSQL client in Zig speaks the wire protocol directly: `PgClient`
-sends the startup message, answers the server's password request,
-returns rows through an iterator, and turns an `ErrorResponse` into a
-Zig error without losing the connection. It reads from a `Reader`, so
-its tests run against scripted bytes instead of a database.
+A PostgreSQL client in Zig uses the wire protocol directly. `PgClient` does
+these tasks:
+
+- It sends the startup message.
+- It answers the password request from the server.
+- It returns rows through an iterator.
+- It changes an `ErrorResponse` into a Zig error, and keeps the connection.
+
+The client reads from a `Reader`. Thus its tests use scripted bytes, not a
+database.
 
 ## The problem
 
-The [cookbook recipe](/learn/how-to/databases/postgres-wire/) showed the
-wire protocol is just tagged, length-prefixed messages. A recipe is not
-a client. The service in this project needs a client it can call
-without thinking about bytes.
+The [cookbook recipe](/learn/how-to/databases/postgres-wire/) showed that the
+wire protocol is only messages with a tag and a length prefix. But a recipe is
+not a client. The service in this project needs a client that it can call
+without attention to bytes.
 
-Keeping the connection after an error is important. A shortener will
-hit constraint violations in normal operation. A client that treats
-every error as fatal would reconnect all the time.
+The client must keep the connection after an error. A shortener gets
+constraint violations in normal operation. If a client stopped the connection
+on each error, the client would connect again all the time.
 
 ## The plan
 
-1. `PgClient` holds a reader, a writer, and the server's last known
-   state. It never opens a socket; whoever owns the connection hands in
-   the streams.
-2. `connect` sends the startup message and walks the handshake. If the
-   server asks for a password, it sends one.
-3. `query` returns `Rows`, an iterator. Column names arrive in the
-   `RowDescription` message; values arrive one `DataRow` at a time.
-4. An `ErrorResponse` becomes a Zig error, with the SQL state code and
-   message kept on the client. The iterator drains to `ReadyForQuery`
-   first, so the connection is immediately usable again.
+1. `PgClient` holds a reader, a writer, and the last known state of the
+   server. The client never opens a socket. The owner of the connection gives
+   the streams to the client.
+2. `connect` sends the startup message and does the handshake. If the server
+   asks for a password, `connect` sends the password.
+3. `query` returns `Rows`, an iterator. The column names come in the
+   `RowDescription` message. The values come in `DataRow` messages, one
+   message for each row.
+4. An `ErrorResponse` becomes a Zig error. The client keeps the SQL state code
+   and the message. First, the iterator reads all messages until
+   `ReadyForQuery`. Thus the connection is immediately usable again.
 
-The demo talks to a scripted backend: the server half of two
-conversations written into a buffer in advance. The client cannot tell
-the difference, because it parses a `Reader` and does not know where the
-bytes came from. This guide uses the same seam in other chapters. It
-lets a driver have regression tests without a database in CI.
+The demo talks to a scripted backend. The backend is the server half of two
+conversations, written into a buffer before the demo starts. The client cannot
+see a difference, because it parses a `Reader` and does not know the source of
+the bytes. This guide uses the same seam in other chapters. With this seam, a
+driver can have regression tests without a database in CI.
 
 <Playground name="22-url-shortener.pg-client" />
 
-## The server picks the auth method
+## The server selects the auth method
 
-The client does not decide how to authenticate; it answers whatever the
-`R` message asks. Code 0 means accepted, code 3 means send the password
-in the clear, which is what loopback setups use and what this client
-speaks. A stock Postgres asks for SCRAM instead, a
-challenge-response exchange that never puts the password on the wire.
-It fits into the same `switch` as one more case, and the
-[final chapter](/learn/url-shortener/the-server/) says how to configure
-a local server down to the method this client knows.
+The client does not decide how to authenticate. It answers the request in the
+`R` message:
 
-## Rows are borrowed, not owned
+- Code 0 means that the server accepted the client.
+- Code 3 means: send the password in clear text. Loopback setups use this
+  method, and this client supports it.
 
-Column values returned by `next` are slices into the client's message
-buffer, valid until the next message is read. Real drivers work the
-same way, for the same reason: the alternative is an allocation per
-row. The cost of borrowing is a rule the caller must follow: copy what
-you keep. The server chapter's store copies each value it returns, and
-the comment on `drain` in that file states this rule in one line.
+A standard Postgres asks for SCRAM. SCRAM is a challenge-response exchange
+that never sends the password on the wire. SCRAM fits into the same `switch`
+as one more case. The [final chapter](/learn/url-shortener/the-server/) tells
+you how to configure a local server to use the method that this client knows.
 
-## An error is a message, not a hangup
+## The client lends rows, and does not give them
 
-Watch the failing INSERT at the end of the trace. The server sends an
-`ErrorResponse` carrying a five-character SQL state (`23505` is unique
+The column values from `next` are slices into the message buffer of the
+client. They are valid until the client reads the next message. Real drivers
+work the same way, for the same reason: the alternative is one allocation for
+each row.
+
+This design has a cost. The caller must follow a rule: copy the
+values that you keep. The store in the server chapter copies each value that
+it returns. The comment on `drain` in that file states this rule in one line.
+
+## An error is a message, not a disconnection
+
+Look at the failed INSERT at the end of the trace. The server sends an
+`ErrorResponse` with a five-character SQL state (`23505` is a unique
 violation), then a `ReadyForQuery`. For the server, only the transaction
-failed, and the connection is still fine.
-The client stores the code and message, drains to ready, and returns
-`error.QueryFailed`. The routes can now turn "duplicate slug" into a
-response instead of a reconnect.
+failed, and the connection is still correct.
+
+The client stores the code and the message, reads until the server is ready,
+and returns `error.QueryFailed`. The routes can then change "duplicate slug"
+into a response, and they do not need to connect again.
 
 ## Variations
 
 - **More of the handshake:** the scripted backend sends one
-  `ParameterStatus`; a real server sends a dozen. The client ignores
-  them, which is what most drivers do with most of them.
-- **Null:** a column can be null on the wire (length -1), which is not
-  the empty string. This client substitutes a marker; a real driver
-  makes the distinction typed.
-- **The script is a test:** point `scriptBackend` at a bug you once hit
-  (a truncated row, an error mid-results) and you have a regression
-  test no integration suite could run as fast.
+  `ParameterStatus`, and a real server sends a dozen. The client ignores them.
+  Most drivers ignore most of them.
+- **Null:** a column can be null on the wire (length -1). Null is not the empty
+  string. This client uses a marker for null. A real driver shows the
+  difference in the type.
+- **The script is a test:** write a script for a bug that you found before.
+  For example, use a truncated row or an error in the middle of the results.
+  Then you have a regression test that is faster than any integration suite.

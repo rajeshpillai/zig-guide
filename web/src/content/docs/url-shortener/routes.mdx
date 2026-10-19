@@ -1,69 +1,78 @@
 ---
 title: Routes Over a Seam
-description: All five CRUD routes as one pure function, tested against an in-memory store.
+description: All five CRUD routes as one pure function, with tests against an in-memory store.
 section: A URL Shortener
 order: 40
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-All five CRUD routes of a URL shortener fit in one Zig function:
-`handle` takes request bytes and a store, and writes a complete HTTP
-response. With an in-memory store behind the seam, every route is tested
-with no server, socket or database.
+All five CRUD routes of a URL shortener fit in one Zig function. `handle`
+takes request bytes and a store, and writes a complete HTTP response. An
+in-memory store is behind the seam. Thus the tests of each route need no
+server, no socket and no database.
 
 ## The problem
 
-The HTTP surface is where create, read, update and delete become
-routes. It is also the layer with the most cases to get right: the
-slug that does not exist, the URL that fails validation, the method
-nobody handles. Testing those against a running server and database
-means standing both up for every case.
+In the HTTP surface, create, read, update and delete become routes. This layer
+also has the most cases that you must make correct:
 
-The fix is the same seam the
-[ORM's Repo chapter](/learn/orm/repo/) built: put storage behind an
-interface, and hand the handler whichever implementation it needs at
-the time. The in-memory store needs neither a server nor a database, so
-this chapter runs in your browser.
+- The slug that does not exist.
+- The URL that fails validation.
+- The method that no code handles.
+
+If you test those cases against a live server and database, you must start
+the server and the database for each case.
+
+The solution is the same seam that the [ORM's Repo chapter](/learn/orm/repo/)
+built. Put the storage behind an interface. Then give the handler the
+implementation that it needs at that time. The in-memory store needs no server
+and no database. Thus this chapter runs in your browser.
 
 ## The plan
 
-1. A `Store` holding links in a fixed array, with the methods the
-   routes are allowed to want: create, find, and nothing else.
-2. `handle`: parse the request line, dispatch on method and path,
-   write a complete HTTP response. Request parsing is the minimum that
-   works; the [web server track](/learn/web-server/request/) does it
-   in full.
-3. A demo that runs all five routes, plus the failure cases, and
-   prints each exchange.
+1. A `Store` that holds links in a fixed array. The store has only the methods
+   that the routes can use: create and find.
+2. `handle`: parse the request line, dispatch on the method and the path, and
+   write a complete HTTP response. The request parsing is the minimum that
+   works. The [web server track](/learn/web-server/request/) shows the full
+   parsing.
+3. A demo that runs all five routes and the failure cases, and prints each
+   exchange.
 
 <Playground name="22-url-shortener.routes" />
 
 ## Read the trace as a contract
 
-The demo is the service's specification, one exchange per case.
-Create answers 201 with the slug. The bad scheme answers 400 before
-storage hears about it. The redirect answers 302 and counts the hit.
-Update changes where the same slug points, and delete answers 204. A
-slug that no longer exists answers 404. When the final chapter swaps
-the store for SQL, this trace is what must still be true.
+The demo is the specification of the service, with one exchange for each case:
 
-## The routing order is load-bearing
+- Create answers 201 with the slug.
+- The bad scheme answers 400, before the storage gets the request.
+- The redirect answers 302 and counts the hit.
+- Update changes the target of the same slug.
+- Delete answers 204.
+- A slug that does not exist now answers 404.
 
-`/links` and `/links/{slug}` are matched before the catch-all slug
-route, which means a link whose slug is literally `links` could never
-be reached. The slugs chapter's alphabet makes that collision
-impossible today: `links` decodes to a huge id, not an early one. But
-route shadowing happens with no warning. Someone adds `/stats` next to a
-growing slug space and nothing complains. Keeping every reserved
-path under one prefix, as `/links/...` does, is a cheap way to prevent it.
+The final chapter replaces the store with SQL. After that change, this trace
+must stay true.
+
+## The order of the routes is important
+
+The handler matches `/links` and `/links/{slug}` before the general slug route.
+Thus a link with the slug `links` is not reachable. The alphabet from the slugs
+chapter makes that collision impossible now: `links` decodes to a very large
+id, not to an early id.
+
+But route shadowing occurs with no warning. Suppose a person adds `/stats` to a
+slug space that grows. No part of the system gives a warning. Keep all reserved
+paths under one prefix, as `/links/...` does. This is an easy way to prevent the
+problem.
 
 ## Variations
 
-- **No allocation anywhere:** the store is a fixed array and every
-  response is built in a caller-owned buffer. A service this size can
-  simply decide its limits up front. When the array is full, the
-  service answers 507.
-- **Add a route:** a `GET /links` listing is one more branch and one
-  more store method. The handler cannot go around the seam: it
-  has to ask the store for everything it needs.
+- **No allocation:** the store is a fixed array, and the handler builds each
+  response in a buffer that the caller owns. A service of this size can decide
+  its limits at the start. When the array is full, the service answers 507.
+- **Add a route:** a `GET /links` listing is one more branch and one more store
+  method. The handler cannot go around the seam. It must ask the store for all
+  the data that it needs.

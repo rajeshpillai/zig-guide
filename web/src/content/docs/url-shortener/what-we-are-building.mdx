@@ -1,27 +1,27 @@
 ---
 title: What We Are Building
-description: A URL shortener with real storage, and the two decisions that shape every chapter after this one.
+description: A URL shortener with real storage, and the two decisions that control all the chapters after this one.
 section: A URL Shortener
 order: 10
 ---
 
-A URL shortener: you hand it a long address, it hands you a short one,
-and anyone who follows the short one lands on the long one. It is a
-common first service. It is small enough to finish, and it still needs
-everything a bigger service needs: a database, a
-schema, validation, and an HTTP surface with all four verbs.
+A URL shortener works like this: you give it a long address, and it gives you
+a short address. When a person follows the short address, the person gets to
+the long address. A URL shortener is a common first service. It is small
+enough to complete. But it needs all the parts that a larger service needs: a
+database, a schema, validation, and an HTTP surface with all four verbs.
 
-The finished service speaks five routes:
+The completed service has five routes:
 
-| Route | Does | Which is |
+| Route | Action | Operation |
 | --- | --- | --- |
 | `POST /links` | shorten a URL, answer with the slug | Create |
 | `GET /{slug}` | redirect, and count the hit | Read |
 | `GET /links/{slug}` | report target and hit count | Read |
-| `PUT /links/{slug}` | point the slug somewhere else | Update |
+| `PUT /links/{slug}` | point the slug to a different target | Update |
 | `DELETE /links/{slug}` | retire the slug | Delete |
 
-Storage is PostgreSQL, one table:
+The storage is PostgreSQL, with one table:
 
 ```sql
 CREATE TABLE links (
@@ -32,10 +32,10 @@ CREATE TABLE links (
 );
 ```
 
-## The shape of it
+## The design
 
-Every chapter in this project builds one box in this picture, bottom to
-top:
+Each chapter in this project builds one box in this diagram, from the bottom
+to the top:
 
 ```
 Browser / curl
@@ -58,17 +58,20 @@ Postgres Client
   PostgreSQL
 ```
 
-Read it as two halves. Everything above `Store` is about HTTP: what a
-request means and what to answer. Everything below it is about Postgres:
-how to say the query and how to read the answer. `Store` is the line
-between them, and it is the reason most of this code runs without a
-network.
+The diagram has two halves:
 
-## One request, end to end
+- All the boxes above `Store` are about HTTP: what a request means, and what
+  to answer.
+- All the boxes below `Store` are about Postgres: how to send the query, and
+  how to read the answer.
 
-There is no JSON anywhere in this service. The body of a `POST` is the
-URL itself, and the answer is the slug. That keeps the parsing in the
-chapters that are about parsing.
+`Store` is the line between the two halves. Because of `Store`, most of this
+code runs without a network.
+
+## One request, from start to end
+
+This service uses no JSON. The body of a `POST` is the URL, and the answer is
+the slug. Thus the parsing stays in the chapters that are about parsing.
 
 ```bash
 curl -i -X POST http://127.0.0.1:8080/links \
@@ -82,8 +85,9 @@ Content-Length: 2
 1
 ```
 
-The slug is `1` because it is the row id written in base62, not a random
-string. Following it gives the redirect, which is the service's main job:
+The slug is `1` because the slug is the row id in base62. It is not a random
+string. When you follow the slug, you get the redirect. The redirect is the
+main task of the service:
 
 ```bash
 curl -i http://127.0.0.1:8080/1
@@ -95,8 +99,8 @@ Location: https://ziglang.org
 Content-Length: 0
 ```
 
-And the slug's own record reports where it points and how often it has
-been followed:
+The record of the slug reports the target and how many times people followed
+the slug:
 
 ```bash
 curl -i http://127.0.0.1:8080/links/1
@@ -109,52 +113,61 @@ Content-Length: 34
 1 -> https://ziglang.org (1 hits)
 ```
 
-The routes chapter's expected output contains these same exchanges,
-and CI replays them on every build.
+The expected output of the routes chapter contains these same exchanges, and
+CI replays them on each build.
 
 ## Decision one: no driver
 
-The service talks to Postgres directly, over its wire protocol. The
-[cookbook recipe](/learn/how-to/databases/postgres-wire/) showed that
-protocol byte by byte: every message is a tag, a length, and a payload.
-This project turns that recipe into something a program can use: a
-client that connects, authenticates, sends SQL, iterates rows, and
-survives errors. That is what a driver is. Writing one small enough to
-read means no part of the path between your code and the database stays
-hidden.
+The service talks to Postgres directly, over the Postgres wire protocol. The
+[cookbook recipe](/learn/how-to/databases/postgres-wire/) showed each byte of
+that protocol. Each message is a tag, a length, and a payload. This project
+changes that recipe into a client that a program can use. The client does
+these tasks:
+
+- Connect.
+- Authenticate.
+- Send SQL.
+- Iterate over rows.
+- Continue after errors.
+
+That is what a driver is. When the driver is small enough to read, you can see
+all of the path between your code and the database.
 
 ## Decision two: the seams
 
-Almost nothing in this project needs a network to run. This follows the
-same rule as the rest of the guide: protocol
-code parses from a `Reader`, never from a socket. The Postgres client is
-tested against scripted bytes. The slug logic is arithmetic. The HTTP
-handlers take request bytes and return response bytes, against a store
-interface with an in-memory implementation, the same seam the
-[ORM's Repo chapter](/learn/orm/repo/) used. So those three chapters run
-in your browser, checked by CI like every other snippet on this site.
+Almost no part of this project needs a network. This follows the rule for all
+of the guide: protocol code parses from a `Reader`, never from a socket.
 
-Only the last chapter opens sockets. It assembles the client, the slugs
-and the routes into one file, swaps the in-memory store for one that
-writes SQL, and serves the whole thing against a real database. CI
-compiles that file on every run; you run it on your machine, where a
-real Postgres can answer.
+- The tests of the Postgres client use scripted bytes.
+- The slug logic is arithmetic.
+- The HTTP handlers take request bytes and return response bytes. They use a
+  store interface with an in-memory implementation. This is the same seam that
+  the [ORM's Repo chapter](/learn/orm/repo/) used.
 
-## What is deliberately missing
+Thus those three chapters run in your browser, and CI checks them the same as
+each other snippet on this site.
 
-This small project skips some things. Each gap below could be filled
-behind one of the seams in this design.
+Only the last chapter opens sockets. That chapter puts the client, the slugs
+and the routes into one file. It replaces the in-memory store with a store that
+writes SQL. Then it serves the full service against a real database. CI
+compiles that file on each run. You run the file on your computer, where a real
+Postgres can answer.
 
-- **Connection pooling.** One connection serves every request, which is
-  fine at tutorial scale.
-- **The extended query protocol.** Real drivers send parameters
-  separately from SQL. This project quotes values into SQL text, does it
-  carefully, and the client chapter says exactly what the tradeoff is.
-- **SCRAM authentication.** The client speaks cleartext password auth,
-  which is what a default local Postgres accepts from loopback. The
-  client chapter names what production adds.
-- **Users and rate limits.** Nothing here knows who you are.
+## What this project does not include
 
-The [web server track](/learn/web-server/server/) covers the HTTP side
-in full depth; this project reuses its ideas in miniature and keeps the
-focus on the storage path.
+This small project does not include some features. You can add each of these
+features behind one of the seams in this design.
+
+- **Connection pooling.** One connection serves all requests. This is
+  sufficient for a tutorial.
+- **The extended query protocol.** Real drivers send parameters separately from
+  the SQL. This project quotes values into the SQL text, and does this
+  carefully. The client chapter states the tradeoff exactly.
+- **SCRAM authentication.** The client uses cleartext password auth. A default
+  local Postgres accepts that auth from loopback. The client chapter states
+  what production adds.
+- **Users and rate limits.** No part of this service knows who you are.
+
+The [web server track](/learn/web-server/server/) explains the HTTP side in
+full. This project uses the ideas from that track in a smaller form, and stays
+on the storage path.

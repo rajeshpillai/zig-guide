@@ -3,15 +3,15 @@
 
 const std = @import("std");
 
-// 62 characters that pass through a URL unchanged. They need no escaping,
-// include no punctuation that looks like another character, and are not
-// changed by copy and paste.
+// 62 characters that go through a URL without a change. They need no
+// escaping, and they include no punctuation that looks like another
+// character. Copy and paste does not change them.
 const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-/// The row id, rewritten in base 62. The database already guarantees ids
-/// are unique, so the slugs are too. The code needs no random draw,
-/// collision check or retry loop. An id fits in 11 characters even at the
-/// u64 limit.
+/// The row id, written in base 62. The database already makes sure that ids
+/// are unique, thus the slugs are also unique. The code needs no random
+/// value, collision check or retry loop. An id fits in 11 characters, also at
+/// the u64 limit.
 fn encode(id: u64, buf: *[11]u8) []const u8 {
     var rest = id;
     var i: usize = buf.len;
@@ -24,9 +24,9 @@ fn encode(id: u64, buf: *[11]u8) []const u8 {
     return buf[i..];
 }
 
-/// The other direction, for the redirect handler: slug back to id, so
-/// the database lookup can use the primary key. Anything outside the
-/// alphabet is rejected here, before it gets near a query.
+/// The opposite direction, for the redirect handler: from slug to id. With
+/// the id, the database lookup can use the primary key. This function rejects
+/// all characters outside the alphabet, before they get to a query.
 fn decode(slug: []const u8) !u64 {
     if (slug.len == 0 or slug.len > 11) return error.BadSlug;
     var id: u64 = 0;
@@ -38,16 +38,16 @@ fn decode(slug: []const u8) !u64 {
     return id;
 }
 
-/// What the service will shorten. The scheme check is required: a
-/// redirect service that stores `javascript:` URLs sends every visitor
-/// to code written by whoever submitted one.
+/// The URLs that the service accepts. The scheme check is necessary. If a
+/// redirect service stores `javascript:` URLs, it sends each visitor to code
+/// from the person who sent the URL.
 fn checkTarget(url: []const u8) !void {
     const has_scheme = std.mem.startsWith(u8, url, "https://") or
         std.mem.startsWith(u8, url, "http://");
     if (!has_scheme) return error.SchemeNotAllowed;
     for (url) |ch| {
-        // Control characters would let a stored URL smuggle bytes into
-        // the HTTP response that redirects to it. A space makes the URL
+        // Control characters can let a stored URL smuggle bytes into the
+        // HTTP response that redirects to it. A space makes the URL
         // invalid.
         if (ch <= ' ' or ch == 0x7f) return error.BadCharacter;
     }
@@ -60,14 +60,14 @@ pub fn main(init: std.process.Init) !void {
 
     var buf: [11]u8 = undefined;
 
-    // The mapping, at the sizes a shortener actually sees.
+    // The mapping, at the sizes that a shortener actually gets.
     try out.writeAll("-- encode --\n");
     for ([_]u64{ 0, 7, 61, 62, 100_000, 1_000_000_000, std.math.maxInt(u64) }) |id| {
         try out.print("id {d} -> \"{s}\"\n", .{ id, encode(id, &buf) });
     }
 
-    // The redirect route depends on reversibility, so the test checks it
-    // instead of assuming it.
+    // The redirect route needs the encoding to be reversible. Thus the test
+    // checks this property, and does not assume it.
     for ([_]u64{ 0, 1, 61, 62, 3843, 1 << 20, 1 << 40, std.math.maxInt(u64) }) |sample| {
         if (try decode(encode(sample, &buf)) != sample) return error.RoundtripBroken;
     }

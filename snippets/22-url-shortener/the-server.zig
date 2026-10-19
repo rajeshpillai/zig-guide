@@ -1,14 +1,14 @@
 //! title: The Server
 //! native
 //! norun
-//! Every piece assembled: real sockets, real Postgres, one file to run.
+//! All the parts together: real sockets, real Postgres, one file to run.
 
 const std = @import("std");
 
 // ------------------------------------------------- wire framing, again
-// Identical to the client chapter. In a multi-file project this block
-// would be the module the chapters share. In a one-file server that you
-// read top to bottom, it is forty lines of repeated code.
+// The same as in the client chapter. In a multi-file project, this block is
+// the module that the chapters share. In a one-file server that you read
+// from the top to the bottom, it is forty lines of repeated code.
 
 fn putInt(comptime T: type, w: *std.Io.Writer, v: T) !void {
     var b: [@divExact(@typeInfo(T).int.bits, 8)]u8 = undefined;
@@ -40,7 +40,8 @@ const Cursor = struct {
 };
 
 // ------------------------------------------------------ the pg client
-// The client chapter's PgClient, trimmed to what this server calls.
+// The PgClient from the client chapter, with only the parts that this
+// server calls.
 
 const PgClient = struct {
     r: *std.Io.Reader,
@@ -92,8 +93,8 @@ const PgClient = struct {
                         try sendMsg(w, 'p', pw.buffered());
                         try w.flush();
                     },
-                    // A default Postgres wants SCRAM; the intro chapter
-                    // says how to allow password auth for this demo.
+                    // A default Postgres wants SCRAM. The server chapter
+                    // tells you how to allow password auth for this demo.
                     else => return error.UnsupportedAuth,
                 },
                 'S', 'K', 'N' => {},
@@ -138,7 +139,7 @@ const PgClient = struct {
         return .{ .client = self };
     }
 
-    /// Run a statement, keep none of the result.
+    /// Run a statement, and keep no part of the result.
     fn exec(self: *PgClient, sql: []const u8) !void {
         var rows = try self.query(sql);
         while (try rows.next()) |_| {}
@@ -178,14 +179,14 @@ const Rows = struct {
                     self.client.ready_status = m.payload[0];
                     return null;
                 },
-                else => {}, // T, C, N: nothing this server needs
+                else => {}, // T, C, N: this server does not need them
             }
         }
     }
 
-    /// Read the remaining messages so the connection is ready again.
-    /// Call after copying anything you keep: row values live in the
-    /// client's message buffer, and draining overwrites it.
+    /// Read the other messages, to make the connection ready again. Call
+    /// this function after you copy the values that you keep. Row values are
+    /// in the message buffer of the client, and this function writes over it.
     fn drain(self: *Rows) !void {
         while (try self.next()) |_| {}
     }
@@ -217,11 +218,11 @@ fn checkTarget(url: []const u8) !void {
 }
 
 // ------------------------------------------------------- the sql store
-// The same interface the routes chapter ran in memory, backed by SQL.
-// Values are quoted into the statement text: every ' in the value
-// becomes '', so the value cannot end its own quotes. This quoting is the
-// simple-protocol tradeoff named in the intro. A production driver uses
-// the extended protocol instead, which sends values outside the SQL.
+// The same interface that the routes chapter used in memory, with SQL
+// behind it. The store quotes values into the statement text: each ' in the
+// value becomes ''. Thus the value cannot end its own quotes. This quoting
+// is the simple-protocol tradeoff that the intro names. A production driver
+// uses the extended protocol, which sends values outside the SQL.
 
 fn sqlQuote(w: *std.Io.Writer, s: []const u8) !void {
     try w.writeByte('\'');
@@ -245,10 +246,10 @@ const SqlStore = struct {
         );
     }
 
-    /// The slug is derived from the id, and the id comes from the
-    /// table's sequence, so ask the sequence first and insert a complete
-    /// row. That is two statements. A production service would wrap them
-    /// in a transaction so a crash between them cannot leak an id.
+    /// The slug comes from the id, and the id comes from the sequence of
+    /// the table. Thus ask the sequence first, then insert a complete row.
+    /// That is two statements. A production service puts them in a
+    /// transaction. Then a crash between them cannot lose an id.
     fn create(self: *SqlStore, target: []const u8, slug_buf: *[11]u8) ![]const u8 {
         var rows = try self.client.query("SELECT nextval('links_id_seq')");
         const row = (try rows.next()) orelse return error.NoRow;
@@ -291,8 +292,8 @@ const SqlStore = struct {
         return info;
     }
 
-    /// The redirect's read and its hit count in one statement. It needs
-    /// no second round trip, and no update is lost when two requests race.
+    /// The read for the redirect and its hit count, in one statement. It
+    /// needs no second round trip. When two requests race, no update is lost.
     fn follow(self: *SqlStore, slug: []const u8, target_buf: *[256]u8) !?[]const u8 {
         var stmt_buf: [128]u8 = undefined;
         var stmt: std.Io.Writer = .fixed(&stmt_buf);
@@ -335,9 +336,9 @@ const SqlStore = struct {
 };
 
 // ------------------------------------------------------------ the http
-// The routes chapter's handler with the SQL store behind the seam. The
-// shape is unchanged. Only the store calls differ, because the in-memory
-// version returned pointers and SQL returns copies.
+// The handler from the routes chapter, with the SQL store behind the seam.
+// The shape does not change. Only the store calls are different, because
+// the in-memory version returned pointers and SQL returns copies.
 
 fn respond(w: *std.Io.Writer, status: []const u8, extra_header: []const u8, body: []const u8) !void {
     try w.print("HTTP/1.1 {s}\r\n", .{status});
@@ -412,7 +413,7 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &out_buf);
     const out = &file_writer.interface;
 
-    // One connection to Postgres, serving every request in turn.
+    // One connection to Postgres. It serves each request in sequence.
     const pg_addr = try std.Io.net.IpAddress.parse("127.0.0.1", 5432);
     var pg_stream = try pg_addr.connect(io, .{ .mode = .stream });
     defer pg_stream.close(io);
@@ -454,7 +455,7 @@ pub fn main(init: std.process.Init) !void {
 }
 
 const client_err_hint =
-    "check the intro chapter's docker run line; a stock Postgres asks for " ++
+    "check the docker run line in the server chapter; a stock Postgres asks for " ++
     "SCRAM auth, which this client does not speak";
 
 fn serveOne(io: std.Io, store: *SqlStore, conn: *std.Io.net.Stream) !void {
@@ -463,10 +464,10 @@ fn serveOne(io: std.Io, store: *SqlStore, conn: *std.Io.net.Stream) !void {
     var reader = conn.reader(io, &rbuf);
     var writer = conn.writer(io, &wbuf);
 
-    // Read header lines to the blank line, then exactly Content-Length
-    // bytes of body. Only HTTP knows where a request starts and ends.
-    // Reading whatever bytes are there would fail on the first request
-    // that arrives split. The short-reads chapter covers this.
+    // Read header lines until the blank line, then exactly Content-Length
+    // bytes of body. Only HTTP knows where a request starts and ends. If the
+    // code reads only the bytes that are there now, it fails on the first
+    // request that comes split. The short-reads chapter explains this.
     var request_buf: [2048]u8 = undefined;
     var used: usize = 0;
     var content_length: usize = 0;
