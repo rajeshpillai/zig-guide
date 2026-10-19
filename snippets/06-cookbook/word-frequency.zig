@@ -7,13 +7,13 @@ const Count = struct { word: []const u8, n: u32 };
 
 fn moreFrequent(_: void, a: Count, b: Count) bool {
     if (a.n != b.n) return a.n > b.n;
-    // Tie-break alphabetically so the ranking is deterministic.
+    // For equal counts, use alphabetical order. Thus the ranking is deterministic.
     return std.mem.lessThan(u8, a.word, b.word);
 }
 
 pub fn main(init: std.process.Init) !void {
-    // An arena fits this job: the map, the list and the duplicated keys all
-    // share one lifetime, so one `deinit` frees everything at once.
+    // An arena is correct for this job. The map, the list and the copied keys
+    // have the same lifetime. Thus one `deinit` frees all of them at one time.
     var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena_state.deinit();
     const gpa = arena_state.allocator();
@@ -27,8 +27,8 @@ pub fn main(init: std.process.Init) !void {
         \\The dog barks, and the fox runs.
     ;
 
-    // Step 1: count. `getOrPut` does one hash lookup whether the word is
-    // new or already seen.
+    // Step 1: count. `getOrPut` does one hash lookup, for a new word and for
+    // a word that the map already has.
     var counts: std.StringHashMapUnmanaged(u32) = .empty;
     defer counts.deinit(gpa);
 
@@ -38,15 +38,15 @@ pub fn main(init: std.process.Init) !void {
         const word = std.ascii.lowerString(&lower_buf, raw);
         const entry = try counts.getOrPut(gpa, word);
         if (!entry.found_existing) {
-            // `word` lives in a reused buffer, so keys must own their bytes.
+            // `word` is in a buffer that the loop uses again. Thus keys must own their bytes.
             entry.key_ptr.* = try gpa.dupe(u8, word);
             entry.value_ptr.* = 0;
         }
         entry.value_ptr.* += 1;
     }
 
-    // Step 2: a hash map has no order. Move the entries into a list so
-    // they can be sorted.
+    // Step 2: a hash map has no order. Move the entries into a list. Then
+    // the program can sort them.
     var ranked: std.ArrayList(Count) = .empty;
     defer ranked.deinit(gpa);
 
@@ -55,7 +55,7 @@ pub fn main(init: std.process.Init) !void {
         try ranked.append(gpa, .{ .word = entry.key_ptr.*, .n = entry.value_ptr.* });
     }
 
-    // Step 3: rank and report the top five.
+    // Step 3: rank the words, and report the top five.
     std.mem.sort(Count, ranked.items, {}, moreFrequent);
 
     for (ranked.items[0..@min(5, ranked.items.len)]) |c| {

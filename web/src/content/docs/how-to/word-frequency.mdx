@@ -7,62 +7,43 @@ order: 90
 
 import Playground from "../../../components/Playground.astro";
 
-To count words in Zig, split the text with `std.mem.tokenizeAny`, count into a
-`StringHashMapUnmanaged(u32)` with `getOrPut`, then copy the entries into an
-`ArrayList` and sort it with `std.mem.sort`.
+To count words in Zig, divide the text into words with `std.mem.tokenizeAny`. Count the words into a `StringHashMapUnmanaged(u32)` with `getOrPut`. Then copy the entries into an `ArrayList`, and sort the list with `std.mem.sort`.
 
 ## The problem
 
-You have a block of text and want the five most common words: case-insensitive,
-punctuation ignored, and with a stable order so two runs never disagree about
-ties. It is the shape behind log analysis, tag clouds, and "top N by count"
-reports of every kind.
+You have a block of text, and you want the five most common words. These are the conditions:
 
-One thing to watch for: a hash map is the right tool for counting, but a hash
-map **has no order**. Ranking needs a second structure.
+- Upper case and lower case are the same.
+- The program ignores punctuation.
+- The order is stable, thus two runs always give the same order for words with equal counts.
+
+Log analysis, tag clouds and all types of "top N by count" reports use this shape.
+
+Be careful about one thing. A hash map is the correct tool to count, but a hash map **has no order**. To rank the words, you need a second structure.
 
 ## The plan
 
-1. **Tokenize**, treating whitespace and punctuation as delimiters.
-   `tokenizeAny` never yields an empty token.
-2. **Count** with `getOrPut`: one lookup per word instead of a `get`
-   followed by a `put`.
-3. **Rank** by sorting a copy of the entries with a comparator that breaks
-   count ties alphabetically.
+1. **Tokenize.** Use whitespace and punctuation as delimiters. `tokenizeAny` never gives an empty token.
+2. **Count** with `getOrPut`. This function does one lookup for each word, not a `get` and then a `put`.
+3. **Rank.** Sort a copy of the entries with a comparator. When two counts are equal, the comparator uses alphabetical order.
 
 <Playground name="06-cookbook.word-frequency" />
 
-## Why the keys are duplicated
+## Why the program copies the keys
 
-`lowerString` writes each lowercased word into the same reused buffer. If the
-map stored that slice as a key, every key would alias one buffer and the last
-word written would overwrite them all. `gpa.dupe` gives each key its own bytes.
+`lowerString` writes each word in lower case into the same buffer, which the program uses again for each word. If the map stores that slice as a key, all of the keys point to one buffer. Then the last word overwrites all of the keys. `gpa.dupe` gives each key its own bytes.
 
-Duplicating the keys is the one ownership decision in this recipe, and the
-arena makes it cheap. The map, the list, and the duplicated keys all share a
-lifetime, so a single `arena_state.deinit()` frees all of them. No key needs
-its own `free`, and nothing leaks.
+The copy of the keys is the only ownership decision in this recipe, and the arena makes the copy cheap. The map, the list and the copied keys all have the same lifetime. Thus one `arena_state.deinit()` frees all of them. No key needs its own `free`, and no memory leaks.
 
 ## Why sort a copy
 
-`counts.iterator()` walks entries in hash order: effectively arbitrary, and
-not even stable across compiler versions. Moving `(word, count)` pairs into an
-`ArrayList` costs one pass and gives you a plain slice, which is what
-`std.mem.sort` wants anyway.
+`counts.iterator()` goes through the entries in hash order. That order is effectively random, and it can change between compiler versions.
 
-The comparator sorts by count descending, then alphabetically. Without the
-tie-break the order of equal counts would depend on hash order, and the output
-would change from run to run. This page's output is verified character-for-
-character by CI, so the output must be the same on every run.
+The program moves the `(word, count)` pairs into an `ArrayList`. That costs one pass, and it gives you a plain slice. `std.mem.sort` needs a slice.
+
+The comparator sorts by count, from the largest to the smallest, and then in alphabetical order. Without the second rule, the order of equal counts depends on hash order, and the output can change from one run to the next. CI compares the output of this page character by character. Thus the output must be the same on each run.
 
 ## Variations
 
-- **Top N of a large set:** sorting everything to take five is wasteful at
-  scale. `std.PriorityQueue` gives you the heap. Keep it at five by popping the
-  smallest on every push. The standard library sorts whole slices only, so the
-  partial selection itself is code you write. Do either only when profiling
-  shows you need it.
-- **Unicode:** `std.ascii.lowerString` is ASCII-only by design. Real
-  case-folding needs a Unicode library, and
-  [Unicode Recipes](/learn/standard-library/unicode-recipes/) names one. The standard library deliberately
-  does not guess.
+- **Top N of a large set:** at a large scale, a sort of all the words to get five is wasteful. `std.PriorityQueue` gives you the heap. To keep the heap at five items, remove the smallest item after each push. The standard library sorts only full slices. Thus you must write the partial selection yourself. Do either of these only when profiling shows that you need it.
+- **Unicode:** `std.ascii.lowerString` works only on ASCII, by design. Real case-folding needs a Unicode library, and [Unicode Recipes](/learn/standard-library/unicode-recipes/) gives the name of one. The standard library intentionally does not guess.

@@ -1,6 +1,6 @@
 ---
 title: "Recipe: SQLite From Zig"
-description: Open a database, create a table, insert with a prepared statement, and query, over the C API.
+description: Open a database, create a table, insert with a prepared statement, and query, through the C API.
 section: How-To
 order: 108
 group: Databases
@@ -8,78 +8,66 @@ group: Databases
 
 import Playground from "../../../../components/Playground.astro";
 
-Zig calls SQLite's C API directly: a translate-c build step turns `sqlite3.h`
-into a module imported as `@import("c")`, and the program links `sqlite3`.
-`@cImport` was removed, so older examples that use it no longer compile.
+Zig calls the C API of SQLite directly. A translate-c build step changes `sqlite3.h` into a module, and the program imports that module as `@import("c")`. The program links `sqlite3`. Zig removed `@cImport`, thus older examples that use it do not compile now.
 
 ## The problem
 
-You want a real database from Zig, and SQLite is the obvious first one. It is
-a C library with no server, so all you need is a header and a linked
-library. Zig calls C directly, so there is no binding layer to install. The
-work is learning SQLite's own open/prepare/bind/step/finalize shape and
-translating its integer return codes into Zig errors.
+You want a real database from Zig, and SQLite is the usual first database. SQLite is a C library with no server. Thus you need only a header and a linked library.
+
+Zig calls C directly, thus you do not have to install a binding layer. The work is to learn the open/prepare/bind/step/finalize shape of SQLite, and to change its integer return codes into Zig errors.
 
 ## The plan
 
-1. Import the C API. On current Zig this is a translate-c step in the build,
-   imported as `@import("c")`, not the old `@cImport` (see below).
-2. `sqlite3_open(":memory:", &db)`. An in-memory database keeps the example
-   deterministic and leaves no file behind.
-3. `sqlite3_exec` for statements with no results, like `CREATE TABLE`.
-4. `sqlite3_prepare_v2` once, then bind, step, and reset per row for inserts.
-5. Step a `SELECT` and read columns until it returns `SQLITE_DONE`.
+1. Import the C API. On current Zig, this is a translate-c step in the build, imported as `@import("c")`. It is not the old `@cImport` (see below).
+2. Call `sqlite3_open(":memory:", &db)`. With an in-memory database, the example is deterministic, and it leaves no file.
+3. Use `sqlite3_exec` for statements with no results, for example `CREATE TABLE`.
+4. For inserts, call `sqlite3_prepare_v2` one time. Then bind, step and reset for each row.
+5. Step a `SELECT`, and read the columns until the step returns `SQLITE_DONE`.
 
 <Playground
   name="06-cookbook.sqlite-basic"
-  note="Links the system libsqlite3, so CI builds and runs it natively. Browser wasm cannot link a C library."
+  note="The program links the system libsqlite3. Thus CI builds and runs it natively. Browser wasm cannot link a C library."
 />
 
-## `@cImport` is gone; use translate-c
+## Zig removed `@cImport`: use translate-c
 
-If you are arriving from an older tutorial, the first line will not compile.
-Zig used to translate C headers inline with `@cImport`/`@cInclude`. That
-builtin was removed. Headers now come through a build-system step,
-`b.addTranslateC`, which produces a normal Zig module you import by name. This
-guide's `build.zig` does it from a marker on the snippet. It synthesizes a
-header that includes `sqlite3.h`, translates it, links `sqlite3`, and hands
-the module to the snippet. As a result, C imports are cached and configured
-like any other dependency, instead of being re-run on every compile.
+If you come from an older tutorial, the first line does not compile. Before, Zig translated C headers inline with `@cImport` and `@cInclude`. Zig removed that builtin.
+
+Now headers come through a step of the build system, `b.addTranslateC`. This step makes a usual Zig module that you import by name.
+
+The `build.zig` of this guide does this from a marker on the snippet:
+
+1. It makes a header that includes `sqlite3.h`.
+2. It translates that header.
+3. It links `sqlite3`.
+4. It gives the module to the snippet.
+
+As a result, the build caches and configures C imports as it does each other dependency. It does not run them again on each compile.
 
 ## Return codes become errors
 
-Every SQLite call returns an `int`: `SQLITE_OK` for the setup calls,
-`SQLITE_ROW` and `SQLITE_DONE` for stepping. Left as integers they are easy to
-ignore, which is how C programs skip error handling. The `check` helper
-compares the code against the expected one and returns a Zig error otherwise,
-so `try` enforces it and `sqlite3_errmsg` explains any failure. This is the
-main thing a Zig wrapper adds over the raw API.
+Each SQLite call returns an `int`. The setup calls return `SQLITE_OK`, and a step returns `SQLITE_ROW` or `SQLITE_DONE`.
+
+If the codes stay integers, it is easy to ignore them. That is how C programs skip error handling.
+
+The `check` helper compares the code with the expected code. If the codes are different, it returns a Zig error. Thus `try` makes the check necessary, and `sqlite3_errmsg` explains each failure. This is the main thing that a Zig wrapper adds to the raw API.
 
 ## Prepared statements, not string building
 
-The insert uses `?` placeholders and `sqlite3_bind_text`, never string
-concatenation. Placeholders keep user data out of the SQL grammar, so a name
-containing a quote is data, not syntax. Binding with `SQLITE_STATIC`
-as the destructor argument is a promise that the string outlives the step, so
-SQLite does not copy it. That is true here, because the values are string
-literals. `sqlite3_reset` rewinds the compiled statement so the next row
-reuses it instead of recompiling.
+The insert uses `?` placeholders and `sqlite3_bind_text`. It never joins strings. Placeholders keep user data out of the SQL grammar. Thus a name that contains a quote is data, not syntax.
 
-## Reading columns
+A bind with `SQLITE_STATIC` as the destructor argument is a promise: the string will exist after the step. Thus SQLite does not copy the string. The promise is true here, because the values are string literals.
 
-Stepping a `SELECT` returns `SQLITE_ROW` once per row. Columns are read by
-index and type: `sqlite3_column_int` for the id, `sqlite3_column_text` for the
-strings. The text accessor returns a C pointer, so `std.mem.span` turns it
-into a Zig slice for printing. The loop ends when `sqlite3_step` returns
-`SQLITE_DONE`.
+`sqlite3_reset` returns the compiled statement to its start. Thus the next row uses the same statement, and SQLite does not compile it again.
+
+## Read columns
+
+When you step a `SELECT`, the step returns `SQLITE_ROW` one time for each row. Read the columns by index and type: `sqlite3_column_int` for the id, and `sqlite3_column_text` for the strings.
+
+The text accessor returns a C pointer. Thus `std.mem.span` changes it into a Zig slice for the print. The loop ends when `sqlite3_step` returns `SQLITE_DONE`.
 
 ## Variations
 
-- **On disk:** pass a filename instead of `":memory:"` to persist. Everything
-  else is identical.
-- **Transactions:** wrap a batch of inserts in `BEGIN`/`COMMIT` via
-  `sqlite3_exec` to make them atomic and much faster.
-- **Other C libraries:** the same `//! link:` mechanism works for any system
-  library whose header matches its name. That is how
-  [struct memory layout](/learn/how-to/memory-layout/) and the
-  [ABI chapter](/learn/working-with-c/abi/) connect to the C side.
+- **On disk:** give a filename in place of `":memory:"` to keep the data. All of the other code is the same.
+- **Transactions:** put a batch of inserts between `BEGIN` and `COMMIT` with `sqlite3_exec`. Then the inserts are atomic and much faster.
+- **Other C libraries:** the same `//! link:` marker works for each system library with a header of the same name. For the layout rules on the C side, see [struct memory layout](/learn/how-to/memory-layout/) and the [ABI chapter](/learn/working-with-c/abi/).

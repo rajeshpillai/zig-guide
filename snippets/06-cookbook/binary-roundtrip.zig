@@ -1,5 +1,5 @@
 //! title: A Binary Wire Format
-//! Explicit bytes in, explicit bytes out. No @bitCast of structs.
+//! Write explicit bytes and read explicit bytes. Do not use @bitCast on structs.
 
 const std = @import("std");
 
@@ -11,17 +11,17 @@ const Header = struct {
 
     const encoded_len = 10; // 4 magic + 2 version + 4 length
 
-    // Field-by-field with a fixed endianness. Casting the struct's memory
-    // with @bitCast or std.mem.asBytes would put padding and the host's byte
-    // order into the format. That works in RAM and is wrong in a file or over
-    // a network.
+    // Write one field at a time with a fixed endianness. A cast of the memory
+    // of the struct with @bitCast or std.mem.asBytes puts padding and the byte
+    // order of the host into the format. That cast works in RAM. It is wrong
+    // in a file or on a network.
     fn encode(h: Header, buf: *[encoded_len]u8) void {
         std.mem.writeInt(u32, buf[0..4], MAGIC, .big);
         std.mem.writeInt(u16, buf[4..6], h.version, .big);
         std.mem.writeInt(u32, buf[6..10], h.payload_len, .big);
     }
 
-    // The decoder reads untrusted bytes, so check everything you read.
+    // The decoder reads untrusted bytes. Thus check all of the bytes that you read.
     fn decode(buf: *const [encoded_len]u8) error{BadMagic}!Header {
         if (std.mem.readInt(u32, buf[0..4], .big) != MAGIC) return error.BadMagic;
         return .{
@@ -50,7 +50,7 @@ pub fn main(init: std.process.Init) !void {
         decoded.version, decoded.payload_len,
     });
 
-    // Corrupt the first byte and the decoder refuses it.
+    // Change the first byte. The decoder does not accept the result.
     wire[0] ^= 0xFF;
     if (Header.decode(&wire)) |_| unreachable else |err| {
         try out.print("corrupted first byte: {t}\n", .{err});

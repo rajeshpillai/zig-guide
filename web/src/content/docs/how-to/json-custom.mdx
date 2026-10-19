@@ -1,75 +1,56 @@
 ---
 title: "Recipe: A Custom JSON Serializer"
-description: Give a struct a jsonStringify method to rename fields and add computed ones.
+description: Give a struct a jsonStringify method to rename fields and add computed fields.
 section: How-To
 order: 91.5
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-To control how Zig writes a struct as JSON, give the struct a `jsonStringify`
-method that drives the write stream with `beginObject`, `objectField`, `write`
-and `endObject`. Renaming a field or adding a computed value then takes no
-string building.
+To control how Zig writes a struct as JSON, give the struct a `jsonStringify` method. The method controls the write stream with `beginObject`, `objectField`, `write` and `endObject`. Then you can rename a field or add a computed value, and you do not have to build strings.
 
 ## The problem
 
-The default JSON serializer emits your struct exactly as declared: same field
-names, same values, nothing more. Often the wire format has to differ. The
-field is `is_admin` in Zig but `admin` in the API, or the response needs a
-value you compute rather than store. You want that control without
-hand-rolling string concatenation and without giving up the checks that keep
-the output valid.
+The default JSON serializer writes your struct exactly as you declared it: the same field names, the same values, and nothing more. Often the wire format must be different. For example, the field is `is_admin` in Zig but `admin` in the API. Or the response needs a value that you compute and do not store.
 
-When the type declares `pub fn jsonStringify`, `std.json.Stringify` calls it
-instead of walking the fields.
+You want that control. You do not want to join strings by hand, and you want to keep the checks that make the output valid.
+
+When the type declares `pub fn jsonStringify`, `std.json.Stringify` calls that function. It does not go through the fields itself.
 
 ## The plan
 
 1. Define the struct as usual.
-2. Add `pub fn jsonStringify(self: T, jws: anytype) !void`. `jws` is a
-   pointer to the write stream.
-3. Drive the stream: `beginObject`, then `objectField(name)` and `write(value)`
-   per field, then `endObject`.
-4. Serialize with `std.json.Stringify.value(x, .{}, writer)`. The hook is
-   picked up automatically.
+2. Add `pub fn jsonStringify(self: T, jws: anytype) !void`. `jws` is a pointer to the write stream.
+3. Control the stream: call `beginObject`, then `objectField(name)` and `write(value)` for each field, then `endObject`.
+4. Serialize with `std.json.Stringify.value(x, .{}, writer)`. The serializer finds the hook automatically.
 
 <Playground name="06-cookbook.json-custom" />
 
-## The hook, field by field
+## The hook, one field at a time
 
-`objectField("user_id")` writes the key, and `write(self.id)` writes the value
-with normal serialization, including quoting strings and escaping them.
-Because you name each key yourself, renaming is just typing a different
-string: `is_admin` becomes `admin`, `name` becomes `full_name`. The stream
-tracks structure, so if you forget an `endObject` or write a value where a key
-belongs, it is a compile-time or runtime error rather than silently malformed
-JSON.
+`objectField("user_id")` writes the key. `write(self.id)` writes the value with the usual serialization. For a string, that includes the quotes and the escape characters.
+
+You give the name of each key yourself. Thus, to rename a field, type a different string: `is_admin` becomes `admin`, and `name` becomes `full_name`.
+
+The stream records the structure. You can forget an `endObject`, or write a value where a key must be. Then you get an error at compile time or at runtime. The stream does not silently write JSON that is not valid.
 
 ## Computed fields
 
-`epoch_day` is not a struct field. The hook computes it from `created_at` and
-writes it like any other value. This is the main reason to write a custom
-serializer. The output can carry derived data, such as a formatted timestamp,
-a signed URL or a total, that you would not want to store on the struct
-itself.
+`epoch_day` is not a struct field. The hook computes the value from `created_at` and writes it as usual.
 
-## `write` versus `print`
+This is the main reason to write a custom serializer. The output can contain derived data that you do not want to store on the struct. Examples are a formatted timestamp, a signed URL or a total.
 
-`write(value)` serializes a Zig value as JSON: numbers stay numbers, strings
-get quoted. When you need to emit a literal fragment, `jws.print("{d}", .{n})`
-writes raw text into the stream, so you are responsible for the quotes and
-escaping. Prefer `write` unless you specifically need the raw form. `write`
-cannot produce invalid output.
+## `write` and `print`
+
+`write(value)` serializes a Zig value as JSON. Numbers stay numbers, and strings get quotes.
+
+To write a literal part of the text, use `jws.print("{d}", .{n})`. This function writes raw text into the stream. Thus you must supply the quotes and the escape characters yourself.
+
+Use `write` unless you specifically need the raw form. `write` cannot make output that is not valid.
 
 ## Variations
 
-- **Whitespace:** `std.json.Stringify.value(x, .{ .whitespace = .indent_2 }, w)`
-  pretty-prints with two-space indentation.
-- **Omitting fields:** a hook can skip a field entirely (write nothing for it),
-  which the default serializer cannot do.
-- **Unions and enums:** the same `jsonStringify` hook works on tagged unions and
-  enums, not just structs.
-- **The read side:** parsing back is covered by
-  [the JSON config recipe](/learn/how-to/json-config/), which validates the shape as
-  it loads.
+- **Whitespace:** `std.json.Stringify.value(x, .{ .whitespace = .indent_2 }, w)` writes the JSON with an indent of two spaces.
+- **Omit fields:** a hook can omit a field fully, because it can write nothing for that field. The default serializer cannot do this.
+- **Unions and enums:** the same `jsonStringify` hook works on tagged unions and enums, not only on structs.
+- **The read side:** [the JSON config recipe](/learn/how-to/json-config/) shows how to parse the JSON back. That recipe validates the shape when it loads the config.

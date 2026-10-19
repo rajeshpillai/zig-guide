@@ -1,64 +1,45 @@
 ---
 title: "Recipe: Catching Memory Leaks"
-description: Make the test suite prove that every allocation is freed.
+description: Make the test suite prove that the code frees each allocation.
 section: How-To
 order: 93
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig tests catch memory leaks by allocating through `std.testing.allocator`,
-and catch leaks on error paths with `std.testing.FailingAllocator`, which
-makes a chosen allocation return `error.OutOfMemory`.
+Zig tests find memory leaks when the tests allocate through `std.testing.allocator`. To find leaks on error paths, use `std.testing.FailingAllocator`. This allocator makes a selected allocation return `error.OutOfMemory`.
 
 ## The problem
 
-Manual memory management means every `alloc` needs a matching `free`, on every
-path, including the paths that only happen when something else fails. Reading
-the code very carefully does not scale. You want the test suite to fail, with
-a stack trace, the moment a path leaks.
+With manual memory management, each `alloc` needs a `free` that matches it. The `free` must occur on each path, and also on the paths that occur only when a different operation fails.
 
-A test that ends with anything still allocated through
-`std.testing.allocator` **fails**, printing where the orphaned memory was
-allocated.
+A careful read of the code does not work when the code becomes large. You want the test suite to fail, with a stack trace, immediately when a path leaks memory.
+
+If memory from `std.testing.allocator` is still allocated at the end of a test, the test **fails**. The allocator shows where the program allocated the memory that has no owner.
 
 ## The plan
 
-1. Route all allocation in tests through `std.testing.allocator`.
-2. For any `init` that makes more than one allocation, cover the halfway
-   failure with `std.testing.FailingAllocator`, which succeeds N times and
-   then returns `error.OutOfMemory` on purpose.
-3. Where many small allocations share one lifetime, use an arena so cleanup
-   is a single call instead of one `free` per allocation.
+1. Send all of the allocations in tests through `std.testing.allocator`.
+2. Some `init` functions make more than one allocation. For each of these functions, test the failure in the middle with `std.testing.FailingAllocator`. This allocator succeeds N times. Then it returns `error.OutOfMemory` on purpose.
+3. If many small allocations have the same lifetime, use an arena. Then the cleanup is one call, and not one `free` for each allocation.
 
 <Playground name="06-cookbook.catching-leaks" />
 
-## The failure path is the one that leaks
+## The failure path is the path that leaks
 
-Look at `Buffers.init`. The first `alloc` succeeds, the second may fail. On
-that path the function returns an error, the caller never receives the struct,
-and `a` would be orphaned. The `errdefer gpa.free(a)` runs exactly on that
-error return and nowhere else.
+Look at `Buffers.init`. The first `alloc` succeeds, and the second `alloc` can fail. On that path, the function returns an error, and the caller does not get the struct. Thus `a` has no owner.
 
-The second test proves it. `FailingAllocator` with `fail_index = 1` lets the
-first allocation through and fails the second, forcing `init` down the error
-path. If you delete the `errdefer` line, this test fails with a leak report.
-Copy this pattern: give every multi-allocation `init` a test that fails each
-allocation in turn.
+The `errdefer gpa.free(a)` runs on that error return and on no other path.
+
+The second test proves this. `FailingAllocator` with `fail_index = 1` lets the first allocation succeed and makes the second allocation fail. Thus `init` must take the error path. If you remove the `errdefer` line, this test fails with a leak report.
+
+Copy this pattern. For each `init` that makes more than one allocation, write a test that makes each allocation fail, one after the other.
 
 ## Why this works in ReleaseFast too
 
-Leak detection here is a property of the allocator, not of a build mode.
-`std.testing.allocator` is a `std.heap.SafeAllocator`. It keeps its own
-record of every live allocation, whatever mode the code under test is
-compiled in. So CI catches leaks without shipping a debug build.
+Here, the allocator finds the leaks, not the build mode. `std.testing.allocator` is a `std.heap.SafeAllocator`. It keeps its own record of each live allocation, in all build modes of the tested code. Thus CI finds leaks, and you do not have to ship a debug build.
 
 ## Variations
 
-- **Whole-program leak checking:** run the whole program on a
-  `std.heap.SafeAllocator` and call `deinit` at exit. It returns the number of
-  leaks and logs where each one was allocated. (`GeneralPurposeAllocator` is
-  gone from master, and `DebugAllocator` is deprecated in favour of this one.)
-- **Exhaustive failure injection:** `std.testing.checkAllAllocationFailures`
-  runs a function once per allocation it makes, failing a different one each
-  time. It automates the `fail_index` sweep this recipe does by hand.
+- **Leak checks for the full program:** run the full program on a `std.heap.SafeAllocator`, and call `deinit` at exit. `deinit` returns the number of leaks and logs where the program allocated each leak. (Master does not have `GeneralPurposeAllocator` now, and `DebugAllocator` is deprecated. Use `SafeAllocator`.)
+- **Failure injection for all allocations:** `std.testing.checkAllAllocationFailures` runs a function one time for each allocation that the function makes. Each time, it makes a different allocation fail. It does automatically the `fail_index` sweep that this recipe does by hand.

@@ -1,5 +1,5 @@
 //! title: A SIMD Dot Product
-//! @Vector processes lanes in parallel; the tail stays scalar.
+//! @Vector processes lanes in parallel. The tail stays scalar.
 //! simd
 
 const std = @import("std");
@@ -16,17 +16,17 @@ fn dotScalar(xs: []const i32, ys: []const i32) i64 {
 fn dotSimd(xs: []const i32, ys: []const i32) i64 {
     var acc: V = @splat(0);
     var i: usize = 0;
-    // Whole vectors first. The slice-to-array cast `[0..Lanes].*` is what
-    // turns Lanes contiguous elements into vector operands.
+    // Full vectors first. The cast from slice to array, `[0..Lanes].*`,
+    // changes Lanes contiguous elements into vector operands.
     while (i + Lanes <= xs.len) : (i += Lanes) {
         const x: V = xs[i..][0..Lanes].*;
         const y: V = ys[i..][0..Lanes].*;
-        acc += x * y; // one multiply and one add across all lanes
+        acc += x * y; // one multiply and one add on all lanes
     }
-    // Horizontal step: collapse the lanes into one number.
+    // Horizontal step: add the lanes together into one number.
     var total: i64 = @reduce(.Add, acc);
-    // The tail. A length that is not a multiple of Lanes leaves up to
-    // Lanes - 1 elements. Finish them with a scalar loop.
+    // The tail. If the length is not a multiple of Lanes, up to Lanes - 1
+    // elements remain. Do them with a scalar loop.
     while (i < xs.len) : (i += 1) total += @as(i64, xs[i]) * ys[i];
     return total;
 }
@@ -36,7 +36,7 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // 10 elements: two full vectors of 4, plus a tail of 2.
+    // 10 elements: two full vectors of 4, and a tail of 2.
     var xs: [10]i32 = undefined;
     var ys: [10]i32 = undefined;
     for (&xs, &ys, 0..) |*x, *y, i| {

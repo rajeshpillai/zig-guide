@@ -1,12 +1,12 @@
-//! title: SIMD Byte Scanning
-//! Splat, load, compare, extract, tail: the whole pattern in one scan.
+//! title: SIMD Byte Scan
+//! Splat, load, compare, extract, tail: the full pattern in one scan.
 //! simd
 
 const std = @import("std");
 
-// The scalar baseline: a loop found in most parsers. Inside a JSON
-// string, the next byte that matters is the closing quote or the start of
-// an escape sequence.
+// The scalar baseline: a loop that most parsers have. Inside a JSON string,
+// the next important byte is the quote at the end or the start of an escape
+// sequence.
 fn findSpecialScalar(bytes: []const u8, start: usize) ?usize {
     var i = start;
     while (i < bytes.len) : (i += 1) {
@@ -17,40 +17,40 @@ fn findSpecialScalar(bytes: []const u8, start: usize) ?usize {
 
 // The same scan, one register at a time.
 fn findSpecialSimd(bytes: []const u8, start: usize) ?usize {
-    // Ask the target how many u8 lanes fit its vector registers. Null means
-    // the target has no SIMD. Then return the scalar version, and the code
-    // below is not compiled.
+    // Ask the target how many u8 lanes its vector registers hold. Null means
+    // that the target has no SIMD. Then return the scalar version. The
+    // compiler does not compile the code below.
     const lanes = std.simd.suggestVectorLength(u8) orelse
         return findSpecialScalar(bytes, start);
     const V = @Vector(lanes, u8);
     const Mask = @Int(.unsigned, lanes); // one bit per lane
 
-    // Step 1: broadcast each byte we look for into every lane, once.
+    // Step 1: copy each byte to find into each lane, one time.
     const quote: V = @splat('"');
     const backslash: V = @splat('\\');
 
-    // Step 2: walk the slice a whole vector at a time.
+    // Step 2: move through the slice one full vector at a time.
     var i = start;
     while (i + lanes <= bytes.len) : (i += lanes) {
         const chunk: V = bytes[i..][0..lanes].*;
 
-        // Step 3: compare every lane at once. Each == yields a
-        // @Vector(lanes, bool). Bitcasting packs that into an integer with
-        // lane 0 in the lowest bit, and integer | merges the two predicates.
+        // Step 3: compare all lanes at one time. Each == gives a
+        // @Vector(lanes, bool). The bitcast packs that vector into an integer
+        // with lane 0 in the lowest bit. An integer | merges the two results.
         const hits: Mask = @as(Mask, @bitCast(chunk == quote)) |
             @as(Mask, @bitCast(chunk == backslash));
 
-        // Step 4: zero means no lane matched. Otherwise the number of
-        // trailing zeros is the index of the first matching lane.
+        // Step 4: zero means that no lane matched. If the value is not zero,
+        // the number of trailing zeros is the index of the first lane that matched.
         if (hits != 0) return i + @ctz(hits);
     }
 
-    // Step 5: fewer than `lanes` bytes remain. Finish with the scalar loop.
+    // Step 5: fewer than `lanes` bytes remain. Do them with the scalar loop.
     return findSpecialScalar(bytes, i);
 }
 
-// Same pattern, different step 4: instead of stopping at the first match,
-// count set bits per chunk and keep going.
+// The same pattern with a different step 4. Do not stop at the first match.
+// Count the set bits in each chunk, and continue.
 fn countScalar(bytes: []const u8, needle: u8) usize {
     var total: usize = 0;
     for (bytes) |b| total += @intFromBool(b == needle);
@@ -88,7 +88,7 @@ pub fn main(init: std.process.Init) !void {
     else
         try out.print("lanes:  none, scalar fallback\n", .{});
 
-    // Scan the "msg" string: where does its content stop being plain bytes?
+    // Scan the "msg" string. Find the first byte that is not a plain byte.
     const value_start = std.mem.find(u8, doc, "\"msg\": \"").? + "\"msg\": \"".len;
     const scalar_hit = findSpecialScalar(doc, value_start);
     const simd_hit = findSpecialSimd(doc, value_start);

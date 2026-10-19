@@ -1,6 +1,6 @@
 //! title: An Atomic Work Index
 //! native
-//! When chunks are uneven, let threads pull the next job themselves.
+//! When chunks are not equal, let each thread get the next job itself.
 
 const std = @import("std");
 
@@ -12,8 +12,8 @@ const jobs = blk: {
 
 fn worker(next: *std.atomic.Value(usize), total: *std.atomic.Value(u64)) void {
     while (true) {
-        // fetchAdd hands out each index exactly once, no lock involved.
-        // Two threads can race here and still never get the same job.
+        // fetchAdd gives each index exactly one time, with no lock. Two threads
+        // can race here, but they never get the same job.
         const i = next.fetchAdd(1, .monotonic);
         if (i >= jobs.len) return;
 
@@ -36,8 +36,8 @@ pub fn main(init: std.process.Init) !void {
     }
     for (threads) |t| t.join();
 
-    // Threads finished in some order, but every job ran exactly once, so
-    // the sum is the same on every run.
+    // The threads completed in a random order. But each job ran exactly one
+    // time. Thus the sum is the same on each run.
     try out.print("sum of squares 1..100: {d}\n", .{total.load(.monotonic)});
 
     try out.flush();

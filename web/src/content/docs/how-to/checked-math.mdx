@@ -1,60 +1,56 @@
 ---
 title: "Recipe: Overflow Without Panics"
-description: Handling arithmetic that might not fit, without undefined behavior and without crashing.
+description: Do arithmetic on values that can be too large, without undefined behavior and without a crash.
 section: How-To
 order: 95
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Plain `+` in Zig panics on overflow in safe builds. To handle overflow
-instead, choose one of four explicit forms: `std.math.add` returns
-`error.Overflow`, `+|` saturates, `+%` wraps, and `@addWithOverflow` returns
-the result with a flag.
+In safe builds, a plain `+` in Zig panics on overflow. To handle the overflow, select one of four explicit forms:
+
+- `std.math.add` returns `error.Overflow`.
+- `+|` saturates.
+- `+%` wraps.
+- `@addWithOverflow` returns the result and a flag.
 
 ## The problem
 
-You are adding numbers that come from outside your control: user input, a
-file, a network peer. `200 + 100` does not fit in a `u8`. In C that overflow
-is undefined behavior (signed) or silent wraparound (unsigned). In Zig, plain
-`+` on a value that does not fit **panics** in safe builds. That panic is
-correct for a programming bug, and wrong for input handling. The program
-should handle bad input, not die.
+You add numbers that you do not control: user input, a file or a network peer. `200 + 100` is too large for a `u8`.
+
+In C, this overflow is undefined behavior for a signed type. For an unsigned type, the value wraps and no error occurs. In Zig, in safe builds, a plain `+` **panics** when the result is too large for the type.
+
+The panic is correct for a programming bug. It is wrong for input. The program must handle bad input, and it must not stop.
 
 ## The plan
 
-Pick the operator that states what overflow means for this value:
+Select the operator that tells what overflow means for this value:
 
 | You want | Use | On overflow |
 | --- | --- | --- |
 | an error to handle | `std.math.add(T, a, b)` | returns `error.Overflow` |
-| clamp at the bounds | `a +| b` | yields `maxInt` / `minInt` |
+| a value that stops at the limits | `a +| b` | gives `maxInt` / `minInt` |
 | modular arithmetic | `a +% b` | wraps, by definition |
 | the flag and the bits | `@addWithOverflow(a, b)` | returns both |
 
 <Playground name="06-cookbook.checked-math" />
 
-## Choosing between them
+## Select a form
 
-- **`std.math.add`** belongs at trust boundaries. The caller gets an
-  error value and decides what "too big" means: reject the request, log it,
-  fall back to a default.
-- **Saturating (`+|`)** fits quantities where pinning at the limit is
-  meaningful: volume, progress, brightness. The result is not the true sum,
-  but stopping at the limit is the behavior you want.
-- **Wrapping (`+%`)** is for domains that are modular: hashes, checksums,
-  ring buffer indices, sequence numbers. Using it on a quantity only to avoid
-  a panic hides a bug.
-- **`@addWithOverflow`** is the low-level tool: you get the wrapped result
-  and a `u1` flag, so multi-word arithmetic can propagate the carry.
+- **`std.math.add`** is correct at trust boundaries. The caller gets an error value and decides what "too large" means. For example, the caller can refuse the request, log the error or use a default value.
+- **Saturating (`+|`)** is correct for quantities where a value at the limit has a meaning: volume, progress, brightness. The result is not the true sum, but a stop at the limit is the behavior that you want.
+- **Wrapping (`+%`)** is for domains that are modular: hashes, checksums, ring buffer indices and sequence numbers. If you use it on a quantity only to prevent a panic, it hides a bug.
+- **`@addWithOverflow`** is the low-level tool. You get the wrapped result and a `u1` flag. Thus arithmetic on more than one word can move the carry to the next word.
 
-Subtraction and multiplication have the same four spellings: `std.math.sub`
-and `std.math.mul`, the `-|` and `*|` operators, `-%` and `*%`, and
-`@subWithOverflow` and `@mulWithOverflow`.
+Subtraction and multiplication have the same four forms:
 
-## Why plain `+` should stay plain
+- `std.math.sub` and `std.math.mul`
+- the `-|` and `*|` operators
+- `-%` and `*%`
+- `@subWithOverflow` and `@mulWithOverflow`
 
-It is tempting to use `+%` everywhere so nothing ever panics. Don't. A panic
-in a safe build points at the exact line where an assumption broke. A wrap
-keeps running with a corrupt value. Use plain `+` where overflow would be a
-bug, and an explicit form where overflow is an input condition.
+## Why plain `+` must stay plain
+
+You can use `+%` everywhere, and then no operation panics. Do not do this. In a safe build, a panic shows the exact line where an assumption was false. A wrap continues with an incorrect value.
+
+Use plain `+` where overflow is a bug. Use an explicit form where overflow is a condition of the input.

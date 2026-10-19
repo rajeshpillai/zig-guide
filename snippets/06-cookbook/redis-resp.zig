@@ -1,11 +1,12 @@
 //! title: A Redis RESP Round Trip
 //! native
-//! A tiny RESP server and client in one process: SET and GET over the wire.
+//! A small RESP server and client in one process: SET and GET over the wire.
 
 const std = @import("std");
 
-// A RESP command is an array of bulk strings: `*<n>\r\n` then, per argument,
-// `$<len>\r\n<bytes>\r\n`. A real redis-server accepts exactly this format.
+// A RESP command is an array of bulk strings: `*<n>\r\n`, then
+// `$<len>\r\n<bytes>\r\n` for each argument. A real redis-server accepts
+// exactly this format.
 fn sendCommand(w: *std.Io.Writer, args: []const []const u8) !void {
     try w.print("*{d}\r\n", .{args.len});
     for (args) |a| {
@@ -17,12 +18,12 @@ fn sendCommand(w: *std.Io.Writer, args: []const []const u8) !void {
 }
 
 // takeDelimiterInclusive consumes the '\n' (the Exclusive form leaves it in the
-// stream). Trimming drops the trailing "\r\n" a RESP line ends with.
+// stream). The trim removes the "\r\n" at the end of each RESP line.
 fn line(r: *std.Io.Reader) ![]const u8 {
     return std.mem.trimEnd(u8, try r.takeDelimiterInclusive('\n'), "\r\n");
 }
 
-// --- server: a one-connection key-value store speaking RESP ---
+// --- server: a key-value store for one connection, with RESP ---
 
 const Store = std.StringHashMapUnmanaged([]const u8);
 
@@ -47,7 +48,7 @@ fn serveImpl(server: *std.Io.net.Server, io: std.Io) !void {
     const w = &writer.interface;
 
     while (true) {
-        // Parse one command array. A clean EOF ends the loop.
+        // Parse one command array. A clean EOF stops the loop.
         const header = line(r) catch break;
         if (header.len == 0 or header[0] != '*') break;
         const n = try std.fmt.parseInt(usize, header[1..], 10);
@@ -86,7 +87,7 @@ fn serveImpl(server: *std.Io.net.Server, io: std.Io) !void {
     }
 }
 
-// --- client: send a command, decode the one-line RESP reply ---
+// --- client: send a command, and decode the one-line RESP reply ---
 
 fn printReply(r: *std.Io.Reader, out: *std.Io.Writer) !void {
     const l = try line(r);
@@ -117,7 +118,7 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // Start the small server on a port the OS chooses, then talk to it.
+    // Start the small server on a port that the OS selects. Then connect to it.
     const any_port = try std.Io.net.IpAddress.parse("127.0.0.1", 0);
     var server = try any_port.listen(io, .{});
     defer server.deinit(io);

@@ -1,6 +1,6 @@
 ---
 title: "Recipe: The PostgreSQL Wire Protocol"
-description: Speak Postgres directly, framing a startup handshake and a query by hand.
+description: Use the Postgres protocol directly, and frame a startup handshake and a query by hand.
 section: How-To
 order: 110
 group: Databases
@@ -8,81 +8,71 @@ group: Databases
 
 import Playground from "../../../../components/Playground.astro";
 
-A Zig program can speak the PostgreSQL wire protocol with no driver. After the
-startup message, every message is a one-byte type, a big-endian `Int32` length
-that counts itself, and the payload.
+A Zig program can use the PostgreSQL wire protocol with no driver. After the startup message, each message has three parts: a one-byte type, a big-endian `Int32` length that counts itself, and the payload.
 
 ## The problem
 
-A Postgres driver is mostly a codec for one TCP protocol. Seeing that protocol
-without a driver in the way shows you what a query actually costs and where a
-hang comes from. This recipe implements enough of
-both ends to complete a startup handshake and run one query, so the exact
-bytes are on the page.
+A Postgres driver is mostly a codec for one TCP protocol. When you see that protocol without a driver, you see the real cost of a query, and the cause of a hang.
 
-As with the other database recipes, it runs a mock backend in the same
-process, so CI runs and diffs the whole exchange without a running `postgres`.
-The framing is the real protocol. Only the auth and the query engine are
-stubbed.
+This recipe implements a part of both ends, sufficient to complete a startup handshake and run one query. Thus the exact bytes are on the page.
+
+The other database recipes run a mock backend in the same process, and this recipe does too. Thus CI runs the full exchange and compares the output, without a `postgres` that runs. The framing is the real protocol. Only the authentication and the query engine are stubs.
 
 ## The plan
 
-1. Everything is big-endian. Write one `putInt` and one `getInt` and reuse them.
-2. Send a `StartupMessage`: it has no type byte, just a length and a list of
-   parameters ending in a null.
-3. Read the backend's reply stream until `ReadyForQuery` (`Z`), decoding each
-   message by its type byte.
-4. Send a `Query` (`Q`) and read `RowDescription` (`T`), `DataRow` (`D`),
-   `CommandComplete` (`C`), and the next `ReadyForQuery`.
+1. All of the integers are big-endian. Write one `putInt` and one `getInt`, and use them everywhere.
+2. Send a `StartupMessage`. It has no type byte, only a length and a list of parameters that ends in a null.
+3. Read the reply stream of the backend until `ReadyForQuery` (`Z`). Decode each message by its type byte.
+4. Send a `Query` (`Q`). Then read `RowDescription` (`T`), `DataRow` (`D`), `CommandComplete` (`C`) and the next `ReadyForQuery`.
 
 <Playground
   name="06-cookbook.postgres-wire"
-  note="A self-contained client and mock backend, built and run natively by CI. No postgres server, and browser wasm has no sockets."
+  note="A client and a mock backend in one program, with no other parts. CI builds and runs it natively. It needs no postgres server, and browser wasm has no sockets."
   tryLocally="zig run postgres-wire.zig"
 />
 
 ## Two message shapes
 
-After the first message, every Postgres message has the same frame: a one-byte
-type, an `Int32` length that counts itself but not the type byte, then `length
-- 4` bytes of payload. `sendMsg` and `readMsg` encode exactly that, so the
-rest of the code only cares about payloads. The startup message is the one
-exception: it predates the type-byte convention, so it is a bare length and
-body. Because of this difference, `sendStartup` and `readMsg` are separate.
+After the first message, each Postgres message has the same frame:
+
+1. a one-byte type
+2. an `Int32` length that counts itself but not the type byte
+3. `length - 4` bytes of payload
+
+`sendMsg` and `readMsg` encode exactly that frame. Thus the other code works only with payloads.
+
+The startup message is the one exception. It is older than the type-byte convention. Thus it is only a length and a body. Because of this difference, `sendStartup` and `readMsg` are separate.
 
 ## The handshake is a stream, not a call
 
-Sending the startup message does not get you one reply. The backend answers
-with a run of messages. `AuthenticationOk` first. Then one `ParameterStatus`
-per server setting (`server_version`, `client_encoding`, and normally a dozen
-more). Then `BackendKeyData` with the process id and secret used to cancel
-queries. And finally `ReadyForQuery`. The client loops until it sees `Z`,
-which is the signal that the connection is usable. A real driver caches those
-parameters and the cancel key here.
+When you send the startup message, you do not get one reply. The backend replies with a sequence of messages:
 
-## Reading a result
+1. `AuthenticationOk`.
+2. One `ParameterStatus` for each server setting (`server_version`, `client_encoding`, and usually about twelve more).
+3. `BackendKeyData`, with the process id and the secret that a client uses to cancel queries.
+4. `ReadyForQuery`.
 
-A query answers with the same streaming shape. `RowDescription` names the
-columns and their types. `DataRow` carries one row as length-prefixed column
-values, where a length of -1 means SQL `NULL`. `CommandComplete` reports the
-tag. And `ReadyForQuery` closes the batch. The `Cursor` helper walks a payload
-with an index, reading integers and null-terminated strings, which is all the
-parsing these messages need.
+The client loops until it sees `Z`. That message tells the client that the connection is ready to use. A real driver caches the parameters and the cancel key here.
 
-## Flush or hang
+## Read a result
 
-Every send here is followed by a flush, because the first version of this
-recipe hung without it. The socket writer buffers, so a message you "sent" is
-still in your buffer until you flush. If both sides then block reading,
-neither side can continue. This is a common wire-protocol deadlock. It is easy
-to introduce as soon as a send is not immediately followed by a flush.
+A query replies with the same stream shape:
+
+- `RowDescription` gives the names of the columns and their types.
+- `DataRow` contains one row as column values, each with its length before it. A length of -1 means SQL `NULL`.
+- `CommandComplete` reports the tag.
+- `ReadyForQuery` closes the batch.
+
+The `Cursor` helper moves through a payload with an index. It reads integers and null-terminated strings. These messages need only that parse.
+
+## Flush, or the program hangs
+
+Each send here has a flush after it, because the first version of this recipe hung without the flush. The socket writer has a buffer. Thus a message that you "sent" stays in your buffer until you flush.
+
+If both sides then block on a read, neither side can continue. This is a common deadlock in wire protocols. It is easy to cause this deadlock when a flush does not immediately follow a send.
 
 ## Variations
 
-- **Real auth:** the backend can answer startup with `AuthenticationCleartextPassword`
-  or an MD5/SCRAM challenge instead of `AuthenticationOk`. The client replies
-  with a `PasswordMessage` and the loop continues.
-- **Prepared statements:** the extended-query protocol replaces `Q` with
-  `Parse`/`Bind`/`Execute`, which is how parameters stay out of the SQL text.
-- **A local database instead:** for persistence without a server or a protocol,
-  [SQLite from Zig](/learn/how-to/databases/sqlite-basic/) links the C library directly.
+- **Real authentication:** the backend can reply to the startup with `AuthenticationCleartextPassword` or with an MD5 or SCRAM challenge, in place of `AuthenticationOk`. The client replies with a `PasswordMessage`, and the loop continues.
+- **Prepared statements:** the extended-query protocol replaces `Q` with `Parse`, `Bind` and `Execute`. With this protocol, parameters stay out of the SQL text.
+- **A local database:** to keep data without a server or a protocol, [SQLite from Zig](/learn/how-to/databases/sqlite-basic/) links the C library directly.

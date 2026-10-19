@@ -1,83 +1,68 @@
 ---
 title: "Recipe: Vector Algebra"
-description: Dot, length, normalize, and cross on @Vector, written like math instead of loops.
+description: Dot, length, normalize and cross on @Vector, written as math and not as loops.
 section: How-To
 order: 97.5
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Vector math on Zig's `@Vector(3, f32)` uses ordinary operators: the dot
-product is `@reduce(.Add, a * b)`, and normalizing divides by `@splat(len)`.
-Only the cross product has to index specific lanes.
+Vector math on the `@Vector(3, f32)` type of Zig uses the usual operators. The dot product is `@reduce(.Add, a * b)`, and normalization divides by `@splat(len)`. Only the cross product must use specific lanes by index.
 
 ## The problem
 
-You are doing 3D work (graphics, physics, a game) and need the four
-staples: dot product, length, normalization, and cross product. Written as
-scalar loops they are noisy and easy to get subtly wrong. With `@Vector` the
-code reads like the math it implements, and the compiler emits SIMD.
+You do 3D work (graphics, physics, a game), and you need the four basic operations: dot product, length, normalization and cross product.
 
-Two steps are easy to get wrong: collapsing a vector back to a single number,
-and pushing a single number back out into a vector.
+As scalar loops, these operations are hard to read, and it is easy to make small errors in them. With `@Vector`, the code looks like the math that it implements, and the compiler emits SIMD.
+
+Errors usually occur in two steps:
+
+- the change from a vector to one number
+- the change from one number to a vector
 
 ## The plan
 
-1. Pick a vector type. `@Vector(3, f32)` is three `f32` lanes.
-2. Dot product: multiply lane-by-lane, then add the lanes together.
-3. Length is `sqrt(dot(v, v))`, which reuses the dot you already wrote.
-4. Normalize divides every lane by the length, in one operation.
-5. Cross is the exception: it references specific lanes, so it cannot be
-   written width-generic like the others.
+1. Select a vector type. `@Vector(3, f32)` has three `f32` lanes.
+2. Dot product: multiply each lane by the same lane of the other vector, then add the lanes together.
+3. Length is `sqrt(dot(v, v))`. It uses the dot function again.
+4. Normalization divides each lane by the length, in one operation.
+5. Cross is the exception. It uses specific lanes. Thus you cannot write it for all widths, as you can write the other operations.
 
 <Playground name="06-cookbook.vector-algebra" />
 
-## `@reduce` collapses lanes to a scalar
+## `@reduce` changes lanes to a scalar
 
-`a * b` multiplies element-wise and stays a vector. To get a dot product you
-still need the horizontal step: add lane 0 plus lane 1 plus lane 2 into one
-number. That is `@reduce(.Add, product)`. The same builtin does `.Min`,
-`.Max`, `.Mul`, and the bitwise reductions, so it is the general way to turn
-a vector into a scalar. Because `dot` only uses `@reduce` and `*`, it works
-for any width. `length` is built on `dot`, so it works for any width too.
+`a * b` multiplies element by element, and the result is a vector. For a dot product, you also need the horizontal step: add lane 0, lane 1 and lane 2 into one number. That step is `@reduce(.Add, product)`.
 
-## `@splat` goes the other way
+The same builtin does `.Min`, `.Max`, `.Mul` and the bitwise reductions. Thus it is the general way to change a vector into a scalar.
 
-Normalization needs to divide every lane by one scalar, the length. You
-cannot divide a vector by a scalar directly. `@splat(len)` broadcasts the
-scalar into a vector whose lanes are all `len`, and then `v / len_vec` is a
-single lane-wise division. The guard on a near-zero length is needed. A zero
-vector has no direction, and dividing by its length would produce `nan`
-lanes. Those `nan` values then silently spread into every later computation.
+The body of `dot` uses only `@reduce` and `*`. Thus the body works for all widths. `length` uses `dot`, thus it also works for all widths.
 
-## Cross is the odd one out
+## `@splat` does the opposite
 
-Dot, length, and normalize never care which lane is which, so they generalize
-to any size. Cross does care. It is defined only for 3D, and each output lane
-reads two specific input lanes. So `cross` takes `@Vector(3, f32)` explicitly
-and indexes with `a[1]`, `a[2]`, and so on. `Right × Up = Forward` in a
-right-handed frame, which the snippet prints as `(0, 0, 1)`.
+Normalization must divide each lane by one scalar, the length. You cannot divide a vector by a scalar directly.
 
-## The length comes back exactly one, and that is luck
+`@splat(len)` copies the scalar into a vector with `len` in all lanes. Then `v / len_vec` is one division on all lanes.
 
-The result prints `normal = (0.000, 0.600, 0.800) (len 1.000)`, and here the
-length really is exactly `1.0`, not a rounded `0.999`. 3, 4, 5 is a
-Pythagorean triple, so even though `0.6` and `0.8` are not exactly
-representable in `f32`, their squares sum back to exactly one. Other vectors
-may not come back exact. Normalize two thousand random vectors and about a third of
-them come back a bit or two off. When you compare vector lengths, compare
-against a tolerance rather than testing equality with `1.0`.
+The guard for a length near zero is necessary. A zero vector has no direction, and a division by its length gives `nan` lanes. These `nan` values then silently go into each later computation.
+
+## Cross is different
+
+Dot, length and normalize do not depend on the position of each lane. Thus they work for all sizes. Cross depends on the positions. Cross exists only for 3D, and each output lane reads two specific input lanes.
+
+Thus `cross` takes `@Vector(3, f32)` explicitly, and it uses indexes such as `a[1]` and `a[2]`. In a right-handed frame, `Right × Up = Forward`. The snippet prints this result as `(0, 0, 1)`.
+
+## The length is exactly one by chance
+
+The result prints `normal = (0.000, 0.600, 0.800) (len 1.000)`. Here, the length is really exactly `1.0`, not a rounded `0.999`.
+
+3, 4, 5 is a Pythagorean triple. `f32` cannot represent `0.6` and `0.8` exactly, but the sum of their squares is exactly one.
+
+Other vectors can give a length that is not exact. If you normalize two thousand random vectors, about a third of the results are one or two bits from one. When you compare vector lengths, use a tolerance. Do not test for equality with `1.0`.
 
 ## Variations
 
-- **Other widths:** the same `dot`, `length`, and `normalize` work on
-  `@Vector(2, f32)` or `@Vector(4, f32)` unchanged. Only `cross` is fixed
-  to three lanes.
-- **Doubles:** swap `f32` for `f64` when you need the precision and can spend
-  the lanes.
-- **Building on it:** reflection, projection, and lerp each need only a dot,
-  a `@splat`, and some arithmetic, so they follow the same shape.
-- **Bulk arithmetic instead of geometry:**
-  [the SIMD dot product recipe](/learn/how-to/simd-sum/) uses the same `@reduce`
-  over long arrays, with a scalar tail, when the vectors are data rather
-  than points in space.
+- **Other widths:** the bodies of `dot`, `length` and `normalize` work without change on `@Vector(2, f32)` or `@Vector(4, f32)`. Only `cross` must have three lanes.
+- **Doubles:** use `f64` in place of `f32` when you need the precision and can pay with fewer lanes.
+- **More operations:** reflection, projection and lerp each need only a dot, a `@splat` and some arithmetic. Thus they use the same shape.
+- **Arithmetic on large data, not geometry:** [the SIMD dot product recipe](/learn/how-to/simd-sum/) uses the same `@reduce` over long arrays, with a scalar tail. Use it when the vectors are data and not points in space.

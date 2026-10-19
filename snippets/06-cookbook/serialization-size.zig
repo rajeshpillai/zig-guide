@@ -1,5 +1,5 @@
 //! title: JSON vs Binary, by Size
-//! The same records as text and as packed bytes, measured. Seeded, so exact.
+//! The same records as text and as packed bytes, measured. A seed makes the sizes exact.
 
 const std = @import("std");
 
@@ -25,7 +25,7 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // Fixed seed: the data, and therefore every size below, is reproducible.
+    // Fixed seed: the data, and thus each size below, is reproducible.
     var prng = std.Random.DefaultPrng.init(42);
     const random = prng.random();
 
@@ -38,12 +38,12 @@ pub fn main(init: std.process.Init) !void {
         .event_type = @enumFromInt(random.int(u8) % 3),
     };
 
-    // JSON: let the standard serializer produce the text, then measure it.
+    // JSON: the standard serializer makes the text. Then measure the text.
     var json: std.Io.Writer.Allocating = .init(gpa);
     try std.json.Stringify.value(events, .{}, &json.writer);
     const json_bytes = json.written().len;
 
-    // Binary: a fixed-width little-endian record per event.
+    // Binary: one little-endian record of fixed width for each event.
     var bin: std.ArrayList(u8) = .empty;
     for (events) |e| {
         var rec: [record_bytes]u8 = @splat(0);

@@ -3,23 +3,24 @@
 
 const std = @import("std");
 
-// Default (auto) layout. The compiler picks offsets for this target. It is
-// free to add padding so each field sits on its natural alignment.
+// Default (auto) layout. The compiler selects the offsets for this target.
+// It can add padding, so that each field is on its natural alignment.
 const Padded = struct {
     a: u8,
     b: u64,
     c: u32,
 };
 
-// One field forced to a 16-byte boundary. A field's alignment raises the
-// whole struct's alignment to the largest of its fields.
+// One field must be on a 16-byte boundary. The alignment of the struct is
+// the largest alignment of its fields.
 const Aligned = struct {
     a: u8 align(16),
     b: u8,
 };
 
-// Packed: no padding, fields in declaration order, sub-byte integers allowed.
-// Bit-cast to an unsigned integer of the same width for hardware registers.
+// Packed: no padding, fields in declaration order, and integers smaller than
+// a byte. For hardware registers, use @bitCast to change the struct to an
+// unsigned integer of the same width.
 const Register = packed struct {
     enable: bool, // bit 0
     mode: u3, // bits 1..3
@@ -27,7 +28,7 @@ const Register = packed struct {
     value: u8, // bits 8..15
 };
 
-// Extern: follows the platform C ABI, so it can cross an FFI boundary.
+// Extern: follows the C ABI of the platform. Thus it can cross an FFI boundary.
 const CStruct = extern struct {
     a: u8,
     b: u32,

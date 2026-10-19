@@ -1,70 +1,52 @@
 ---
 title: "Recipe: An Atomic Work Index"
-description: Dynamic load balancing with fetchAdd instead of locks or chunking.
+description: Dynamic load balancing with fetchAdd, without locks or chunks.
 section: How-To
 order: 102
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-An atomic work index in Zig is a shared `std.atomic.Value(usize)` that each
-thread advances with `fetchAdd(1, .monotonic)` to claim its next job. A thread
-that finishes early claims the next job, and no lock is needed.
+An atomic work index in Zig is a shared `std.atomic.Value(usize)`. Each thread increments it with `fetchAdd(1, .monotonic)` to claim its next job. A thread that completes its work early claims the next job, and no lock is necessary.
 
 ## The problem
 
-Static chunking (one slice piece per thread) balances load only when every
-item costs the same. If item 7 takes a hundred times longer than item 8,
-the thread that owns item 7's chunk finishes last while the others sit
-idle. You want threads to pull the next job when they are free, like
-workers taking tickets from a dispenser.
+Static chunks (one part of the slice for each thread) balance the load only when all items have the same cost. Item 7 can take a hundred times longer than item 8. Then the thread with the chunk of item 7 completes last, and the other threads have no work.
 
-A mutex around a `next_job` counter works, but the counter is the entire
-critical section. Atomics do the same job without a lock.
+You want each thread to get the next job when it is free, as workers take tickets from a dispenser.
+
+A mutex around a `next_job` counter works, but the counter is the full critical section. Atomics do the same work without a lock.
 
 ## The plan
 
-1. Share two atomics: `next`, the index of the next unclaimed job, and
-   `total`, the running result.
-2. Each worker loops: claim an index, stop when it is past the end,
-   otherwise process the job and add the result into `total` with another
-   `fetchAdd`.
-3. Spawn the workers, `join` them, read the total.
+1. Share two atomics. `next` is the index of the next job that no thread claimed. `total` is the result so far.
+2. Each worker runs a loop. It claims an index, and stops when the index is past the end. If the index is not past the end, the worker processes the job and adds the result to `total` with another `fetchAdd`.
+3. Spawn the workers, `join` them, and read the total.
 
 <Playground
   name="06-cookbook.work-index"
-  note="Built and run natively by CI. wasm32-wasi is single-threaded, so std.Thread.spawn does not compile for it at all."
+  note="CI builds and runs this program natively. wasm32-wasi has a single thread. Thus std.Thread.spawn does not compile for that target."
   tryLocally="zig run work-index.zig"
 />
 
-## Why fetchAdd cannot double-serve a job
+## Why fetchAdd cannot give one job to two threads
 
-`fetchAdd` is a single indivisible read-modify-write: it returns the old
-value and stores the incremented one. No other thread can run between the
-read and the write. Two threads racing on the same counter get two different
-indices, always. That guarantee is the reason to use an atomic here, more
-than speed. Being lock-free is an extra benefit.
+`fetchAdd` is one indivisible read-modify-write. It returns the old value and stores the incremented value. No other thread can run between the read and the write. Two threads in a race on the same counter always get two different indices.
 
-Both atomics use `.monotonic` ordering because each one is independent:
-no thread reads `total` until after `join`, and `join` already provides
-the visibility guarantee. When one atomic has to publish writes to *other*
-memory, ordering gets harder. Keep counters independent, and the simplest
-ordering stays correct.
+That guarantee is the main reason to use an atomic here, more than speed. The absence of a lock is an extra benefit.
 
-## When threads out-claim the work
+Both atomics use `.monotonic` ordering, because each atomic is independent. No thread reads `total` before `join`, and `join` already gives the visibility guarantee.
 
-Every worker exits by claiming an index past the end. With 4 threads, up
-to 4 claims overshoot, and the counter ends beyond `jobs.len`. That is
-harmless and normal. Do not reuse the counter's final value as "jobs
-done". Count completions separately if you need the number.
+When one atomic must publish writes to *other* memory, the ordering becomes more difficult. Keep counters independent, and the simplest ordering stays correct.
+
+## When threads claim more indices than there are jobs
+
+Each worker stops when it claims an index past the end. With 4 threads, exactly 4 claims are past the end, and the counter ends after `jobs.len`. This is normal and causes no problem.
+
+Do not use the final value of the counter as the number of completed jobs. If you need that number, count the completions separately.
 
 ## Variations
 
-- **Batch claiming:** `fetchAdd(16, ...)` hands out sixteen jobs per
-  claim, cutting contention on the counter when jobs are tiny.
-- **Results per job:** when each job produces data rather than a number
-  to fold, write to `results[i]`. Only the thread that claimed `i` writes
-  that slot, so the write needs no lock.
-- **Compare with chunking:** the [parallel sum](/learn/how-to/parallel-sum/)
-  recipe is the static version. Prefer it when per-item cost is uniform,
-  since it never touches a shared counter.
+- **Claim a batch:** `fetchAdd(16, ...)` gives sixteen jobs for each claim. When jobs are very small, this decreases the contention on the counter.
+- **Results for each job:** when each job makes data and not a number to add, write to `results[i]`. Only the thread that claimed `i` writes that slot. Thus the write needs no lock.
+- **Compare with chunks:** the [parallel sum](/learn/how-to/parallel-sum/) recipe is the static version. Use it when the cost of each item is the same, because it never uses a shared counter.

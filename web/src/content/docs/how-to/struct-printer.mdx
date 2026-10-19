@@ -1,40 +1,33 @@
 ---
 title: "Recipe: Printing Any Struct"
-description: Comptime reflection builds a debug printer that works for every struct type.
+description: Comptime reflection builds a debug printer that works for all struct types.
 section: How-To
 order: 94
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig prints any struct without a per-type function by looping over `@typeInfo`
-with `inline for` at compile time. On current master the fields come as the
-parallel arrays `field_names` and `field_types`, not the old `fields` slice.
+Zig can print each struct without a function for each type. The code loops over `@typeInfo` with `inline for` at compile time. On current master, the fields come as the parallel arrays `field_names` and `field_types`, not as the old `fields` slice.
 
 ## The problem
 
-You want to dump any struct for debugging or [logging](/learn/standard-library/logging/): field names, values,
-strings quoted, without writing a print function per type and without runtime
-reflection machinery. In most languages this needs a reflection API and some
-runtime overhead.
+You want to show any struct for debugging or [logging](/learn/standard-library/logging/): the field names, the values, and the strings with quotes. You do not want to write a print function for each type. Also, you do not want reflection machinery at runtime.
+
+In most languages, this needs a reflection API and some overhead at runtime.
 
 ## The plan
 
-1. Take the value as `anytype` and get its type with `@TypeOf`.
-2. Ask the compiler for the struct's shape with `@typeInfo`.
-3. `inline for` over the fields. The loop unrolls at compile time, so each
-   iteration can use a different field type, and the generated code is
-   straight-line prints.
+1. Take the value as `anytype`, and get its type with `@TypeOf`.
+2. Ask the compiler for the shape of the struct with `@typeInfo`.
+3. Use `inline for` over the fields. The compiler unrolls the loop at compile time. Thus each iteration can use a different field type, and the generated code is a straight line of prints.
 
 <Playground name="06-cookbook.struct-printer" />
 
 ## The shape of `@typeInfo` changed
 
-If you learned this API before, note the change: `@typeInfo(T).@"struct"` used
-to expose one `fields` slice of `StructField` structs, each with a `name` and
-a `type`. Current master splits that into parallel arrays: `field_names`,
-`field_types`, and `field_attrs`, guaranteed to have the same length. Iterating
-names and types together is a two-slice `inline for`:
+If you used this API before, note the change. Before, `@typeInfo(T).@"struct"` had one `fields` slice of `StructField` structs, and each one had a `name` and a `type`.
+
+Current master divides that slice into parallel arrays: `field_names`, `field_types` and `field_attrs`. Zig guarantees that the arrays have the same length. To use the names and the types together, write an `inline for` over two slices:
 
 ```zig
 inline for (info.field_names, info.field_types) |name, Field| {
@@ -42,22 +35,16 @@ inline for (info.field_names, info.field_types) |name, Field| {
 }
 ```
 
-A tutorial showing `.fields` with `field.name` and `field.type` no longer
-compiles. The approach is the same. Only the shape of the type info changed.
+A tutorial that shows `.fields` with `field.name` and `field.type` does not compile now. The method is the same. Only the shape of the type info changed.
 
 ## Why the branch costs nothing
 
-`if (comptime Field == []const u8)` is decided while compiling, per field.
-For `host` the compiler emits only the quoted-string print. For `port` it
-emits only the `{any}` print. The other branch is not compiled at all, which also means
-this works even when a branch would be a type error for the other fields.
+The compiler decides `if (comptime Field == []const u8)` at compile time, for each field. For `host`, the compiler emits only the print of a string with quotes. For `port`, it emits only the `{any}` print.
+
+The compiler does not compile the other branch at all. Thus the code works when a branch is a type error for the other fields.
 
 ## Variations
 
-- **Nested structs:** recurse when `@typeInfo(Field)` is itself a struct.
-  Watch for cycles if types can reference themselves through pointers.
-- **The built-in shortcut:** `{any}` on a whole struct already prints
-  something usable. Write a custom printer when you need control over
-  format, indentation, or which fields appear.
-- **Enums and unions:** `{t}` prints tag names directly. Combine it with this
-  recipe for tagged unions.
+- **Nested structs:** call the function recursively when `@typeInfo(Field)` is also a struct. Be careful about cycles if types can refer to themselves through pointers.
+- **The built-in shortcut:** `{any}` on a full struct already prints a usable result. Write a custom printer when you need control of the format, of the indent, or of the fields that show.
+- **Enums and unions:** `{t}` prints tag names directly. Use it together with this recipe for tagged unions.

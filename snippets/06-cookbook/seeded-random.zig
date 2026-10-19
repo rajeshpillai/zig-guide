@@ -1,12 +1,12 @@
 //! title: Reproducible Randomness
-//! One seed, the same world every time: the basis of replays and tests.
+//! One seed gives the same world each time. Replays and tests use this.
 
 const std = @import("std");
 
 const Side = 8;
 
-// Everything derives from the Random interface handed in, so the caller
-// controls determinism by controlling the seed.
+// All of the values come from the Random interface in the argument. Thus
+// the caller controls the seed, and with it the determinism.
 fn generateCave(random: std.Random, grid: *[Side][Side]u8) void {
     for (grid) |*row| {
         for (row) |*cell| {
@@ -21,8 +21,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // The seed is all you need to save. Put it in a bug report and the
-    // program builds the exact same cave again.
+    // Save only the seed. Put the seed in a bug report, and the program
+    // builds exactly the same cave again.
     var prng = std.Random.DefaultPrng.init(42);
     var cave: [Side][Side]u8 = undefined;
     generateCave(prng.random(), &cave);
@@ -30,7 +30,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("seed 42:\n", .{});
     for (cave) |row| try out.print("  {s}\n", .{&row});
 
-    // Same seed, fresh generator: byte-identical world.
+    // The same seed and a new generator give a world with identical bytes.
     var replay = std.Random.DefaultPrng.init(42);
     var again: [Side][Side]u8 = undefined;
     generateCave(replay.random(), &again);
@@ -38,7 +38,7 @@ pub fn main(init: std.process.Init) !void {
         std.mem.eql(u8, std.mem.asBytes(&cave), std.mem.asBytes(&again)),
     });
 
-    // A different seed diverges.
+    // A different seed gives a different world.
     var other = std.Random.DefaultPrng.init(43);
     var different: [Side][Side]u8 = undefined;
     generateCave(other.random(), &different);

@@ -1,11 +1,11 @@
-//! title: Splitting Work Across Threads
+//! title: Divide Work Among Threads
 //! native
 //! One chunk per thread, one result slot per thread, zero locks.
 
 const std = @import("std");
 
-// Each worker owns its chunk and its slot. Nothing is shared, so
-// nothing needs to be synchronized until the join.
+// Each worker owns its chunk and its slot. The workers share no data. Thus
+// no data needs synchronization before the join.
 fn sumChunk(chunk: []const u64, slot: *u64) void {
     var sum: u64 = 0;
     for (chunk) |x| sum += x;
@@ -20,13 +20,13 @@ pub fn main(init: std.process.Init) !void {
     var numbers: [1000]u64 = undefined;
     for (&numbers, 1..) |*n, i| n.* = i;
 
-    // A fixed worker count keeps the output of this demo the same on every
-    // machine. A real program would start from std.Thread.getCpuCount().
+    // With a fixed number of workers, the output of this demo is the same on
+    // each machine. A real program starts from std.Thread.getCpuCount().
     const workers = 4;
     var slots: [workers]u64 = undefined;
     var threads: [workers]std.Thread = undefined;
 
-    // Ceiling division so the last chunk picks up the remainder.
+    // Use ceiling division, thus the last chunk gets the remainder.
     const chunk_size = (numbers.len + workers - 1) / workers;
     for (&threads, &slots, 0..) |*t, *slot, w| {
         const start = w * chunk_size;
@@ -34,8 +34,8 @@ pub fn main(init: std.process.Init) !void {
         t.* = try std.Thread.spawn(.{}, sumChunk, .{ numbers[start..end], slot });
     }
 
-    // join is the synchronization: after it returns, that thread's writes
-    // are visible here.
+    // join is the synchronization. After join returns, the writes of that
+    // thread are visible here.
     for (threads) |t| t.join();
 
     var total: u64 = 0;

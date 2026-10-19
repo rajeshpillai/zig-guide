@@ -1,5 +1,5 @@
-//! title: Printing Any Struct
-//! One function, every struct type, resolved at compile time.
+//! title: Print Any Struct
+//! One function for all struct types, resolved at compile time.
 
 const std = @import("std");
 
@@ -14,20 +14,20 @@ const Point = struct {
     y: f32,
 };
 
-// Generic over any struct type. The inline for unrolls at compile time, so
-// each field is printed with a format picked for its actual type. There is
-// no runtime reflection. By the time this runs, it is straight-line code.
+// Generic over all struct types. The inline for unrolls at compile time.
+// Thus each field gets a format for its actual type. There is no reflection
+// at runtime. When this function runs, it is a straight line of code.
 fn printStruct(out: *std.Io.Writer, value: anytype) !void {
     const T = @TypeOf(value);
     const info = @typeInfo(T).@"struct";
     try out.print("{s} {{\n", .{@typeName(T)});
-    // Names and types are parallel arrays, guaranteed the same length.
-    // (They used to be one `fields` array of structs. That shape is gone.)
+    // Names and types are parallel arrays, with a guaranteed equal length.
+    // (Before, they were one `fields` array of structs. Zig removed that shape.)
     inline for (info.field_names, info.field_types) |name, Field| {
         const v = @field(value, name);
-        // Strings need {s}. Everything else gets a reasonable default from
-        // {any}. The branch is comptime, so only one side is compiled per
-        // field.
+        // Strings need {s}. All other types get a usable default from {any}.
+        // The branch is comptime. Thus the compiler compiles only one side for
+        // each field.
         if (comptime Field == []const u8) {
             try out.print("  {s}: \"{s}\"\n", .{ name, v });
         } else {

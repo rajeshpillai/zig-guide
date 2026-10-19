@@ -1,72 +1,59 @@
 ---
 title: "Recipe: A SIMD Dot Product"
-description: Using @Vector to process four elements per operation, tail included.
+description: Use @Vector to process four elements in each operation, with the tail too.
 section: How-To
 order: 96
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A SIMD dot product in Zig multiplies `@Vector(4, i32)` chunks with plain `*`
-and `+=`, collapses the lanes with `@reduce(.Add, acc)`, and finishes the
-leftover elements with a scalar loop.
+A SIMD dot product in Zig multiplies chunks of `@Vector(4, i32)` with plain `*` and `+=`. Then `@reduce(.Add, acc)` adds the lanes together, and a scalar loop does the elements that remain.
 
 ## The problem
 
-You have two arrays of numbers and want their dot product, and the scalar
-loop shows up in your profile. Modern CPUs (and wasm) have SIMD registers that
-apply one operation to several values at once. Zig exposes them portably
-through `@Vector`, with normal operators, so the vector code looks like the
-scalar code.
+You have two arrays of numbers, and you want their dot product. The scalar loop is slow in your profile.
 
-The two parts that are easy to get wrong are the ends: turning slice data into vector
-operands, and handling the tail when the length is not a multiple of the
-lane count.
+Modern CPUs (and wasm) have SIMD registers that do one operation on several values at the same time. Zig gives you these registers through `@Vector`, in a portable way, with the usual operators. Thus the vector code looks like the scalar code.
+
+Errors usually occur at the two ends:
+
+- the change from slice data to vector operands
+- the tail, when the length is not a multiple of the lane count
 
 ## The plan
 
-1. Define a vector type: `@Vector(4, i32)` is four `i32` lanes.
-2. Loop over the slice in whole-vector steps. `xs[i..][0..Lanes].*` takes
-   four contiguous elements as an array, which coerces to a vector.
-3. Multiply and accumulate with plain `*` and `+=`: element-wise on every
-   lane at once.
-4. After the loop, collapse the lanes with `@reduce(.Add, acc)` and finish
-   the remaining zero to three elements with a scalar loop.
+1. Define a vector type. `@Vector(4, i32)` has four `i32` lanes.
+2. Loop over the slice in steps of one full vector. `xs[i..][0..Lanes].*` takes four contiguous elements as an array. The array coerces to a vector.
+3. Multiply and accumulate with plain `*` and `+=`. These operators work on each lane at the same time.
+4. After the loop, add the lanes together with `@reduce(.Add, acc)`. Then do the zero to three elements that remain with a scalar loop.
 
 <Playground name="06-cookbook.simd-sum" />
 
-## The slice-to-vector cast
+## The cast from slice to vector
 
-`xs[i..][0..Lanes]` is a common idiom. The first slice moves the start. The
-second has a comptime-known length, so its type is a pointer to an array,
-`*const [4]i32`. Dereferencing with `.*` yields the array by value, and
-arrays coerce to vectors of the same length and element type. This needs no
-`@memcpy` and no unsafe cast, and the bounds are checked in safe builds.
+`xs[i..][0..Lanes]` is a common pattern. The first slice moves the start. The second slice has a length that is known at comptime. Thus its type is a pointer to an array, `*const [4]i32`.
 
-## The tail is not optional
+The dereference with `.*` gives the array by value. An array coerces to a vector of the same length and element type.
 
-Ten elements at four lanes leaves two over. Skipping the tail loop produces
-code that works on every test with a round length and silently drops data on
-the rest. Keeping a scalar epilogue is the standard shape. The snippet
-checks itself against the scalar version to show both give the same result.
+This needs no `@memcpy` and no unsafe cast. In safe builds, Zig checks the bounds.
 
-## What to expect from performance
+## The tail is necessary
 
-The accumulator holds `i32` lanes and the totals use `i64`, so the widening
-happens once per reduce plus once per tail element. On wasm this compiles to
-the 128-bit SIMD instruction set. On native targets the same source uses
-whatever the CPU offers. Measure before assuming it is faster. For small
-arrays the setup and reduce can cost more than the loop saves.
+With ten elements and four lanes, two elements remain. If you omit the tail loop, the code works on each test with a length that is a multiple of four. On all other lengths, the code silently loses data.
+
+The standard shape keeps a scalar epilogue. The snippet compares its result with the scalar version, and shows that both versions give the same result.
+
+## Performance
+
+The accumulator has `i32` lanes, and the totals use `i64`. Thus the change to the wider type occurs one time for each reduce and one time for each tail element.
+
+On wasm, this code compiles to the 128-bit SIMD instruction set. On native targets, the same source uses the instructions that the CPU has.
+
+Measure before you assume that the code is faster. For small arrays, the setup and the reduce can cost more than the loop saves.
 
 ## Variations
 
-- **Other reductions:** `@reduce` also takes `.Min`, `.Max`, `.And`, `.Or`,
-  `.Xor`, and `.Mul`.
-- **Lane count:** `std.simd.suggestVectorLength(i32)` asks the target for a
-  good width instead of hardcoding 4.
-- **Floats:** the same code works with `f32` lanes. Float addition is not
-  associative, so vector and scalar sums can differ in the last bits.
-- **Searching instead of summing:**
-  [the byte scanning recipe](/learn/how-to/simd-scan/) uses the same loop shape
-  to find and count bytes, with comparisons and bit masks in place of
-  arithmetic.
+- **Other reductions:** `@reduce` also takes `.Min`, `.Max`, `.And`, `.Or`, `.Xor` and `.Mul`.
+- **Lane count:** `std.simd.suggestVectorLength(i32)` asks the target for a good width. Then you do not have to write 4 in the code.
+- **Floats:** the same code works with `f32` lanes. Float addition is not associative. Thus the vector sum and the scalar sum can have different last bits.
+- **Search, not sum:** [the byte scan recipe](/learn/how-to/simd-scan/) uses the same loop shape to find and count bytes. It uses comparisons and bit masks in place of arithmetic.

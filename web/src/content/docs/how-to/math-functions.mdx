@@ -1,70 +1,57 @@
 ---
 title: "Recipe: The std.math Toolbox"
-description: Constants, trig, powers, roots, rounding, and comparing floats safely.
+description: Constants, trig, powers, roots, rounding, and a safe comparison of floats.
 section: How-To
 order: 95.5
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig's math functions live in `std.math`: `std.math.sqrt`, `std.math.sin`
-(which takes radians), `std.math.pow(T, base, exp)` and constants such as
-`std.math.pi`. Floats are compared with `std.math.approxEqAbs`, not `==`.
+The math functions of Zig are in `std.math`. Examples are `std.math.sqrt`, `std.math.sin` (which takes radians), `std.math.pow(T, base, exp)` and constants such as `std.math.pi`. Compare floats with `std.math.approxEqAbs`, not with `==`.
 
 ## The problem
 
-You need a formula: a sine, a square root, degrees turned into radians. The
-functions are all in `std.math`. Two details cause most first mistakes: trig
-works in radians, and `pow` wants its type as the first argument. This is the
-short reference.
+You need a formula: a sine, a square root, or a change from degrees to radians. All of the functions are in `std.math`.
+
+Two details cause most first mistakes. Trig functions use radians, and `pow` needs its type as the first argument. This chapter is the short reference.
 
 ## The plan
 
-1. Read constants like `std.math.pi` straight from `std.math`.
-2. Convert with `std.math.degreesToRadians`, then call `sin`, `cos`, `tan`.
+1. Read constants such as `std.math.pi` directly from `std.math`.
+2. Convert with `std.math.degreesToRadians`. Then call `sin`, `cos` and `tan`.
 3. Use `std.math.pow(T, base, exp)` and `std.math.sqrt`.
-4. Round with `floor`, `ceil`, `round`, and reach for `hypot` and `clamp`.
-5. Compare floats with `approxEqAbs`, never `==`.
+4. Round with `floor`, `ceil` and `round`. Use `hypot` and `clamp` when you need them.
+5. Compare floats with `approxEqAbs`, never with `==`.
 
 <Playground name="06-cookbook.math-functions" />
 
-## Trig is in radians
+## Trig uses radians
 
-`std.math.sin`, `cos`, and `tan` take radians, like almost every language's
-math library. `degreesToRadians` does the conversion, so `sin(degreesToRadians(90))`
-is the readable way to get 1.0. The snippet prints `1.0000` rather than a bare
-`1` because of the `{d:.4}` format, and at `f32` the result really is exactly
-one. Do not read a rule into that. For most whole-degree angles the `f32` sine
-differs in the last bit from the correctly rounded value, which is why the
-comparison below uses a tolerance.
+`std.math.sin`, `cos` and `tan` take radians, as the math library of almost each language does. `degreesToRadians` does the conversion. Thus `sin(degreesToRadians(90))` is the clear way to get 1.0.
 
-## `pow` is typed, `sqrt` is not
+The snippet prints `1.0000` and not `1` because of the `{d:.4}` format. At `f32`, the result is exactly one. Do not take that as a rule. For most angles of a whole number of degrees, the last bit of the `f32` sine is different from the correctly rounded value. For that reason, the comparison below uses a tolerance.
 
-`std.math.pow(f32, 2.0, 8.0)` takes the type as its first argument because it
-has to pick an algorithm for that type. `std.math.sqrt` infers everything from
-its operand, so `sqrt(@as(f32, 64.0))` is enough. Mixing the two signatures up
-is the usual first compile error here.
+## `pow` takes a type, `sqrt` does not
 
-## Comparing floats
+`std.math.pow(f32, 2.0, 8.0)` takes the type as its first argument, because the function must select an algorithm for that type. `std.math.sqrt` gets all of the information from its operand. Thus `sqrt(@as(f32, 64.0))` is sufficient. The usual first compile error here comes from a confusion between the two signatures.
 
-The last line uses `std.math.approxEqAbs(f64, x, y, tolerance)`, which is how
-you should test floats for equality. Plain `==` on floats is unreliable.
-Because of rounding, values that are mathematically equal often differ in the
-last bits, and values that look different can compare equal. Whether
-`0.1 + 0.2 == 0.3` holds depends on the type and on when the sum is computed.
-At `f32` it happens to be true. At `f64` computed at runtime it is false.
-Computed at compile time, it may round back to true. Because the answer
-changes like this, never rely on `==` for floats. The
-[floats chapter](/learn/language-basics/floats/) covers the representation behind
-this.
+## Compare floats
+
+The last line uses `std.math.approxEqAbs(f64, x, y, tolerance)`. Use this function to test floats for equality. A plain `==` on floats is not reliable.
+
+Because of rounding, values that are mathematically equal often have different last bits. Also, values that look different can compare as equal.
+
+The result of `0.1 + 0.2 == 0.3` depends on the type, and on when the program computes the sum:
+
+- At `f32`, the result is true.
+- At `f64`, computed at runtime, the result is false.
+- At `f64`, computed at compile time, the rounding can make the result true.
+
+Because the answer changes in this way, never use `==` for floats. The [floats chapter](/learn/language-basics/floats/) explains the representation that causes this.
 
 ## Variations
 
-- **`approxEqRel`** scales the tolerance to the magnitude of the values, which
-  is better when they can be large.
-- **`clamp` and `hypot`** cover two common one-liners: bounding a value into a
-  range, and a distance without an intermediate overflow.
-- **Integer math** with overflow control is its own topic. See
-  [checked math](/learn/how-to/checked-math/).
-- **Vectors of numbers** rather than scalars are in
-  [vector algebra](/learn/how-to/vector-algebra/).
+- **`approxEqRel`** scales the tolerance to the magnitude of the values. Use it when the values can be large.
+- **`clamp` and `hypot`** do two common operations in one line. `clamp` keeps a value inside a range. `hypot` computes a distance without an overflow in the middle of the calculation.
+- **Integer math** with overflow control is a different topic. See [checked math](/learn/how-to/checked-math/).
+- **Vectors of numbers**, not scalars, are in [vector algebra](/learn/how-to/vector-algebra/).

@@ -1,12 +1,12 @@
 //! title: A File-Backed To-Do Store
 //! native
-//! Fixed-size records give random access by id: append, read, update in place.
+//! Records of fixed size give random access by id: append, read, update in place.
 
 const std = @import("std");
 
-// An extern struct has a fixed, predictable layout, so every record is the same
-// number of bytes on disk. So record N can be read directly at offset
-// N * @sizeOf(Record), with no index and no scan.
+// An extern struct has a fixed, predictable layout. Thus each record has the
+// same number of bytes on disk. The program can read record N directly at
+// offset (N - 1) * @sizeOf(Record), with no index and no scan.
 const Record = extern struct {
     id: u32,
     done: bool,
@@ -21,7 +21,7 @@ fn addTask(io: std.Io, file: std.Io.File, text: []const u8) !u32 {
     var rec: Record = .{ .id = id, .done = false, .len = @intCast(@min(text.len, 64)), .text = @splat(0) };
     @memcpy(rec.text[0..rec.len], text[0..rec.len]);
 
-    // Append by writing at the current end of file.
+    // To append, write at the current end of the file.
     try file.writePositionalAll(io, std.mem.asBytes(&rec), end);
     return id;
 }
@@ -29,8 +29,8 @@ fn addTask(io: std.Io, file: std.Io.File, text: []const u8) !u32 {
 fn toggle(io: std.Io, file: std.Io.File, id: u32) !void {
     const offset = (id - 1) * @sizeOf(Record);
 
-    // Read one record from its slot, toggle the flag, write it back to the
-    // same slot. The rest of the file is not rewritten.
+    // Read one record from its slot, toggle the flag, and write the record
+    // again to the same slot. The program does not write the rest of the file.
     var rec: Record = undefined;
     _ = try file.readPositionalAll(io, std.mem.asBytes(&rec), offset);
     rec.done = !rec.done;
@@ -58,8 +58,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // A fresh database each run (createFile truncates by default), removed at
-    // the end so the example leaves nothing behind.
+    // A new database on each run (by default, createFile truncates the file).
+    // The program removes the file at the end, thus the example leaves no file.
     var dir = std.Io.Dir.cwd();
     const file = try dir.createFile(io, "todo-demo.db", .{ .read = true });
     defer dir.deleteFile(io, "todo-demo.db") catch {};

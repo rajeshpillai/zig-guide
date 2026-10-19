@@ -7,62 +7,49 @@ order: 103
 
 import Playground from "../../../components/Playground.astro";
 
-A producer/consumer queue in Zig is `std.Io.Queue(T)`. Workers block on
-`getOne`, and after the producer calls `close` they drain what is left and
-then get `error.Closed`.
+A producer/consumer queue in Zig is `std.Io.Queue(T)`. Workers block on `getOne`. After the producer calls `close`, the workers get the items that remain, and then they get `error.Closed`.
 
 ## The problem
 
-One part of your program discovers work. Another part does it. The usual
-answer is a queue between them. Hand-written versions tend to collect extra
-parts: a mutex, a condition variable, a "no more work" flag, and a subtle bug
-where workers sleep forever on shutdown.
+One part of your program finds work. A different part does the work. The usual solution is a queue between the two parts.
 
-On current Zig master, `std.Io.Queue(T)` covers all of this. It is a bounded,
-thread-safe channel with blocking put and get and a close protocol.
+Versions that people write by hand usually get extra parts: a mutex, a condition variable and a "no more work" flag. They also often get a subtle bug: at shutdown, workers wait forever.
+
+On current Zig master, `std.Io.Queue(T)` does all of this. It is a bounded, thread-safe channel. It has a put and a get that block, and a close protocol.
 
 ## The plan
 
-1. Create `std.Io.Queue(u64)` over a fixed buffer you provide. The buffer
-   length is the queue's capacity. A producer more than that far ahead
-   blocks until workers catch up (this is called backpressure).
-2. Spawn workers that loop on `getOne`, which blocks until an item
-   arrives.
-3. Produce, then call `close`. Workers drain the remaining items, then
-   `getOne` returns `error.Closed` and each worker exits its loop.
+1. Make a `std.Io.Queue(u64)` on a fixed buffer that you supply. The length of the buffer is the capacity of the queue. If a producer is more items ahead than the capacity, the producer blocks until the workers take more items. The name of this behavior is backpressure.
+2. Spawn workers that loop on `getOne`. `getOne` blocks until an item arrives.
+3. Produce the items, then call `close`. The workers get the items that remain. Then `getOne` returns `error.Closed`, and each worker stops its loop.
 4. `join` the workers.
 
 <Playground
   name="06-cookbook.worker-queue"
-  note="Built and run natively by CI. wasm32-wasi is single-threaded, so std.Thread.spawn does not compile for it at all."
+  note="CI builds and runs this program natively. wasm32-wasi has a single thread. Thus std.Thread.spawn does not compile for that target."
   tryLocally="zig run worker-queue.zig"
 />
 
 ## Close is the shutdown protocol
 
-The traditional failure mode of worker queues is shutdown: a sentinel value
-per worker, or a flag plus a broadcast, each easy to get wrong. `close` makes
-shutdown part of the queue's contract: puts after close fail, items already queued are
-still delivered, and only then do getters see `error.Closed`. The worker loop
-is therefore two lines with no special cases, and no worker can sleep through
-shutdown.
+Shutdown is the usual place where worker queues fail. Usual solutions are a sentinel value for each worker, or a flag and a broadcast. It is easy to make an error in each of these.
+
+`close` makes shutdown part of the contract of the queue:
+
+1. A put after close fails.
+2. The queue still delivers the items that it already has.
+3. Only then does a get return `error.Closed`.
+
+Thus the worker loop is two lines with no special cases, and no worker can wait through the shutdown.
 
 ## Why the queue takes `io`
 
-Every blocking operation goes through the `std.Io` interface, queues included.
-That is the same design the rest of the standard library follows now. Whoever
-provides the `Io` implementation decides how blocking works (OS threads here,
-an event loop elsewhere). Blocking operations also become cancellation
-points. Passing `io` into the worker makes the same worker code portable
-across execution models.
+Each operation that blocks goes through the `std.Io` interface, and the queue does too. The rest of the standard library now follows the same design.
+
+The code that supplies the `Io` implementation decides how a block works: with OS threads here, or with an event loop in a different program. Operations that block also become cancellation points. When you give `io` to the worker, the same worker code works across different execution models.
 
 ## Variations
 
-- **Batching:** `put` and `get` move slices, not just single items, and
-  return how many they moved. `putAll` blocks until everything is in.
-  Batches spread the synchronization cost over many items.
-- **Multiple producers:** put is threadsafe, so several producers can feed
-  one queue. Close once, from the coordinator that knows production is
-  finished.
-- **Results channel:** for a full pipeline, give workers a second queue
-  to put results into, and close it after the worker `join`.
+- **Batching:** `put` and `get` move slices, not only single items. They return the number of items that they moved. `putAll` blocks until all of the items are in the queue. Batches divide the cost of synchronization across many items.
+- **More than one producer:** put is thread-safe. Thus many producers can put items into one queue. Close the queue one time, from the coordinator that knows when production is complete.
+- **A channel for results:** for a full pipeline, give the workers a second queue for their results. Close that queue after the `join` of the workers.

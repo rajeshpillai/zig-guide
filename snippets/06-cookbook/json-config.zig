@@ -1,17 +1,17 @@
-//! title: Loading a JSON Config
-//! Defaults for what's missing, validation for what's wrong.
+//! title: Load a JSON Config
+//! Defaults for absent fields, and validation for wrong values.
 
 const std = @import("std");
 
 const Config = struct {
-    // Every field has a default, so an empty `{}` is a valid config.
+    // Each field has a default. Thus an empty `{}` is a valid config.
     host: []const u8 = "127.0.0.1",
     port: u16 = 8080,
     workers: u8 = 4,
     debug: bool = false,
 };
 
-// The parser checks shape (types, field names). Checking values is up to you.
+// The parser checks the shape (types, field names). You must check the values.
 fn validate(c: Config) error{ PrivilegedPort, TooManyWorkers }!void {
     if (c.port < 1024) return error.PrivilegedPort;
     if (c.workers == 0 or c.workers > 64) return error.TooManyWorkers;
@@ -19,7 +19,7 @@ fn validate(c: Config) error{ PrivilegedPort, TooManyWorkers }!void {
 
 fn load(gpa: std.mem.Allocator, text: []const u8) !std.json.Parsed(Config) {
     const parsed = try std.json.parseFromSlice(Config, gpa, text, .{});
-    // If validation rejects it, the half-loaded config must not leak.
+    // If validation refuses the config, the config must not leak.
     errdefer parsed.deinit();
     try validate(parsed.value);
     return parsed;
@@ -44,26 +44,26 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // Partial input: missing fields fall back to their defaults.
+    // Partial input: absent fields get their defaults.
     try report(out, gpa,
         \\{ "host": "0.0.0.0", "port": 9000 }
     );
 
-    // Empty input: entirely defaults.
+    // Empty input: all fields get their defaults.
     try report(out, gpa, "{}");
 
-    // Well-formed JSON, bad value: caught by validate, not the parser.
+    // Valid JSON with a bad value: validate finds the error, not the parser.
     try report(out, gpa,
         \\{ "port": 80 }
     );
 
-    // A misspelled field name is an error by default. It catches a config
-    // that is not what the user *thought* they wrote.
+    // By default, a field name with a spelling error is an error. It finds a
+    // config that is different from the config that the user *wanted*.
     try report(out, gpa,
         \\{ "prot": 9000 }
     );
 
-    // Not JSON at all.
+    // The text is not JSON.
     try report(out, gpa, "port = 9000");
 
     try out.flush();

@@ -1,71 +1,60 @@
 ---
 title: "Recipe: Compressing with zlib"
-description: One-shot compress and decompress through the system zlib, linked from Zig.
+description: Compress and decompress in one call each through the system zlib, linked from Zig.
 section: How-To
 order: 92.9
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig compresses a buffer with the system zlib by linking `z`, translating the
-`zlib.h` header, and calling `compressBound`, `compress2` and `uncompress` as
-ordinary C functions.
+Zig can compress a buffer with the system zlib. Link `z`, translate the `zlib.h` header, and call `compressBound`, `compress2` and `uncompress` as usual C functions.
 
 ## The problem
 
-You need to shrink a buffer before writing or sending it, and zlib is the
-library already on every machine. This recipe compresses a buffer and decompresses
-it back, checking the round trip.
+You must make a buffer smaller before you write it or send it. zlib is a library that each machine already has. This recipe compresses a buffer, decompresses it again and checks the result.
 
 ## The plan
 
-1. Ask `compressBound` for the largest the output could be, and size the
-   destination buffer to it.
-2. `compress2(dest, &destLen, src, srcLen, level)` fills the buffer and updates
-   `destLen` to the real size. `Z_OK` means success.
-3. `uncompress` reverses it into a buffer the size of the original.
-4. Compare the result to the input.
+1. Ask `compressBound` for the largest possible size of the output. Make the destination buffer that size.
+2. `compress2(dest, &destLen, src, srcLen, level)` fills the buffer and changes `destLen` to the real size. `Z_OK` means success.
+3. `uncompress` does the opposite, into a buffer with the size of the original.
+4. Compare the result with the input.
 
 <Playground
   name="06-cookbook.zlib-compress"
-  note="Links the system libz, so CI builds and runs it natively. Browser wasm cannot link a C library."
+  note="The program links the system libz. Thus CI builds and runs it natively. Browser wasm cannot link a C library."
 />
 
-## Naming the header and the library separately
+## Give the header and the library separately
 
-zlib shows that a header and a library can have different names. The library is `z` (you link it with `-lz`), but the header is `zlib.h`. This
-guide's `build.zig` reads two markers from the snippet: `//! link: z` for the
-library and `//! cinclude: zlib.h` for the header. It synthesizes a header that
-includes `zlib.h`, translates it with a translate-c step, links `z`, and hands
-the snippet the module as `c`. For SQLite the two names happen to match, so it
-needs only `//! link: sqlite3`. zlib needs both.
+zlib shows that a header and a library can have different names. The library is `z` (you link it with `-lz`), but the header is `zlib.h`.
 
-## Sizing the output buffer
+The `build.zig` of this guide reads two markers from the snippet: `//! link: z` for the library and `//! cinclude: zlib.h` for the header. Then the build does these steps:
 
-Compression can, on incompressible input, produce slightly more bytes than it
-consumed, so you cannot assume the output fits in the input's size.
-`compressBound(srcLen)` returns the worst case, which is what the destination
-buffer is sized to. After `compress2` returns, `destLen` holds the actual
-compressed length, almost always far smaller. The same in-out length pattern
-appears in `uncompress`: you pass the buffer capacity in, and get the real
-length back.
+1. It makes a header that includes `zlib.h`.
+2. It translates that header with a translate-c step.
+3. It links `z`.
+4. It gives the module to the snippet as `c`.
 
-## Why the size is not on the page
+For SQLite, the two names are the same. Thus SQLite needs only `//! link: sqlite3`. zlib needs both markers.
 
-The output reports that the compressed form is smaller and that the round trip
-matches, but not the exact compressed byte count. That number depends on the
-zlib version doing the compressing, and every line this guide prints has to be
-reproducible across the machines that run it. The relationships (smaller than
-the original, decompresses to the original) hold on every version, so those are
-what the snippet asserts. Print `comp_len` yourself to see the real ratio.
+## The size of the output buffer
+
+On input that does not compress, compression can make a few more bytes than it read. Thus you cannot assume that the output fits in the size of the input.
+
+`compressBound(srcLen)` returns the worst case, and the program uses that size for the destination buffer. After `compress2` returns, `destLen` holds the real compressed length. That length is almost always much smaller.
+
+`uncompress` uses the same in-out length pattern. You give the capacity of the buffer, and you get the real length back.
+
+## Why the page does not show the size
+
+The output reports that the compressed form is smaller and that the decompressed data matches the original. It does not report the exact number of compressed bytes. That number depends on the version of zlib.
+
+Each line that this guide prints must be reproducible on all of the machines that run it. The relations (smaller than the original, decompresses to the original) are true on all versions. Thus the snippet asserts those relations. To see the real ratio, print `comp_len` yourself.
 
 ## Variations
 
-- **Levels:** the last argument to `compress2` is 0 to 9, trading speed for
-  size. Level 6 is the usual default.
-- **Streaming:** for data too large to hold at once, zlib's `deflate`/`inflate`
-  work on chunks through a `z_stream`, at the cost of more bookkeeping.
-- **Gzip framing:** `compress2` writes a zlib stream. For a `.gz` file with its
-  header and CRC, use `deflateInit2` with the gzip window bits.
-- **Pure Zig:** `std.compress.flate` does deflate and gzip in the standard
-  library, no C linking, when you would rather not depend on the system zlib.
+- **Levels:** the last argument to `compress2` is 0 to 9. A higher level gives a smaller size but takes more time. Level 6 is the usual default.
+- **Streaming:** some data is too large to keep in memory at one time. For that data, the zlib functions `deflate` and `inflate` work on chunks through a `z_stream`. The cost is more bookkeeping.
+- **Gzip framing:** `compress2` writes a zlib stream. For a `.gz` file with its header and CRC, use `deflateInit2` with the gzip window bits.
+- **Pure Zig:** `std.compress.flate` in the standard library does deflate and gzip, with no C linking. Use it when you do not want to depend on the system zlib.

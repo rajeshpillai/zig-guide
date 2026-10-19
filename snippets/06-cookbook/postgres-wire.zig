@@ -1,10 +1,10 @@
 //! title: The PostgreSQL Wire Protocol
 //! native
-//! A client and a mock backend exchange startup and a query, framed as pg does.
+//! A client and a mock backend exchange a startup and a query, with the framing of pg.
 
 const std = @import("std");
 
-// PostgreSQL frames everything big-endian (network order).
+// PostgreSQL frames all integers big-endian (network order).
 fn putInt(comptime T: type, w: *std.Io.Writer, v: T) !void {
     var b: [@divExact(@typeInfo(T).int.bits, 8)]u8 = undefined;
     std.mem.writeInt(T, &b, v, .big);
@@ -17,8 +17,9 @@ fn getInt(comptime T: type, r: *std.Io.Reader) !T {
     return std.mem.readInt(T, &b, .big);
 }
 
-// After startup, every message is: a type byte, an Int32 length that counts
-// itself but not the type byte, then that many minus four bytes of payload.
+// After startup, each message starts with a type byte. Then an Int32 length
+// follows. The length counts itself but not the type byte. Then the payload
+// follows: that length minus four bytes.
 fn sendMsg(w: *std.Io.Writer, tag: u8, payload: []const u8) !void {
     try w.writeAll(&.{tag});
     try putInt(i32, w, @intCast(payload.len + 4));
@@ -36,7 +37,7 @@ fn readMsg(r: *std.Io.Reader, buf: []u8) !Msg {
     return .{ .tag = tb[0], .payload = payload };
 }
 
-// A little reader over a message payload.
+// A small reader for a message payload.
 const Cursor = struct {
     b: []const u8,
     i: usize = 0,
@@ -49,7 +50,7 @@ const Cursor = struct {
     fn cstr(self: *Cursor) []const u8 {
         const start = self.i;
         while (self.b[self.i] != 0) self.i += 1;
-        defer self.i += 1; // step past the terminator
+        defer self.i += 1; // move past the terminator
         return self.b[start..self.i];
     }
 };
@@ -81,8 +82,8 @@ fn serveImpl(server: *std.Io.net.Server, io: std.Io) !void {
     const r = &reader.interface;
     const w = &writer.interface;
 
-    // StartupMessage has no type byte: an Int32 length then the body. The demo
-    // does not authenticate, so the body is read and discarded.
+    // StartupMessage has no type byte: an Int32 length, then the body. The demo
+    // does no authentication. Thus it reads the body and discards it.
     const slen = try getInt(i32, r);
     try r.discardAll(@intCast(slen - 4));
 
@@ -99,7 +100,7 @@ fn serveImpl(server: *std.Io.net.Server, io: std.Io) !void {
     try sendMsg(w, 'Z', "I"); // ReadyForQuery: idle
     try w.flush();
 
-    // One simple Query, answered with a single text column and row.
+    // One simple Query. The reply has one text column and one row.
     var mbuf: [1024]u8 = undefined;
     const q = try readMsg(r, &mbuf);
     if (q.tag == 'Q') {
@@ -125,7 +126,7 @@ fn serveImpl(server: *std.Io.net.Server, io: std.Io) !void {
         try w.flush();
     }
 
-    _ = readMsg(r, &mbuf) catch {}; // Terminate, or the client hanging up
+    _ = readMsg(r, &mbuf) catch {}; // Terminate, or the client closes the connection
 }
 
 // --- the client ---

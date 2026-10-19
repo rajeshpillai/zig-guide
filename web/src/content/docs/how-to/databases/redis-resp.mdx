@@ -1,6 +1,6 @@
 ---
 title: "Recipe: A Redis RESP Round Trip"
-description: Speak Redis's RESP protocol over a socket, with a tiny server and client in one process.
+description: Use the RESP protocol of Redis over a socket, with a small server and client in one process.
 section: How-To
 order: 109
 group: Databases
@@ -8,74 +8,54 @@ group: Databases
 
 import Playground from "../../../../components/Playground.astro";
 
-A Redis command in RESP is `*` and the argument count, then each argument as
-`$`, its byte length and its bytes, with every line ending in `\r\n`. A Zig
-program can write and parse that directly, with no client library.
+A Redis command in RESP is `*` and the argument count. Then each argument follows as `$`, its byte length and its bytes. Each line ends in `\r\n`. A Zig program can write and parse that format directly, with no client library.
 
 ## The problem
 
-Redis speaks RESP, a small text protocol over TCP. You do not need a client
-library to talk to it: a command is a length-prefixed array of strings, and a
-reply is one tagged line. This recipe implements just enough of both ends to
-run `SET` and `GET`, so you can see the exact bytes that go over the wire.
+Redis uses RESP, a small text protocol over TCP. You do not need a client library to communicate with Redis. A command is an array of strings, each with its length before it. A reply is one line with a tag.
 
-Rather than depend on a running `redis-server`, it runs a small RESP server
-in the same process, the way [the TCP recipe](/learn/networking/tcp-echo/)
-does. CI runs the whole exchange and diffs the output, so the protocol code is
-verified even though there is no external database.
+This recipe implements a small part of both ends, sufficient to run `SET` and `GET`. Thus you can see the exact bytes that go over the wire.
+
+The recipe does not depend on a `redis-server` that runs. It runs a small RESP server in the same process, as [the TCP recipe](/learn/networking/tcp-echo/) does. CI runs the full exchange and compares the output. Thus CI verifies the protocol code, but no external database is necessary.
 
 ## The plan
 
-1. Encode a command as RESP: `*<n>` for the argument count, then `$<len>` and
-   the bytes for each argument, each line ending `\r\n`.
-2. On the server, parse that array, dispatch `SET`/`GET` against a
-   `StringHashMap`, and reply in RESP.
-3. On the client, send a command and decode the one-line reply by its first
-   byte: `+` simple string, `-` error, `:` integer, `$` bulk string.
+1. Encode a command as RESP. Write `*<n>` for the argument count. Then, for each argument, write `$<len>` and the bytes. End each line with `\r\n`.
+2. On the server, parse that array. Send `SET` and `GET` to a `StringHashMap`, and reply in RESP.
+3. On the client, send a command. Decode the one-line reply by its first byte: `+` simple string, `-` error, `:` integer, `$` bulk string.
 
 <Playground
   name="06-cookbook.redis-resp"
-  note="A self-contained RESP server and client, built and run natively by CI. It needs no redis-server, and browser wasm has no sockets."
+  note="A RESP server and client in one program, with no other parts. CI builds and runs it natively. It needs no redis-server, and browser wasm has no sockets."
   tryLocally="zig run redis-resp.zig"
 />
 
 ## The wire format
 
-`SET framework zig` goes out as
-`*3\r\n$3\r\nSET\r\n$9\r\nframework\r\n$3\r\nzig\r\n`. A RESP command is only
-this: a count, then each argument as a byte length and the bytes. Because the
-length is explicit, the parser never has to guess where a value ends. A value
-may contain any byte, including `\r\n`. Replies are simpler still: a single
-leading byte names the type, so `+OK\r\n` is success and `$3\r\nzig\r\n` is
-the three-byte string `zig`. A missing key is the RESP nil, `$-1\r\n`, which
-the client prints as `(nil)`.
+`SET framework zig` goes out as `*3\r\n$3\r\nSET\r\n$9\r\nframework\r\n$3\r\nzig\r\n`. A RESP command contains only these parts: a count, then each argument as a byte length and the bytes.
 
-## Reading lines: mind the delimiter
+The length is explicit. Thus the parser never has to guess where a value ends. A value can contain any byte, `\r\n` too.
 
-The reader helper uses `takeDelimiterInclusive('\n')` and trims the trailing
-`\r\n`. This is deliberate. The exclusive variant returns the line without the
-terminator, but leaves that terminator in the stream. A loop that reads line
-after line with it would read an empty string on every other call. The
-`Inclusive` form consumes the delimiter, which is what you want when parsing a
-stream of `\r\n`-terminated lines. For a bulk string the code does not read a
-line at all: it reads exactly the advertised number of bytes, then discards
-the two trailing framing bytes.
+Replies are more simple. One byte at the start gives the type. Thus `+OK\r\n` is success, and `$3\r\nzig\r\n` is the three-byte string `zig`. A key that does not exist gives the RESP nil, `$-1\r\n`, and the client prints it as `(nil)`.
 
-## Talking to a real Redis
+## Read lines: be careful with the delimiter
 
-Point the client at a real server by replacing the in-process listener with a
-connection to `127.0.0.1:6379`, exactly as [the TCP
-recipe](/learn/networking/tcp-echo/) connects. The encoding and decoding here
-are real RESP, so the same `sendCommand` and reply parser work against
-`redis-server` unchanged. The parser handles the four reply types most
-commands return. Add the array case (`*`) for commands like `KEYS` or
-`HGETALL`.
+The reader helper uses `takeDelimiterInclusive('\n')` and removes the `\r\n` at the end. This is intentional.
+
+The exclusive variant returns the line without the terminator, but it leaves that terminator in the stream. In a loop that reads one line after the other with that variant, each later call reads an empty string.
+
+The `Inclusive` form consumes the delimiter. You want that behavior when you parse a stream of lines that end in `\r\n`.
+
+For a bulk string, the code does not read a line. It reads exactly the number of bytes that the length gives. Then it discards the two framing bytes at the end.
+
+## Use a real Redis
+
+To use a real server, replace the listener in the process with a connection to `127.0.0.1:6379`. Connect exactly as [the TCP recipe](/learn/networking/tcp-echo/) does.
+
+The encoder and the decoder here use real RESP. Thus the same `sendCommand` and reply parser work with `redis-server` without a change. The parser handles the four reply types that most commands return. For commands such as `KEYS` or `HGETALL`, add the array case (`*`).
 
 ## Variations
 
-- **Pipelining:** send several commands before reading any replies. RESP
-  allows it, and it cuts round trips. The reply order matches the send order.
-- **Binary values:** because bulk strings are length-prefixed, storing raw
-  bytes works without escaping.
-- **A persistent store:** for a database that keeps data on disk from Zig, see
-  [SQLite from Zig](/learn/how-to/databases/sqlite-basic/).
+- **Pipelining:** send several commands before you read the replies. RESP allows this, and it decreases the number of round trips. The replies come in the same order as the commands.
+- **Binary values:** bulk strings have their length before them. Thus you can store raw bytes without escape characters.
+- **A persistent store:** for a database that keeps data on disk from Zig, see [SQLite from Zig](/learn/how-to/databases/sqlite-basic/).

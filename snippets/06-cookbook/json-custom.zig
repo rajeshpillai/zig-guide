@@ -1,9 +1,9 @@
 //! title: A Custom JSON Serializer
-//! A jsonStringify method renames fields and adds computed ones.
+//! A jsonStringify method renames fields and adds computed fields.
 
 const std = @import("std");
 
-// Identical fields, no hook: this is what the default serializer emits.
+// The same fields, and no hook: the default serializer writes this struct.
 const Plain = struct {
     id: u64,
     name: []const u8,
@@ -17,9 +17,10 @@ const User = struct {
     is_admin: bool,
     created_at: i64,
 
-    // When present, std.json.Stringify calls this instead of walking the
-    // fields. `jws` is a *std.json.Stringify write stream. It balances
-    // begin/end and quotes strings for you, so the output is always valid.
+    // If this function exists, std.json.Stringify calls it, and does not go
+    // through the fields. `jws` is a *std.json.Stringify write stream. It
+    // matches each begin to an end and puts quotes on strings for you. Thus
+    // the output is always valid.
     pub fn jsonStringify(self: User, jws: anytype) !void {
         try jws.beginObject();
 
@@ -32,7 +33,7 @@ const User = struct {
         try jws.objectField("admin"); // rename is_admin
         try jws.write(self.is_admin);
 
-        // A computed field the struct does not store: whole days since epoch.
+        // A computed field that the struct does not store: whole days since epoch.
         try jws.objectField("epoch_day");
         try jws.write(@divTrunc(self.created_at, std.time.s_per_day));
 

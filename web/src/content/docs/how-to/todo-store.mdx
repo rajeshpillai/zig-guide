@@ -1,78 +1,62 @@
 ---
 title: "Recipe: A File-Backed To-Do Store"
-description: Fixed-size records on disk, updated in place by id with positional reads and writes.
+description: Records of fixed size on disk, updated in place by id with positional reads and writes.
 section: How-To
 order: 92.7
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A file-backed store in Zig can update one record without rewriting the file
-when every record is the same size. Record `N` sits at
-`(N - 1) * @sizeOf(Record)`, and `readPositionalAll` and `writePositionalAll`
-read and write at that offset.
+When all records are the same size, a store on disk in Zig can update one record and not write the full file again. Record `N` is at `(N - 1) * @sizeOf(Record)`. `readPositionalAll` and `writePositionalAll` read and write at that offset.
 
 ## The problem
 
-You want to persist a list of items and update any one of them without
-rewriting the whole file. With fixed-size records, reading or updating one is
-a single positional operation, not a scan. Every fixed-page database file is
-built on the same idea.
+You want to store a list of items on disk. You also want to update one item, and not write the full file again.
+
+With records of fixed size, a read or an update of one record is one positional operation, not a scan. Each database file with pages of fixed size uses the same idea.
 
 ## The plan
 
-1. Define the record as an `extern struct`, so its byte layout is fixed and
-   identical on every write.
-2. Add by appending at the current end of file.
+1. Define the record as an `extern struct`. Thus its byte layout is fixed and identical on each write.
+2. To add a record, append it at the current end of the file.
 3. Read or update record `N` at its fixed offset.
-4. Update in place: read the slot, change a field, write it back to the same
-   offset.
+4. To update in place, read the slot, change a field, and write the slot again to the same offset.
 
 <Playground
   name="06-cookbook.todo-store"
-  note="Uses the real filesystem, so CI builds and runs it natively. The browser WASI sandbox has no directories to open."
+  note="The program uses the real filesystem. Thus CI builds and runs it natively. The browser WASI sandbox has no directories to open."
   tryLocally="zig run todo-store.zig"
 />
 
-## Why every record is the same size
+## Why all records are the same size
 
-The record is an `extern struct`, which fixes its layout: an id, a done flag, a
-length byte, and 64 bytes of text. That is the same 72 bytes every time. The
-extra two are alignment padding, and they are harmless because every offset is
-computed from `@sizeOf`. Because the size is constant, the file is an array on
-disk. Item 3 is at offset `2 * 72`, always, so `toggle` jumps straight there.
-A variable-length format, JSON lines for instance, loses this: you would have
-to read from the start to find where record 3 begins.
+The record is an `extern struct`, which fixes its layout: an id, a done flag, a length byte and 64 bytes of text. The record is 72 bytes each time.
+
+The two extra bytes are alignment padding. They cause no problem, because the code computes each offset from `@sizeOf`.
+
+The size is constant. Thus the file is an array on disk. Item 3 is always at offset `2 * 72`, and `toggle` goes directly to that offset.
+
+A format with records of different lengths, for example JSON lines, does not have this property. To find the start of record 3, you must read from the start of the file.
 
 ## Positional I/O, not seek
 
-Since Zig 0.16 the filesystem lives behind the `Io` interface, and random
-access is done with `readPositionalAll` and `writePositionalAll`, each taking
-an explicit offset. There is no separate seek call to forget: the offset is an
-argument to the read or write itself. The older `seekTo` plus `getPos` pair
-is gone. `file.length(io)` gives the end of file, which is both the append
-point and the loop bound for listing.
+Since Zig 0.16, the filesystem is behind the `Io` interface. For random access, use `readPositionalAll` and `writePositionalAll`. Each function takes an explicit offset.
 
-`std.mem.asBytes(&rec)` connects the struct and the file. It views the
-record as the `[N]u8` the I/O calls want, with no copy. Reading does the
-reverse, filling a `Record` straight from the bytes on disk. Both only work
-because the layout is fixed, and `extern` is what fixes it.
+There is no separate seek call that you can forget, because the offset is an argument to the read or the write. Zig removed the older `seekTo` and `getPos` functions. `file.length(io)` gives the end of the file. That value is the append point, and also the loop limit for the list.
+
+`std.mem.asBytes(&rec)` connects the struct and the file. It shows the record as the `[N]u8` that the I/O calls need, with no copy. A read does the opposite: it fills a `Record` directly from the bytes on disk.
+
+These two operations work only because the layout is fixed, and `extern` fixes the layout.
 
 ## Update in place
 
-`toggle` puts all of this together. It reads the one record at its offset, flips `done`,
-and writes those same bytes back to the same offset. A real store would add a
-free list for deletions, and an index for lookups by something other than id.
-The core, a fixed record addressed by offset, does not change.
+`toggle` uses all of these parts together. It reads the one record at its offset, changes `done` to the opposite value, and writes the same bytes again to the same offset.
+
+A real store adds a free list for deletions, and an index to find records by a value other than the id. The core does not change: a fixed record at a known offset.
 
 ## Variations
 
-- **Delete:** mark a record with a tombstone flag rather than removing it, so
-  later offsets stay valid. Compact the file later.
-- **Larger text:** raise the `text` array, or store long values in a second
-  file and keep an offset and length in the record.
-- **Endianness:** `extern` layout is host byte order. To move the file between
-  machines, write fields explicitly like
-  [the binary round-trip recipe](/learn/how-to/binary-roundtrip/) does.
-- **A real database engine:** [SQLite from Zig](/learn/how-to/databases/sqlite-basic/) gives you
-  the same on-disk durability with SQL on top.
+- **Delete:** put a tombstone flag on a record, and do not remove the record. Then the offsets after it stay valid. Compact the file at a later time.
+- **Larger text:** make the `text` array larger. Or store long values in a second file, and keep an offset and a length in the record.
+- **Endianness:** the `extern` layout uses the byte order of the host. To move the file between machines, write the fields explicitly, as [the binary round-trip recipe](/learn/how-to/binary-roundtrip/) does.
+- **A real database engine:** [SQLite from Zig](/learn/how-to/databases/sqlite-basic/) gives you the same durability on disk, with SQL on top.

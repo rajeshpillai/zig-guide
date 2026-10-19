@@ -1,115 +1,81 @@
 ---
 title: "Recipe: SIMD Byte Scanning"
-description: The five-step pattern that turns a byte-at-a-time loop into a register-wide scan.
+description: The five-step pattern that changes a loop of one byte at a time into a scan as wide as a register.
 section: How-To
 order: 97
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-SIMD byte scanning in Zig loads a vector's worth of bytes at once, compares
-every lane in one operation, and `@bitCast`s the resulting bool vector to an
-integer so `@ctz` finds the first match. The pattern is five steps: splat,
-load, compare, extract, tail.
+A SIMD byte scan in Zig loads the bytes for a full vector at one time and compares each lane in one operation. Then `@bitCast` changes the bool vector from the comparison to an integer, and `@ctz` finds the first match. The pattern has five steps: splat, load, compare, extract, tail.
 
 ## The problem
 
-A parser reading a JSON string spends most of its time in a loop like this:
+A parser that reads a JSON string uses most of its time in a loop such as this one:
 
 ```zig
 while (i < bytes.len and bytes[i] != '"' and bytes[i] != '\\') i += 1;
 ```
 
-One byte per iteration. The machine underneath holds 16 bytes in a single
-128-bit vector register and can compare all of them in one instruction. [The
-dot product recipe](/learn/how-to/simd-sum/) used vectors for arithmetic. This
-one uses them for searching. Searching is where parsers, scanners, and codecs
-get large speedups from SIMD. The shape of this recipe follows Mitchell Hashimoto's
-["Everyone should know
-SIMD"](https://mitchellh.com/writing/everyone-should-know-simd), which walks
-the same pattern through a terminal emulator's scanner.
+The loop examines one byte in each iteration. But the machine can keep 16 bytes in one 128-bit vector register, and it can compare all 16 bytes in one instruction.
+
+[The dot product recipe](/learn/how-to/simd-sum/) used vectors for arithmetic. This recipe uses vectors for a search. Parsers, scanners and codecs get large increases in speed from SIMD in their searches.
+
+The shape of this recipe follows the article ["Everyone should know SIMD"](https://mitchellh.com/writing/everyone-should-know-simd) by Mitchell Hashimoto. The article shows the same pattern in the scanner of a terminal emulator.
 
 ## The pattern
 
-Vectorized scans are all the same five steps. Learn them once and most SIMD
-code becomes readable, whatever the language.
+All vector scans use the same five steps. Learn them one time, and you can read most SIMD code, in all languages.
 
-1. **Splat.** Broadcast each constant you compare against into every lane
-   of a vector, once, before the loop.
-2. **Load.** Step through the slice a whole vector at a time:
-   `bytes[i..][0..lanes].*` turns 16 contiguous bytes into an operand.
-3. **Compare.** `chunk == quote` compares all lanes in one operation and
-   yields a `@Vector(lanes, bool)`.
-4. **Extract.** Turn that bool vector into a plain integer and use integer
-   instructions to ask questions about the lanes.
-5. **Tail.** Finish the last few bytes with the scalar loop you started
-   with.
+1. **Splat.** Before the loop, copy each constant that you compare against into each lane of a vector. Do this one time.
+2. **Load.** Move through the slice one full vector at a time. `bytes[i..][0..lanes].*` changes 16 contiguous bytes into an operand.
+3. **Compare.** `chunk == quote` compares all lanes in one operation, and gives a `@Vector(lanes, bool)`.
+4. **Extract.** Change that bool vector into a plain integer. Then use integer instructions to get information about the lanes.
+5. **Tail.** Do the last few bytes with the scalar loop from the start.
 
 <Playground name="06-cookbook.simd-scan" />
 
 ## The mask is an integer
 
-Step 4 turns the comparison into an answer. `@bitCast` packs a `@Vector(16,
-bool)` into a `u16`, lane 0 in the lowest bit. After that, questions about
-lanes become one-instruction questions about an integer:
+Step 4 changes the comparison into an answer. `@bitCast` packs a `@Vector(16, bool)` into a `u16`, with lane 0 in the lowest bit. After that, each question about the lanes is a question about an integer, and one instruction answers it:
 
 | Question | Answer |
 | --- | --- |
-| did any lane match? | `hits != 0` |
+| did a lane match? | `hits != 0` |
 | where is the first match? | `@ctz(hits)` |
 | how many matched? | `@popCount(hits)` |
 
-x86 calls this a movemask. The snippet uses `@ctz` to find the first special
-byte and `@popCount` to count quotes. Both scans share steps 1 through 3 and
-differ only here. The mask type is `@Int(.unsigned, lanes)`, the builtin that
-replaced `std.meta.Int` on current master.
+On x86, the name of this operation is movemask. The snippet uses `@ctz` to find the first special byte, and `@popCount` to count the quotes. Both scans use the same steps 1 to 3. They are different only at step 4.
 
-## Two needles, one pass
+The mask type is `@Int(.unsigned, lanes)`. On current master, this builtin replaces `std.meta.Int`.
 
-The scan looks for `"` or `\`. Each needle is its own splat and its own
-compare, and integer `|` merges the two masks. A third needle costs one more
-compare, not another pass over the data. Scalar code pays a branch per needle
-per byte. The vector loop pays nothing extra per byte and branches once per
-16.
+## Two needles in one pass
+
+The scan looks for `"` or `\`. Each needle has its own splat and its own compare. An integer `|` merges the two masks.
+
+A third needle costs one more compare, not one more pass over the data. Scalar code pays one branch for each needle, for each byte. The vector loop pays nothing more for each byte, and it has one branch for each 16 bytes.
 
 ## Targets without SIMD
 
-`suggestVectorLength` asks the target how many lanes its registers hold: 16
-for this site's wasm, 32 on x86-64 with AVX2, 64 with AVX-512, and null when
-the target has no usable vectors. The result is comptime-known, so `orelse
-return findSpecialScalar(...)` does not emit a fallback branch. On a
-vectorless target the whole SIMD body is never compiled. That guard is why the
-playground prints the lane count. This snippet is built with wasm's SIMD
-feature enabled, so the Run button executes real 16-lane vector instructions
-in your browser.
+`suggestVectorLength` asks the target how many lanes its registers hold. The answer is 16 for the wasm of this site, 32 on x86-64 with AVX2 and 64 with AVX-512. When the target has no vectors that the code can use, the answer is null.
 
-Only the four chapters that teach vectors are built that way. The rest of the
-site is baseline wasm, because SIMD is a target feature rather than a
-per-function one. With it on, the compiler auto-vectorizes the standard
-library's memcpy and formatting paths too. Hello-world then shipped 159 vector
-opcodes it never asked for, and would not load at all on an engine without
-SIMD.
+The result is known at comptime. Thus `orelse return findSpecialScalar(...)` does not emit a fallback branch. On a target without vectors, the compiler does not compile the SIMD code at all. Because of that guard, the playground prints the lane count.
+
+The build of this snippet enables the SIMD feature of wasm. Thus the Run button executes real 16-lane vector instructions in your browser.
+
+Only the four chapters that teach vectors have that build. The other snippets of the site use baseline wasm, because SIMD is a feature of the target, not of one function.
+
+When the feature is on, the compiler also auto-vectorizes the memcpy and formatting paths of the standard library. Then hello-world shipped 159 vector opcodes that it did not ask for. That program did not load at all on an engine without SIMD.
 
 ## Why not let the compiler do it
 
-Compilers auto-vectorize the counting loop routinely. The find-first loop is
-harder. The early exit makes the trip count depend on the data, and whether
-the optimizer manages it can change with an unrelated edit or a compiler
-upgrade. Writing the vectors out guarantees vector instructions, and
-`@Vector` keeps that guarantee portable across targets. The cost is about a
-dozen extra lines of code.
+Compilers usually auto-vectorize the count loop. The loop that finds the first match is more difficult. The early exit makes the number of iterations depend on the data. The optimizer can succeed or fail, and the result can change after an unrelated edit or a compiler upgrade.
+
+When you write the vectors in the code, you guarantee vector instructions. `@Vector` keeps that guarantee portable across targets. The cost is about twelve more lines of code.
 
 ## Variations
 
-- **`std.simd` helpers:** `std.simd.firstTrue(chunk == quote)` wraps the
-  bitcast and `@ctz`. `countTrues` and `lastTrue` cover the other
-  questions.
-- **One needle:** `std.mem.findScalar` (the current name for
-  `indexOfScalar`) already scans with vectors internally. Use it before
-  writing your own.
-- **Any without where:** `@reduce(.Or, mask)` answers "did any lane match"
-  directly from the bool vector when you never need the index.
-- **Classify, then decide:** real JSON scanners build masks for quotes,
-  backslashes, and structural characters per 64-byte block and combine
-  them with integer arithmetic. This is step 4 of this recipe, on 64 bytes
-  at a time.
+- **`std.simd` helpers:** `std.simd.firstTrue(chunk == quote)` contains the bitcast and the `@ctz`. `countTrues` and `lastTrue` answer the other questions.
+- **One needle:** `std.mem.findScalar` (the current name for `indexOfScalar`) already uses vectors internally for the scan. Use it before you write your own scan.
+- **A match, but not its position:** `@reduce(.Or, mask)` tells you directly from the bool vector if a lane matched. Use it when you do not need the index.
+- **Classify, then decide:** real JSON scanners build masks for quotes, backslashes and structural characters for each 64-byte block. Then they combine the masks with integer arithmetic. This is step 4 of this recipe, on 64 bytes at a time.

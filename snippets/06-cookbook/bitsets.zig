@@ -1,5 +1,5 @@
 //! title: Set Operations on the Cheap
-//! Membership of small integer sets as bits: no allocation, one-word math.
+//! Keep sets of small integers as bits: no allocation, and math on one word.
 
 const std = @import("std");
 
@@ -21,9 +21,9 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // Two calendars, each a set of free hours in a day. 24 possible
-    // members, so the whole set is stored as one u24. Every
-    // operation below is a bitwise instruction or two.
+    // Two calendars. Each calendar is a set of free hours in a day. A set
+    // has 24 possible members, thus one u24 keeps the full set. Each
+    // operation below is one or two bitwise instructions.
     var ana: Hours = .empty;
     var raj: Hours = .empty;
     setHours(&ana, &.{ 9, 10, 11, 14, 15, 16 });
@@ -32,13 +32,13 @@ pub fn main(init: std.process.Init) !void {
     try printHours(out, "ana", ana);
     try printHours(out, "raj", raj);
 
-    // Overlap: the hours where a meeting can happen.
+    // Intersection: the hours when a meeting can occur.
     try printHours(out, "both free", ana.intersectWith(raj));
 
-    // Union answers the opposite question.
+    // Union gives the hours when one or both people are free.
     try printHours(out, "either free", ana.unionWith(raj));
 
-    // Single-membership checks are one bit test.
+    // A check for one member is one bit test.
     try out.print("raj free at 14: {}\n", .{raj.isSet(14)});
 
     try out.flush();

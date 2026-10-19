@@ -1,66 +1,44 @@
 ---
 title: "Recipe: A Binary Wire Format"
-description: Serialize a struct to explicit bytes and back, safely.
+description: Serialize a struct to explicit bytes and back, with safe checks.
 section: How-To
 order: 92
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A binary wire format in Zig is written field by field with `std.mem.writeInt`
-and read back with `std.mem.readInt`, each call naming its endianness.
-Decoding checks a magic number first, so bad input returns an error instead of
-garbage.
+In Zig, write a binary wire format one field at a time with `std.mem.writeInt`. Read the format back with `std.mem.readInt`. Each call gives its endianness. The decoder checks a magic number first. Thus bad input returns an error, and the decoder does not return random values.
 
 ## The problem
 
-You need to write a struct somewhere outside your process (a file header, a
-network packet, a save format) and read it back later, possibly on a
-different machine. The tempting shortcut is to copy the struct's memory out
-directly with `std.mem.asBytes` or `@bitCast`. Don't do that. A plain Zig
-struct's field order and padding are unspecified, and its integers are in
-*host* byte order. The bytes would change with the compiler, the target, or
-the optimizer. A wire format must define every byte exactly.
+You must write a struct to a location outside your process, for example a file header, a network packet or a save format. Later, you must read the struct back, possibly on a different machine.
+
+A fast method is to copy the memory of the struct directly with `std.mem.asBytes` or `@bitCast`. Do not use this method. For a plain Zig struct, the field order and the padding are not specified. Also, the integers of the struct are in the byte order of the *host*. Thus the bytes can change when the compiler, the target or the optimizer changes. A wire format must specify each byte exactly.
 
 ## The plan
 
-1. **Define the format on paper first:** 4-byte magic, 2-byte version,
-   4-byte payload length, all big-endian. Ten bytes, no padding, no
-   ambiguity.
-2. **Encode field by field** with `std.mem.writeInt`, which takes the
-   endianness explicitly.
-3. **Decode with suspicion.** Input from outside the process is untrusted.
-   The magic check comes first, and it returns an error value, not an
-   assertion.
+1. **Specify the format on paper first.** The format is a 4-byte magic, a 2-byte version and a 4-byte payload length, all big-endian. That is ten bytes, with no padding and only one meaning.
+2. **Encode one field at a time** with `std.mem.writeInt`. This function takes the endianness as an argument.
+3. **Do not trust the input when you decode.** Input from outside the process is untrusted. The magic check occurs first, and it returns an error value, not an assertion.
 
 <Playground name="06-cookbook.binary-roundtrip" />
 
-## Why the buffer type does the bounds checking
+## Why the buffer type does the bounds check
 
-`encode` takes `*[encoded_len]u8`: a pointer to an array of *exactly* ten
-bytes, not a slice. Passing a buffer of the wrong size is a **compile error**.
-Inside the function, `buf[0..4]` is a comptime-known sub-array, so
-`writeInt` needs no runtime length check either. The format's size lives in
-one declaration (`encoded_len`) that both sides share.
+`encode` takes `*[encoded_len]u8`. That type is a pointer to an array of *exactly* ten bytes, not a slice. A buffer of the wrong size is a **compile error**.
+
+Inside the function, `buf[0..4]` is a sub-array with a size that is known at comptime. Thus `writeInt` does not need a length check at runtime. The size of the format is in one declaration (`encoded_len`), and the encoder and the decoder both use that declaration.
 
 ## Why a magic number
 
-A version field tells you *which* format you're reading. The magic tells you
-whether you're reading your format *at all*. Given a truncated file, a wrong
-file, or bytes shifted by one, the decoder fails immediately with
-`error.BadMagic` instead of "successfully" decoding garbage lengths. The
-snippet's last step corrupts one byte to show that this path runs. It
-returns an error rather than panicking, because bad input is an expected
-condition, not a bug.
+A version field tells you *which* format you read. The magic tells you if the data is your format *at all*.
+
+The file can be incomplete, or it can be the wrong file, or the bytes can start one position too early. In each of these conditions, the decoder fails immediately with `error.BadMagic`. It does not decode incorrect lengths and report success.
+
+The last step of the snippet changes one byte, and the output shows that this path runs. The decoder returns an error and does not panic. Bad input is an expected condition, not a bug.
 
 ## Variations
 
-- **Floats:** `writeInt(u32, buf, @bitCast(f), .little)` round-trips an
-  `f32` exactly: bit pattern in, bit pattern out. Never format floats as
-  text in a binary protocol.
-- **`packed struct`** gives you guaranteed bit layout *within* an integer
-  (flags, header nibbles). `@bitCast` the packed struct to its backing
-  integer, then `writeInt` that with explicit endianness as usual.
-- **Streams:** the same encode/decode pair works on a reader/writer; parse
-  the fixed-size header first, then the header tells you how many payload
-  bytes to expect.
+- **Floats:** `writeInt(u32, buf, @bitCast(f), .little)` writes an `f32` and gets back exactly the same value. The decoder returns the same bit pattern that the encoder wrote. Do not write floats as text in a binary protocol.
+- **`packed struct`** gives you a guaranteed bit layout *inside* an integer, for example flags or the nibbles of a header. Use `@bitCast` to change the packed struct to its backing integer. Then write that integer with `writeInt` and an explicit endianness, as usual.
+- **Streams:** the same encode and decode functions work on a reader and a writer. Parse the header of fixed size first. Then the header tells you how many payload bytes to expect.
