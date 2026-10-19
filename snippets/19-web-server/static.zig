@@ -1,5 +1,5 @@
 //! title: Serving Files Safely
-//! Decode first, then check. Doing it the other way round is the bug.
+//! Decode first, then check. The opposite order is the bug.
 
 const std = @import("std");
 
@@ -14,8 +14,9 @@ fn hexValue(c: u8) ?u8 {
     };
 }
 
-/// `%20` becomes a space, `+` stays a plus. (In a query string `+` means a
-/// space; in a path it does not. Mixing up the two is a separate small bug.)
+/// `%20` becomes a space, and `+` stays a plus. (In a query string, `+` means
+/// a space. In a path, `+` does not. If you mix the two rules, you get a
+/// separate small bug.)
 pub fn percentDecode(dest: []u8, src: []const u8) Reject![]u8 {
     var n: usize = 0;
     var i: usize = 0;
@@ -36,26 +37,26 @@ pub fn percentDecode(dest: []u8, src: []const u8) Reject![]u8 {
     return dest[0..n];
 }
 
-/// Turn a request target into a path under the document root, or refuse.
+/// Change a request target into a path under the document root, or refuse.
 ///
-/// The order matters. Decoding happens first. A check that runs before
-/// decoding sees `%2e%2e`, which looks harmless, but the filesystem still
-/// receives `..`. Directory traversal bugs are found in code that checked the
-/// wrong string.
+/// The order is important. The decode occurs first. A check that runs before
+/// the decode sees `%2e%2e`, which looks harmless. But the filesystem still
+/// gets `..`. Directory traversal bugs occur in code that checked the
+/// incorrect string.
 pub fn safePath(dest: []u8, target: []const u8) Reject![]const u8 {
     // A query string is not part of the path.
     const raw = if (std.mem.findScalar(u8, target, '?')) |q| target[0..q] else target;
 
     const decoded = try percentDecode(dest, raw);
 
-    // A nul byte truncates the name for anything that later treats it as a C
-    // string, so `/safe.txt\x00../../etc/passwd` can pass a suffix check and
-    // still open something else.
+    // A nul byte makes the name shorter for code that later uses it as a C
+    // string. Thus `/safe.txt\x00../../etc/passwd` can pass a suffix check
+    // and still open a different file.
     if (std.mem.findScalar(u8, decoded, 0) != null) return error.Traversal;
 
-    // Reject instead of normalising. Collapsing `a/../b` into `b` is possible,
-    // but it is a second thing to get right. Refusing any `..` component is
-    // one rule with no edge cases, and no legitimate URL needs one.
+    // Reject, and do not normalise. You can change `a/../b` into `b`, but
+    // that is a second thing to make correct. A rule that refuses each `..`
+    // component has no edge cases, and no legitimate URL needs `..`.
     var parts = std.mem.splitScalar(u8, decoded, '/');
     while (parts.next()) |part| {
         if (std.mem.eql(u8, part, "..")) return error.Traversal;
@@ -65,9 +66,9 @@ pub fn safePath(dest: []u8, target: []const u8) Reject![]const u8 {
     return decoded;
 }
 
-/// Content-Type from the extension, because that is all a static server knows.
-/// Guessing from the bytes is what browsers used to do and is the reason
-/// `X-Content-Type-Options: nosniff` had to be invented.
+/// Get the Content-Type from the extension. A static server knows only the
+/// extension. In the past, browsers guessed the type from the bytes. For that
+/// reason, people invented `X-Content-Type-Options: nosniff`.
 pub fn mimeFor(path: []const u8) []const u8 {
     const dot = std.mem.findScalarLast(u8, path, '.') orelse return "application/octet-stream";
     const ext = path[dot + 1 ..];

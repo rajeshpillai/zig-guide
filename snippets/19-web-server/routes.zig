@@ -1,13 +1,13 @@
 //! title: Routing and Query Strings
-//! Everything after the `?`, and the dispatch table that ignores it.
+//! All text after the `?`, and the dispatch table that ignores that text.
 
 const std = @import("std");
 const path_util = @import("static.zig");
 
 pub const Param = struct { name: []const u8, value: []const u8 };
 
-/// In a query string `+` means a space. In a path it does not, which is why
-/// this is a separate function from the path decoder rather than a flag on it.
+/// In a query string, `+` means a space. In a path, `+` does not mean a space.
+/// Thus this function is separate from the path decoder. It is not a flag.
 fn decodeQueryValue(dest: []u8, src: []const u8) ![]u8 {
     var swapped: [256]u8 = undefined;
     if (src.len > swapped.len) return error.TooLong;
@@ -15,8 +15,8 @@ fn decodeQueryValue(dest: []u8, src: []const u8) ![]u8 {
     return path_util.percentDecode(dest, swapped[0..src.len]);
 }
 
-/// Parse `a=1&b=hello+world&flag` into pairs. A key with no `=` is present
-/// with an empty value, which is how HTML checkboxes and flags arrive.
+/// Parse `a=1&b=hello+world&flag` into pairs. A key with no `=` gets an empty
+/// value. HTML checkboxes and flags come in this form.
 pub fn parseQuery(target: []const u8, dest: []u8, out: []Param) ![]Param {
     const q = std.mem.findScalar(u8, target, '?') orelse return out[0..0];
     var used: usize = 0;
@@ -43,9 +43,9 @@ pub fn parseQuery(target: []const u8, dest: []u8, out: []Param) ![]Param {
 }
 
 pub fn find(params: []const Param, name: []const u8) ?[]const u8 {
-    // Last wins. Real servers disagree about this, and the disagreement can
-    // be used in an attack: when a proxy takes the first `user` and the origin
-    // takes the last, one request means two different things.
+    // The last value wins. Real servers do not agree about this rule, and an
+    // attacker can use the disagreement. Suppose a proxy uses the first `user`
+    // and the origin uses the last. Then one request has two meanings.
     var result: ?[]const u8 = null;
     for (params) |p| {
         if (std.mem.eql(u8, p.name, name)) result = p.value;
@@ -55,9 +55,9 @@ pub fn find(params: []const Param, name: []const u8) ?[]const u8 {
 
 const Route = struct { method: []const u8, path: []const u8 };
 
-/// Routing is a comparison. Everything a framework adds sits on top of this:
-/// the table gets patterns, the patterns get compiled, and the compiled form
-/// gets a tree. The decision being made never changes.
+/// Routing is a comparison. A framework adds more parts on top of this
+/// comparison. The table gets patterns, then a compiler changes the patterns
+/// into a tree. The decision does not change.
 pub fn route(method: []const u8, target: []const u8) ?usize {
     const path = if (std.mem.findScalar(u8, target, '?')) |q| target[0..q] else target;
     const table = [_]Route{

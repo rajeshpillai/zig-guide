@@ -2,17 +2,17 @@
 //! native
 //! The parser from the last chapter, with a socket in front of it.
 //!
-//! `//! native` because it binds a listening socket, which the browser sandbox
-//! has no notion of. CI still builds it and runs it on the host, serving a
-//! real request over a real port and diffing what the client received, so the
-//! absence of a Run button costs verification nothing.
+//! The snippet is native because it binds a listening socket, and the browser
+//! sandbox has no sockets. CI builds the snippet and runs it on the host. The
+//! snippet serves a real request over a real port, and CI compares what the
+//! client received. Thus the verification is the same without a Run button.
 
 const std = @import("std");
 const http = @import("request.zig");
 
-/// Serve exactly one connection, then return. A real server wraps this in a
-/// loop and hands each connection to a thread or an event loop. What happens
-/// per connection stays the same.
+/// Serve exactly one connection, then return. A real server puts this function
+/// in a loop, and gives each connection to a thread or to an event loop. The
+/// work for each connection does not change.
 fn serve(server: *std.Io.net.Server, io: std.Io) void {
     var conn = server.accept(io) catch return;
     defer conn.close(io);
@@ -20,9 +20,10 @@ fn serve(server: *std.Io.net.Server, io: std.Io) void {
     var read_buf: [4096]u8 = undefined;
     var reader = conn.reader(io, &read_buf);
 
-    // Read until the blank line. HTTP puts no length up front, so the server
-    // cannot know how much to read: it reads until it sees the end of the
-    // header section, and only then does Content-Length tell it about a body.
+    // Read until the blank line. HTTP does not give a length at the start.
+    // Thus the server cannot know how much to read. The server reads until it
+    // finds the end of the header section. After that, Content-Length gives
+    // the size of a body.
     var raw: [4096]u8 = undefined;
     var used: usize = 0;
     while (std.mem.find(u8, raw[0..used], "\r\n\r\n") == null) {
@@ -46,8 +47,8 @@ fn serve(server: *std.Io.net.Server, io: std.Io) void {
 }
 
 /// A response is a status line, headers, a blank line, and the body. The
-/// Content-Length is needed: without it the client cannot know the body has
-/// ended, and it waits.
+/// Content-Length is necessary. Without it, the client cannot know that the
+/// body ended, and the client waits.
 fn respond(conn: *std.Io.net.Stream, io: std.Io, status: u16, content_type: []const u8, body: []const u8) void {
     var buf: [1024]u8 = undefined;
     var writer = conn.writer(io, &buf);
@@ -74,8 +75,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // Port 0 asks the OS for a free one, so this cannot collide with whatever
-    // is already running on the machine.
+    // Port 0 asks the OS for a free port. Thus the server cannot use the same
+    // port as a different program on the machine.
     const any_port = try std.Io.net.IpAddress.parse("127.0.0.1", 0);
     var server = try any_port.listen(io, .{});
     defer server.deinit(io);
@@ -98,9 +99,9 @@ pub fn main(init: std.process.Init) !void {
         var read_buf: [1024]u8 = undefined;
         var reader = stream.reader(io, &read_buf);
 
-        // Read until the peer closes, rather than looping on lines. The server
-        // said `Connection: close`, so end of stream is the end of the
-        // response. This is the only framing rule that needs no header.
+        // Read until the peer closes the connection. Do not read line by line.
+        // The server sent `Connection: close`, thus the end of the stream is
+        // the end of the response. Only this framing rule needs no header.
         var response: [2048]u8 = undefined;
         var got: usize = 0;
         while (true) {

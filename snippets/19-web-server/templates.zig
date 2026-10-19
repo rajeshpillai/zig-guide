@@ -1,12 +1,12 @@
 //! title: A Template Engine
-//! Substitution is the easy half. Escaping by default is the half that matters.
+//! Substitution is the easy half. Escaping by default is the important half.
 
 const std = @import("std");
 
 pub const Binding = struct { name: []const u8, value: []const u8 };
 
 /// The five characters that can end an HTML text node or an attribute value.
-/// Escaping decides whether a name is displayed or executed.
+/// Escaping decides if the browser shows a name or runs it.
 fn writeEscaped(out: *std.Io.Writer, text: []const u8) !void {
     for (text) |c| {
         switch (c) {
@@ -27,8 +27,8 @@ fn lookup(bindings: []const Binding, name: []const u8) ?[]const u8 {
     return null;
 }
 
-/// `{{name}}` is escaped. `{{{name}}}` is not. Turning escaping off needs
-/// three braces, so the safe form is the shorter one to type, and the
+/// The engine escapes `{{name}}`, but not `{{{name}}}`. To turn off escaping,
+/// you need three braces. Thus the safe form is shorter to type, and the
 /// dangerous form is easy to see in a diff.
 pub fn render(template: []const u8, bindings: []const Binding, out: *std.Io.Writer) !void {
     var i: usize = 0;
@@ -39,8 +39,8 @@ pub fn render(template: []const u8, bindings: []const Binding, out: *std.Io.Writ
             const close_tag: []const u8 = if (raw) "}}}" else "}}";
 
             const close = std.mem.find(u8, template[open..], close_tag) orelse {
-                // An unterminated placeholder is a typo, and printing it back
-                // is more useful than swallowing the rest of the page.
+                // An unterminated placeholder is a typo. It is more useful to
+                // print the typo than to hide the rest of the page.
                 try out.writeAll(template[i..]);
                 return;
             };
@@ -49,9 +49,9 @@ pub fn render(template: []const u8, bindings: []const Binding, out: *std.Io.Writ
             if (lookup(bindings, name)) |value| {
                 if (raw) try out.writeAll(value) else try writeEscaped(out, value);
             } else {
-                // A missing binding is not an empty string. Printing a marker
-                // is better than a page that silently shows a blank where a
-                // price should be.
+                // A binding that does not exist is not an empty string. A marker is
+                // better than a page that silently shows a blank in the place
+                // of a price.
                 try out.print("[missing:{s}]", .{name});
             }
             i = open + close + close_tag.len;

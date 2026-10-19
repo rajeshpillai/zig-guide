@@ -1,13 +1,13 @@
 ---
 title: Parsing an HTTP Request
-description: A request line, some headers, a blank line. The blank line is the hard part.
+description: A request line, some headers, a blank line. The blank line is the difficult part.
 section: Web Server
 order: 1
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-An HTTP request is text, and small enough to read out loud:
+An HTTP request is text. A request is small, and you can read it aloud:
 
 ```
 POST /submit?id=7 HTTP/1.1
@@ -17,81 +17,104 @@ Content-Length: 13
 name=ada&ok=1
 ```
 
-A request line, some headers, a blank line, and a body. That is the whole
-format, and you can implement it without a library.
+A request has a request line, some headers, a blank line, and a body. That is
+the full format, and you can implement it without a library.
 
-The awkward part is the blank line. Its job looks simple, but it is not. HTTP sends **no length up front**. A server
-reading from a socket has no idea how many bytes belong to this request, so it
-cannot ask for them. It has to read until it sees the header section end, and
-only then can `Content-Length` tell it how much body follows.
+The difficult part is the blank line. The purpose of the blank line seems
+simple, but it is not.
 
-That is the framing problem from the [networking](/learn/networking/framing/)
-section, and HTTP's answer is a delimiter: `\r\n\r\n`.
+HTTP gives **no length at the start**. A server that
+reads from a socket cannot know how many bytes are in this request. Thus the
+server cannot ask for that number of bytes. The server must read until the
+header section ends. After that, `Content-Length` tells the server the size of
+the body.
+
+This is the framing problem from the [networking](/learn/networking/framing/)
+section. The HTTP solution is a delimiter: `\r\n\r\n`.
 
 ## The program
 
 <Playground name="19-web-server.request" />
 
-## What just happened
+## What the program did
 
-**The parse is a split, then a split, then a loop.** Find the blank line to
-separate head from body, split the head on `\r\n`, take the first line as the
-request line, and treat the rest as `name: value`. The parser needs no state
-machine and no buffering, because the whole request is already in memory.
+**The parse is a split, then a split, then a loop.** The parser does these
+steps:
 
-**`Content-Type` was found when it was sent as `content-type`.** Header names
-are case-insensitive, and the parser has to handle that from the start. `curl`
-sends `Host`, HTTP/2 clients lower-case everything, and a hand-written client
-sends whatever its author typed. A parser that compares names exactly works
-with the client you tested with, and fails with the others.
+1. Find the blank line, to separate the head from the body.
+2. Split the head on `\r\n`.
+3. Use the first line as the request line.
+4. Read each of the other lines as `name: value`.
 
-**Whitespace is trimmed after the colon and not before it.** `Host: example.com`
-and `Host:example.com` are both fine. `Host : example.com` is malformed.
-Accepting it anyway sounds harmless, but it is not. When two systems in a chain
-disagree about which requests are valid, an attacker can make one of them see
-a request the other did not. That is how request smuggling works. Strict
-parsing protects against it.
+The parser needs no state machine and no buffering, because the full request is
+already in memory.
 
-**Nothing was copied.** Every field is a slice of the original bytes. The
-request is a view over the buffer the socket filled, so parsing allocates
-nothing and the whole thing is valid exactly as long as that buffer is.
+**The parser found `Content-Type`, but the client sent `content-type`.** Header
+names are case-insensitive, and the parser must handle this from the start.
+`curl` sends `Host`, HTTP/2 clients use lowercase for all names, and a
+hand-written client sends the text that its author typed. A parser that
+compares names exactly works with the client that you used for the test. It
+fails with the other clients.
 
-**Four malformed requests were rejected.** A request line with no version, too
-many parts in the request line, a header with no colon, and a request that
-stops before the blank line. The parser returns an error for each one and does
-not guess.
+**The parser removes whitespace after the colon, but not before the colon.**
+`Host: example.com` and `Host:example.com` are both correct.
+`Host : example.com` is malformed. To accept it anyway seems safe, but it is
+not safe.
+
+Sometimes two systems in a chain do not agree about which requests
+are valid. Then an attacker can make one system see a request that the other
+system did not see. Request smuggling uses this problem. Strict parsing
+prevents it.
+
+**The parser copied nothing.** Each field is a slice of the original bytes.
+The request is a view of the buffer that the socket filled. Thus parsing
+allocates nothing. The request is valid for exactly as long as that buffer is
+valid.
+
+**The parser rejected four malformed requests:**
+
+- A request line with no version.
+- A request line with too many parts.
+- A header with no colon.
+- A request that stops before the blank line.
+
+The parser returns an error for each request, and it does not guess.
 
 ## Check yourself
 
-The parser takes `[]const u8` and never mentions a socket. Why does that
-matter?
+The parser takes `[]const u8` and has no socket. Why is this important?
 
-Because it means this page can run it. The same property is what lets the
-parser be unit-tested without a network, fuzzed with a corpus of malformed
-requests, and reused by a client, because a
-*response* has the same shape: a status line, headers, a blank line, a body.
-The status line needs its own split, since this parser wants exactly three
-fields and a reason phrase like `Not Found` has a space in it. A parser that
-reads from a socket can be tested only by starting a server.
+The answer: because of this property, this page can run the parser. The same
+property lets you do three more things without a network:
 
-Every protocol parser in this guide is written this way. That is why most of
-the networking chapters run in a browser. The next chapter puts a socket in front
-of this one, and the parser does not change.
+- Unit-test the parser.
+- Fuzz the parser with a corpus of malformed requests.
+- Use the parser again in a client. A *response* has the same shape: a status
+  line, headers, a blank line, a body.
+
+The status line needs its own split. This parser wants exactly three fields,
+and a reason phrase such as `Not Found` contains a space. A parser that reads
+from a socket is testable only when a server runs.
+
+All protocol parsers in this guide use this design. Thus most of the networking
+chapters run in a browser. The next chapter puts a socket in front of this
+parser, and the parser does not change.
 
 ## If you know C
 
-The C version uses `strstr` for the blank line and `strtok` for the rest. Both
-choices have a cost.
+The C version uses `strstr` for the blank line and `strtok` for the other
+parts. Both choices have a cost.
 
-`strtok` writes `\0` over each delimiter, destroying the buffer as it reads.
-For a request that is often acceptable, since you are done with it. It also
-collapses runs of delimiters, which means an empty header line, the very thing
-marking the end of the headers, disappears. Parsers built on `strtok` usually
-find the blank line separately for this reason.
+`strtok` writes `\0` over each delimiter, and thus it destroys the buffer while
+it reads. For a request, this is frequently acceptable, because you do not need
+the request again. But `strtok` also joins a sequence of delimiters into one.
+Thus an empty header line disappears, and that empty line marks the end of the
+headers. For this reason, parsers that use `strtok` usually find the blank line
+in a separate step.
 
-And every field ends up as a `char *` into the buffer with no length, so
-"header value" and "the rest of the request from here on" are the same type.
-This same type is what lets a bug read a request body as a header value.
+Also, each field is a `char *` into the buffer, with no length. Thus "header
+value" and "the rest of the request after this point" have the same type. Because
+of this, a bug can read a request body as a header value.
 
 Next: [the server](/learn/web-server/server/), which is this parser with a
 socket in front of it.

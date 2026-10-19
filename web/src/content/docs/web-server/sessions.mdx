@@ -1,100 +1,109 @@
 ---
 title: Cookies and Sessions
-description: A cookie is a string the client stores and hands back. Everything else is policy.
+description: A cookie is a string that the client stores and sends back. All the rest is policy.
 section: Web Server
 order: 6
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-HTTP has no memory. Each request arrives with no idea that another one came
-before it, which is the property that lets a server be restarted, replicated
-and load-balanced without anybody noticing.
+HTTP has no memory. Each request comes with no information about the requests
+before it. Because of this property, you can restart, replicate and
+load-balance a server, and no user sees a difference.
 
-A cookie is the smallest possible fix for that. The server sends
-`Set-Cookie: session=abc`, and the client sends `Cookie: session=abc` on every
-later request. That is the entire mechanism. The server is trusting a string
-that the client stores and can edit.
+A cookie is the smallest possible solution to this problem. The server sends
+`Set-Cookie: session=abc`, and the client sends `Cookie: session=abc` on each
+later request. That is the full mechanism. The server trusts a string that the
+client stores and can edit.
 
-So a session cookie holds an **identifier**, not information. If you put
-`user=admin` in a cookie, anyone can log in as admin by editing the cookie.
+Thus a session cookie holds an **identifier**, not information. If you put
+`user=admin` in a cookie, any person can log in as admin if they edit the
+cookie.
 
 ## The program
 
 <Playground name="19-web-server.sessions" />
 
-## What just happened
+## What the program did
 
-**Parsing is a split on `;` and then on `=`.** There is no percent-decoding,
-because cookies are not encoded. So a value cannot contain a semicolon or a
-space. Session ids are hex for this reason: hex never contains those
-characters, so the problem never comes up.
+**The parse is a split on `;`, then on `=`.** There is no percent-decoding,
+because cookies have no encoding. Thus a value cannot contain a semicolon or a
+space. For this reason, session ids are hex. Hex never contains those
+characters, thus the problem does not occur.
 
-**`novalue` was skipped.** An item with no `=` is not a cookie. The parser
-drops it and does not invent an empty value.
+**The parser ignored `novalue`.** An item with no `=` is not a cookie. The
+parser removes the item, and it does not make an empty value.
 
-**The second line kept its inner spaces.** `  spaced = value ` produced a name
-of `spaced ` and a value of ` value`, spaces included, because whitespace is
-trimmed around each *pair* and not inside it. The grammar does not allow those
-spaces at all and browsers never send them, so being strict here costs
-nothing. A parser that trims inside the pair accepts input that a stricter
-parser later in the chain will reject. When two parsers disagree about the
-same bytes, an attacker can use the difference.
+**The second line kept its inner spaces.** `  spaced = value ` gave the name
+`spaced ` and the value ` value`, with the spaces. The parser removes
+whitespace around each *pair*, not inside the pair. The grammar does not allow
+those spaces, and browsers never send them. Thus a strict rule here costs
+nothing.
 
-A fixed seed is what makes this output identical on every build. It is also
-exactly what a real server must never do: predictable ids mean anyone can
-compute a valid session. `std.Random.IoSource`, which fills bytes from the
-operating system through the `Io` interface, is the one to reach for. Sixteen
-bytes is 128 bits. That is too many possible ids for anyone to guess one.
+A parser that removes spaces inside the pair accepts input that a stricter
+parser later in the chain rejects. When two parsers do not agree about the same
+bytes, an attacker can use the difference.
 
-**The security comes from the attributes on the cookie.** Each one blocks a
-specific attack:
+The program uses a fixed seed. Thus the output is the same on each build. A
+real server must never do this.
 
-- `HttpOnly` stops JavaScript reading it, so a cross-site scripting bug cannot
-  copy the id out. Script on the page can still act as the user while the page
-  is open, so this is not a fix for XSS
-- `Secure` stops it travelling over plain HTTP, where anything on the path can
-  read it
-- `SameSite=Lax` stops it being sent on cross-site POSTs, which is most of
-  cross-site request forgery
-- `Max-Age` gives the cookie an end, so the browser stops sending it. A stolen
-  id stops working only when the server expires it, and that half is yours to
-  build
+If the ids are predictable, any person can
+calculate a valid session. Use `std.Random.IoSource`, which gets bytes from the
+operating system through the `Io` interface. Sixteen bytes is 128 bits. With
+that many possible ids, no person can guess an id.
+
+**The security comes from the attributes on the cookie.** Each attribute stops
+a specific attack:
+
+- With `HttpOnly`, JavaScript cannot read the cookie. Thus a cross-site
+  scripting bug cannot copy the id. A script on the page can still act as the
+  user while the page is open. Thus this attribute does not fix XSS.
+- `Secure` stops the cookie on plain HTTP. On plain HTTP, any device on the path
+  can read the cookie.
+- With `SameSite=Lax`, the browser does not send the cookie on cross-site
+  POSTs. This stops most cross-site request forgery.
+- `Max-Age` gives the cookie an end. After that end, the browser does not send
+  the cookie. A stolen id stops working only when the server expires the id. You
+  must build that part.
 
 Without these attributes, there are several well-known ways to steal the
 session.
 
 ## Check yourself
 
-The server stores the id and looks up the session in its own memory. What
-breaks when you run a second copy of the server behind a load balancer?
+The server stores the id and finds the session in its own memory. What breaks
+when you run a second copy of the server behind a load balancer?
 
-Every request that lands on the other machine has a session id it has never
-seen, so the user is logged out at random. So once there is more than one
-process, session storage moves to a shared place, such as Redis or a database.
+The answer: a request that goes to the other machine has a session id that the
+other machine never saw. Thus the session of the user ends at random times. When there
+is more than one process, the session storage must move to a shared place, for
+example Redis or a database.
 
-There is also another approach: put the data in the cookie itself and sign it.
-Then any server can verify it without shared state. A signed cookie or a JWT
-works this way. It removes the lookup but adds a new problem: you cannot
-revoke something you are not storing.
+There is also a different method: put the data in the cookie and sign the
+cookie. Then each server can verify the cookie without shared state. A signed
+cookie or a JWT works this way. This method removes the lookup, but it adds a
+new problem: you cannot revoke something that you do not store.
 
 ## If you know C
 
-In C, this parsing is usually done with `strtok`, which has two flaws. It
-writes `\0` over each delimiter, which destroys the header. And it collapses
-runs of delimiters. Here that loses nothing, but in other formats it would.
+In C, programmers usually do this parsing with `strtok`. `strtok` has two
+problems:
 
-The random number is the part C makes harder. The usual C random is `rand()`:
-a linear congruential generator seeded with the clock. So anyone who knows roughly when
-the session started can compute the id. This has been a real vulnerability in
-real products more than once. The correct source is `/dev/urandom` or
-`getrandom()`. People use `rand()` anyway because it is one call and needs no
-error handling.
+- It writes `\0` over each delimiter, and this destroys the header.
+- It joins a sequence of delimiters into one. Here, this loses nothing, but in
+  other formats it loses data.
 
-Zig does not offer that shortcut. `std.crypto.random` was removed, so the
-secure source is passed in like any other capability: `std.Random.IoSource`
-over the `Io` you already have. That costs a line of setup, and there is no
-easy insecure option to use by mistake.
+C makes the random number more difficult. The usual random function in C is
+`rand()`: a linear congruential generator, with the clock as the seed. Thus a
+person who knows approximately when the session started can calculate the id.
+This problem was a real vulnerability in real products more than one time. The
+correct source is `/dev/urandom` or `getrandom()`. People use `rand()` anyway,
+because it is one call and needs no error handling.
 
-Next: [a template engine](/learn/web-server/templates/), so the HTML stops
-living in string literals.
+Zig does not give that easy path. Zig removed `std.crypto.random`. Thus you give
+the secure source to the code as a parameter, the same as any other capability:
+`std.Random.IoSource` over the `Io` that you already have. That costs one line
+of setup, and there is no easy insecure option that you can use by mistake.
+
+Next: [a template engine](/learn/web-server/templates/), so the HTML is not in
+string literals.

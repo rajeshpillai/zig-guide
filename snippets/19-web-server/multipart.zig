@@ -1,5 +1,5 @@
 //! title: File Uploads
-//! A format where the client picks the delimiter, and the filename is a lie until proven otherwise.
+//! A format where the client selects the delimiter, and the filename is untrusted until you check it.
 
 const std = @import("std");
 
@@ -12,8 +12,8 @@ pub const Part = struct {
 
 pub const Error = error{ NoBoundary, Malformed, TooManyParts };
 
-/// `multipart/form-data; boundary=----abc123`. The client chooses the
-/// boundary and announces it here. Every other format in this section uses a
+/// `multipart/form-data; boundary=----abc123`. The client selects the
+/// boundary and announces it here. Each other format in this section uses a
 /// fixed delimiter. Here the delimiter is data.
 pub fn boundaryOf(content_type: []const u8) Error![]const u8 {
     const at = std.mem.find(u8, content_type, "boundary=") orelse return error.NoBoundary;
@@ -24,17 +24,17 @@ pub fn boundaryOf(content_type: []const u8) Error![]const u8 {
     return value;
 }
 
-/// Everything after the last slash or backslash, and never `..`.
+/// All text after the last slash or backslash, and never `..`.
 ///
-/// The filename comes from the client and is a dangerous string in an upload
-/// handler. Joining it to a directory without this lets the client write
-/// anywhere the process can write. That is worse than the read the
-/// [path chapter](/learn/web-server/static/) was about.
+/// The filename comes from the client. In an upload handler, the filename is
+/// a dangerous string. If code joins it to a directory without this function,
+/// the client can write to any place where the process can write. That is
+/// worse than the read in the [path chapter](/learn/web-server/static/).
 pub fn safeFilename(raw: []const u8) ?[]const u8 {
     var name = raw;
     if (std.mem.findScalarLast(u8, name, '/')) |i| name = name[i + 1 ..];
-    // Backslash too: a Windows client sends `C:\Users\me\photo.png`, and a
-    // parser that only strips `/` keeps the whole thing as one filename.
+    // Also remove backslashes. A Windows client sends `C:\Users\me\photo.png`.
+    // A parser that removes only `/` keeps the full path as one filename.
     if (std.mem.findScalarLast(u8, name, '\\')) |i| name = name[i + 1 ..];
     if (name.len == 0) return null;
     if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) return null;
@@ -51,14 +51,14 @@ fn attribute(header: []const u8, key: []const u8) ?[]const u8 {
 }
 
 pub fn parse(body: []const u8, boundary: []const u8, out: []Part, scratch: []u8) Error![]Part {
-    // The delimiter is CRLF + "--" + boundary. The CRLF belongs to the
-    // delimiter, not to the data before it. A parser that forgets this
-    // appends two bytes to every uploaded file. The two bytes are invisible
-    // in a text field and corrupt an image.
+    // The delimiter is CRLF + "--" + boundary. The CRLF is part of the
+    // delimiter, not part of the data before it. If a parser forgets this, it
+    // adds two bytes to each uploaded file. In a text field, you cannot see
+    // the two bytes. In an image, they corrupt the data.
     const delim = std.mem.print(scratch, "\r\n--{s}", .{boundary}) catch return error.Malformed;
 
-    // The first boundary has no leading CRLF, so the parser treats the body
-    // as if one were there.
+    // The first boundary has no CRLF before it. Thus the parser starts as if
+    // the CRLF is there.
     var cursor: usize = if (std.mem.startsWith(u8, body, delim[2..])) delim.len - 2 else return error.Malformed;
 
     var n: usize = 0;
@@ -134,7 +134,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // The data of the second part ends at "data", not at "data\r\n". Those two
-    // bytes belong to the delimiter.
+    // bytes are part of the delimiter.
     try out.print("the photo is {d} bytes, and \"PNG\\r\\ndata\" is {d}\n\n", .{
         parsed[1].data.len,
         "PNG\r\ndata".len,

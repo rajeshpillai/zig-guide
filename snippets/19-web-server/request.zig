@@ -1,5 +1,5 @@
 //! title: Parsing an HTTP Request
-//! A request line, some headers, a blank line. The blank line is the hard part.
+//! A request line, some headers, a blank line. The blank line is the difficult part.
 
 const std = @import("std");
 
@@ -7,13 +7,13 @@ pub const Request = struct {
     method: []const u8,
     target: []const u8,
     version: []const u8,
-    /// Slices into the original bytes; nothing is copied.
+    /// Slices into the original bytes. The parser copies nothing.
     headers: [][2][]const u8,
     body: []const u8,
 
-    /// Header names are case-insensitive, and the parser must handle that:
-    /// curl sends `Host`, some proxies send `HOST`, and a client written by
-    /// hand sends `host`. An exact comparison fails when the case differs.
+    /// Header names are case-insensitive, and the parser must handle this.
+    /// curl sends `Host`, some proxies send `HOST`, and a hand-written client
+    /// sends `host`. An exact comparison fails when the case is different.
     pub fn header(r: Request, name: []const u8) ?[]const u8 {
         for (r.headers) |pair| {
             if (std.ascii.eqlIgnoreCase(pair[0], name)) return pair[1];
@@ -25,9 +25,9 @@ pub const Request = struct {
 pub const Error = error{ Malformed, TooManyHeaders };
 
 pub fn parse(bytes: []const u8, storage: [][2][]const u8) Error!Request {
-    // The header section ends at the first blank line. Everything after it is
-    // body. Finding that boundary is the framing problem. HTTP has no length
-    // up front, so the parser reads until it sees CRLF CRLF.
+    // The header section ends at the first blank line. All bytes after it are
+    // the body. To find that boundary is the framing problem. HTTP gives no
+    // length at the start, thus the parser reads until it finds CRLF CRLF.
     const split = std.mem.find(u8, bytes, "\r\n\r\n") orelse return error.Malformed;
     const head = bytes[0..split];
     const body = bytes[split + 4 ..];
@@ -48,9 +48,9 @@ pub fn parse(bytes: []const u8, storage: [][2][]const u8) Error!Request {
         if (count == storage.len) return error.TooManyHeaders;
         storage[count] = .{
             line[0..colon],
-            // Optional whitespace after the colon, and only after it. A space
-            // before the colon is malformed. Accepting it can lead to request
-            // smuggling.
+            // Remove optional whitespace after the colon, and only after it. A
+            // space before the colon is malformed. If the parser accepts that
+            // space, request smuggling can occur.
             std.mem.trimStart(u8, line[colon + 1 ..], " \t"),
         };
         count += 1;
@@ -87,7 +87,7 @@ pub fn main(init: std.process.Init) !void {
 
     for (request.headers) |pair| try out.print("  {s}: {s}\n", .{ pair[0], pair[1] });
 
-    // Asked for with a different case than it was sent with.
+    // The lookup uses a different case from the case that the client sent.
     try out.print("\nlookup \"Content-Type\" -> {s}\n", .{request.header("Content-Type").?});
     try out.print("lookup \"Missing\"      -> {s}\n\n", .{
         if (request.header("Missing") == null) "absent" else "present",

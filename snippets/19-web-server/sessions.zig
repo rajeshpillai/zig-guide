@@ -1,12 +1,13 @@
 //! title: Cookies and Sessions
-//! A cookie is a string the client stores and hands back. Everything else is policy.
+//! A cookie is a string that the client stores and sends back. All the rest is policy.
 
 const std = @import("std");
 
 pub const Cookie = struct { name: []const u8, value: []const u8 };
 
-/// `Cookie: a=1; b=2`. One header, semicolon separated, and no encoding: a
-/// value containing `;` cannot be sent, which is why session ids are hex.
+/// `Cookie: a=1; b=2`. One header, with semicolons between items, and no
+/// encoding. A client cannot send a value that contains `;`. For this reason,
+/// session ids are hex.
 pub fn parseCookies(header: []const u8, out: []Cookie) ![]Cookie {
     var n: usize = 0;
     var parts = std.mem.splitScalar(u8, header, ';');
@@ -29,21 +30,21 @@ pub fn find(cookies: []const Cookie, name: []const u8) ?[]const u8 {
 }
 
 /// Hex, because a cookie value cannot contain `;` or whitespace, and hex never
-/// contains either. 16 bytes is 128 bits, which is too many to guess.
+/// contains them. 16 bytes is 128 bits. No person can guess that many ids.
 pub fn sessionId(random: std.Random, dest: *[32]u8) []const u8 {
     var raw: [16]u8 = undefined;
     random.bytes(&raw);
     return std.mem.print(dest, "{x}", .{&raw}) catch unreachable;
 }
 
-/// The attributes provide the security. Without them a session cookie is
-/// readable by any script on the page, sent on every cross-site request, and
-/// travels in clear text.
+/// The attributes give the security. Without them, any script on the page can
+/// read a session cookie. The browser sends the cookie on each cross-site
+/// request, and the cookie goes in clear text.
 pub fn setCookie(out: *std.Io.Writer, name: []const u8, value: []const u8) !void {
     try out.print("Set-Cookie: {s}={s}", .{ name, value });
-    try out.writeAll("; HttpOnly"); // no script can read it, so XSS cannot steal it
-    try out.writeAll("; Secure"); // HTTPS only, so a network observer cannot read it
-    try out.writeAll("; SameSite=Lax"); // not sent on cross-site POSTs, which blocks CSRF
+    try out.writeAll("; HttpOnly"); // no script can read it, thus XSS cannot steal it
+    try out.writeAll("; Secure"); // HTTPS only, thus a network observer cannot read it
+    try out.writeAll("; SameSite=Lax"); // the browser does not send it on cross-site POSTs, to stop CSRF
     try out.writeAll("; Path=/");
     try out.writeAll("; Max-Age=3600\r\n");
 }
@@ -75,10 +76,11 @@ pub fn main(init: std.process.Init) !void {
         if (find(cookies, "missing") == null) "absent" else "present",
     });
 
-    // A fixed seed, so this page prints the same thing every time. A real
-    // server must not do this: anyone can take a session whose id they can
-    // predict. Use `std.Random.IoSource` over the `Io` you already have.
-    // (Older code uses `std.crypto.random`, which has been removed.)
+    // A fixed seed, thus this page prints the same text each time. A real
+    // server must not do this. If a person can predict a session id, that
+    // person can take the session. Use `std.Random.IoSource` over the `Io`
+    // that you already have. (Older code uses `std.crypto.random`. Zig
+    // removed it.)
     var prng: std.Random.DefaultPrng = .init(0x5eed);
     var hex: [32]u8 = undefined;
     try out.print("a session id (seeded, therefore insecure)\n  {s}\n\n", .{

@@ -1,14 +1,14 @@
 //! title: Form Bodies
-//! The same encoding as a query string, arriving somewhere it can be much larger.
+//! The same encoding as a query string, but in the body, where it can be much larger.
 
 const std = @import("std");
 const routes = @import("routes.zig");
 
 pub const Field = routes.Param;
 
-/// A urlencoded body is a query string without the `?`. HTML forms were
-/// specified to produce one encoding, and the method decides where that
-/// encoding travels.
+/// A urlencoded body is a query string without the `?`. The HTML
+/// specification gives forms one encoding. The method decides where that
+/// encoding goes.
 pub fn parseForm(body: []const u8, dest: []u8, out: []Field) ![]Field {
     var joined: [1024]u8 = undefined;
     if (body.len + 1 > joined.len) return error.TooLong;
@@ -17,8 +17,8 @@ pub fn parseForm(body: []const u8, dest: []u8, out: []Field) ![]Field {
     return routes.parseQuery(joined[0 .. body.len + 1], dest, out);
 }
 
-/// How many bytes of body to read. A server that trusts this number without a
-/// limit lets the client decide how much memory the server uses.
+/// The number of body bytes to read. If a server trusts this number without a
+/// limit, the client decides how much memory the server uses.
 pub fn bodyLength(declared: ?[]const u8, limit: usize) !usize {
     const text = declared orelse return 0;
     const n = std.fmt.parseInt(usize, text, 10) catch return error.Malformed;
