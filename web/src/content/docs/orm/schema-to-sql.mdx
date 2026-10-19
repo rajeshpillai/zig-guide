@@ -1,61 +1,73 @@
 ---
 title: "A Type Function as the Front Door"
-description: "The central pattern of a Zig library: take the caller's type, return a richer one."
+description: "The central pattern of a Zig library: take the type of the caller, and return a richer type."
 section: An Ecto-Style ORM
 order: 20
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The library these pages build is a miniature ORM in the style of Elixir's
-Ecto. Each page takes one pattern and shrinks it to a snippet small enough to
-verify. A full ORM adds drivers, pooling and migrations around these same basic
-parts.
+These pages build a small ORM in the style of Ecto from Elixir. Each page takes
+one pattern and makes it into a snippet that is small enough to verify. A full
+ORM adds drivers, pools and migrations around these same basic parts.
 
 ## The problem
 
-A hard interface question for a Zig library is: how does the caller hand you
-*their* data shape? Dynamic languages take a dict or use runtime reflection; C
-takes void pointers and trusts you. Zig's answer is a function that runs at
-compile time, takes a `type`, and returns a new `type` wrapping it.
+A Zig library has a difficult interface question: how does the caller give you
+*the data shape of the caller*? Dynamic languages take a dict or use reflection
+at runtime. C takes void pointers and trusts you.
 
-The ORM version: the caller defines a plain struct, and `Table(User, "users")`
-becomes their typed gateway to everything the library can do with it.
+The Zig answer is a function that runs at compile time. The function takes a
+`type` and returns a new `type` that wraps the first type.
+
+In the ORM, the caller defines a plain struct. Then `Table(User, "users")`
+becomes the typed gateway of the caller to all the operations that the library
+can do with that struct.
 
 ## The pattern
 
-1. Accept `comptime T: type` plus whatever configuration belongs beside
-   it (the table name).
-2. Read `@typeInfo(T)` once, at compile time.
-3. Return a struct whose declarations carry everything derived: metadata,
-   generated SQL, and eventually query and insert functions.
+1. Accept `comptime T: type`, and the configuration that goes with it (the
+   table name).
+2. Read `@typeInfo(T)` one time, at compile time.
+3. Return a struct whose declarations hold all the derived data: metadata,
+   generated SQL, and later the query and insert functions.
 
 <Playground name="07-building-libraries.schema-to-sql" />
 
 ## The SQL exists before the program runs
 
-`create_sql` is assembled in a comptime block with `++` concatenation. By
-runtime it is a single string constant in the binary; there is no formatting,
-allocation, or reflection left to do. The test comparing it against the exact
-expected SQL text is the same style of gate this site runs on every snippet:
-character-for-character.
+A comptime block makes `create_sql` with `++` concatenation. At runtime,
+`create_sql` is one string constant in the binary. No formatting, allocation
+or reflection remains to do.
 
-Note where the errors go. A schema field of an unmapped type hits the compile
-error in the mapping function. The user of your library learns about it at
-their build, with a message you wrote, naming their type. Those messages
-are part of your API, so design them.
+The test compares `create_sql` with the exact expected SQL text. This site
+uses the same type of gate on each snippet: a comparison character by
+character.
 
-## The caller's type is not consumed
+Look at the location of the errors. If a schema field has a type that the
+library cannot map, the mapping function gives a compile error. The user of
+your library sees the error at build time. The message is a message that you
+wrote, and it names the type of the user. These messages are part of your
+API, so design them.
 
-`Table` wraps the caller's type without changing it. `Users.Row` is the
-caller's `User`, unchanged, so their code keeps constructing and passing plain
-structs. This matters. If a library makes callers use *your* struct in place
-of theirs, that struct spreads into every function signature they own.
+## The type of the caller does not change
+
+`Table` wraps the type of the caller and does not change it. `Users.Row` is the
+`User` of the caller, with no change. Thus the code of the caller continues to
+make and pass plain structs.
+
+This is important. Some libraries make callers use *the library struct* in place
+of their own struct. Then that struct goes into each function signature that
+the callers own.
 
 ## In a full ORM
 
-This page's `Table` is the starting point for the real one. Grow it by adding
-declarations to the returned struct: `insert_sql` with placeholders,
-per-column metadata (primary key, nullability) read from sentinel types, and
-the query builder from the [next page](/learn/orm/query-builder/). Existing members
-of the public API do not change. The API only gets new members.
+The `Table` on this page is the start of the real one. To make it larger, add
+declarations to the returned struct:
+
+- `insert_sql` with placeholders.
+- Metadata for each column (primary key, nullability), read from sentinel types.
+- The query builder from the [next page](/learn/orm/query-builder/).
+
+The current members of the public API do not change. The API only gets new
+members.

@@ -1,62 +1,71 @@
 ---
 title: "A Typed Query Builder"
-description: Compile-time field checking and injection-proof rendering, with no allocator.
+description: Compile-time field checks and output that stops injection, with no allocator.
 section: An Ecto-Style ORM
 order: 30
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A typed query builder in Zig takes columns as `std.meta.FieldEnum(T)`,
-so a misspelled column is a compile error, and renders values as
-numbered placeholders (`$1`, `$2`) that never touch the SQL text. The
-builder is a plain value and chains without an allocator.
+A typed query builder in Zig takes columns as `std.meta.FieldEnum(T)`. Thus a
+misspelled column is a compile error. The builder writes values as numbered
+placeholders (`$1`, `$2`), and the values never touch the SQL text. The builder
+is a plain value, and you can chain its calls without an allocator.
 
 ## The problem
 
-Every database library faces the same two failure modes. The first is a query
-that names a column which does not exist, found at runtime in production as a
-database error. The second is a value spliced into the SQL string, found as an
-injection. A Zig library can rule out both at the type level, and the code
-needed is small.
+Each database library has the same two failure modes:
+
+- A query names a column that does not exist. You find the error at runtime,
+  in production, as a database error.
+- A value goes into the SQL string directly. You find the error as an
+  injection.
+
+A Zig library can prevent both at the type level, and the code for this is
+small.
 
 ## The pattern
 
-1. `std.meta.FieldEnum(T)` turns the schema struct's field names into an
-   enum. A filter takes that enum, so `.where(.emial, .eq)` is a compile
-   error with the misspelling in it.
-2. The builder is a plain value. `where` copies it, appends to a bounded
-   array, and returns the copy, so the caller can fork a base query
-   freely.
-3. `render` writes numbered placeholders, and the values travel to the
-   driver separately.
+1. `std.meta.FieldEnum(T)` changes the field names of the schema struct into an
+   enum. A filter takes that enum. Thus `.where(.emial, .eq)` is a compile
+   error, and the error shows the misspelled name.
+2. The builder is a plain value. `where` copies the builder, appends to a
+   bounded array, and returns the copy. Thus the caller can make many queries
+   from one base query.
+3. `render` writes numbered placeholders, and the values go to the driver
+   separately.
 
 <Playground name="07-building-libraries.query-builder" />
 
-## What the enum buys
+## What the enum gives you
 
-The `Field` enum exists only at compile time; by runtime a filter is an
-integer tag. `{t}` formats the tag name back into SQL, so the enum both
-checks the column and supplies its name. That gives three properties: a typo
-fails to compile, the check costs nothing at runtime, and there is no string
-table to keep in sync with the schema.
+The `Field` enum exists only at compile time. At runtime, a filter is an
+integer tag. `{t}` formats the tag name back into SQL. Thus the enum checks the
+column and also supplies its name. That gives three properties:
 
-The same technique works beyond ORMs. Any library that accepts "one of this
-struct's fields" as an argument (sorters, serializers, diff tools) can take
-`FieldEnum(T)` instead of a string and move the failure to compile time.
+- A typo does not compile.
+- The check costs nothing at runtime.
+- No string table must stay the same as the schema.
+
+The same method works in code that is not an ORM. A library can accept "one of
+the fields of this struct" as an argument, for example a sorter, a serializer
+or a diff tool. That library can take `FieldEnum(T)` in place of a string, and
+move the failure to compile time.
 
 ## Why the builder is by-value
 
-`where` returning a modified copy makes the builder immutable in practice: a
-shared base query cannot be corrupted by one call site adding its filters. The
-bounded array keeps the copy cheap and the API allocator-free, at the cost of
-a fixed capacity. State that trade-off in your library's documentation as a
-design decision, instead of hiding it as an implementation detail.
+`where` returns a changed copy. Thus, in practice, the builder is immutable.
+When one call site adds its filters, it cannot corrupt a shared base query.
+
+The bounded array keeps the copy cheap and the API free of allocators. The cost
+is a fixed capacity. State that trade-off in the documentation of your library
+as a design decision. Do not hide it as an implementation detail.
 
 ## In a full ORM
 
-The real builder grows operators, `ORDER BY`, joins, and an `insert` path, and
-pairs each placeholder with a typed value list for the driver. The draft this
-section distills from renders to PostgreSQL and SQLite dialects from the same
-builder; the dialect switch lives in `render`, in the same place this snippet's
-SQL formatting lives.
+The real builder adds operators, `ORDER BY`, joins and an `insert` path. It
+pairs each placeholder with a typed value list for the driver.
+
+This section comes from a draft. The draft writes PostgreSQL and SQLite
+dialects from the same builder. The dialect switch is in `render`, in the same
+place as the SQL format code of this snippet.

@@ -1,11 +1,11 @@
 //! title: A Type Function as the Front Door
-//! The ORM pattern: hand the library a struct, get a typed API back.
+//! The ORM pattern: give the library a struct, and get a typed API.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
-// The library's public API is one function from a type to a type. Callers
-// define plain structs; everything else is derived at compile time.
+// The public API of the library is one function from a type to a type.
+// Callers define plain structs. The compiler derives all other parts.
 fn Table(comptime T: type, comptime name: []const u8) type {
     const info = @typeInfo(T).@"struct";
     return struct {
@@ -13,8 +13,8 @@ fn Table(comptime T: type, comptime name: []const u8) type {
         pub const table_name = name;
         pub const column_count = info.field_names.len;
 
-        // The whole CREATE TABLE statement is assembled while compiling.
-        // At runtime it is a plain string constant in the binary.
+        // The compiler makes the full CREATE TABLE statement. At runtime,
+        // the statement is a plain string constant in the binary.
         pub const create_sql = blk: {
             var sql: []const u8 = "CREATE TABLE " ++ name ++ " (";
             for (info.field_names, info.field_types, 0..) |field, Field, i| {
@@ -35,9 +35,9 @@ fn Table(comptime T: type, comptime name: []const u8) type {
     };
 }
 
-// This struct is all a caller writes. The caller does not register
-// anything, run a code generator or use runtime reflection. The struct is
-// the schema.
+// A caller writes only this struct. The caller does not register
+// anything, run a code generator or use reflection at runtime. The struct
+// is the schema.
 const User = struct {
     id: i64,
     name: []const u8,
@@ -56,8 +56,8 @@ test "the schema compiles to exact SQL" {
 test "metadata is comptime-known" {
     try expect(Users.column_count == 3);
     try expect(std.mem.eql(u8, Users.table_name, "users"));
-    // Row is the caller's own type, unchanged. The library only adds
-    // new declarations beside it.
+    // Row is the type of the caller, with no change. The library only adds
+    // new declarations next to it.
     const u = Users.Row{ .id = 1, .name = "ada", .active = true };
     try expect(u.id == 1);
 }

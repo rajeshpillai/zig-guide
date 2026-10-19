@@ -1,13 +1,14 @@
 //! title: A Typed Query Builder
-//! Field names checked while compiling; values bound, never spliced.
+//! The compiler checks field names. Values are bound, never spliced.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
 fn Query(comptime T: type) type {
     return struct {
-        // FieldEnum turns the struct's fields into an enum, so a filter on
-        // a misspelled column is a compile error, not a runtime SQL error.
+        // FieldEnum changes the fields of the struct into an enum. Thus a
+        // filter on a misspelled column is a compile error, not an SQL error
+        // at runtime.
         pub const Field = std.meta.FieldEnum(T);
         pub const Op = enum {
             eq,
@@ -26,9 +27,10 @@ fn Query(comptime T: type) type {
         const Filter = struct { field: Field, op: Op };
 
         table: []const u8,
-        // Bounded and by-value, so the builder can be chained without an
-        // allocator. The limit of eight filters is a choice. The library
-        // makes that choice and documents it.
+        // The builder has a bounded array, and it is a value, not a pointer.
+        // Thus you can chain its calls without an allocator. The limit of
+        // eight filters is a choice. The library makes that choice and
+        // documents it.
         filters: [8]Filter = undefined,
         filter_count: usize = 0,
 
@@ -39,9 +41,9 @@ fn Query(comptime T: type) type {
             return next;
         }
 
-        // Values never enter the SQL text. The statement carries numbered
-        // placeholders, and values are sent to the driver separately.
-        // Keeping values out of the SQL text makes injection impossible.
+        // Values never go into the SQL text. The statement holds numbered
+        // placeholders, and the values go to the driver separately. Values
+        // outside the SQL text make injection impossible.
         pub fn render(q: @This(), w: *std.Io.Writer) !void {
             try w.print("SELECT * FROM {s}", .{q.table});
             for (q.filters[0..q.filter_count], 1..) |f, n| {
@@ -83,8 +85,9 @@ test "filters chain, placeholders number themselves" {
 }
 
 test "the field argument is an enum, not a string" {
-    // `.email` would not compile: User has no such field. The check costs
-    // nothing at runtime because the enum exists only at compile time.
+    // `.email` does not compile, because User has no field with that name.
+    // The check costs nothing at runtime, because the enum exists only at
+    // compile time.
     const q = (Query(User){ .table = "users" }).where(.id, .lt);
     try expect(q.filter_count == 1);
 }

@@ -1,69 +1,76 @@
 ---
 title: "The Repo"
-description: The composition root, and the fake driver that makes the whole ORM testable.
+description: The composition root, and the fake driver that lets you test the full ORM.
 section: An Ecto-Style ORM
 order: 80
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The Repo is the one stateful object in an Ecto-style ORM and the only
-part that talks to the database. In Zig it is `Repo(Driver)`, with the
-driver as a comptime parameter, so tests pass a driver that records the
-SQL instead of running it.
+The Repo is the one stateful object in an Ecto-style ORM. It is also the only
+part that talks to the database. In Zig, it is `Repo(Driver)`, and the driver
+is a comptime parameter. Thus a test can give it a driver that records the SQL
+and does not run it.
 
 ## The problem
 
-Every piece so far (schema, statements, dialects, plans) is pure. At
-some point the library must actually talk to a database, and that point
-decides whether the library is testable. If database calls are
-everywhere, every test needs Postgres. If they sit behind one seam, the
-whole ORM can be tested against a fake.
+Each part so far (schema, statements, dialects, plans) is pure. At some point,
+the library must talk to a real database, and that point decides if you can
+test the library.
 
-Ecto's answer is the Repo, which holds the connection. Every operation
-goes through it. This page builds its skeleton.
+- If database calls are in all parts of the code, each test needs Postgres.
+- If the calls are behind one seam, you can test the full ORM against a fake.
+
+The Ecto answer is the Repo, which holds the connection. Each operation goes
+through the Repo. This page builds the skeleton of the Repo.
 
 ## The pattern
 
-1. `Repo(Driver)` is a type function, like everything else in this
-   library: the driver is a comptime parameter with a structural
-   contract (an `exec` that takes SQL).
-2. Repo methods compose the pure pieces (a Table's derived SQL) with
-   one effect (`driver.exec`).
-3. The test driver *records* instead of executing. Assertions read the
-   log: what would have reached the database, in what order.
+1. `Repo(Driver)` is a type function, as all other parts of this library are.
+   The driver is a comptime parameter with a structural contract: an `exec`
+   function that takes SQL.
+2. The methods of the Repo combine the pure parts (the derived SQL of a Table)
+   with one effect (`driver.exec`).
+3. The test driver *records* the SQL and does not run it. The assertions read
+   the log: the SQL that the database gets, and the order of that SQL.
 
 <Playground name="07-building-libraries.repo" />
 
-## The recording driver is the ORM's test suite
+## `RecordingDriver` is the test suite of the ORM
 
-`RecordingDriver` is thirteen lines, and with it every
-feature of the library (inserts, transactions, migration execution)
-is testable as "given these calls, exactly this SQL, in
-exactly this order". These tests check your library's behavior, and the
-database is not involved. A thin layer of integration tests against real SQLite and
-Postgres then covers the drivers themselves, and nothing else needs
-them.
+`RecordingDriver` is thirteen lines. With it, you can test each feature of the
+library (inserts, transactions, migrations). Each test has one form: "for these
+calls, exactly this SQL, in exactly this order". These tests check the behavior of
+your library, and the database is not part of them.
 
-Note the second test: a driver error (`error.ConnectionLost`) surfaces
-through the repo unchanged. Passing errors through is a design decision, so
-test it. A library that wraps or hides driver errors stops the caller
-from reacting to specific ones.
+A thin layer of integration tests against real SQLite and Postgres then tests
+the drivers. No other test needs the drivers.
+
+Look at the second test. A driver error (`error.ConnectionLost`) comes out
+through the repo with no change. To pass errors through is a design decision,
+so test it. If a library wraps or hides driver errors, the caller cannot react
+to a specific error.
 
 ## Comptime parameter, runtime state
 
-`Repo(Driver)` fixes the driver *type* at compile time, but the driver
-*value* arrives at runtime through the struct field, carrying its
-connection state. That split follows the standard library's allocator
-convention: the kind of driver is fixed at compile time, and its
-settings and state are passed in at runtime. The split also makes the
-fake free at runtime. The repo compiled against `RecordingDriver` never contains a branch asking which driver
-it has.
+`Repo(Driver)` fixes the driver *type* at compile time. The driver *value*
+arrives at runtime through the struct field, and it holds the connection
+state.
+
+This split follows the allocator convention of the standard library. The compiler
+fixes the type of the driver, and the program gives its settings and state at
+runtime. The split also makes the fake free at runtime. The repo that
+compiles against `RecordingDriver` never contains a branch that asks which
+driver it has.
 
 ## In a full ORM
 
-The draft's `repo.zig` adds the query path (`all`, `get`, `one`),
-result decoding back into schema structs, validation before writes, and
-pool checkout around each operation. Every one of those runs against
-the recording driver in its tests, and the shape of this page's
-skeleton is unchanged underneath.
+The `repo.zig` file of the draft adds more to the Repo:
+
+- The query path (`all`, `get`, `one`).
+- The decode of results back into schema structs.
+- Validation before writes.
+- A pool checkout around each operation.
+
+Each of these runs against `RecordingDriver` in its tests. Below them, the
+shape of the skeleton on this page does not change.

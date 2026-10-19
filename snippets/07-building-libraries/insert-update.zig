@@ -1,11 +1,11 @@
 //! title: Writing Rows
-//! INSERT and UPDATE derived from the schema, values as a typed array.
+//! INSERT and UPDATE derived from the schema, with values in a typed array.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
-// The value type the driver sees. SQL text and values are sent to the
-// driver separately, and this union is the form the values take.
+// The value type that the driver gets. The SQL text and the values go to
+// the driver separately, and the values have the form of this union.
 const Value = union(enum) {
     int: i64,
     text: []const u8,
@@ -31,7 +31,7 @@ fn Table(comptime T: type, comptime name: []const u8) type {
         };
 
         // "UPDATE users SET name = $2, active = $3 WHERE id = $1":
-        // the first field is the key, by convention stated in the docs.
+        // the first field is the key, by a convention in the docs.
         pub const update_sql = blk: {
             var sets: []const u8 = "";
             for (info.field_names[1..], 2..) |field, n| {
@@ -42,9 +42,9 @@ fn Table(comptime T: type, comptime name: []const u8) type {
                 " WHERE " ++ info.field_names[0] ++ " = $1";
         };
 
-        // The runtime half: one Value per column, in placeholder order.
-        // The inline for resolves every @field while compiling, so at
-        // runtime this loop is a fixed sequence of stores.
+        // The runtime half: one Value for each column, in placeholder order.
+        // The inline for resolves each @field at compile time. Thus, at
+        // runtime, this loop is a fixed sequence of stores.
         pub fn bind(row: T) [info.field_names.len]Value {
             var values: [info.field_names.len]Value = undefined;
             inline for (info.field_names, 0..) |field, i| {

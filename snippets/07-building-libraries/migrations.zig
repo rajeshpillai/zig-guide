@@ -1,5 +1,5 @@
 //! title: Migrations as Data
-//! Schema changes are a versioned list; applying them is a pure plan.
+//! Schema changes are a versioned list. A pure plan applies them.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -10,8 +10,8 @@ const Migration = struct {
     down: []const u8,
 };
 
-// The whole history, in order. Append-only: released migrations are
-// never edited, because someone's database already ran them.
+// The full history, in order. The list is append-only. Do not edit a
+// released migration, because the database of a user already ran it.
 const history = [_]Migration{
     .{
         .version = 1,
@@ -32,9 +32,9 @@ const history = [_]Migration{
 
 const Step = struct { version: u32, sql: []const u8 };
 
-// The planner is a pure function from (current, target) to steps. All
-// the subtle cases (no-op, partial upgrade, rollback ordering) can be
-// tested without a database.
+// The planner is a pure function from (current, target) to steps. You can
+// test all the difficult cases (no-op, partial upgrade, rollback order)
+// without a database.
 fn plan(current: u32, target: u32, buf: []Step) []Step {
     var n: usize = 0;
     if (target > current) {
@@ -45,7 +45,7 @@ fn plan(current: u32, target: u32, buf: []Step) []Step {
             }
         }
     } else {
-        // Downgrades run the down steps newest-first.
+        // A downgrade runs the down steps with the newest step first.
         var i = history.len;
         while (i > 0) {
             i -= 1;

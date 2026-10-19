@@ -1,12 +1,12 @@
 //! title: The Adapter Seam
-//! One query, two SQL dialects, chosen at compile time.
+//! One query, three SQL dialects, selected at compile time.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
 // A dialect is any type with these declarations. It does not implement an
-// interface or use a vtable. The requirement is structural: a missing
-// declaration is a compile error at the call site that used it.
+// interface or use a vtable. The requirement is structural. If a dialect does
+// not have a declaration, the call site that uses it gives a compile error.
 const Postgres = struct {
     pub fn placeholder(w: *std.Io.Writer, n: usize) !void {
         try w.print("${d}", .{n});
@@ -25,12 +25,12 @@ const Mysql = struct {
     pub fn placeholder(w: *std.Io.Writer, _: usize) !void {
         try w.writeAll("?");
     }
-    pub const quote = "`"; // differs from the other dialects
+    pub const quote = "`"; // different from the other dialects
 };
 
 // The renderer takes the dialect as a comptime parameter. Each dialect
-// instantiates its own copy of this function with the calls inlined.
-// Nothing is dispatched at runtime.
+// makes its own copy of this function, with the calls inlined. No dispatch
+// occurs at runtime.
 fn renderSelect(
     comptime Dialect: type,
     w: *std.Io.Writer,

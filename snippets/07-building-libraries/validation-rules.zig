@@ -1,5 +1,5 @@
 //! title: Validation from Declarations
-//! Optional per-schema rules, discovered with @hasDecl, checked in one pass.
+//! Optional rules for each schema, found with @hasDecl, checked in one pass.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -9,9 +9,10 @@ const Violation = struct {
     rule: []const u8,
 };
 
-// The library-side half: walk the value's fields; when the schema declares
-// a rule for a field, apply it. A schema without rules always passes.
-// An unknown rule name fails the build instead of being ignored.
+// The half in the library: walk the fields of the value. When the schema
+// declares a rule for a field, apply the rule. A schema without rules always
+// passes. An unknown rule name makes the build fail. The library does not
+// ignore it.
 fn validate(value: anytype) ?Violation {
     const T = @TypeOf(value);
     if (!@hasDecl(T, "rules")) return null;
@@ -32,9 +33,9 @@ fn validate(value: anytype) ?Violation {
     return null;
 }
 
-// The caller-side half: rules live on the schema as one declaration,
-// naming fields directly. A rule for a field that does not exist fails
-// to compile, because @field(value, ...) has nothing to resolve to.
+// The half in the caller: the rules are on the schema as one declaration,
+// and they name the fields directly. A rule for a field that does not exist
+// does not compile, because @field(value, ...) cannot resolve.
 const User = struct {
     name: []const u8,
     age: u8,

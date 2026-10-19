@@ -1,63 +1,73 @@
 ---
 title: "Migrations as Data"
-description: Schema history as an append-only list, and applying it as a pure plan.
+description: The schema history as an append-only list, and a pure plan that applies it.
 section: An Ecto-Style ORM
 order: 70
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Database migrations are easiest to test as data: an append-only list of
-`{version, up, down}` entries, and a pure `plan(current, target)`
-function that returns the steps to run. Executing the plan is a separate
-loop, so every planning case is tested without a database.
+Database migrations are easiest to test as data. The history is an append-only
+list of `{version, up, down}` entries. A pure function, `plan(current, target)`,
+returns the steps to run. A separate loop runs the plan. Thus you can test each
+case of the planner without a database.
 
 ## The problem
 
-Schemas change after they ship. Most mature ORMs handle this the same way.
-Each change is a versioned migration with an up and a down, the
-list is append-only, and the database records which version it is at. The
-design question is where the logic lives, because "compute
-what to run" tends to get tangled into "run it", and then nothing is testable
-without a database.
+Schemas change after they ship. Most mature ORMs handle this in the same way:
+
+- Each change is a versioned migration with an up and a down.
+- The list is append-only.
+- The database records its current version.
+
+The design question is the location of the logic. The code that calculates
+what to run often becomes mixed with the code that runs it. Then you cannot
+test anything without a database.
 
 ## The pattern
 
-1. The history is data: an ordered array of `{version, up, down}`.
-   Released entries are never edited, because someone's database already
-   ran them.
-2. The planner is a pure function: `plan(current, target)` returns the
-   steps to execute, in order. Upgrades walk forward; downgrades walk
-   the affected range newest-first.
-3. Executing the plan is a separate, simple loop that belongs to the
+1. The history is data: an ordered array of `{version, up, down}`. Do not edit
+   an entry after a release, because the database of a user already ran it.
+2. The planner is a pure function. `plan(current, target)` returns the steps
+   to run, in order. An upgrade walks forward. A downgrade walks the affected
+   range, with the newest entry first.
+3. A separate, simple loop runs the plan. That loop belongs to the
    [repo](/learn/orm/repo/).
 
 <Playground name="07-building-libraries.migrations" />
 
-## Purity is what makes the edge cases cheap
+## Pure functions make the edge cases cheap
 
-The four tests cover the cases that go wrong in real systems: the fresh
-database, the partial upgrade, the rollback (in reverse order; forward order
-corrupts), and the no-op. Each is an assertion about a function from two
-integers to a slice. The tests need no fixtures, containers or cleanup. When the planner
-and the executor are one function, every one of those tests needs a live
-database and most never get written.
+The four tests cover the cases that go wrong in real systems:
 
-The split also gives you `--dry-run` with no extra work: print the plan
-instead of executing it. If your library can plan an operation without
-performing it, users can review the plan before they run it.
+- The new, empty database.
+- The partial upgrade.
+- The rollback, in reverse order. Forward order corrupts the database.
+- The no-op.
+
+Each test is an assertion about a function from two integers to a slice. The
+tests need no fixtures, containers or cleanup. If the planner and the executor
+are one function, each of those tests needs a live database, and programmers
+never write most of them.
+
+The split also gives you `--dry-run` with no extra work: print the plan, and do
+not run it. If your library can plan an operation and not do it, users can
+examine the plan before they run it.
 
 ## Append-only is a social contract, not a technical one
 
-Nothing in the code stops someone editing migration 2 after release; the
-guarantee is convention plus review. A library can help enforce it: the draft
-stores a checksum of each applied migration and refuses to proceed when
-history was rewritten under it. That check is, again, pure logic over data,
-testable the same way.
+The code does not stop a person who edits migration 2 after the release. The
+guarantee comes from convention and review.
+
+A library can help to enforce the convention. The draft stores a checksum of
+each applied migration. If a person changed the history after the database
+applied it, the draft refuses to continue. That check is also pure logic over
+data, and you can test it in the same way.
 
 ## In a full ORM
 
-The draft's migrations are Zig files discovered by the build, each exposing an
-up and a down, with a CLI that creates, applies, and rolls back. The applied
-version lives in a `schema_migrations` table; reading it and executing the
-plan are the only parts that touch the database.
+In the draft, the migrations are Zig files that the build finds. Each file has
+an up and a down. A CLI creates, applies and rolls back migrations.
+
+A `schema_migrations` table holds the applied version. Only two parts touch the
+database: the code that reads that table and the code that runs the plan.

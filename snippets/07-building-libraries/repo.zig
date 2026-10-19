@@ -1,12 +1,12 @@
 //! title: The Repo
-//! Composition root: schema, SQL, and a driver you can fake in tests.
+//! Composition root: schema, SQL, and a driver that you can fake in tests.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
-// The test double for a database driver: it records every statement it
-// is asked to execute. The ORM's own test suite runs against this; only
-// integration tests need a real database.
+// The test double for a database driver. It records each statement that the
+// repo tells it to run. The test suite of the ORM runs against this driver.
+// Only integration tests need a real database.
 const RecordingDriver = struct {
     gpa: std.mem.Allocator,
     log: std.ArrayList([]const u8) = .empty,
@@ -21,10 +21,10 @@ const RecordingDriver = struct {
     }
 };
 
-// Repo(Driver) is the library's composition root. The driver arrives as
-// a comptime parameter, in the same way an allocator arrives as a runtime
-// parameter. The caller chooses the policy, and the library provides the
-// mechanism.
+// Repo(Driver) is the composition root of the library. The driver arrives
+// as a comptime parameter, in the same way that an allocator arrives as a
+// runtime parameter. The caller selects the policy, and the library gives
+// the mechanism.
 fn Repo(comptime Driver: type) type {
     return struct {
         driver: *Driver,
@@ -34,16 +34,16 @@ fn Repo(comptime Driver: type) type {
         }
 
         pub fn insert(r: @This(), comptime T: type, row: T.Row) !void {
-            // A real repo renders values into the statement's parameter
-            // slots. Recording the template shows exactly what would be
-            // sent to the database.
+            // A real repo puts values into the parameter slots of the
+            // statement. A record of the template shows exactly the SQL that
+            // the database gets.
             _ = row;
             try r.driver.exec(T.insert_sql);
         }
     };
 }
 
-// A minimal Table, with just enough to show the composition working.
+// A minimal Table. It has only enough code to show that the composition works.
 fn Table(comptime T: type, comptime name: []const u8) type {
     return struct {
         pub const Row = T;
