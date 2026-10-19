@@ -1,6 +1,6 @@
 //! title: What a Socket Is
 //! native
-//! An address, a mode, and a handle. Everything else is reading and writing.
+//! An address, a mode, and a handle. After that, the code only reads and writes.
 
 const std = @import("std");
 
@@ -11,14 +11,14 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // An address is just data. Parsing one touches no network, opens
-    // nothing, and cannot fail for any reason except bad text.
+    // An address is only data. The parse does not use the network and
+    // opens nothing. It fails only if the text is not an address.
     const wanted = try std.Io.net.IpAddress.parse("127.0.0.1", 0);
     try out.print("asked for port:  {d}\n", .{wanted.getPort()});
 
-    // Port 0 means "any free port, you pick". The kernel assigns one when
-    // the socket is bound, and the socket records it. A hardcoded port
-    // makes a test suite fail when two copies of it run at once.
+    // Port 0 tells the kernel to select a free port. The kernel gives the
+    // port when it binds the socket, and the socket records the port. A
+    // fixed port makes a test suite fail when two copies run at one time.
     var server = try wanted.listen(io, .{});
     defer server.deinit(io);
 
@@ -26,8 +26,8 @@ pub fn main(init: std.process.Init) !void {
     try out.print("kernel gave me:  {s}\n", .{if (bound.getPort() == 0) "port 0" else "a real port"});
     try out.print("still loopback:  {}\n\n", .{bound.getPort() != wanted.getPort()});
 
-    // `.stream` is TCP: an ordered, reliable byte stream with a connection
-    // behind it. `.dgram` is UDP, and has none of those three properties.
+    // `.stream` is TCP: an ordered and reliable byte stream on a
+    // connection. `.dgram` is UDP, which has none of these three properties.
     var client = try bound.connect(io, .{ .mode = .stream });
     defer client.close(io);
 
@@ -36,9 +36,9 @@ pub fn main(init: std.process.Init) !void {
 
     try out.writeAll("connected. two handles now refer to one conversation.\n\n");
 
-    // From here on, the code does not deal with sockets. The same reader
-    // and writer interfaces a file uses carry the bytes. Because of this,
-    // the protocol chapters that follow can run without a network.
+    // After this point, the code does not use sockets. The reader and
+    // writer interfaces that a file uses move the bytes. Thus the next
+    // protocol chapters can run without a network.
     var write_buf: [64]u8 = undefined;
     var writer = client.writer(io, &write_buf);
     try writer.interface.writeAll("ping\n");
@@ -49,10 +49,10 @@ pub fn main(init: std.process.Init) !void {
     const line = try reader.interface.takeDelimiterExclusive('\n');
     try out.print("server read:     \"{s}\"\n", .{line});
 
-    // Nothing closes a socket for you, so you must close it. Every socket
-    // is a file descriptor. A server that leaks them stops accepting
-    // connections once it hits the process limit, long before it runs out
-    // of memory.
+    // No other code closes a socket for you. You must close each socket.
+    // Each socket is a file descriptor. If a server does not close its
+    // sockets, it cannot accept connections at the process limit. This
+    // occurs a long time before the server has no more memory.
     try out.writeAll("closing: the defers above release three descriptors\n");
 
     try out.flush();

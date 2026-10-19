@@ -1,84 +1,97 @@
 ---
 title: Sequence Numbers and Acks
-description: One counter turns invisible loss into a detected gap, and one reply turns it into the sender's problem.
+description: One counter makes an invisible loss into a detected gap, and one reply gives the problem to the sender.
 section: Networking
 order: 94
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A sequence number on every message lets a receiver detect both loss and
-duplicates, and a cumulative ack ("I have everything through N") tells
-the sender what it has to resend. TCP's acks follow the same design.
+A sequence number on each message lets a receiver find loss and duplicates.
+A cumulative ack ("I have everything through N") tells the sender what to send
+again. The acks in TCP use the same design.
 
 ## The problem
 
-The previous chapter ended with a receiver that could not tell loss from
-silence. The fix costs one byte: number every message. A receiver that
-expects 2 and gets 3 now knows a message is missing, although the network never said so. A
-receiver that gets 4 twice knows the second one is a retry, not a new message.
+At the end of the previous chapter, the receiver could not see the difference
+between loss and silence. The fix costs one byte: put a number on each
+message. If a receiver expects 2 and gets 3, the receiver now knows that a
+message is lost. The network did not report the loss. If a receiver gets 4
+two times, the receiver knows that the second 4 is a retry, not a new message.
 
-Detection is only half the job. The receiver knows about the gap, but
-the sender is the one holding the missing message. So the receiver
-reports back: an acknowledgement, going the other way, saying how much
-of the stream it has. That reply hands the loss to the sender, and only the sender can fix it.
+Detection is only half of the work. The receiver knows about the gap, but the
+sender has the lost message. Thus the receiver sends a report back. This
+report is an acknowledgement in the other direction. It tells the sender how
+much of the stream the receiver has. The reply gives the loss to the sender,
+and only the sender can fix the loss.
 
 ## The plan
 
-1. The same misbehaving channel, but scripted: it drops datagram 2 and
-   duplicates datagram 4, so every line of output can be checked by hand.
-2. A `Watcher` with one field, the next number it expects. Below it:
-   duplicate. Equal: in order. Above it: a gap, and the gap has exact
-   edges.
-3. An acking receiver that answers every arrival with "I have everything
-   through N", and a sender that reads those answers.
+1. Use the same channel that operates incorrectly, but with a script. The
+   channel drops datagram 2 and duplicates datagram 4. Thus you can check
+   each line of the output by hand.
+2. Make a `Watcher` with one field: the next number that it expects. A number
+   below that value is a duplicate. An equal number is in order. A number
+   above that value is a gap, and the gap has exact edges.
+3. Make a receiver that sends acks. It answers each arrival with "I have
+   everything through N". Make a sender that reads these answers.
 
 <Playground name="11-networking.sequence-numbers" />
 
 ## One counter, three verdicts
 
-The `Watcher` is a single `u8` and a comparison, and that is all sequence-number detection needs. Everything it reports in the first
-half of the trace follows from one rule: numbers arrive in order unless
-the network interfered. The duplicate of 4 is caught by the same comparison that catches gaps. The
-last chapter said retries create duplicates. This receiver already handles
-them, one chapter before retries appear.
+The `Watcher` is one `u8` and a comparison. Detection with sequence numbers
+needs only these two things. Each result in the first half of the trace comes
+from one rule: numbers arrive in order unless the network causes a problem.
+The comparison that finds gaps also finds the duplicate of 4.
 
-The scripted channel does not reorder, and that is deliberate. With
-reordering, "3 arrived and 2 did not" might mean 2 is lost or merely
-late, and the receiver cannot know which yet. Sequence numbers detect
-that something is wrong; deciding it is loss takes a timeout, which is
-the next chapter's first move.
+The last chapter said that retries cause duplicates. This receiver already
+handles duplicates, one chapter before retries occur.
 
-## Acks are cumulative on purpose
+The scripted channel does not change the order of datagrams, by design. With
+reordering, "3 arrived and 2 did not" can mean that 2 is lost or only late.
+The receiver cannot know which yet. Sequence numbers find that a problem
+exists. To decide that the problem is loss, you need a timeout. The timeout
+is the first step of the next chapter.
 
-The acking receiver never says "I got 3". It says "I have everything
-through 1", even while 3, 4 and 5 are arriving. That wording has two effects. First, acks repair themselves: if one ack is lost, the
-next arrival repeats everything it said. Second, the sender only has to track one number. Look at the final line of the
-trace: the sender heard "through 1" and concluded that 2 through 5 need
-resending. It never saw the drop. It worked out what was lost from the replies alone. That is TCP's ack design, and this snippet's version
-differs mainly in byte layout.
+## Acks are cumulative by design
 
-The cost is also visible in the trace: 3, 4 and 5 did arrive, and a
-sender this simple will send them again. A real receiver keeps the
-out-of-order arrivals buffered so the resends can be cheap, and a real
-sender has smarter recovery. The shape of the exchange does not change.
+The receiver that sends acks never says "I got 3". It says "I have everything through
+1", also while 3, 4 and 5 arrive. These words have two effects:
 
-## Acks ride the same network
+- Acks repair themselves. If one ack is lost, the next arrival repeats all of
+  the information in the lost ack.
+- The sender must record only one number.
 
-In this snippet the acks always arrive; this is the one simplification, made to keep the trace readable. On a real network the ack for 2 can vanish
-just like 2 itself, and the sender cannot distinguish the two cases at
-all. It handles both with the same tool, and the receiver's duplicate
-check is what makes that safe: resending something already received is
-wasteful but harmless. The next chapter puts these pieces in a loop and
-lets the clock decide when to use them.
+Look at the last line of the trace. The sender got "through 1" and decided
+that it must send 2 through 5 again. The sender never saw the drop. It found the
+loss from the replies only. TCP uses this design for acks. The version in
+this snippet is different mainly in the byte layout.
+
+The trace also shows the cost: 3, 4 and 5 arrived, but a simple sender like
+this one sends them again. A real receiver keeps the out-of-order arrivals in
+a buffer, thus the resends are cheap. A real sender also has better recovery.
+The shape of the exchange does not change.
+
+## Acks use the same network
+
+In this snippet, the acks always arrive. This is the one simplification, and
+it keeps the trace easy to read. On a real network, the ack for 2 can
+disappear, as 2 can disappear. The sender cannot see a difference between
+these two cases. The sender uses the same tool for the two cases. The
+duplicate check in the receiver makes this safe: if the sender sends a
+received message again, it wastes time but causes no harm.
+
+The next chapter puts these parts in a loop, and the clock decides when to
+use them.
 
 ## Variations
 
-- **Move the script:** drop 0 instead of 2 and the first ack becomes
-  "have nothing". The sender learns exactly as much from that.
-- **Wrap-around:** a `u8` sequence number reaches 255 and wraps. Real
-  protocols size the counter so old numbers cannot come back around
-  while their datagrams could still be in flight; TCP uses 32 bits.
-- **Selective acks:** "I have 0 through 1, and also 3 through 5" names
-  the hole exactly at the price of a more complex reply. TCP grew this
-  as the SACK option fifteen years after cumulative acks shipped.
+- **Change the script:** drop 0, not 2. Then the first ack becomes "have
+  nothing". The sender gets the same quantity of information from that ack.
+- **Wrap-around:** a `u8` sequence number gets to 255 and wraps. Real
+  protocols select a counter size so that an old number cannot occur again while
+  its datagram can still be on the network. TCP uses 32 bits.
+- **Selective acks:** "I have 0 through 1, and also 3 through 5" names the
+  exact hole, but the reply is more complex. TCP added this as the SACK
+  option, fifteen years after the first release of cumulative acks.

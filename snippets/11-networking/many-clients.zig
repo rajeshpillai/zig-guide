@@ -1,12 +1,12 @@
 //! title: Serving Many Clients
-//! One handler per connection, through `Io`, so the same source runs either way.
+//! One handler for each connection, through `Io`. The source runs with and without threads.
 
 const std = @import("std");
 
-/// A connection, with the transport left out. The handler below reads bytes
-/// and writes bytes. It never learns whether they came from a socket, so this
-/// page can run in a browser that has no sockets. Chapter two is the same
-/// handler with a `std.Io.net.Server` in front of it.
+/// A connection without the transport. The handler below reads bytes and
+/// writes bytes. It does not know if the bytes came from a socket. Thus this
+/// page can run in a browser that has no sockets. Chapter two puts a
+/// `std.Io.net.Server` in front of the same handler.
 const Connection = struct {
     request: []const u8,
     reply: [64]u8 = undefined,
@@ -17,9 +17,9 @@ const Connection = struct {
     }
 };
 
-/// Deliberately not `!void`. A task spawned into a Group cannot return an
-/// error to anyone, so a per-connection failure has to become part of that
-/// connection's reply. One bad client must not take down the server.
+/// Not `!void`, by design. A task in a Group cannot return an error to a
+/// caller. Thus a failure in a connection must become a part of the reply
+/// for that connection. One bad client must not stop the server.
 fn handle(conn: *Connection, counter: *usize, mutex: *std.Io.Mutex, io: std.Io) void {
     var w: std.Io.Writer = .fixed(&conn.reply);
 
@@ -29,10 +29,10 @@ fn handle(conn: *Connection, counter: *usize, mutex: *std.Io.Mutex, io: std.Io) 
     if (std.mem.eql(u8, verb, "ECHO")) {
         w.print("+{s}\r\n", .{it.rest()}) catch {};
     } else if (std.mem.eql(u8, verb, "COUNT")) {
-        // Shared state, so it needs the lock. `io.async` may or may not be
-        // parallel, depending on the implementation. Code that is only
-        // correct under the single-threaded one will race when it is
-        // deployed on a threaded one.
+        // Shared state, thus it needs the lock. The implementation decides
+        // if `io.async` is parallel. If code is correct only with the
+        // single-threaded implementation, the code has a race when you
+        // deploy it on a threaded implementation.
         mutex.lock(io) catch return;
         defer mutex.unlock(io);
         counter.* += 1;
@@ -63,20 +63,20 @@ pub fn main(init: std.process.Init) !void {
     var counter: usize = 0;
     var mutex: std.Io.Mutex = .init;
 
-    // A Group owns its tasks: awaiting it waits for every one, and nothing
-    // can outlive this scope. A bare `Thread.spawn` per connection does not
-    // give you this. Because of it, a server built this way can shut down
-    // without leaking connections it forgot about.
+    // A Group owns its tasks. The await waits for each task, and no task
+    // continues after this scope. A bare `Thread.spawn` for each connection
+    // does not give you this. Thus a server with a Group can stop, and it
+    // does not leak connections that it forgot.
     var group: std.Io.Group = .init;
     for (&conns) |*conn| {
         group.async(io, handle, .{ conn, &counter, &mutex, io });
     }
     try group.await(io);
 
-    // Replies printed in connection order, not completion order. The tasks
-    // finished in whatever order the implementation chose. If this printed
-    // as they completed, the output would differ between a threaded Io and
-    // the single-threaded one this page runs on.
+    // Print the replies in the order of the connections, not in the order
+    // that the tasks completed. The implementation selected that order. A
+    // threaded Io and the single-threaded Io of this page can complete the
+    // tasks in different orders.
     for (&conns, 1..) |*conn, n| {
         try out.print("conn {d}: {s: <16} -> ", .{ n, conn.request });
         for (conn.written()) |byte| switch (byte) {

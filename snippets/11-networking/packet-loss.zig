@@ -1,42 +1,44 @@
 //! title: When Datagrams Go Missing
-//! A channel that loses, repeats and delays messages, so you can watch it.
+//! A channel that loses, repeats and delays messages, so that you can see it.
 
 const std = @import("std");
 
-/// A channel that misbehaves the way a real network does. Each datagram
-/// is one byte. A seeded generator decides each datagram's fate, so every
-/// run of this program sees exactly the same network.
+/// A channel that operates incorrectly, as a real network does. Each
+/// datagram is one byte. A seeded generator decides the fate of each
+/// datagram. Thus each run of this program sees exactly the same network.
 const FlakyChannel = struct {
     prng: std.Random.DefaultPrng,
-    /// A datagram the channel is holding back, to deliver after a later one.
+    /// A datagram that the channel keeps, to deliver after a later datagram.
     delayed: ?u8 = null,
 
     fn init(seed: u64) FlakyChannel {
         return .{ .prng = std.Random.DefaultPrng.init(seed) };
     }
 
-    /// Push one datagram in. Returns what comes out the far end right now:
-    /// nothing, the datagram, the datagram twice, or an older one late.
+    /// Put one datagram in. Returns the output at the far end now: nothing,
+    /// the datagram, the datagram two times, or an older datagram late.
     fn transmit(self: *FlakyChannel, datagram: u8, out: *[3]u8) []const u8 {
         var n: usize = 0;
         const fate = self.prng.random().uintLessThan(u8, 10);
         switch (fate) {
-            // Dropped. The channel does not report the drop to anyone.
+            // Dropped. The channel does not report the drop.
             0, 1 => {},
-            // Duplicated: a retry in a lower layer sent it again.
+            // Duplicated: a retry in a lower layer sent the datagram again.
             2 => {
                 out[n] = datagram;
                 out[n + 1] = datagram;
                 n += 2;
             },
-            // Delayed: held back, it will arrive after a newer datagram.
+            // Delayed: the channel keeps the datagram. It will arrive after a
+            // newer datagram.
             3 => self.delayed = datagram,
             else => {
                 out[n] = datagram;
                 n += 1;
             },
         }
-        // Anything held back arrives now, after the newer datagram: reordering.
+        // A datagram that the channel kept arrives now, after the newer
+        // datagram. This is reordering.
         if (fate != 3) {
             if (self.delayed) |old| {
                 out[n] = old;
@@ -55,8 +57,8 @@ pub fn main(init: std.process.Init) !void {
 
     var channel = FlakyChannel.init(4);
 
-    // The receiver keeps a count per datagram and remembers the highest
-    // number seen, which is enough to name every failure afterwards.
+    // The receiver keeps a count for each datagram, and it records the
+    // highest number. This data is sufficient to name each failure later.
     var seen: [10]u8 = @splat(0);
     var highest: u8 = 0;
     var late: [10]bool = @splat(false);
@@ -73,8 +75,9 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // What the receiver can say after the fact. During the run it had no
-    // way to tell "lost" from "not sent yet": in both cases nothing arrives.
+    // What the receiver can say after the run. During the run, the receiver
+    // cannot know "lost" from "not sent yet". In the two cases, nothing
+    // arrives.
     try out.writeAll("\n");
     for (seen, 0..) |count, seq| {
         if (count == 0) try out.print("never arrived: {d}\n", .{seq});

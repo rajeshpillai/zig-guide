@@ -1,11 +1,12 @@
 //! title: A Text Protocol, Both Directions
-//! Parse a command out of bytes, render a reply back into bytes.
+//! Parse a command from bytes, and write a reply back into bytes.
 
 const std = @import("std");
 
-/// Everything the server understands. The verb is an enum, not a string, so
-/// the switch below is exhaustive. Adding a command without handling it is a
-/// compile error, so no request can silently do nothing.
+/// All the commands that the server knows. The verb is an enum, not a
+/// string, thus the switch below is exhaustive. If you add a command and do
+/// not handle it, the compiler gives an error. Thus no request can do
+/// nothing and report nothing.
 const Verb = enum { get, set, del, ping };
 
 const Command = struct {
@@ -14,8 +15,8 @@ const Command = struct {
     count: usize = 0,
 };
 
-/// Commands are case-insensitive on the wire, like Redis and SMTP and HTTP
-/// methods. Normalise the case once, here, so later code does not have to.
+/// On the wire, commands are not case-sensitive, as in Redis, SMTP and HTTP
+/// methods. Normalise the case one time, here. Then later code need not.
 fn parse(line: []const u8) !Command {
     var it = std.mem.tokenizeScalar(u8, line, ' ');
     const word = it.next() orelse return error.EmptyCommand;
@@ -34,8 +35,8 @@ fn parse(line: []const u8) !Command {
     return cmd;
 }
 
-/// The reply side. A leading byte says how to read the rest, which is the
-/// self-describing framing from the previous chapter applied to text.
+/// The reply side. The first byte tells the reader how to read the rest.
+/// This is the self-describing framing from the previous chapter, for text.
 fn reply(w: *std.Io.Writer, cmd: Command) !void {
     switch (cmd.verb) {
         .ping => try w.writeAll("+PONG\r\n"),
@@ -53,8 +54,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // A conversation as it would arrive: CRLF-terminated lines, in one
-    // buffer, because the network does not deliver them one at a time.
+    // A conversation as it arrives: lines that end in CRLF, in one buffer.
+    // The network does not deliver the lines one at a time.
     const conversation =
         "PING\r\n" ++
         "set name alice\r\n" ++
@@ -66,9 +67,9 @@ pub fn main(init: std.process.Init) !void {
     var reader: std.Io.Reader = .fixed(conversation);
     var wire: [128]u8 = undefined;
 
-    // `takeDelimiter` consumes the '\n' and returns null at the end, so this
-    // is the complete read loop. The '\r' is still on the line. Strip it, but
-    // do not assume it is there, because many clients omit it.
+    // `takeDelimiter` consumes the '\n' and returns null at the end. Thus
+    // this is the full read loop. The '\r' is still on the line. Remove it,
+    // but do not think that it is always there. Many clients do not send it.
     while (try reader.takeDelimiter('\n')) |raw| {
         const line = std.mem.trimEnd(u8, raw, "\r");
 
@@ -76,13 +77,13 @@ pub fn main(init: std.process.Init) !void {
         if (parse(line)) |cmd| {
             try reply(&w, cmd);
         } else |err| {
-            // An error is a reply too. A server that closes the connection
-            // instead leaves the client unable to tell which command was bad.
+            // An error is also a reply. If the server closes the connection,
+            // the client cannot know which command was bad.
             try w.print("-ERR {s}\r\n", .{@errorName(err)});
         }
 
-        // Print the reply with its CRLF escaped, so the framing is visible
-        // instead of the terminal turning it into line breaks.
+        // Escape the CRLF in the reply. Then you can see the framing, and
+        // the terminal does not change the CRLF into line breaks.
         try out.print("{s: <20} -> ", .{line});
         for (w.buffered()) |byte| switch (byte) {
             '\r' => try out.writeAll("\\r"),

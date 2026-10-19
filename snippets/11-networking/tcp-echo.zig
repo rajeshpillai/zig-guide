@@ -1,11 +1,11 @@
 //! title: A TCP Round Trip
 //! native
-//! Server and client in one process, on an ephemeral port the OS picks.
+//! Server and client in one process, on an ephemeral port that the OS selects.
 
 const std = @import("std");
 
-// The server half: accept one client, read one line, echo it uppercased.
-// In a real server this code would run once per connection, in this shape.
+// The server half: accept one client, read one line, and send the line
+// back in uppercase. A real server runs this code one time per connection.
 fn serve(server: *std.Io.net.Server, io: std.Io) void {
     var conn = server.accept(io) catch return;
     defer conn.close(io);
@@ -30,8 +30,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // Port 0 asks the OS for any free port. The socket records which one
-    // it got, so nothing here hardcodes a port that might be taken.
+    // Port 0 asks the OS for a free port. The socket records the port that
+    // it got. Thus no code here uses a fixed port that is possibly in use.
     const any_port = try std.Io.net.IpAddress.parse("127.0.0.1", 0);
     var server = try any_port.listen(io, .{});
     defer server.deinit(io);
@@ -39,8 +39,8 @@ pub fn main(init: std.process.Init) !void {
 
     const thread = try std.Thread.spawn(.{}, serve, .{ &server, io });
 
-    // The client half. From here on everything uses the reader/writer
-    // interface. A socket stream and a file behave the same way.
+    // The client half. After this point, all code uses the reader and
+    // writer interface. A socket stream and a file operate the same way.
     var stream = try addr.connect(io, .{ .mode = .stream });
     defer stream.close(io);
 

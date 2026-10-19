@@ -1,11 +1,11 @@
 //! title: Failure Is Ordinary
 //! native
-//! End of stream is not an error. Refused and reset are, and they are routine.
+//! The end of a stream is not an error. Refused and reset are errors, and they are normal.
 
 const std = @import("std");
 
-/// The client half of the clean-shutdown case: send a whole message, then
-/// close. The server should see the message and then an orderly end.
+/// The client half of the clean-shutdown case: send a full message, then
+/// close. The server must see the message and then a normal end.
 fn sendThenClose(address: std.Io.net.IpAddress, io: std.Io) void {
     var stream = address.connect(io, .{ .mode = .stream }) catch return;
     defer stream.close(io);
@@ -16,8 +16,8 @@ fn sendThenClose(address: std.Io.net.IpAddress, io: std.Io) void {
     writer.interface.flush() catch return;
 }
 
-/// The truncated case: half a message, then close. The bytes sent are
-/// valid. There are just not enough of them to make a message.
+/// The truncated case: half of a message, then close. The bytes are valid.
+/// But there are not sufficient bytes to make a message.
 fn sendPartialThenClose(address: std.Io.net.IpAddress, io: std.Io) void {
     var stream = address.connect(io, .{ .mode = .stream }) catch return;
     defer stream.close(io);
@@ -39,9 +39,9 @@ pub fn main(init: std.process.Init) !void {
     var server = try any_port.listen(io, .{});
     const address = server.socket.address;
 
-    // 1. The peer finished and hung up. Every connection does this in the
-    //    end, so treating it as a failure would log an error on every
-    //    successful conversation.
+    // 1. The peer completed its message and closed the connection. Each
+    //    connection does this at the end. If you make it a failure, you log
+    //    an error for each successful conversation.
     {
         const thread = try std.Thread.spawn(.{}, sendThenClose, .{ address, io });
         defer thread.join();
@@ -54,7 +54,7 @@ pub fn main(init: std.process.Init) !void {
         const line = try reader.interface.takeDelimiterExclusive('\n');
         try out.print("clean close:  read \"{s}\", then ", .{line});
 
-        // The delimiter is still unconsumed, so step past it and read on.
+        // The delimiter is not consumed yet. Skip it and read again.
         reader.interface.toss(1);
         if (reader.interface.takeDelimiterExclusive('\n')) |_| {
             try out.writeAll("more data\n");
@@ -63,11 +63,12 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // 2. The peer hung up mid-message. This case is easy to get wrong. Read
-    //    the doc comment on `takeDelimiterExclusive`: "End-of-stream is
-    //    treated equivalent to a delimiter." A client that dies halfway
-    //    through a line gives you a fragment that looks the same as a
-    //    message the sender finished. There is no error and no flag to check.
+    // 2. The peer closed the connection in the middle of a message. It is
+    //    easy to make a mistake here. Read the doc comment on
+    //    `takeDelimiterExclusive`. The comment says: "End-of-stream is
+    //    treated equivalent to a delimiter." If a client stops in the middle of a line, you get a
+    //    fragment. The fragment looks the same as a complete message. There
+    //    is no error and no flag to check.
     {
         const thread = try std.Thread.spawn(.{}, sendPartialThenClose, .{ address, io });
         defer thread.join();
@@ -81,10 +82,10 @@ pub fn main(init: std.process.Init) !void {
         try out.print("truncated:    Exclusive returned \"{s}\" and no error\n", .{fragment});
     }
 
-    // 3. The same half-message, read by the call that requires the
-    //    delimiter. `takeDelimiterInclusive` returns the byte as part of
-    //    the slice, so it cannot invent one. End of stream without the
-    //    delimiter is `EndOfStream`, and you drop the bytes.
+    // 3. The same half of a message, but this call requires the delimiter.
+    //    `takeDelimiterInclusive` returns the byte as a part of the slice.
+    //    Thus it cannot invent a delimiter. The end of the stream without
+    //    the delimiter is `EndOfStream`, and you discard the bytes.
     {
         const thread = try std.Thread.spawn(.{}, sendPartialThenClose, .{ address, io });
         defer thread.join();
@@ -102,9 +103,9 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // 4. Nobody listening. The listener is closed first, so the port is
-    //    real and unused. The kernel replies for the machine, and the
-    //    connect fails at once instead of hanging.
+    // 4. No program listens. The code closes the listener first, thus the
+    //    port is real and not in use. The kernel replies for the computer,
+    //    and the connect fails immediately. It does not wait.
     server.deinit(io);
     if (address.connect(io, .{ .mode = .stream })) |stream| {
         var s = stream;

@@ -1,44 +1,47 @@
 ---
 title: What a Socket Is
-description: An address, a mode, and a handle you read and write like a file.
+description: An address, a mode, and a handle that you read and write like a file.
 section: Networking
 order: 10
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A socket is a [file descriptor](/learn/os/file-descriptors/) with an address
-attached. That is nearly all there is to it. Once two of them are connected,
-everything you do is the reader and writer interface from [Readers and
-Writers](/learn/standard-library/readers-and-writers/), the same one a file
-uses.
+A socket is a [file descriptor](/learn/os/file-descriptors/) with an address.
+That is almost the full definition. When two sockets have a connection, all the
+work uses the reader and writer interface from [Readers and
+Writers](/learn/standard-library/readers-and-writers/). A file uses the same
+interface.
 
 <Playground
   name="11-networking.what-is-a-socket"
-  note="Built and run natively by CI, binding a real loopback socket. Browser wasm has no sockets."
+  note="CI builds and runs this snippet natively, and binds a real loopback socket. Browser wasm has no sockets."
   tryLocally="zig run what-is-a-socket.zig"
 />
 
 ## An address is data
 
-`IpAddress.parse` touches no network. It opens nothing, sends nothing, and
-fails only if the text is not an address. Nothing happens until you `listen`,
-`bind` or `connect`.
+`IpAddress.parse` does not use the network. It opens nothing and sends
+nothing. It fails only if the text is not an address. No network action
+occurs until you call `listen`, `bind` or `connect`.
 
 ```zig
 const wanted = try std.Io.net.IpAddress.parse("127.0.0.1", 0);
 ```
 
-## Port 0 means "you pick"
+## Port 0 tells the kernel to select a port
 
-Ask for port 0 and the kernel assigns a free one when the socket is bound. The
-socket records which one it got, at `server.socket.address`.
+If you ask for port 0, the kernel gives the socket a free port when it binds
+the socket. The socket records the port in `server.socket.address`.
 
-A test that hardcodes port 8080 can fail in three cases: two copies of the
-test run at once, the last run's server is still up, or something else on the
-machine already uses 8080. Every snippet in this section binds port 0 and
-reads back the port it was given. So they can all run on the same CI machine
-at the same time.
+A test that uses a fixed port such as 8080 can fail in three conditions:
+
+- Two copies of the test run at the same time.
+- The server from the last run is still active.
+- A different program on the computer already uses port 8080.
+
+Each snippet in this section binds port 0 and reads the port that it gets.
+Thus all of the snippets can run on the same CI computer at the same time.
 
 ## Stream or datagram
 
@@ -46,12 +49,14 @@ at the same time.
 var client = try bound.connect(io, .{ .mode = .stream });
 ```
 
-`.stream` is TCP: ordered, reliable, and connected. `.dgram` is UDP and gives
-you none of those three, which [UDP Datagrams](/learn/networking/udp-message/)
-covers at the end of this section. The mode is chosen once, at the socket, and
-every difference between the two protocols follows from it.
+`.stream` is TCP. TCP keeps the bytes in order, is reliable, and uses a
+connection. `.dgram` is UDP,
+and UDP has none of these three properties.
+[UDP Datagrams](/learn/networking/udp-message/), at the end of this section,
+gives more information about UDP. You select the mode one time, on the socket.
+Each difference between the two protocols comes from that mode.
 
-## Then it stops being a socket
+## After the connection, the code does not use sockets
 
 ```zig
 var writer = client.writer(io, &write_buf);
@@ -59,19 +64,20 @@ try writer.interface.writeAll("ping\n");
 try writer.interface.flush();
 ```
 
-After the connection exists, nothing in the code is specific to networks.
-Because of this, five of the chapters between here and UDP run in your
-browser with no sockets at all. A protocol parser written against
-`std.Io.Reader` works over a socket, over a file, and over a byte array in a
-test, and you never write it twice.
+When the connection exists, no part of the code is specific to networks.
+Thus five of the chapters between this chapter and the UDP chapter run in your
+browser, without sockets. A protocol parser that uses `std.Io.Reader` works
+on a socket, on a file and on a byte array in a test. You write the parser
+one time only.
 
-## Closing is yours to do
+## You must close each socket
 
-Every socket is a file descriptor, and processes have a limit on those. A
-server that leaks one per connection stops accepting new ones long before it
-runs out of memory. The symptom is an error on `accept`, and nothing in the
-error points at the leak. Put a `defer` right where you create the socket,
-and it is always closed.
+Each socket is a file descriptor, and each process has a limit on file
+descriptors. If a server does not close one socket for each connection, the
+server cannot accept new connections when it reaches that limit. This occurs a long time before the server has no
+more memory. The symptom is an error from `accept`, and the error does not
+tell you about the leak. Put a `defer` immediately after the line that makes
+the socket. Then the program always closes the socket.
 
-Next: [A TCP Round Trip](/learn/networking/tcp-echo/), which is this plus an
-accept loop.
+Next: [A TCP Round Trip](/learn/networking/tcp-echo/). That chapter adds an
+accept loop to this program.

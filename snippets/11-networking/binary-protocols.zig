@@ -1,11 +1,11 @@
 //! title: Binary Protocols and Byte Order
-//! A struct is not a wire format. Write the fields, and say which end first.
+//! A struct is not a wire format. Write the fields, and state which end is first.
 
 const std = @import("std");
 
-/// The header every message on this imaginary protocol starts with. Ten
-/// bytes, always, so the receiver can read a fixed amount before it knows
-/// anything else. Compare `@sizeOf(Header)`, which is not ten.
+/// Each message in this example protocol starts with this header. The
+/// header is always ten bytes. Thus the receiver can read a fixed quantity
+/// before it knows other data. Compare `@sizeOf(Header)`, which is not ten.
 const Header = struct {
     magic: u16,
     version: u8,
@@ -17,10 +17,10 @@ const Header = struct {
     const magic_value: u16 = 0x5A47; // "ZG"
     const wire_size = 10;
 
-    /// Field by field, endianness stated at every call. This needs more
-    /// typing than casting the struct's bytes. It is the only version that
-    /// still works with a different compiler, a different target, or a peer
-    /// written in another language.
+    /// One field at a time, with the endianness at each call. This needs
+    /// more code than a cast of the bytes of the struct. It is the only
+    /// method that works with a different compiler, a different target, or
+    /// a peer in a different language.
     fn write(self: Header, w: *std.Io.Writer) !void {
         try w.writeInt(u16, self.magic, .big);
         try w.writeInt(u8, self.version, .big);
@@ -38,10 +38,10 @@ const Header = struct {
         return .{
             .magic = magic,
             .version = version,
-            // `std.enums.fromInt` returns null rather than an error, and it
-            // replaced `std.meta.intToEnum`, which no longer exists. A tag
-            // byte off the wire is attacker-controlled, so `@enumFromInt` on
-            // it is undefined behaviour.
+            // `std.enums.fromInt` returns null, not an error. It replaced
+            // `std.meta.intToEnum`, which does not exist now. An attacker
+            // can control a tag byte from the wire. Thus `@enumFromInt` on
+            // the byte is undefined behaviour.
             .kind = std.enums.fromInt(Kind, kind) orelse return error.UnknownKind,
             .length = try r.takeInt(u32, .big),
             .checksum = try r.takeInt(u16, .big),
@@ -64,8 +64,8 @@ pub fn main(init: std.process.Init) !void {
     };
 
     // The struct in memory is larger than the message on the wire, because
-    // the compiler is free to pad and reorder. The padding is why you
-    // cannot send a struct as it is: you do not control the padding bytes.
+    // the compiler can pad and change the order. You cannot send a struct
+    // as it is, because you do not control the padding bytes.
     try out.print("@sizeOf(Header) = {d}, on the wire = {d}\n\n", .{
         @sizeOf(Header),
         Header.wire_size,
@@ -89,9 +89,9 @@ pub fn main(init: std.process.Init) !void {
         body,
     });
 
-    // Big-endian written, little-endian read. Nothing returns an error. The
-    // length is just wrong, and so large that the receiver would try to
-    // allocate or wait for 83 million bytes.
+    // Write as big-endian, read as little-endian. No function returns an
+    // error. The length is only wrong. It is so large that the receiver
+    // tries to allocate or wait for 83 million bytes.
     var swapped: std.Io.Reader = .fixed(w.buffered()[4..8]);
     try out.print("length read as big-endian:    {d}\n", .{
         std.mem.readInt(u32, w.buffered()[4..8], .big),
@@ -100,9 +100,9 @@ pub fn main(init: std.process.Init) !void {
         try swapped.takeInt(u32, .little),
     });
 
-    // The other half of a header check. A peer that is not speaking your
-    // protocol at all should be rejected on the first two bytes, before
-    // any length is trusted enough to act on.
+    // The other half of a header check. If a peer does not use your
+    // protocol, reject the peer on the first two bytes. Do this before
+    // the parser trusts a length.
     var junk: std.Io.Reader = .fixed("GET / HTTP/1.1\r\n");
     if (Header.read(&junk)) |_| {
         try out.writeAll("\nan HTTP request into this parser: accepted\n");

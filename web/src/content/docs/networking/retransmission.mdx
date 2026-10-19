@@ -1,118 +1,131 @@
 ---
 title: Retransmission and the Window
-description: A timeout recovers what the network lost, and a window keeps traffic moving while it does.
+description: A timeout recovers the messages that the network lost, and a window keeps traffic in motion during the recovery.
 section: Networking
 order: 96
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Retransmission resends a message when its ack has not arrived within a
-timeout, and a sliding window keeps several messages in flight so one
-loss does not stall the stream. With sequence numbers and cumulative
-acks, they are the working core of TCP.
+Retransmission sends a message again when its ack does not arrive before a
+timeout. A sliding window keeps many messages in flight, thus one loss does
+not stop the stream. Together with sequence numbers and cumulative acks, these
+two methods are the core mechanism of TCP.
 
 ## The problem
 
-The sender now knows which messages were never confirmed. It still has to
-recover them. Something has to decide *when* to stop waiting for an ack and
-send the message again. Nothing in the data can decide that. Silence does
-not say how long it will last, so the sender can only use the clock. It
-waits a fixed time, then resends.
+The sender now knows which messages got no confirmation. The sender must
+still recover these messages. Something must decide *when* to stop the wait
+for an ack and send the message again. The data cannot make that decision.
+Silence does not tell how long it will continue, thus the sender can only use
+the clock. The sender waits a fixed time, then it sends again.
 
-That fixes delivery but causes a speed problem. A sender that transmits one
-message and waits for its ack spends most of its time waiting. The fix is a
-window: several messages in flight at once, each with its own timer.
+That fixes the delivery, but it causes a speed problem. If a sender sends one
+message and waits for its ack, the sender spends most of its time in the wait.
+The fix is a window: many messages in flight at the same time, each with its
+own timer.
 
-Time in this snippet is a counter called a tick, not a real clock. The tick
-counter makes every run the same. The ack's round trip also costs nothing,
-so the only delay you see is the one the timeout policy adds.
+In this snippet, time is a counter that has the name tick. It is not a real
+clock. The tick counter makes each run the same. The round trip of the ack
+also costs no time. Thus the only delay in the trace comes from the timeout
+policy.
 
 ## The plan
 
-1. The scripted network drops by position: the 2nd and 7th data
-   transmission, and the 4th ack. A retry is a new transmission, so it
-   can be dropped too.
-2. The receiver is the
-   [previous chapter's](/learn/networking/sequence-numbers/), unchanged:
-   mark what arrived, answer with a cumulative ack, keep out-of-order
-   arrivals.
-3. The sender tracks `base` (confirmed below this) and `next`, and
-   remembers when each in-flight message was last sent. Three ticks
-   with no ack means resend.
-4. Run the same 8 messages twice: window of 1, then window of 4.
+1. The scripted network drops transmissions by position: the 2nd and 7th data
+   transmission, and the 4th ack. A retry is a new transmission, thus the
+   network can also drop a retry.
+2. The receiver is the receiver from the
+   [previous chapter](/learn/networking/sequence-numbers/), with one change.
+   It records what arrived and answers with a cumulative ack. It also keeps
+   the arrivals that are out of order.
+3. The sender records `base` (all messages below it have a confirmation) and
+   `next`. It also records when it last sent each message in flight. After
+   three ticks without an ack, the sender sends the message again.
+4. Run the same 8 messages two times: first with a window of 1, then with a
+   window of 4.
 
 <Playground name="11-networking.retransmission" />
 
-## The timeout is a bet
+## The timeout is a guess
 
-Message 1 is lost at tick 1 and resent at tick 4, because the rule is three
-ticks of silence. Nothing confirmed the loss. The sender guessed that an
-ack this late was never coming.
+Message 1 is lost at tick 1, and the sender sends it again at tick 4, because
+the rule is three ticks of silence. Nothing confirmed the loss. The sender
+guessed that the ack was so late that it would never arrive.
 
-Both traces also show that the guess can be wrong. In the first, message 3
-arrives intact, but its *ack* is lost. So the sender resends a message the
-receiver already has. In the second trace, the message whose ack goes
-missing is 4. The sender can never tell these two cases apart. A wrong
-guess is safe because of the receiver's duplicate check from the last
-chapter. The receiver ignores the resent copy and repeats the ack. So
+The two traces also show that the guess can be wrong. In the first trace,
+message 3 arrives correctly, but its *ack* is lost. Thus the sender sends
+again a message that the receiver already has. In the second trace, the ack
+for message 4 is lost. The sender can never see the difference between these
+two cases.
+
+A wrong guess is safe because of the duplicate check in the receiver, from the
+last chapter. The receiver ignores the second copy and repeats the ack. Thus
 retransmission does not need certainty. It needs a receiver that accepts
 duplicates without harm.
 
-If the timeout is badly chosen, you pay one of two costs. Too long, and
-every loss stalls the stream. Too short, and the network fills with copies
-of messages that were fine. Here, three ticks is a constant because the
-network's delay never changes. On a real network the delay changes all the
-time, so TCP measures the round trip and computes the timeout from it. The
-timeout is still a guess.
+If the timeout has a bad value, you pay one of two costs:
 
-## What the window buys
+- If the timeout is too long, each loss stops the stream.
+- If the timeout is too short, the network fills with copies of messages that
+  arrived correctly.
 
-The messages, network and losses are the same in both runs. A window of 1
-takes 10 ticks, and a window of 4 takes 4 ticks. The difference is what
-happens *around* a loss. With one message in flight, the loss of message 1
-stops everything. The stream spends ticks 2 and 3 waiting and delivers
-nothing. With four in flight, messages 2 through 4 keep moving while 1
-waits out its timeout, and the recovery at tick 4 finds most of the work
-already done.
+Here, three ticks is a constant, because the delay of the network never
+changes. On a real network, the delay changes all the time. Thus TCP measures
+the round trip and calculates the timeout from it. The timeout is still a
+guess.
 
-The trace shows the cost too: 12 transmissions instead of 11. The sender
-sent ahead, and one of the extra transmissions was lost. A window uses more
-bandwidth to spend less time waiting. TCP adjusts this all the time. It
-grows the window while messages arrive, and shrinks it when loss suggests
-the network is full. That policy is called congestion control, and it is
-large enough to fill a book. The mechanism under it is the dozen lines in
-this snippet.
+## What the window gives
 
-## What you just built
+The messages, the network and the losses are the same in the two runs. A
+window of 1 takes 10 ticks, and a window of 4 takes 4 ticks. The difference
+is in the ticks around a loss. With one message in flight, the loss of
+message 1 stops all traffic. The stream waits during ticks 2 and 3, and it
+delivers nothing.
+
+With four messages in flight, messages 2 through 4 continue
+while message 1 waits for its timeout. At tick 4, the recovery finds most of
+the work already complete.
+
+The trace also shows the cost: 12 transmissions, not 11. The sender sent
+messages before it got acks, and the network lost one of the extra
+transmissions. A window uses more bandwidth, and in return the sender spends
+less time in a wait.
+
+TCP adjusts the window all the time. TCP makes the window larger while
+messages arrive. TCP makes the window smaller when a loss shows that the
+network is possibly full. The name of that policy is congestion control, and
+the policy is sufficiently large to fill a book. The mechanism below it is
+the dozen lines in this snippet.
+
+## What you built
 
 Sequence numbers, cumulative acks, duplicate detection, timeout
-retransmission and a sliding window make up the working core of TCP. You
-built them in three short chapters, on top of a protocol that promises
-nothing.
+retransmission and a sliding window are the core mechanism of TCP. You built
+them in three short chapters, on a protocol that promises nothing.
 
-Every guarantee TCP gives comes from bookkeeping and waiting: the timeout
-stalls, the resends, the window management. When a connection feels slow on
-a bad link, this machinery is the reason.
+Each guarantee of TCP comes from records and waits: the timeout stops, the
+resends and the management of the window. When a connection feels slow on a
+bad link, this mechanism is the cause.
 
-Some traffic would rather lose a message than wait three ticks for it. A
-position update in a game is worthless once a newer one exists. UDP exists
-for traffic like this, where recovering a message costs more than losing
-it.
+For some traffic, the loss of a message is better than a wait of three ticks.
+A position update in a game has no value when a newer update exists. UDP
+exists for this type of traffic, where the recovery of a message costs more
+than its loss.
 
-QUIC, the transport under HTTP/3, runs on UDP so it can do this work itself.
-It does not use the kernel's TCP. Recovery decisions move into the
-application, where they can be tuned for each stream. At this level, the
-protocol that carries most of the web today runs the loop you just read.
+QUIC, the transport below HTTP/3, runs on UDP, thus QUIC can do this work
+itself. It does not use the TCP of the kernel. The recovery decisions move
+into the application, where you can tune them for each stream. At this
+level, the protocol that carries most of the web today runs the loop that you
+just read.
 
 ## Variations
 
-- **Make the ack pay for distance:** give acks a tick of travel time and
-  a window of 1 drops to one message per round trip even on a perfect
-  network. Keeping the link full is the window's other job, and on long
-  links it matters most.
-- **Shrink the timeout to 1 tick:** recovery gets faster and the
-  transmission count climbs. This is the cost of a timeout that is too
-  short.
-- **Drop more acks:** the stream still completes. Cumulative acks mean
-  any later ack repairs the loss of an earlier one.
+- **Give the ack a travel time:** let an ack need one tick to travel. Then a
+  window of 1 sends only one message for each round trip. This occurs also on
+  a perfect network. The other function of the window is to keep the link
+  full, and on long links that function is most important.
+- **Make the timeout 1 tick:** the recovery becomes faster, and the number of
+  transmissions increases. This is the cost of a timeout that is too short.
+- **Drop more acks:** the stream still completes. With cumulative acks, each
+  later ack repairs the loss of an earlier ack.

@@ -1,15 +1,16 @@
 ---
 title: Three Ways to Frame
-description: Length prefix, delimiter, self-describing, and what each one costs.
+description: Length prefix, delimiter, self-describing, and the cost of each one.
 section: Networking
 order: 40
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The previous chapter said a stream has no message boundaries. Framing is how
-you put them back. There are three ways, every protocol you have used picks
-one of them, and the choice is visible in the hex below.
+The previous chapter showed that a stream has no message boundaries. Framing
+adds the boundaries again. There are three ways to frame a message. Each
+protocol that you know selects one of these three ways. The hex below shows
+each of the three.
 
 <Playground name="11-networking.framing" />
 
@@ -20,14 +21,15 @@ one of them, and the choice is visible in the hex below.
 ^^^^^ length      ^^^^^^^^^^^ payload
 ```
 
-The receiver knows exactly how many bytes to wait for before it reads a single
-byte of payload. That is what makes the parser in the last chapter possible,
-and it is why this is the default choice for anything binary.
+Before the receiver reads one byte of payload, the receiver knows exactly how
+many bytes to wait for. This property makes the parser in the last chapter
+possible. For this reason, a length prefix is the default selection for all
+binary data.
 
-The payload is untouched, so it may contain any byte at all, including the
-newline the next scheme cannot carry. The cost is that you must know the
-length before you start writing, which means either buffering the whole
-message or knowing its size in advance.
+The framing does not change the payload. Thus the payload can contain any
+byte, and also the newline that the next method cannot carry. The cost is
+that you must know the length before you start to write. Thus you must put
+the full message in a buffer, or know its size before you start.
 
 ## Delimiter
 
@@ -36,17 +38,24 @@ message or knowing its size in advance.
 ^^^^^^^^^^^ payload  ^^ '\n'
 ```
 
-Cheap to write, cheap to read, and readable on the wire, which is why HTTP,
-SMTP, IMAP and Redis all use it for their text parts. You can debug it with `nc` by reading the bytes.
+A delimiter is cheap to write and cheap to read. A person can also read it
+on the wire. For these reasons, HTTP, SMTP, IMAP and Redis use a delimiter
+for their text parts. You can debug the protocol with `nc`, because you can
+read the bytes.
 
-The cost is that this byte can never appear in a payload. The last line
-of the output shows what happens when it does. The reader stops early and
-reports no error at all. From its point of view the message ended exactly
-where a message is supposed to end. The rest gets treated as the next message.
+The cost is that the delimiter byte can never occur in a payload. The last
+line of the output shows what occurs when the payload contains the byte. The
+reader stops too early and does not report an error. For the reader, the
+message ended at the correct place for the end of a message. The reader uses
+the other bytes as the next message.
 
-Real protocols solve this with escaping or with a length prefix on the body
-only, which is exactly what HTTP does: delimited headers, then
-`Content-Length` and a raw body.
+Real protocols solve this problem in one of two ways:
+
+- They escape the delimiter byte in the payload.
+- They put a length prefix on the body only.
+
+HTTP uses the second way: headers with delimiters, then `Content-Length` and
+a raw body.
 
 ## Self-describing
 
@@ -55,20 +64,21 @@ only, which is exactly what HTTP does: delimited headers, then
 ^^ 'i'           ^^ 's'
 ```
 
-A tag byte says how to read what follows. Here `i` means a fixed-width integer
-and `s` means a length-prefixed string, so the receiver does not have to have
-agreed in advance on what this field holds.
+A tag byte tells the receiver how to read the bytes after the tag. Here, `i`
+means a fixed-width integer and `s` means a length-prefixed string. Thus the
+receiver does not need an agreement before the message about the contents of
+the field.
 
-That is the shape of RESP, of protobuf wire types, of MessagePack and of CBOR.
-The cost is a byte per value and a `switch` that has to reject unknown tags
-rather than trusting them.
+RESP, protobuf wire types, MessagePack and CBOR use this shape. The cost is
+one byte for each value. You also need a `switch` that rejects unknown tags.
+The `switch` must not trust an unknown tag.
 
-## Choosing
+## Select a method
 
-Both of the others are special cases of a length prefix. A delimiter is a
-length you have to go looking for. A tag is a length whose meaning comes with
-it. If you are designing something new and have no reason to prefer
-readability, use a length prefix.
+The other two methods are special cases of a length prefix. A delimiter is a
+length that you must search for. A tag is a length that also carries its
+meaning. If you design a new protocol, and it is not necessary for a person
+to read it, use a length prefix.
 
-If you want it debuggable by hand, use a delimiter for the envelope and a
-length for the body. HTTP has used that combination for thirty years.
+If you want to debug the protocol by hand, use a delimiter for the envelope
+and a length for the body. HTTP used that combination for thirty years.

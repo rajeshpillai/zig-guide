@@ -1,12 +1,12 @@
 //! title: Three Ways to Frame
-//! Length prefix, delimiter, self-describing. Every protocol picks one.
+//! Length prefix, delimiter, self-describing. Each protocol selects one.
 
 const std = @import("std");
 
 // ---------------------------------------------------------------- length
 
-/// Two bytes of length, then exactly that many bytes. The receiver knows
-/// how much to wait for before it has read a single byte of payload.
+/// Two bytes of length, then exactly that number of bytes. Before the
+/// receiver reads one byte of payload, it knows how much to wait for.
 fn writeLengthPrefixed(w: *std.Io.Writer, payload: []const u8) !void {
     var header: [2]u8 = undefined;
     std.mem.writeInt(u16, &header, @intCast(payload.len), .big);
@@ -22,9 +22,9 @@ fn readLengthPrefixed(r: *std.Io.Reader) ![]const u8 {
 
 // ------------------------------------------------------------- delimiter
 
-/// A byte that cannot appear in the payload ends the message. It is cheap
-/// to write and easy to read by hand. The cost is that the payload can
-/// never contain that byte.
+/// A byte that cannot occur in the payload ends the message. The delimiter
+/// is cheap to write and easy to read by hand. The cost is that the payload
+/// can never contain that byte.
 fn writeDelimited(w: *std.Io.Writer, payload: []const u8) !void {
     try w.writeAll(payload);
     try w.writeByte('\n');
@@ -32,9 +32,9 @@ fn writeDelimited(w: *std.Io.Writer, payload: []const u8) !void {
 
 // ------------------------------------------------------- self-describing
 
-/// The payload says how to read itself. Here a single tag byte selects
-/// between a fixed-width integer and a length-prefixed string, which is
-/// how RESP, protobuf and every tagged format work.
+/// The payload tells the receiver how to read the payload. Here, one tag
+/// byte selects a fixed-width integer or a length-prefixed string. RESP,
+/// protobuf and all tagged formats work in this way.
 const Value = union(enum) {
     int: i32,
     text: []const u8,
@@ -78,8 +78,9 @@ pub fn main(init: std.process.Init) !void {
 
     var wire: [64]u8 = undefined;
 
-    // Length prefix. Note the payload is untouched: it may contain any
-    // byte at all, including the newline the next scheme cannot carry.
+    // Length prefix. The framing does not change the payload. The payload
+    // can contain any byte, also the newline that the next method cannot
+    // carry.
     {
         var w: std.Io.Writer = .fixed(&wire);
         try writeLengthPrefixed(&w, "PING");
@@ -89,7 +90,7 @@ pub fn main(init: std.process.Init) !void {
         try out.print("           read back \"{s}\"\n\n", .{try readLengthPrefixed(&r)});
     }
 
-    // Delimiter. Readable on the wire, which is why HTTP and SMTP use it.
+    // Delimiter. A person can read it on the wire, thus HTTP and SMTP use it.
     {
         var w: std.Io.Writer = .fixed(&wire);
         try writeDelimited(&w, "PING");
@@ -99,8 +100,8 @@ pub fn main(init: std.process.Init) !void {
         try out.print("           read back \"{s}\"\n\n", .{try r.takeDelimiterExclusive('\n')});
     }
 
-    // Self-describing. It costs a tag byte. In return, the receiver does
-    // not have to agree on the payload's type in advance.
+    // Self-describing. The cost is a tag byte. Then the receiver does not
+    // need an agreement about the type of the payload before the message.
     {
         var w: std.Io.Writer = .fixed(&wire);
         try writeTagged(&w, .{ .int = 4096 });
@@ -115,9 +116,9 @@ pub fn main(init: std.process.Init) !void {
         try out.writeByte('\n');
     }
 
-    // What the delimiter scheme cannot do. The payload contains the
-    // delimiter, so the reader stops early and reports no error. The
-    // message is cut short, and the rest is treated as the next message.
+    // A limit of the delimiter method. The payload contains the delimiter,
+    // thus the reader stops too early and does not report an error. The
+    // message is too short, and the reader uses the rest as the next message.
     {
         var w: std.Io.Writer = .fixed(&wire);
         try writeDelimited(&w, "two\nlines");

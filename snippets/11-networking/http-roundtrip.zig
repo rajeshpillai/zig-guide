@@ -1,11 +1,11 @@
 //! title: An HTTP Round Trip
 //! native
-//! std.http.Server on a thread, std.http.Client fetching from it.
+//! std.http.Server on a thread, and std.http.Client fetches from it.
 
 const std = @import("std");
 
-// One connection's lifecycle: HTTP is layered over the plain TCP stream
-// by giving std.http.Server the stream's reader and writer interfaces.
+// The life of one connection. HTTP is a layer on the plain TCP stream. To
+// make the layer, give the reader and writer of the stream to std.http.Server.
 fn serve(listener: *std.Io.net.Server, io: std.Io) void {
     var conn = listener.accept(io) catch return;
     defer conn.close(io);
@@ -16,8 +16,8 @@ fn serve(listener: *std.Io.net.Server, io: std.Io) void {
     var writer = conn.writer(io, &write_buf);
     var http_server = std.http.Server.init(&reader.interface, &writer.interface);
 
-    // Keep-alive means several requests can arrive on this connection;
-    // the loop ends when the client is done and the stream closes.
+    // With keep-alive, many requests can arrive on this connection. The
+    // loop ends when the client completes its work and the stream closes.
     while (true) {
         var request = http_server.receiveHead() catch return;
         if (std.mem.eql(u8, request.head.target, "/hello")) {
@@ -38,8 +38,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // Same setup as the TCP recipe: port 0, the OS picks a port, and the
-    // socket records it.
+    // The same setup as the TCP recipe: port 0, the OS selects a port, and
+    // the socket records the port.
     const any_port = try std.Io.net.IpAddress.parse("127.0.0.1", 0);
     var listener = try any_port.listen(io, .{});
     defer listener.deinit(io);
@@ -51,9 +51,9 @@ pub fn main(init: std.process.Init) !void {
     var client: std.http.Client = .{ .allocator = gpa, .io = io };
     defer client.deinit();
 
-    // fetch() drives the whole request: connect, send, follow the
-    // response, decompress if needed. The body goes to any writer you
-    // pass in. Allocating collects it into memory.
+    // fetch() does the full request: connect, send, follow the response,
+    // and decompress if necessary. The body goes to the writer that you
+    // give. `Allocating` collects the body into memory.
     var url_buf: [64]u8 = undefined;
     var body: std.Io.Writer.Allocating = .init(gpa);
     defer body.deinit();
@@ -69,7 +69,7 @@ pub fn main(init: std.process.Init) !void {
     try out.print("GET /hello -> {d}\n", .{@intFromEnum(ok.status)});
     try out.print("body: {s}", .{body.written()});
 
-    // Second request reuses the pooled keep-alive connection.
+    // The second request uses the same keep-alive connection from the pool.
     const missing = try client.fetch(.{
         .location = .{ .url = try std.mem.print(
             &url_buf,

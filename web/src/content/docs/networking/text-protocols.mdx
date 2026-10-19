@@ -1,15 +1,15 @@
 ---
 title: A Text Protocol, Both Directions
-description: Parse a command out of bytes, render a reply back into bytes.
+description: Parse a command from bytes, and write a reply back into bytes.
 section: Networking
 order: 50
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A text protocol is a delimiter framing with a grammar inside it. This one
-borrows Redis's reply syntax because it is small and useful: one leading byte
-says how to read the rest.
+A text protocol is delimiter framing with a grammar in it. This protocol uses
+the reply syntax of Redis, because that syntax is small and useful. The first
+byte of a reply tells the reader how to read the rest of the reply.
 
 <Playground name="11-networking.text-protocols" />
 
@@ -21,20 +21,22 @@ const Verb = enum { get, set, del, ping };
 const verb = std.meta.stringToEnum(Verb, lowered) orelse return error.UnknownCommand;
 ```
 
-Convert once, at the edge, and every `switch` after it can be exhaustive. If
-you add a command to the enum and do not handle it, the compiler rejects the
-program. If the verb stays a `[]const u8`, the same mistake gives a request
-that silently does nothing, and a user finds it later.
+Convert the verb one time, at the edge. Then each `switch` after the
+conversion can be exhaustive. If you add a command to the enum and do not
+handle the command, the compiler rejects the program. If the verb stays a
+`[]const u8`, the same mistake gives a request that does nothing and reports
+nothing. Then a user finds the problem later.
 
-`parse` is the one place where this conversion can happen, because it is the
-only place that knows the bytes came from outside.
+`parse` is the one place where this conversion can occur. It is the only
+place that knows that the bytes came from outside the program.
 
 ## Normalise at the edge
 
-Commands are case-insensitive on the wire, as they are in Redis, SMTP and HTTP
-methods. Lowercase once, in `parse`, so no later code has to remember that
-`GET`, `get` and `Get` are the same thing. If many functions have to remember
-it, one of them will eventually get it wrong.
+On the wire, commands are not case-sensitive, as in Redis, SMTP and HTTP
+methods. Change the command to lowercase one time, in `parse`. Then no later
+code must remember that `GET`, `get` and `Get` are the same command. If many
+functions must remember this rule, one of the functions will possibly get it
+wrong.
 
 ## Errors are replies
 
@@ -45,14 +47,14 @@ it, one of them will eventually get it wrong.
 ```
 
 Do not close the connection because of a malformed command. The client is
-still there and can still send valid commands. It does not know which command
-you rejected unless you tell it. If you close the socket on a parse error,
-every typo causes a reconnect. Under load, that becomes many reconnects at
-once.
+still connected and can still send valid commands. The client does not know
+which command you rejected, unless you tell it. If you close the socket on a
+parse error, each typo causes a new connection. Under load, that becomes many
+new connections at the same time.
 
-`@errorName` sends your internal error names to whoever is connected. That is
-fine for a guide. For a service on a public port, decide whether you want to
-expose them.
+`@errorName` sends the names of your internal errors to the connected client.
+For a guide, that is satisfactory. For a service on a public port, decide if
+you want to show these names.
 
 ## The `\r` is not optional and not guaranteed
 
@@ -60,14 +62,17 @@ expose them.
 const line = std.mem.trimEnd(u8, raw, "\r");
 ```
 
-The specification says CRLF. Real clients, including anything a person types
-into `nc`, send LF alone. Read until `\n`, then strip a `\r` if one is there.
-If you require the `\r`, you reject clients that send LF alone. If you assume
-it is absent, the last character is wrong for clients that send CRLF.
+The specification says CRLF. Real clients send LF only, and so does a person
+who types into `nc`. Read until `\n`, then remove a `\r` if there is one.
+
+- If you require the `\r`, you reject the clients that send LF only.
+- If you think that the `\r` is not there, the last character is wrong for
+  the clients that send CRLF.
 
 ## Escape the framing when you print it
 
-The output above shows `\r\n` as text and does not end the line there. If a
-reply is printed raw, the terminal turns its framing into line breaks, and you
-can no longer see what was sent. When you debug a protocol, you need to see
-the exact bytes, and a terminal hides characters like `\r`.
+The output above shows `\r\n` as text, and the line does not end there. If
+the program prints a raw reply, the terminal changes the framing into line
+breaks. Then you cannot see the bytes that the server sent. To debug a
+protocol, you must see the exact bytes, and a terminal hides characters such
+as `\r`.

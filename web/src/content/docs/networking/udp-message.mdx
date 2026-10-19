@@ -1,6 +1,6 @@
 ---
 title: UDP Datagrams
-description: Bound sockets and discrete messages, no connection anywhere.
+description: Bound sockets and discrete messages, without a connection.
 section: Networking
 order: 90
 ---
@@ -8,72 +8,72 @@ order: 90
 import Playground from "../../../components/Playground.astro";
 
 In Zig, a UDP socket comes from `std.Io.net.IpAddress.bind` with `.mode
-= .dgram`, and there is no `listen` or `accept`. Each `send` names its
-destination, and each `receive` returns the data along with the sender's
-address.
+= .dgram`. There is no `listen` and no `accept`. Each `send` names its
+destination. Each `receive` returns the data and the address of the sender.
 
 ## The problem
 
-Some traffic does not want a connection: metrics, discovery pings, game
-state, sensor readings. Losing one message is fine. Paying for TCP's ordering and retransmission is
-not. That is UDP, and its API shape is
-different enough from TCP that the "listen and accept" model does not carry
-over.
+Some traffic does not need a connection: metrics, discovery pings, game
+state and sensor readings. The loss of one message is acceptable. The cost of
+the ordering and retransmission in TCP is not acceptable. For this traffic,
+use UDP. The API of UDP is very different from TCP, thus the "listen and
+accept" model does not apply.
 
-There is nothing to accept. A socket binds to an address, and messages
-arrive whenever they arrive.
+There is nothing to accept. A socket binds to an address, and messages arrive
+at any time.
 
 ## The plan
 
-1. `bind` with `.mode = .dgram` instead of `listen`. Binding to port 0
-   picks an ephemeral port, recorded on `socket.address`.
-2. Send with `socket.send(io, &destination, bytes)`: destination per
-   message, because there is no connection to remember it.
-3. Receive with `socket.receive(io, &buffer)`, which returns the data
-   slice and the sender's address.
-4. Reply by sending to that address. There is no connection to answer
-   on, so the reply is just another `send`.
+1. Call `bind` with `.mode = .dgram`, not `listen`. If you bind to port 0,
+   the OS selects an ephemeral port and records it in `socket.address`.
+2. Send with `socket.send(io, &destination, bytes)`. Each message has a
+   destination, because there is no connection to remember the destination.
+3. Receive with `socket.receive(io, &buffer)`. This function returns the data
+   slice and the address of the sender.
+4. To reply, send to that address. There is no connection for the answer,
+   thus the reply is only one more `send`.
 
 <Playground
   name="11-networking.udp-message"
-  note="Built and run natively by CI, sending real datagrams over loopback. Browser wasm has no sockets."
+  note="CI builds and runs this snippet natively, and sends real datagrams over loopback. Browser wasm has no sockets."
   tryLocally="zig run udp-message.zig"
 />
 
-## No threads in this one, and why that works
+## Why this program needs no threads
 
-The snippet sends a message, reads it, sends another, and reads that, all on
-one thread. Nothing has to be waiting when a datagram arrives, because the
-kernel queues datagrams on the bound socket until someone reads them.
-This is how UDP works: the sender and receiver never meet. They only share
-an address. (The queue is finite; when it
-overflows, datagrams are dropped, which is UDP behaving as documented.)
+The snippet sends a message and reads it. Then it sends one more message and
+reads that message. All of this occurs on one thread. No code must wait when
+a datagram arrives, because the kernel keeps the datagrams on the bound
+socket until a program reads them.
+
+UDP works in this way: the sender and the
+receiver never meet. They only share an address. (The queue has a limit.
+When the queue is full, the kernel drops datagrams, and UDP permits that.)
 
 ## Message boundaries are real
 
-Two `send` calls produced exactly two `receive` results, 14 bytes each.
-TCP could deliver those 28 bytes as one read or three; a datagram
-socket never merges or splits messages. Protocol designers choose UDP for this property. It comes with a matching
-limit: a
-datagram larger than the receive buffer is truncated, signalled by
-`msg.flags.trunc`.
+Two `send` calls gave exactly two `receive` results, of 14 bytes each. TCP
+can deliver those 28 bytes as one read or as three reads. A datagram socket
+never merges or splits messages. Protocol designers select UDP for this
+property. The property comes with a limit: if a datagram is larger than the
+receive buffer, the kernel truncates the datagram. `msg.flags.trunc` shows
+the truncation.
 
-## Replying without a connection
+## Reply without a connection
 
-The last step uppercases the message and sends it back. Look at what it
-does not need. With TCP, a server that wants to answer must `accept` and
-hold a socket for that client. Here the receiver knows one thing about
-the sender: the address in `second.from`. It sends to that address and is
-done.
+The last step changes the message to uppercase and sends it back. Look at
+what this step does not need. In TCP, a server that sends an answer must
+`accept` and keep a socket for that client. Here, the receiver knows one
+thing about the sender: the address in `second.from`. The receiver sends to
+that address, and then its work is complete.
 
-Receiving and then sending back is all that request/response over UDP
-needs. DNS works this way: one datagram asks, one datagram answers,
-and no connection ever exists.
+Request and response over UDP need only a receive and then a send. DNS works
+in this way: one datagram asks, one datagram answers, and no connection ever
+exists.
 
 ## Variations
 
-- **Timeouts:** `receiveTimeout` returns `error.Timeout` instead of
-  blocking forever, which is how you write "wait up to a second for a
-  reply".
-- **Broadcast:** set `.allow_broadcast = true` in the bind options to
-  send to broadcast addresses on a LAN.
+- **Timeouts:** `receiveTimeout` returns `error.Timeout` and does not block
+  forever. Use it to wait a maximum of one second for a reply.
+- **Broadcast:** to send to broadcast addresses on a LAN, set
+  `.allow_broadcast = true` in the bind options.

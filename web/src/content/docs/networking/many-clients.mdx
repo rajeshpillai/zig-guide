@@ -1,19 +1,22 @@
 ---
 title: Serving Many Clients
-description: One handler per connection through Io, so the same source runs either way.
+description: One handler for each connection through Io, thus the same source runs with threads and without threads.
 section: Networking
 order: 70
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A server that handles one connection at a time is a server one slow client can
-stop. The traditional answers are two, and both have a cost. A thread per
-connection costs a stack each and stops scaling in the thousands. A single-threaded event loop scales, but it forces callbacks into every
-function you write.
+If a server handles one connection at a time, one slow client can stop the
+server. There are two usual solutions, and each solution has a cost:
 
-Zig's answer is neither, and this page runs it in your browser on a target
-with no threads at all.
+- One thread for each connection. Each thread costs a stack, and the server
+  cannot scale past some thousands of threads.
+- A single-threaded event loop. The loop can scale, but each function that
+  you write must use callbacks.
+
+Zig uses neither of these two solutions. This page runs the Zig solution in
+your browser, on a target that has no threads.
 
 <Playground name="11-networking.many-clients" />
 
@@ -27,14 +30,13 @@ const Connection = struct {
 };
 ```
 
-The transport is missing on purpose. `handle` reads bytes and writes bytes and
-never learns where they came from, so this page runs with no network
-underneath it. Put a `std.Io.net.Server` in front of the same function and it
-is [the TCP round trip](/learn/networking/tcp-echo/).
+The struct has no transport, by design. `handle` reads bytes and writes
+bytes. It does not know where the bytes came from. Thus this page runs
+without a network below it. If you put a `std.Io.net.Server` in front of the
+same function, you get [the TCP round trip](/learn/networking/tcp-echo/).
 
-This is the reason to write protocol code against `Reader` and `Writer`
-instead of against a socket. The tests are fast, and the browser can run the
-example.
+Write protocol code for `Reader` and `Writer`, not for a socket. Then the
+tests are fast, and the browser can run the example.
 
 ## `io.async`, not `Thread.spawn`
 
@@ -47,24 +49,28 @@ try group.await(io);
 ```
 
 The `Io` implementation decides what "async" means. `std.Io.Threaded` runs
-these on a thread pool; the single-threaded WASI one running this page runs
-them inline. **The source does not change**, which is why
-[Threads](/learn/concurrency/threads/) is a page you cannot run here and
-this one is.
+the tasks on a thread pool. This page runs on the single-threaded WASI
+implementation, which runs the tasks inline. **The source does not change.**
+For this reason, you cannot run the [Threads](/learn/concurrency/threads/)
+page here, but you can run this page.
 
-If you are arriving from an older Zig looking for `async` and `await` as
-keywords: they were removed. `io.async` replaced them, as a library rather
-than syntax. [Concurrency](/learn/concurrency/async-future-group/) covers the
-shape in general.
+If you used an older version of Zig, you possibly look for the `async` and
+`await` keywords. Zig removed these keywords. `io.async` replaced them, as a
+library function and not as syntax.
+[Concurrency](/learn/concurrency/async-future-group/) shows the general
+shape.
 
 ## A Group so nothing outlives the scope
 
-`Group` owns its tasks. Awaiting it waits for all of them, and cancelling it
-cancels all of them, so a connection handler cannot outlive the server that
-started it. A bare `Thread.spawn` per connection gives you no such guarantee,
-and shutting down cleanly means tracking every thread you ever started.
-[Cancellation](/learn/concurrency/cancellation/) covers what a handler
-sees when the group it belongs to is cancelled.
+`Group` owns its tasks. When you await the group, it waits for all of its
+tasks. When you cancel the group, it cancels all of its tasks. Thus a
+connection handler cannot continue after the end of the server that started
+it. A bare `Thread.spawn` for each connection does not give you this
+guarantee. To stop the server cleanly, you must then record each thread that
+you started.
+
+[Cancellation](/learn/concurrency/cancellation/) shows what a
+handler sees when you cancel its group.
 
 ## A handler cannot return an error
 
@@ -72,11 +78,12 @@ sees when the group it belongs to is cancelled.
 fn handle(conn: *Connection, counter: *usize, mutex: *std.Io.Mutex, io: std.Io) void {
 ```
 
-Note the `void`. There is nobody to return an error to: the caller has moved
-on to the next connection. So a per-connection failure has to become part of
-that connection's reply, the same conclusion the [text protocol
-chapter](/learn/networking/text-protocols/) reached from the other direction.
-One client sending garbage must not affect any other client.
+Look at the `void`. There is no caller that can receive an error, because
+the caller continued to the next connection. Thus a failure in a connection
+must become a part of the reply for that connection. The [text protocol
+chapter](/learn/networking/text-protocols/) came to the same result from the
+other direction. If one client sends bad data, no other client must see an
+effect.
 
 ## Shared state still needs a lock
 
@@ -86,20 +93,23 @@ defer mutex.unlock(io);
 counter.* += 1;
 ```
 
-The single-threaded implementation this page runs on would work without the mutex. Do not rely on that. Code that is only correct
-under the implementation you tested with has a data race that can appear once
-it is deployed, because the `Io` you get in production is the threaded one.
+This page uses the single-threaded implementation, and that implementation
+works without the mutex. Do not trust that result. Some code is correct only
+with the implementation that you used for the tests. That code has a data
+race, and the race can occur after you deploy the code. The cause is that the
+`Io` in production is the threaded implementation.
 
-`lock` takes the `io` and returns an error, because it can block and therefore
-can be cancelled.
+`lock` takes the `io` and returns an error. The function can block, thus a
+cancel can stop it.
 
 ## Why the replies print in order
 
-The tasks completed in whatever order the implementation chose. The loop that
-prints them runs afterwards, over the connections in order, so the output is
-the same either way. Printing from inside the handlers would interleave
-differently on a threaded `Io` than on this one.
+The tasks completed in the order that the implementation selected. The loop
+that prints the replies runs after the tasks, and it uses the order of the
+connections. Thus the output is the same with each implementation. If the
+handlers printed the replies, the lines would have a different order on a
+threaded `Io`.
 
-The `COUNT` values are the exception. They show the order the tasks actually
-reached the mutex. Run this natively and they may come out in a different
-order.
+The `COUNT` values are the exception. They show the order in which the tasks
+got the mutex. If you run this program natively, the values can have a
+different order.

@@ -1,15 +1,15 @@
 //! title: Retransmission and the Window
-//! A timeout turns detected loss into recovered loss. A window makes it fast.
+//! A timeout changes a detected loss into a recovered loss. A window makes it fast.
 
 const std = @import("std");
 
 const message_count = 8;
 const timeout_ticks = 3;
 
-/// The network, scripted by position: it drops the 2nd and 7th data
-/// transmission and the 4th ack, counting from 1. It counts positions
-/// because the network does not know which message a transmission
-/// carries. A retry is a new transmission, so it can be dropped too.
+/// The network, with a script by position. It drops the 2nd and 7th data
+/// transmission and the 4th ack. The count starts at 1. It counts positions
+/// because the network does not know which message a transmission carries.
+/// A retry is a new transmission, thus the network can also drop a retry.
 const Wire = struct {
     data_sent: usize = 0,
     acks_sent: usize = 0,
@@ -25,9 +25,9 @@ const Wire = struct {
     }
 };
 
-/// The receiver marks off what it has and answers every arrival with a
-/// cumulative ack, exactly as in the previous chapter. Out-of-order
-/// arrivals are kept, so a resend never has to repeat them.
+/// The receiver records what it has, and it answers each arrival with a
+/// cumulative ack, as in the previous chapter. But this receiver also keeps
+/// the arrivals that are out of order. Thus it does not need them again.
 const Receiver = struct {
     got: [message_count]bool = @splat(false),
 
@@ -42,10 +42,10 @@ const Receiver = struct {
     }
 };
 
-/// The sender's state: everything below `base` is confirmed, everything
-/// from `base` to `next` is in flight, and each in-flight message
-/// remembers when it was last transmitted, so the clock can tell when it
-/// is overdue.
+/// The state of the sender. All messages below `base` have a confirmation.
+/// All messages from `base` to `next` are in flight. Each message in flight
+/// records when the sender last sent it. Thus the clock can find a message
+/// that is late.
 const Sender = struct {
     base: u8 = 0,
     next: u8 = 0,
@@ -66,7 +66,8 @@ fn run(out: *std.Io.Writer, window: u8) !void {
 
     var tick: usize = 1;
     while (sender.base < message_count and tick <= 40) : (tick += 1) {
-        // First, the clock's job: anything in flight too long goes again.
+        // First, the work of the clock: send again each message that is in
+        // flight for too long.
         var seq = sender.base;
         while (seq < sender.next) : (seq += 1) {
             if (tick - sender.sent_at[seq] < timeout_ticks) continue;
@@ -87,8 +88,8 @@ fn run(out: *std.Io.Writer, window: u8) !void {
     );
 }
 
-/// One transmission and, if it arrives, the ack coming straight back.
-/// The whole round trip fits inside one tick. Only a loss makes it longer.
+/// One transmission and, if it arrives, the ack that comes directly back.
+/// The full round trip is inside one tick. Only a loss makes it longer.
 fn transmit(
     out: *std.Io.Writer,
     wire: *Wire,

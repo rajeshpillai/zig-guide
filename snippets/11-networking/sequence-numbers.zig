@@ -1,12 +1,12 @@
 //! title: Sequence Numbers and Acks
-//! Number every message, and silence turns into information.
+//! Put a number on each message, and silence becomes information.
 
 const std = @import("std");
 
-/// The misbehaving network again, but scripted instead of random: it
-/// drops datagram 2 and duplicates datagram 4. It is scripted because this
-/// chapter is about the receiver's logic. You should be able to check
-/// every line of its output against these two rules.
+/// The network that operates incorrectly, with a script and not random. It
+/// drops datagram 2 and duplicates datagram 4. It uses a script because
+/// this chapter is about the logic of the receiver. You can check each line
+/// of the output against these two rules.
 fn transmit(seq: u8, out: *[2]u8) []const u8 {
     if (seq == 2) return out[0..0];
     out[0] = seq;
@@ -17,9 +17,9 @@ fn transmit(seq: u8, out: *[2]u8) []const u8 {
     return out[0..1];
 }
 
-/// The receiver needs only one number to find problems: the sequence number
-/// it expects next. Below it: seen before. Equal: in order. Above it: the
-/// numbers in between never arrived.
+/// To find problems, the receiver needs only one number: the sequence number
+/// that it expects next. Below it: seen before. Equal: in order. Above it:
+/// the numbers between the two never arrived.
 const Watcher = struct {
     next: u8 = 0,
 
@@ -34,10 +34,10 @@ const Watcher = struct {
     }
 };
 
-/// For acks the receiver tracks what it *has*, contiguously from the
-/// start. It only advances on the exact next number, and answers every
+/// For acks, the receiver records what it *has*, without gaps from the
+/// start. It moves forward only on the exact next number. It answers each
 /// arrival with that count. The answer is cumulative: "I have everything
-/// through N" also confirms everything the earlier acks confirmed.
+/// through N" also confirms all that the earlier acks confirmed.
 const AckSender = struct {
     have: ?u8 = null,
 
@@ -53,7 +53,7 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &file_writer.interface;
 
-    // First: the receiver names every failure as it happens.
+    // First: the receiver names each failure when it occurs.
     try out.writeAll("-- numbering finds the failures --\n");
     var watcher = Watcher{};
     for (0..6) |i| {
@@ -76,7 +76,7 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // Second: the receiver reports back, and the sender learns.
+    // Second: the receiver sends a report, and the sender learns.
     try out.writeAll("\n-- acks tell the sender --\n");
     var acker = AckSender{};
     var acked_through: ?u8 = null;
@@ -99,8 +99,8 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // The sender's view is built from acks alone. It never saw the drop.
-    // It only sees which of its messages were never confirmed.
+    // The sender knows only the acks. The sender never saw the drop. It
+    // sees only which of its messages got no confirmation.
     if (acked_through) |a| {
         try out.print("\nsender: confirmed through {d}, so {d} through 5 need resending\n", .{ a, a + 1 });
     }

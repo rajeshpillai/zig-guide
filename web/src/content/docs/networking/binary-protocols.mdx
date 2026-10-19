@@ -1,15 +1,16 @@
 ---
 title: Binary Protocols and Byte Order
-description: A struct is not a wire format. Write the fields, and say which end first.
+description: A struct is not a wire format. Write the fields, and state which end is first.
 section: Networking
 order: 60
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Every binary protocol starts with a fixed-size header, so the receiver can
-read a known number of bytes before it knows anything else. Writing one comes
-down to two rules that are easy to state and easy to skip.
+Each binary protocol starts with a fixed-size header. Thus the receiver can
+read a known number of bytes before it knows other information. To write a
+header, you must obey two rules. The rules are easy to state, and they are
+also easy to forget.
 
 <Playground name="11-networking.binary-protocols" />
 
@@ -19,20 +20,20 @@ down to two rules that are easy to state and easy to skip.
 @sizeOf(Header) = 12, on the wire = 10
 ```
 
-The struct is bigger than the message. Zig may pad a struct and may reorder
-its fields, and those padding bytes are not yours to define: they are whatever
-was in that memory. Send the struct and you have sent two bytes of something
-else, and the layout you sent is the one your compiler chose on your target
-today.
+The struct is larger than the message. Zig can pad a struct, and Zig can
+change the order of its fields. You do not control the padding bytes. They
+contain the data that was in that memory before. If you send the struct, you
+send two bytes of other data. Also, the layout that you send is the layout
+that your compiler selected for your target today.
 
 ```zig
 // Do not do this.
 try socket.writeAll(std.mem.asBytes(&header));
 ```
 
-`extern struct` fixes the layout and is the right tool for calling C, as
-[ABI](/learn/working-with-c/abi/) covers. It still does not fix byte order, so
-it is not enough here.
+`extern struct` makes the layout fixed. It is the correct tool for calls to
+C, as [ABI](/learn/working-with-c/abi/) shows. But `extern struct` does not
+make the byte order fixed, thus it is not sufficient here.
 
 Write the fields:
 
@@ -41,8 +42,9 @@ try w.writeInt(u16, self.magic, .big);
 try w.writeInt(u8, self.version, .big);
 ```
 
-It is more typing. It is also the only version that still works with a
-different compiler, a different target, or a peer written in another language.
+This method needs more code. It is also the only method that still works
+with a different compiler, a different target, or a peer in a different
+language.
 
 ## Say which end first
 
@@ -51,16 +53,18 @@ length read as big-endian:    5
 length read as little-endian: 83886080
 ```
 
-Nothing errored. The length is simply wrong, and wrong in a dangerous way. A receiver that trusts it will try to wait for, or allocate, 83 megabytes
-because a five-byte message arrived.
+No function returned an error. The length is only wrong, but it is wrong in
+a dangerous way. If a receiver trusts this length, the receiver tries to wait
+for 83 megabytes, or to allocate 83 megabytes. The cause is one message of
+five bytes.
 
-Network byte order is big-endian by convention. Follow the convention even
-when both ends are little-endian machines today, because one
-day one of them will not be. State the endianness at every call. `readInt` and
-`writeInt` require the argument precisely so that you cannot forget.
+By convention, network byte order is big-endian. Obey the convention, also
+when the two ends are little-endian computers today. One day, one of the two
+ends will possibly not be little-endian. State the endianness at each call.
+`readInt` and `writeInt` require the argument, thus you cannot forget it.
 
-The [Byte Order](/learn/language-basics/integer-rules/) rules matter most
-here, because inside your process the question never comes up.
+The [Byte Order](/learn/language-basics/integer-rules/) rules are most
+important here. Inside your process, byte order is never a problem.
 
 ## Reject before you trust
 
@@ -68,19 +72,20 @@ here, because inside your process the question never comes up.
 an HTTP request into this parser: NotOurProtocol
 ```
 
-The magic number is checked before any length is read. A port on the internet
-receives HTTP requests, TLS handshakes and scanner probes within minutes of
-opening, and every one of them will parse as *something* if you let it. Two
-bytes of magic turn that into an immediate rejection.
+The parser checks the magic number before it reads a length. When a port on
+the internet opens, it receives HTTP requests, TLS handshakes and scanner
+probes in a few minutes. If you let the parser accept them, each of these
+messages will parse as *something*. Two bytes of magic make the parser
+reject them immediately.
 
-The same applies to the tag byte:
+The same rule applies to the tag byte:
 
 ```zig
 .kind = std.enums.fromInt(Kind, kind) orelse return error.UnknownKind,
 ```
 
-A byte off the wire is attacker-controlled. `@enumFromInt` on a value that is
-not a valid tag is undefined behaviour, and
-`std.enums.fromInt` is what returns null instead. It replaced
-`std.meta.intToEnum`, which no longer exists: if you have that in your code,
-this is the swap.
+An attacker can control a byte from the wire. If you use `@enumFromInt` on a
+value that is not a valid tag, the behaviour is undefined.
+`std.enums.fromInt` returns null for that value. `std.enums.fromInt` replaced
+`std.meta.intToEnum`, which does not exist now. If your code uses
+`std.meta.intToEnum`, change it to `std.enums.fromInt`.
