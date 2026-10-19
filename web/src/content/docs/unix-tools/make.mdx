@@ -7,82 +7,94 @@ order: 7
 
 import Playground from "../../../components/Playground.astro";
 
-`make` has a reputation for being a language with strange rules about tabs.
-Take away the syntax and two small ideas are left. We build both here, so the
-tool is easier to understand.
+People know `make` as a language with strange rules about tabs. Remove the
+syntax, and two small ideas remain. This chapter builds both ideas, so that
+the tool is easier to understand.
 
-The first: **the targets form a graph.** `app` needs `main.o` and `util.o`,
-each of which needs its `.c` file. Building in the right order means visiting
-a node only after everything it depends on, which is a topological sort.
+The first idea: **the targets make a graph.** `app` needs `main.o` and
+`util.o`, and each object needs its `.c` file. To build in the correct order,
+visit a node only after all of the nodes that it depends on. That is a
+topological sort.
 
-The second: **a timestamp decides whether work happens.** A target is stale if
-anything it depends on is newer than it is. This one comparison is why `make`
-is faster than a shell script that rebuilds everything.
+The second idea: **a timestamp decides if work occurs.** A target is stale if
+one of its dependencies is newer than the target. Because of this one
+comparison, `make` is faster than a shell script that builds everything again.
 
 ## The program
 
 <Playground name="16-unix-tools.make" />
 
-The stamps stand in for file modification times: higher is newer. `main.c` is
-30 and `main.o` is 20, so the source has been edited since the object was
-built. `util.c` is 10 against `util.o` at 20, so that one is current.
+The stamps are in place of file modification times, and a higher stamp is
+newer. `main.c` is 30 and `main.o` is 20. Thus someone edited the source after
+the last build of the object. `util.c` is 10 and `util.o` is 20, so `util.o`
+is current.
 
 ## What just happened
 
-**The build order put the objects before the binary.** Nothing declared that
-order. It falls out of visiting dependencies first and appending each target
-only on the way back out. This is depth-first post-order, and it is how you
-write a topological sort in code.
+**The build order put the objects before the binary.** No line declared that
+order. The order is the result of two rules: visit the dependencies first, and
+append each target only on the return. This is depth-first post-order, and it
+is how you write a topological sort in code.
 
-**Only `main.o` needed rebuilding.** Its source is newer than it is. `util.o`
-is newer than its source, so it was skipped. This is where `make` saves time.
-On a large project almost everything is up to date, and checking that costs
-one integer comparison per target.
+**Only `main.o` needed a new build.** Its source is newer than `main.o`.
+`util.o` is newer than its source, so the program skipped `util.o`. Here,
+`make` saves time. On a large project, almost all targets are current, and
+the check costs one integer comparison for each target.
 
-**The `state` array is the cycle check.** Each target is
-marked 1 while its dependencies are being visited and 2 when it is done.
-Meeting a target still on 1 means the graph loops, and the program returns
-`error.CircularDependency` instead of recursing until the stack runs out. Real
-`make` notices the same thing, prints `Circular b <- a dependency dropped`, and
-carries on with the edge removed.
+**The `state` array is the cycle check.** The program marks each target 1
+while it visits the dependencies of that target. It marks the target 2 when the
+visit is complete. If the program finds a target that is still 1, the graph has
+a loop.
 
-**One thing the program does not model:** once `main.o` is rebuilt, its
-timestamp becomes *now*, which makes `app` stale in turn. Real `make`
-recomputes as it goes, so staleness moves up the graph. The program above
-never runs a command, so it reports a single snapshot of which targets are
-stale.
+In that case, the program returns `error.CircularDependency`. It does not
+recurse until the stack overflows. Real `make` also finds the loop. It prints
+`Circular b <- a dependency dropped`, removes the edge, and continues.
+
+**The program does not model one thing.** When `make` builds `main.o` again,
+the timestamp of `main.o` becomes *now*. Then `app` is stale too. Real `make`
+calculates again after each step, so the stale state moves up the graph. The
+program above never runs a command. Thus it reports only one snapshot of the
+stale targets.
 
 ## Check yourself
 
-`make` is famously strict that recipe lines begin with a tab, not spaces.
-Given what you have just built, is that rule doing any work?
+`make` is famously strict about a rule: a recipe line starts with a tab, not
+spaces. You built the tool above. Does that rule do any work?
 
-Almost none, and its author has said as much. The tab distinguishes a recipe
-line from a continuation of the rule, which a smarter parser could work out
-by itself. The rule stays because changing it would break every Makefile ever
-written. Many things in Unix stay the way they are for the same reason. The
-graph and the timestamps are the design. The tab is an early choice that could
-not be changed later.
+The rule does almost no work, and the author of `make` said this too. The tab shows the
+difference between a recipe line and a continuation of the rule. A better
+parser can find that difference without the tab.
+
+The rule stays because a change can break each Makefile that exists. Many
+things in Unix stay the same for this reason. The graph and the timestamps are
+the design. The tab is an early decision that nobody could change later.
 
 ## If you know C
 
-You have almost certainly written a Makefile without writing `make`, and the
-translation is direct. A rule's prerequisites are its edges, and `$@` and `$<`
-are the target and the first prerequisite of the node you are currently at.
+Almost certainly, you wrote a Makefile but never wrote `make`. The
+translation is direct. The prerequisites of a rule are its edges. `$@` and
+`$<` are the target and the first prerequisite of the node that you are at.
 
-The one thing a C implementation has to do that this program skips is get the
-timestamp, with `stat`, and handle the case where the file is not there at
-all. A missing target has an mtime of nothing, which has to compare as "older
-than everything" so the target gets built. Representing that as 0 is exactly
-what the C version does, and it is the correct simplification.
+A C implementation must do one thing that this program skips. It must get the
+timestamp with `stat`, and it must handle a file that does not exist. A target
+that does not exist has no mtime. That target must compare as "older than
+everything", so that `make` builds it. The C version uses 0 for this case, and
+that is the correct simplification.
 
 ## Where to go next
 
-This is the last of the seven programs. Between them they use a fixed buffer
-with a streaming loop, a state machine, a search, an ownership decision, a
-delimiter, a conversion and a graph.
+This is the last of the seven programs. Together, the programs use these
+ideas:
 
-If you want the same treatment of the language itself,
-[Groundwork](/learn/systems-from-scratch/) starts from what a byte is. If you
-would rather build something larger, the [ORM](/learn/orm/) is one library
-designed in the open, one decision per chapter.
+- A fixed buffer with a streaming loop.
+- A state machine.
+- A search.
+- An ownership decision.
+- A delimiter.
+- A conversion.
+- A graph.
+
+[Groundwork](/learn/systems-from-scratch/) gives the same treatment to the
+language itself, and it starts from what a byte is. For a larger project, see
+the [ORM](/learn/orm/). It is one library with an open design, with one
+decision in each chapter.

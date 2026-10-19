@@ -1,13 +1,14 @@
 //! title: printf
-//! Turning a number into text, digit by digit, backwards.
+//! Change a number into text, one digit at a time, from the last digit.
 
 const std = @import("std");
 
-/// Write `value` as decimal into `buf`, returning the part used.
+/// Write `value` as decimal into `buf`, and return the part that it used.
 ///
-/// The digits come out in reverse because the only cheap way to get one is
-/// `value % 10`, which hands you the *last* one. So they are written into the
-/// end of the buffer and the slice is taken from where you stopped.
+/// The digits come out in reverse. The only cheap way to get a digit is
+/// `value % 10`, and that gives you the *last* digit. Thus the function writes
+/// the digits into the end of the buffer. It takes the slice from the
+/// position where it stopped.
 fn decimal(buf: []u8, value: i64) []const u8 {
     if (value == 0) {
         buf[0] = '0';
@@ -15,9 +16,9 @@ fn decimal(buf: []u8, value: i64) []const u8 {
     }
 
     const negative = value < 0;
-    // Negate in a wider type. On the most negative i64 there is no positive
-    // counterpart, so `-value` in the same type is an overflow. Hand-written
-    // printf code often gets this wrong.
+    // Negate in a wider type. The most negative i64 has no positive
+    // equivalent, so `-value` in the same type is an overflow. Printf code
+    // that people write by hand often gets this wrong.
     var n: u64 = if (negative) @as(u64, @intCast(-@as(i128, value))) else @intCast(value);
 
     var i = buf.len;
@@ -33,7 +34,7 @@ fn decimal(buf: []u8, value: i64) []const u8 {
     return buf[i..];
 }
 
-/// The scanner: copy bytes through until '%', then dispatch on the next one.
+/// The scanner: copy bytes until '%', then dispatch on the next byte.
 fn format(out: *std.Io.Writer, comptime fmt: []const u8, args: []const i64) !void {
     var arg: usize = 0;
     var i: usize = 0;
@@ -50,10 +51,10 @@ fn format(out: *std.Io.Writer, comptime fmt: []const u8, args: []const i64) !voi
                 try out.writeAll(decimal(&digits, args[arg]));
                 arg += 1;
             },
-            // %% is how you print the character the scanner is looking for.
+            // With %%, you print the character that the scanner looks for.
             '%' => try out.writeByte('%'),
             else => {
-                // Unknown specifier: print it back rather than guessing.
+                // Unknown specifier: print it back. Do not guess.
                 try out.writeByte('%');
                 try out.writeByte(fmt[i]);
             },

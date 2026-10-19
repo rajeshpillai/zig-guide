@@ -1,25 +1,31 @@
 ---
 title: printf
-description: Turning a number into text, digit by digit, backwards.
+description: How to change a number into text, one digit at a time, from the last digit to the first.
 section: Unix Tools
 order: 6
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Every tool so far moved bytes that already existed. `printf` creates new ones.
-Given the number 42, something has to produce the two characters `4` and `2`.
-Nothing in the machine does that for you. 42 is a bit pattern, `"42"` is two
-bytes, and the conversion is arithmetic you write.
+Each tool before this one moved bytes that already existed. `printf` makes new
+bytes. For the number 42, some code must make the two characters `4` and `2`.
+Nothing in the computer does this for you. 42 is a bit pattern, `"42"` is two
+bytes, and you write the arithmetic for the conversion.
 
-The algorithm is division. The last digit of a number is what is left after
-dividing by ten, and the rest of the number is the quotient. Repeat until the
-quotient is zero. That gives you every digit correctly, but in reverse order,
-because you get the last digit first.
+The algorithm is division:
 
-So you write them into the **end** of a buffer and work backwards. When you
-stop, the number is the tail of the buffer, and you return a slice from where
-you stopped. You never need to reverse the digits in a second pass.
+1. Divide the number by ten.
+2. The remainder is the last digit.
+3. The quotient is the rest of the number.
+4. Do the steps again until the quotient is zero.
+
+These steps give you all the digits correctly, but in reverse order, because
+you get the last digit first.
+
+Thus write the digits into the **end** of a buffer, and move to the front.
+When you stop, the number is the tail of the buffer. Return a slice from the
+position where you stopped. You never have to reverse the digits in a second
+pass.
 
 ## The program
 
@@ -27,69 +33,74 @@ you stopped. You never need to reverse the digits in a second pass.
 
 ## What just happened
 
-**Zero needed its own line of code.** The loop runs while the value is greater
-than zero, so for zero it never runs and you get an empty string. A
-hand-written integer formatter needs this special case at the top. Without it,
-a count of 0 prints as nothing.
+**Zero needed its own line of code.** The loop runs while the value is more
+than zero. Thus for zero, the loop never runs, and you get an empty string. An
+integer formatter that you write by hand needs this special case at the top.
+Without the special case, a count of 0 prints as nothing.
 
 **The most negative number printed correctly.** This is the main trap in this
-program. The obvious way to handle a negative is to note the sign
-and negate: `n = -value`. For `i64` that works for every value except one. The
-range is -9223372036854775808 to 9223372036854775807, so there is no positive
-counterpart to the smallest, and `-value` overflows. In C that is undefined
-behaviour and in practice gives you the same negative number back, after which
-the loop produces garbage or spins.
+program. The obvious way to handle a negative number is to keep the sign and
+negate: `n = -value`. For `i64`, that works for all values except one.
 
-The program negates in a wider type before narrowing, so the intermediate
-value has room. In a build with safety checks on, getting this wrong stops the
-program instead of printing nonsense. That is [the main
+The range is -9223372036854775808 to 9223372036854775807. Thus the smallest
+value has no positive equivalent, and `-value` overflows. In C, that is
+undefined behaviour. In practice, C gives you the same negative number back.
+After that, the loop makes garbage or does not stop.
+
+The program negates in a wider type before it narrows the value. Thus the
+intermediate value has space. In a build with safety checks on, a mistake here
+stops the program, and the program does not print nonsense. That is [the main
 reason](/learn/systems-from-scratch/when-checks-are-off/) to develop in a
 safety build.
 
-**The scanner is a state machine with two states**: copying bytes, and holding
-a `%`. A format string needs nothing more. `%%` exists because once `%` is
-special, you need a way to say you meant the character itself.
+**The scanner is a state machine with two states**: it copies bytes, or it
+holds a `%`. A format string needs nothing more. `%%` exists because `%` is
+special. Thus you need a way to say that you want the character itself.
 
 **An unknown specifier printed itself back.** `%q` came out as `%q`. The
-program did not drop it or guess what it meant. When you cannot know what was
-intended, printing the input unchanged helps the user find their typo.
+program did not drop it or guess its meaning. When you cannot know the
+intention, print the input without change. This helps the user find the typo.
 
 ## Check yourself
 
 The buffer for the digits is 24 bytes. Where does that number come from, and
-what happens if it is too small?
+what occurs if the buffer is too small?
 
-The largest `i64` is 19 digits, plus a sign is 20, so 24 has room to spare. If
-it were too small, the writes would run off the front of the buffer. In a
-safety build that is a caught index-out-of-bounds. In a release build it is
-memory you do not own. You have to work out this buffer size by hand, and it
-has to be right. So real implementations write the bound next to the buffer
-instead of picking a round number.
+The largest `i64` has 19 digits. With a sign, that is 20, so 24 has more space
+than necessary. If the buffer is too small, the writes go past the front of
+the buffer. In a safety build, the program catches an index-out-of-bounds. In
+a release build, the writes go into memory that you do not own.
+
+You must calculate this buffer size by hand, and the size must be correct.
+Thus real implementations write the bound next to the buffer. They do not
+select a round number.
 
 ## If you know C
 
-You have written this loop, and you have met `INT_MIN`:
+You wrote this loop before, and you know the problem of `INT_MIN`:
 
 ```c
 if (value < 0) { *p++ = '-'; value = -value; }   /* UB at INT_MIN */
 ```
 
-The usual C fix is to do the arithmetic on a negative accumulator instead, so
-no negation is needed. Zig's fix here is to widen first, which reads more
-directly.
+The usual C fix is to do the arithmetic on a negative accumulator, so that no
+negation is necessary. The Zig fix here is to widen first, which is easier to
+read.
 
-The other thing C makes you build is the argument list. `printf` is variadic,
-which means `va_list`, `va_arg`, and a promise you make to the compiler that
-the types in the format string match what you passed. The language does not
-check it. `%d` with a `long` is undefined behaviour, and it is a common way for
-a correct-looking `printf` to corrupt a program. Modern compilers warn via
-`__attribute__((format))`, but that is a warning added later, outside the
-language itself.
+C also makes you build the argument list. `printf` is variadic, so you need
+`va_list`, `va_arg`, and a promise to the compiler. The promise is that the
+types in the format string match the arguments that you gave. The language
+does not check the promise.
 
-Zig has no variadic functions on purpose. `std.fmt` takes a tuple, and the
-format string is checked at compile time against it. A mismatch is a build
-error instead of a problem at run time. The chapter on that is
-[Formatting](/learn/standard-library/formatting/).
+`%d` with a `long` is undefined behaviour. In this way, a `printf` that looks
+correct often corrupts a program. Modern compilers give a warning through
+`__attribute__((format))`. But compiler authors added that warning later,
+outside the language itself.
 
-Next: [make](/learn/unix-tools/make/), the last tool and the only one that is
+Zig intentionally has no variadic functions. `std.fmt` takes a tuple, and the
+compiler checks the format string against the tuple at compile time. A
+mismatch is a build error, not a problem at run time. The chapter about this
+is [Formatting](/learn/standard-library/formatting/).
+
+Next: [make](/learn/unix-tools/make/), the last tool, and the only tool that is
 really an algorithm.

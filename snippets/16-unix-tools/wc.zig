@@ -1,5 +1,5 @@
 //! title: wc
-//! Counting words means counting the moments you enter one.
+//! To count words, count each time that the input goes into a word.
 
 const std = @import("std");
 
@@ -10,8 +10,8 @@ fn isSpace(c: u8) bool {
 }
 
 /// One pass, one byte at a time, one bit of state. `in_word` is the state
-/// machine: a word is counted when the input crosses from space into non-space,
-/// so runs of spaces cost nothing and the input is never looked at twice.
+/// machine. The function counts a word when the input moves from a space into
+/// a non-space. Thus runs of spaces cost nothing, and it reads each byte once.
 fn count(text: []const u8) Counts {
     var c: Counts = .{};
     var in_word = false;
@@ -53,7 +53,7 @@ pub fn main(init: std.process.Init) !void {
     try out.flush();
 }
 
-/// Show the sample with its whitespace visible, so the counts can be checked.
+/// Show the sample with its whitespace visible, so that you can check the counts.
 fn printEscaped(out: *std.Io.Writer, text: []const u8) !void {
     try out.writeAll("\"");
     for (text) |ch| {

@@ -6,13 +6,13 @@ const std = @import("std");
 const Rule = struct {
     target: []const u8,
     needs: []const []const u8,
-    /// Stands in for the file's mtime. Higher is newer; 0 means absent.
+    /// In place of the mtime of the file. Higher is newer. 0 means absent.
     stamp: u64,
 };
 
-/// Visit dependencies before the thing that depends on them, and refuse to
-/// loop. This is all of make's ordering, and the `visiting` flag is what
-/// turns an infinite recursion into an error you can report.
+/// Visit the dependencies before the target that depends on them, and do not
+/// loop. This is all of the order logic of make. State 1 ("visit in progress")
+/// changes an infinite recursion into an error that you can report.
 fn order(
     rules: []const Rule,
     target: []const u8,
@@ -64,7 +64,7 @@ pub fn main(init: std.process.Init) !void {
         .{ .target = "app", .needs = &.{ "main.o", "util.o" }, .stamp = 25 },
     };
 
-    // `@splat`, not the `**` repeat operator, which the language dropped.
+    // `@splat`, not the `**` repeat operator. The language removed `**`.
     var state: [rules.len]u8 = @splat(0);
     var scheduled: std.ArrayList([]const u8) = .empty;
     defer scheduled.deinit(allocator);
@@ -73,8 +73,8 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("build order:\n");
     for (scheduled.items) |target| try out.print("  {s}\n", .{target});
 
-    // A target is stale when anything it depends on is newer than it is. This
-    // one comparison is why make is faster than a shell script.
+    // A target is stale when one of its dependencies is newer than the target.
+    // Because of this one comparison, make is faster than a shell script.
     try out.writeAll("\nwhat actually needs rebuilding:\n");
     for (scheduled.items) |target| {
         const i = indexOf(&rules, target).?;

@@ -1,30 +1,34 @@
 ---
 title: sort
-description: Sorting lines is easy. Owning them is the part that costs you something.
+description: To sort lines is easy. To own the lines is the part that has a cost.
 section: Unix Tools
 order: 4
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-The first three tools never held more than a bufferful. `sort` cannot: you
-cannot know which line comes first until you have seen the last one. So this
-is the chapter where the streaming loop stops working. It raises a question the
-earlier tools never faced.
+The first three tools never held more than one full buffer. `sort` cannot do
+that. You cannot know which line comes first until you see the last line.
+Thus in this chapter, the streaming loop stops. The chapter has a question
+that the earlier tools did not have.
 
-**Where do the lines live?**
+**Where are the lines in memory?**
 
-Reading them means holding all of them. Sorting them means moving them around.
-And a moment after you have sorted, something has to still be pointing at the
-right bytes. This is the ownership question from [Who Owns This
+To read the lines, the program must hold all of them. To sort the lines, the
+program must move them. After the sort, something must still point at the
+correct bytes. This is the ownership question from [Who Owns This
 Memory](/learn/systems-from-scratch/who-owns-this-memory/). `sort` is the first
-program where you cannot avoid it.
+program where you cannot avoid the question.
 
-There are two workable answers. Copy each line into memory you allocated, or
-keep the whole input in one buffer and sort a list of *pointers into it*. The
-second is what the real `sort` does for anything that fits, because moving an
-8-byte pointer is cheaper than moving a 200-byte line, and it costs nothing to
-set up.
+There are two answers that work:
+
+- Copy each line into memory that you allocated.
+- Keep the full input in one buffer, and sort a list of *pointers into the
+  buffer*.
+
+For all input that fits, the real `sort` uses the second answer. To move an
+8-byte pointer costs less than to move a 200-byte line, and the preparation
+costs nothing.
 
 ## The program
 
@@ -32,48 +36,57 @@ set up.
 
 ## What just happened
 
-**Nothing was copied.** The last line says so: 40 bytes of pointers and zero
-bytes of copied text. Each entry in the sorted list is a slice pointing back
-into the original input, so sorting five lines moved five pointers and left
-the text exactly where it was.
+**The program copied nothing.** The last line shows this: 40 bytes of pointers
+and zero bytes of copied text. Each entry in the sorted list is a slice that
+points back into the original input. Thus the sort of five lines moved five
+pointers, and the text stayed exactly where it was.
 
-The cost of that decision is written into the function's contract: the result
-is only valid while the input buffer is. Return those slices from a function
-that owned the buffer and you have the dangling pointer from [The
-Stack](/learn/systems-from-scratch/the-stack/), except now it is a whole array
-of them.
+The contract of the function states the cost of that decision: the result is
+valid only while the input buffer is valid. Assume that a function owns the
+buffer and returns those slices. Then you have the dangling pointer from [The
+Stack](/learn/systems-from-scratch/the-stack/), but now you have a full array
+of dangling pointers.
 
-**`Zebra` sorted before `apple`.** This is not a bug. It is byte order. `Z` is 90 and `a` is
-97, so every capital letter sorts before every lower-case one. This is what
-`LC_ALL=C sort` does. Plain `sort` follows the locale's collation instead,
-which puts `apple` first, and that is why the two disagree on the same file. Anything friendlier than byte order is a locale
-question, not a sorting one.
+**`Zebra` sorted before `apple`.** This is not a bug. It is byte order. `Z` is
+90 and `a` is 97, so each capital letter sorts before each lower-case letter.
+`LC_ALL=C sort` does the same.
 
-**Both copies of `apple` survived.** Sorting does not deduplicate. `sort -u`
-does, and it is a separate pass, because "are these adjacent lines equal" is
-only cheap once they are sorted.
+Plain `sort` uses the collation of the locale, and the collation puts `apple`
+first. For this reason, the two commands give different results on the same
+file. An order that is easier for people than byte order is a question about
+the locale, not about the sort.
 
-**The whole program touched no heap.** `FixedBufferAllocator` hands out chunks
-of a 4 KB array on the stack. When it runs out it returns `error.OutOfMemory`
-like any other allocator. That is the correct failure for a tool with a fixed
-memory budget. A C version would use a hand-written arena for the same job,
-with the bookkeeping written out by hand.
+**Both copies of `apple` stayed.** A sort does not remove duplicates. `sort -u`
+removes them, in a separate pass. The question "are these adjacent lines
+equal?" is cheap only after the sort.
+
+**The full program used no heap.** `FixedBufferAllocator` gives out parts of a
+4 KB array on the stack. When the array is full, the allocator returns
+`error.OutOfMemory`, as all other allocators do. That is the correct failure
+for a tool with a fixed memory budget. A C version uses an arena for the same
+job, and the programmer writes the bookkeeping by hand.
 
 ## Check yourself
 
-The input has five lines and the program allocated one thing. What was it, and
-what would have to change to sort a file too large to hold?
+The input has five lines, and the program allocated one thing. What was it?
+What must change to sort a file that is too large for memory?
 
-It allocated the *list of slices*, not the lines. To handle a file larger than
-memory, you would sort what fits, write that run to a temporary file, and
-repeat. Then merge the sorted runs, keeping one line from each in memory at a
-time. That is an external merge sort. It is what the real `sort` switches to,
-and the merge step is why `sort` has always been able to handle files bigger
-than the machine it runs on.
+The program allocated the *list of slices*, not the lines. For a file that is
+larger than memory, do these steps:
+
+1. Sort the part that fits.
+2. Write that sorted run to a temporary file.
+3. Do steps 1 and 2 again until no input remains.
+4. Merge the sorted runs. Keep only one line from each run in memory at a
+   time.
+
+That is an external merge sort. The real `sort` changes to this method for
+large files. Because of the merge step, `sort` always could handle files that
+are larger than the computer that it runs on.
 
 ## If you know C
 
-The pointer-table trick is the same, and in C you would build it by hand:
+The table of pointers is the same, and in C you build it by hand:
 
 ```c
 char *lines[MAX_LINES];       /* pointers into one big buffer */
@@ -81,15 +94,17 @@ char *lines[MAX_LINES];       /* pointers into one big buffer */
 qsort(lines, n, sizeof(char *), cmp);
 ```
 
-Zig removes two problems. `qsort`'s comparator receives `const void *` and
-starts with a cast. The classic bug is in that cast. The argument is a
-pointer to the array *element*, so for an array of `char *` it is a `char **`.
-Get that one indirection wrong and it compiles cleanly and sorts garbage.
-`std.mem.sort` is generic over the element type, so the comparator receives
-the two elements themselves.
+Zig removes two problems. The first problem: the comparator of `qsort` gets
+`const void *` and starts with a cast. The classic bug is in that cast.
 
-And `MAX_LINES` is a real limit that a C version has to pick in advance and
-check on every append. `ArrayList` grows, and asks the allocator, and the
-allocator is allowed to say no.
+The argument is a pointer to the array *element*. Thus for an array of
+`char *`, the argument is a `char **`. If you get that one indirection wrong,
+the code compiles without a warning and sorts garbage. `std.mem.sort` is
+generic over the element type, so the comparator gets the two elements
+themselves.
 
-Next: [cut](/learn/unix-tools/cut/), which goes back to one line at a time.
+The second problem: `MAX_LINES` is a real limit. A C version must select the
+limit in advance and check it on each append. `ArrayList` grows and asks the
+allocator for memory, and the allocator can refuse.
+
+Next: [cut](/learn/unix-tools/cut/), which returns to one line at a time.

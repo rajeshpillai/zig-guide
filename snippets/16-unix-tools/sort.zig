@@ -1,11 +1,11 @@
 //! title: sort
-//! Sorting lines is easy. Owning them is the part that costs you something.
+//! To sort lines is easy. To own the lines is the part that has a cost.
 
 const std = @import("std");
 
-/// Sort the lines of `text`, returning slices that point back into `text`.
-/// Nothing is copied, so the result is only valid while `text` is, and the
-/// caller frees exactly one thing: the list of pointers.
+/// Sort the lines of `text`, and return slices that point back into `text`.
+/// The function copies nothing. Thus the result is valid only while `text` is
+/// valid. The caller frees exactly one thing: the list of pointers.
 fn sortLines(allocator: std.mem.Allocator, text: []const u8) ![][]const u8 {
     var lines: std.ArrayList([]const u8) = .empty;
     errdefer lines.deinit(allocator);
@@ -20,8 +20,8 @@ fn sortLines(allocator: std.mem.Allocator, text: []const u8) ![][]const u8 {
     return slice;
 }
 
-/// Byte order, which is what `sort` does by default and why "Zebra" comes
-/// before "apple": upper case is 65..90 and lower case is 97..122.
+/// Byte order, as in `LC_ALL=C sort`. Thus "Zebra" comes before "apple":
+/// upper case is 65..90, and lower case is 97..122.
 fn lessThan(_: void, a: []const u8, b: []const u8) bool {
     return std.mem.order(u8, a, b) == .lt;
 }
@@ -32,7 +32,7 @@ pub fn main(init: std.process.Init) !void {
     const out = &stdout_writer.interface;
 
     // A fixed buffer, so this program never uses the heap. The C version builds
-    // this arena by hand. Here the bookkeeping is already written.
+    // this arena by hand. Here, the bookkeeping is already written.
     var storage: [4096]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&storage);
 

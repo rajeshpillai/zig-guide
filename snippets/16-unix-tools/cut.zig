@@ -1,11 +1,11 @@
 //! title: cut
-//! Splitting on a delimiter, and the edge cases that decide whether it is correct.
+//! How to split at a delimiter, and the edge cases that decide if the split is correct.
 
 const std = @import("std");
 
-/// Field `n` of `line`, counting from 1 the way cut does. Returns null when
-/// the line has fewer fields, which is different from the field being empty
-/// and has to stay different.
+/// Field `n` of `line`. The count starts at 1, as in cut. Returns null when
+/// the line has fewer fields. Null is different from an empty field, and the
+/// two must stay different.
 fn field(line: []const u8, delimiter: u8, n: usize) ?[]const u8 {
     if (n == 0) return null;
 
@@ -25,9 +25,9 @@ pub fn main(init: std.process.Init) !void {
     const rows = [_][]const u8{
         "alice:30:london",
         "bob:25:paris",
-        // An empty field in the middle: two delimiters with nothing between.
+        // An empty field in the middle: two delimiters with nothing between them.
         "carol::berlin",
-        // Fewer fields than asked for.
+        // Fewer fields than the program asks for.
         "dave",
     };
 
@@ -43,8 +43,8 @@ pub fn main(init: std.process.Init) !void {
         try out.writeAll("\n");
     }
 
-    // Splitting never invents or loses a field: n delimiters give n+1 fields,
-    // even when some of them are empty.
+    // A split never adds or loses a field: n delimiters give n+1 fields, also
+    // when some of the fields are empty.
     var it = std.mem.splitScalar(u8, "carol::berlin", ':');
     var parts: usize = 0;
     while (it.next()) |_| parts += 1;

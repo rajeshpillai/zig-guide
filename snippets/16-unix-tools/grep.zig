@@ -3,9 +3,9 @@
 
 const std = @import("std");
 
-/// The naive search, written out instead of called, so you can see it once:
-/// try every start position, compare forward, stop at the first mismatch.
-/// O(n*m) in the worst case and fine for a line of text.
+/// The simple search, written out here, so that you can see it one time.
+/// Try each start position, compare forward, and stop at the first mismatch.
+/// O(n*m) in the worst case, and good enough for a line of text.
 fn find(haystack: []const u8, needle: []const u8) ?usize {
     if (needle.len == 0) return 0;
     if (needle.len > haystack.len) return null;
@@ -19,9 +19,9 @@ fn find(haystack: []const u8, needle: []const u8) ?usize {
     return null;
 }
 
-/// Returns whether anything matched, which is what the exit code reports.
-/// grep's contract is that "found nothing" is not an error, and a shell
-/// pipeline depends on being able to tell those two apart.
+/// Returns true if a line matched. The exit code reports this result.
+/// The contract of grep is that "found nothing" is not an error. A shell
+/// pipeline must see the difference between those two results.
 fn grep(text: []const u8, pattern: []const u8, out: *std.Io.Writer) !bool {
     var lines: std.Io.Reader = .fixed(text);
     var matched = false;
@@ -52,7 +52,7 @@ pub fn main(init: std.process.Init) !void {
     for ([_][]const u8{ "the", "fox", "cat" }) |pattern| {
         try out.print("--- grep \"{s}\"\n", .{pattern});
         const matched = try grep(text, pattern, out);
-        // 0 when something matched, 1 when nothing did. Not an error either way.
+        // 0 when a line matched, 1 when no line matched. Neither is an error.
         try out.print("exit {d}\n\n", .{@intFromBool(!matched)});
     }
 
