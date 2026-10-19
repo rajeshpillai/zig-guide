@@ -6,7 +6,7 @@ const std = @import("std");
 const message_count = 8;
 const timeout_ticks = 3;
 
-/// The network, with a script by position. It drops the 2nd and 7th data
+/// The network, with a script by position. It drops the 2nd and 4th data
 /// transmission and the 4th ack. The count starts at 1. It counts positions
 /// because the network does not know which message a transmission carries.
 /// A retry is a new transmission, thus the network can also drop a retry.
@@ -16,7 +16,7 @@ const Wire = struct {
 
     fn deliverData(self: *Wire) bool {
         self.data_sent += 1;
-        return self.data_sent != 2 and self.data_sent != 7;
+        return self.data_sent != 2 and self.data_sent != 4;
     }
 
     fn deliverAck(self: *Wire) bool {
@@ -70,6 +70,9 @@ fn run(out: *std.Io.Writer, window: u8) !void {
         // flight for too long.
         var seq = sender.base;
         while (seq < sender.next) : (seq += 1) {
+            // An ack inside this loop can move `base` past a message that the
+            // loop did not reach yet. That message has a confirmation now.
+            if (seq < sender.base) continue;
             if (tick - sender.sent_at[seq] < timeout_ticks) continue;
             try out.print("tick {d:2}: {d} timed out, resend", .{ tick, seq });
             try transmit(out, &wire, &receiver, &sender, seq, tick);

@@ -32,7 +32,7 @@ policy.
 
 ## The plan
 
-1. The scripted network drops transmissions by position: the 2nd and 7th data
+1. The scripted network drops transmissions by position: the 2nd and 4th data
    transmission, and the 4th ack. A retry is a new transmission, thus the
    network can also drop a retry.
 2. The receiver is the receiver from the
@@ -55,9 +55,14 @@ guessed that the ack was so late that it would never arrive.
 
 The two traces also show that the guess can be wrong. In the first trace,
 message 3 arrives correctly, but its *ack* is lost. Thus the sender sends
-again a message that the receiver already has. In the second trace, the ack
-for message 4 is lost. The sender can never see the difference between these
-two cases.
+again a message that the receiver already has. The sender can never see the
+difference between a lost message and a lost ack.
+
+The second trace shows a different cause. Message 2 arrives at tick 1, but
+message 1 does not arrive. A cumulative ack cannot confirm message 2 before
+message 1 arrives. Then the ack for the resend of message 1 is lost. Thus
+at tick 4, message 2 still has no confirmation, and the sender sends it
+again.
 
 A wrong guess is safe because of the duplicate check in the receiver, from the
 last chapter. The receiver ignores the second copy and repeats the ack. Thus
@@ -83,14 +88,20 @@ is in the ticks around a loss. With one message in flight, the loss of
 message 1 stops all traffic. The stream waits during ticks 2 and 3, and it
 delivers nothing.
 
-With four messages in flight, messages 2 through 4 continue
-while message 1 waits for its timeout. At tick 4, the recovery finds most of
-the work already complete.
+With four messages in flight, messages 2 and 4 arrive while message 1
+waits for its timeout. Message 3 is also lost, and its timer expires at the
+same tick as the timer of message 1. Thus one round of resends at tick 4
+recovers the two losses.
 
-The trace also shows the cost: 12 transmissions, not 11. The sender sent
-messages before it got acks, and the network lost one of the extra
-transmissions. A window uses more bandwidth, and in return the sender spends
-less time in a wait.
+The two runs use the same number of transmissions, 11. In this run, the
+window does not save transmissions. The window saves time, because the two
+losses overlap and one timeout recovers both of them.
+
+At tick 4, the resend of message 3 gets the ack "have 0 through 4". The timer
+of message 4 also expired at tick 4. But that ack confirms message 4, thus
+the loop does not send message 4 again. For this reason, the loop compares
+each message with `base` again before it sends the message. The loop starts
+at the old `base`, and an ack inside the loop can move `base` forward.
 
 TCP adjusts the window all the time. TCP makes the window larger while
 messages arrive. TCP makes the window smaller when a loss shows that the
