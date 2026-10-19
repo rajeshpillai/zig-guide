@@ -1,26 +1,20 @@
 ---
 title: Layout
-description: Widths flow down from the parent. Heights add up from the children.
+description: The parent gives each child its width. The children add up to the height of the parent.
 section: The Browser
 order: 3
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Two chapters in, there is a tree of nodes and a way to ask what each one
-should look like. Neither says where anything goes. Layout is the stage that
-turns that into rectangles with positions. It is the first part of a browser
-that does geometry instead of parsing.
+After two chapters, the program has a tree of nodes and a way to ask how each node must look. Neither of them tells where each node goes. Layout is the stage that changes the tree into rectangles with positions. The earlier stages parse text. Layout is the first stage of a browser that calculates geometry.
 
 The algorithm is not symmetric:
 
-- **Width flows down.** A block fills the width it is given, so a parent can
-  decide its children's widths before it knows anything about them.
-- **Height flows up.** A block is as tall as its contents, so a parent cannot
-  know its own height until every child has been laid out.
+- **Width goes down.** A block fills the width that it gets. Thus a parent can decide the widths of its children before it knows anything about them.
+- **Height goes up.** A block is as tall as its contents. Thus a parent cannot know its height until the layout of each child is complete.
 
-There is one pass downward for widths and one pass upward for heights. Many
-surprises in CSS sizing come from this difference.
+One pass goes down for the widths, and one pass goes up for the heights. Many surprises in CSS sizes come from this difference.
 
 ## The program
 
@@ -28,85 +22,56 @@ surprises in CSS sizing come from this difference.
 
 ## What just happened
 
-**Widths narrow going down: 400, then 380, then 360.** The viewport gives 400.
-`#page` has 10 of padding on each side, so its content is 380. `.box` inside
-it has 5 of margin and 5 of padding, taking 20 more, so its children get 360.
-No child was consulted at any point.
+**The widths become smaller at each level: 400, then 380, then 360.** The viewport gives 400. `#page` has a padding of 10 on each side, thus its content is 380. `.box` is inside `#page`, and it has a margin of 5 and a padding of 5. These use 20 more, thus the children of `.box` get 360. The pass did not look at a child at any point.
 
-**Heights accumulate going up.** The two paragraphs inside `.box` are 20 each,
-so `.box` is 40. `#page` contains a 40-tall `h1`, then that box at 40 tall plus
-5 of margin and 5 of padding on each side, and a 20-tall footer: 40 plus 60
-plus 20 is 120. Nothing could have known that before laying the children out.
+**The heights add up from the bottom.** The two paragraphs inside `.box` are 20 each, thus `.box` is 40. `#page` contains these boxes:
 
-**`h1` was given an explicit height of 40 and kept it.** Its text is 20 tall.
-An explicit height overrides the measured one. This is how content can
-overflow a box, and it is why the `overflow` property exists.
+- an `h1` that is 40 tall
+- the `.box`, which is 40 tall, with a margin of 5 and a padding of 5 on each side
+- a footer that is 20 tall
 
-**Positions come from a running cursor.** Each child is placed at the current y
-and then the cursor moves down by that child's full outer height. This one
-loop is normal flow. It is why blocks stack vertically by default.
+40 plus 60 plus 20 is 120. No part of the program can know this number before the layout of the children.
 
-## Why `height: 100%` disappoints people
+**The `h1` has an explicit height of 40, and it kept that height.** Its text is 20 tall. An explicit height overrides the measured height. Thus content can overflow a box, and that is the reason for the `overflow` property.
 
-`width: 100%` works because widths flow down: the parent's width is already
-known when the child is sized. `height: 100%` asks the child to be as tall as
-its parent, but the parent's height is computed *from its children*. The
-question is circular. CSS defines it as having no answer unless the parent has
-a definite height of its own, and when there is no answer the declaration is
-ignored.
+**The positions come from a cursor.** The program puts each child at the current y. Then the cursor moves down by the full outer height of that child. This one loop is normal flow. It is the reason that blocks stack vertically by default.
 
-So the usual fix is to give every ancestor an explicit height. Viewport units
-also work. The viewport has a definite height that
-does not depend on anything inside it.
+## Why `height: 100%` does not do what people expect
+
+`width: 100%` works because the widths go down. The width of the parent is already known when the program calculates the size of the child.
+
+`height: 100%` asks the child to be as tall as its parent. But the program calculates the height of the parent *from its children*. The question is circular. CSS says that the question has no answer, unless the parent has a definite height of its own. When there is no answer, the browser ignores the declaration.
+
+Thus the usual fix is an explicit height on each ancestor. Viewport units also work, because the viewport has a definite height. That height does not depend on the contents of the viewport.
 
 ## What this leaves out
 
-**Inline layout.** Text here is one 20-pixel line, always. A real engine
-measures the text in its font, breaks it into lines that fit the width, and
-gets the height from the number of lines. That is a separate algorithm that
-runs inside the block one. It is also where the whitespace that the [HTML
-chapter](/learn/browser/html/) discarded starts to matter.
+**Inline layout.** In this program, text is always one line that is 20 pixels tall. A real engine measures the text in its font and breaks the text into lines that fit the width. The number of lines gives the height. Inline layout is a different algorithm, and it runs inside the block algorithm. In inline layout, the whitespace that the [HTML chapter](/learn/browser/html/) discarded becomes important.
 
-**Everything that is not normal flow.** Floats, absolute positioning, flexbox
-and grid are each their own layout algorithm, chosen per element by `display`
-and `position`. Flexbox reverses the asymmetry above. That is why it solved
-problems that had been awkward for a decade.
+**All layout that is not normal flow.** Floats, absolute positions, flexbox and grid are each a different layout algorithm. `display` and `position` select the algorithm for each element. Flexbox reverses the asymmetry above. That is the reason flexbox solved problems that were difficult for ten years.
 
 ## Check yourself
 
-The program runs `buildWidths` completely, then `placeAndSize` completely. Why
-can it not be one pass?
+The program runs `buildWidths` to the end, then runs `placeAndSize` to the end. Why can the program not use one pass?
 
-Because a parent's height needs its children's heights, and a child's width
-needs its parent's width. One pass would have to move in both directions at
-once. Splitting into two passes with opposite directions is what makes each
-one simple.
+The height of a parent needs the heights of its children. The width of a child needs the width of its parent. One pass would have to move in both directions at the same time. Two passes in opposite directions make each pass simple.
 
-Real engines run both passes and call the whole thing *reflow*. Because
-heights flow up, a change to one element's height forces a recomputation up
-the whole ancestor chain.
+Real engines run both passes, and they call the two passes together *reflow*. The heights go up. Thus, a change to the height of one element causes a new calculation for each ancestor in the chain.
 
-A script can change the document, and then the old boxes are out of date.
-The browser tries to run layout again once per frame, not once per change.
-Reading a computed size from JavaScript, like `offsetHeight`, breaks that plan.
-The browser cannot answer from out-of-date boxes. It must run layout *right
-now*, in the middle of your script. If a loop reads a size and also writes to
-the page, every iteration forces a full layout. This is called *layout
-thrashing*. It is the same two passes from this chapter, run a thousand times
-because the script asked a thousand questions.
+A script can change the document, and then the old boxes are out of date. The browser tries to run layout again one time for each frame, not one time for each change.
+
+When JavaScript reads a computed size, such as `offsetHeight`, the browser cannot follow that plan. The browser cannot answer from boxes that are out of date. It must run layout *immediately*, in the middle of your script.
+
+If a loop reads a size and also writes to the page, each iteration causes a full layout. This problem has the name *layout thrashing*. It is the same two passes from this chapter. They run a thousand times, because the script asks a thousand questions.
 
 ## If you know C
 
-The tree walk is simple. The arithmetic needs the care. Every value here is a
-signed integer, and the box model adds values together. A negative margin is a
-real CSS feature, and it makes a box wider than its parent. A chain of them
-can make a width negative. A production engine clamps at zero
-after every subtraction.
+The walk through the tree is simple. The arithmetic needs care. Each value here is a signed integer, and the box model adds values together.
 
-Layout is also the hot path. A page has tens of thousands of boxes. Layout
-runs on every resize, every animation frame that changes geometry, and every
-DOM change. So engines pack their box structs, and they cache the result per
-node with a dirty bit. The flat array used here also helps speed. Walking a
-tree of pointers scattered across the heap makes layout slower.
+A negative margin is a real CSS feature, and it makes a box wider than its parent. A chain of negative margins can make a width negative. A production engine clamps the value at zero after each subtraction.
 
-Next: turning these rectangles into pixels.
+Layout is also the hot path. A page has tens of thousands of boxes. Layout runs on each resize, on each animation frame that changes the geometry, and on each DOM change. Thus engines pack their box structs, and they cache the result for each node with a dirty bit.
+
+The flat array in this program also helps the speed. When layout walks a tree of pointers to random locations on the heap, layout is slower.
+
+Next: paint, which changes these rectangles into pixels.

@@ -17,10 +17,10 @@ pub const Box = struct {
     next: ?u32 = null,
 };
 
-/// Every line of text is this tall. A real engine measures the font, breaks
-/// the text into lines that fit the width, and the height follows from how
-/// many lines there were. That is inline layout, and it is a different
-/// algorithm from the block layout below.
+/// Each line of text has this height. A real engine measures the font and
+/// breaks the text into lines that fit the width. The number of lines gives
+/// the height. That is inline layout. It is a different algorithm from the
+/// block layout below.
 const line_height: i32 = 20;
 
 pub const Engine = struct {
@@ -41,9 +41,9 @@ pub const Engine = struct {
         return e.used - 1;
     }
 
-    /// Pass one, downwards. A block's width is decided by its parent, because
-    /// a block fills the space it is given. Nothing about the children is
-    /// consulted, which is why this pass can run before they exist.
+    /// Pass one goes down. The parent decides the width of a block, because a
+    /// block fills the space that it gets. The pass does not look at the
+    /// children. Thus this pass can run before the children exist.
     pub fn buildWidths(e: *Engine, node_index: u32, available: i32) !u32 {
         const node = e.nodes[node_index];
         const margin = e.number(node, "margin", 0);
@@ -72,9 +72,9 @@ pub const Engine = struct {
         return box;
     }
 
-    /// Pass two, upwards. A block's height is whatever its children needed,
-    /// which cannot be known until they have been laid out. Positions are
-    /// assigned on the way down, heights collected on the way back.
+    /// Pass two goes up. The height of a block is the height that its children
+    /// need. The pass cannot know that height before the layout of the children.
+    /// The pass gives positions on the way down, and adds heights on the way up.
     pub fn placeAndSize(e: *Engine, box_index: u32, x: i32, y: i32) i32 {
         const box = &e.boxes[box_index];
         box.x = x + box.margin + box.padding;
@@ -106,9 +106,9 @@ fn show(e: Engine, index: u32, depth: usize, out: *std.Io.Writer) !void {
     const node = e.nodes[box.node];
     for (0..depth) |_| try out.writeAll("  ");
     const label = if (node.kind == .text) "#text" else node.name;
-    // Formatted into a string first, then padded. Giving an integer a width
-    // makes this compiler print a sign with it (`{d:<4}` on 7 is "+7  "), and
-    // a box tree should not show a column of plus signs.
+    // Format each number into a string first, then add the padding. If an
+    // integer has a width, this compiler prints a sign with it (`{d:<4}` on 7
+    // is "+7  "). A box tree must not show a column of plus signs.
     var cell: [4][8]u8 = undefined;
     try out.print("{s: <8} x={s: <5} y={s: <5} w={s: <5} h={s}\n", .{
         label,

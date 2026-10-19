@@ -9,7 +9,7 @@ pub const Attr = struct { name: []const u8, value: []const u8 };
 
 pub const Node = struct {
     kind: Kind,
-    /// Tag name for an element, empty for text.
+    /// The tag name of an element. For text, the name is empty.
     name: []const u8 = "",
     text: []const u8 = "",
     attrs: [4]Attr = undefined,
@@ -26,8 +26,8 @@ pub const Node = struct {
 };
 
 /// Elements that can never have children. `<br>` does not wait for a `</br>`.
-/// It is complete on its own. A parser that pushes it onto the open-element
-/// stack puts the rest of the document inside it.
+/// The element is complete without an end tag. If a parser pushes it onto
+/// the stack of open elements, the remainder of the document goes inside it.
 fn isVoid(name: []const u8) bool {
     inline for (.{ "br", "img", "hr", "input", "meta", "link" }) |v| {
         if (std.ascii.eqlIgnoreCase(name, v)) return true;
@@ -35,9 +35,9 @@ fn isVoid(name: []const u8) bool {
     return false;
 }
 
-/// An open `<p>` is closed by the next `<p>`, because a paragraph cannot
-/// contain a paragraph. HTML has a table of these rules and they are the
-/// reason a document with no closing tags still produces a sensible tree.
+/// The next `<p>` closes an open `<p>`, because a paragraph cannot contain a
+/// paragraph. HTML has a table of these rules. Because of these rules, a
+/// document with no end tags still gives a sensible tree.
 fn closedBy(open: []const u8, starting: []const u8) bool {
     return std.ascii.eqlIgnoreCase(open, "p") and
         (std.ascii.eqlIgnoreCase(starting, "p") or std.ascii.eqlIgnoreCase(starting, "div"));
@@ -50,8 +50,8 @@ pub const Parser = struct {
     nodes: []Node,
     used: u32 = 0,
     pos: usize = 0,
-    /// Elements opened and not yet closed. The tree is built by appending to
-    /// whatever is on top.
+    /// The elements that are open and not yet closed. The parser builds the
+    /// tree: it appends each node to the element at the top.
     open: [16]u32 = undefined,
     depth: usize = 0,
 
@@ -74,9 +74,9 @@ pub const Parser = struct {
     }
 
     fn closeUntil(p: *Parser, name: []const u8) void {
-        // Walk down looking for a matching open element. If there is none, the
-        // end tag is stray and is ignored rather than being an error, which is
-        // what "no parse errors" means in practice.
+        // Walk down the stack and find an open element with the same name. If
+        // there is none, the end tag is stray. The parser ignores it, and it
+        // is not an error. That is what "no parse errors" means in practice.
         var i = p.depth;
         while (i > 1) : (i -= 1) {
             if (std.ascii.eqlIgnoreCase(p.nodes[p.open[i - 1]].name, name)) {
@@ -134,7 +134,7 @@ pub const Parser = struct {
                 const raw = p.source[p.pos..end];
                 p.pos = end;
                 const text = std.mem.trim(u8, raw, " \t\n\r");
-                // Whitespace between tags is not content here. A real browser
+                // Here, whitespace between tags is not content. A real browser
                 // keeps it, because in a `<p>` it is a space between words.
                 if (text.len == 0) continue;
                 const index = try p.add(.{ .kind = .text, .text = text });
@@ -171,7 +171,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
     const out = &stdout_writer.interface;
 
-    // Written carelessly on purpose, and all of it is legal HTML.
+    // This source has four intentional mistakes. The HTML specification tells
+    // a parser how to recover from each one, thus a browser shows the page.
     const source =
         \\<h1 class="title">Hello</h1>
         \\<p>First paragraph

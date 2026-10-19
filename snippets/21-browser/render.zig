@@ -9,9 +9,10 @@ const layout = @import("layout.zig");
 pub const cols = 50;
 pub const rows = 15;
 
-/// The framebuffer. A real one holds four bytes per pixel and is handed to the
-/// compositor; this one holds a character per cell so the result can be read
-/// in a terminal. Nothing else about the algorithm changes.
+/// The framebuffer. A real framebuffer holds four bytes for each pixel, and
+/// the browser gives it to the compositor. This one holds one character for
+/// each cell, so that you can read the result in a terminal. Nothing else
+/// about the algorithm changes.
 pub const Canvas = struct {
     cells: [rows][cols]u8 = @splat(@splat('.')),
 
@@ -32,9 +33,10 @@ pub const Canvas = struct {
     }
 };
 
-/// Parents first, then children, in document order. That ordering is the
-/// painter's algorithm: everything is drawn, and something drawn later simply
-/// covers what was there. There is no depth test and no clipping.
+/// Parents first, then children, in document order. That order is the
+/// painter's algorithm: paint all boxes, and a box painted later covers the
+/// previous contents. There is no depth test, and the painter does not clip
+/// a box against another box. The only clip is at the edges of the canvas.
 pub fn paint(
     engine: layout.Engine,
     rules: []const style.Rule,
@@ -59,7 +61,7 @@ pub fn paint(
             );
         }
     } else {
-        // Text is painted as itself, clipped to the box it sits in.
+        // Paint the characters of the text. Clip them to the edges of the canvas.
         const text = node.text;
         const x = @divTrunc(box.x, 8);
         const y = @divTrunc(box.y, 10);

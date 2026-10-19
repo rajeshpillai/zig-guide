@@ -7,27 +7,27 @@ const style = @import("css.zig");
 const layout = @import("layout.zig");
 const render = @import("render.zig");
 
-/// Everything a page needs, in the order it happens. Each stage takes only
-/// what the previous one produced, which is why each has been a chapter of its
-/// own and why any of them could be replaced without touching the others.
+/// All the stages that a page needs, in the order that they run. Each stage
+/// uses only what the previous stage made. Thus each stage has a chapter of
+/// its own, and you can replace one stage without a change to the others.
 fn open(html: []const u8, sheet: []const u8, out: *std.Io.Writer) !void {
-    // 1. Bytes to a tree. Cannot fail.
+    // 1. Bytes to a tree. This stage cannot fail.
     var nodes: [64]dom.Node = undefined;
     const tree = try dom.parseInto(html, &nodes);
 
-    // 2. Bytes to rules. The tree is not consulted.
+    // 2. Bytes to rules. This stage does not look at the tree.
     var rules_buf: [16]style.Rule = undefined;
     const rules = try style.parse(sheet, &rules_buf);
 
-    // 3. Tree plus rules to boxes with widths, top down.
+    // 3. Tree and rules to boxes with widths, from the top down.
     var boxes: [64]layout.Box = undefined;
     var engine: layout.Engine = .{ .nodes = &nodes, .rules = rules, .boxes = &boxes };
     const root = try engine.buildWidths(tree.root, 400);
 
-    // 4. Boxes get positions and heights, bottom up.
+    // 4. Give the boxes positions and heights, from the bottom up.
     _ = engine.placeAndSize(root, 0, 0);
 
-    // 5. Boxes to pixels, back to front.
+    // 5. Boxes to pixels, from back to front.
     var canvas: render.Canvas = .{};
     render.paint(engine, rules, root, &canvas);
     try canvas.show(out);
@@ -58,8 +58,8 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("as written\n\n");
     try open(html, sheet, out);
 
-    // The same document with one declaration changed. Nothing else changes.
-    // This property is what makes a stylesheet useful.
+    // The same document, with a change to one declaration and to nothing
+    // else. This property makes a stylesheet useful.
     const restyled =
         \\#page { padding: 10; background: . }
         \\h1 { height: 60; background: # }

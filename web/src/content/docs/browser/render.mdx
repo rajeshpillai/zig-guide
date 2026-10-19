@@ -1,24 +1,17 @@
 ---
 title: Painting
-description: A rectangle of memory, filled back to front. The last write wins.
+description: A rectangle of memory, filled from back to front. The last write wins.
 section: The Browser
 order: 4
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Layout produced rectangles with positions. Painting fills them in. It is the
-simplest stage in the pipeline.
+Layout made rectangles with positions. The paint stage fills them in. It is the simplest stage in the pipeline.
 
-There is a rectangle of memory. Every box writes its colour into the cells it
-covers. Boxes are visited parents first, then children in document order, so
-whatever is painted later simply covers what was there. The painter does not
-use a depth buffer, a visibility test, or clipping against what is already
-drawn.
+The canvas is a rectangle of memory. Each box writes its colour into the cells that it covers. The painter visits the parents first, then the children in document order. Thus a box that the painter paints later covers the previous contents. The painter does not use a depth buffer or a visibility test. It does not clip a box against the boxes that are already on the canvas.
 
-This is the **painter's algorithm**. Like a painter on a canvas, it paints
-later layers over earlier ones. It is the correct choice here because the
-order is already known: the document says what is in front of what.
+This method is the **painter's algorithm**. A painter on a canvas paints the later layers over the earlier layers, and this algorithm does the same. It is the correct choice here, because the order is already known. The document tells which element is in front of which element.
 
 ## The program
 
@@ -26,69 +19,46 @@ order is already known: the document says what is in front of what.
 
 ## What just happened
 
-**Three fills and three runs of text, in order, and you can read the order off
-the picture.** `#page` covered its area with `-`, `h1` covered part of that
-with `=`, `.box` covered a lower part with `o`, and the text was written over
-the top. The paragraphs have no `background` rule, so they never filled. Each
-step overwrote the one before, and nothing checked first.
+**The program made three fills and wrote three runs of text, in order. You can see the order in the picture.**
 
-**The canvas is an array.** A real framebuffer is four bytes per pixel instead
-of one character, and the fill loop writes RGBA instead of a letter. The rest
-of the structure is the same. The [pixel
-buffers](/learn/graphics/pixel-buffers/) chapter builds the full version.
+1. `#page` filled its area with `-`.
+2. `h1` filled a part of that area with `=`.
+3. `.box` filled a lower part with `o`.
+4. The program wrote the text over the fills.
 
-**Clipping is a bounds check.** Every write tests whether the cell is inside
-the canvas. The check stops a box positioned off the edge from writing outside
-the buffer. Without it, a stylesheet could cause a buffer overflow.
+The paragraphs have no `background` rule, thus they did not fill. Each step wrote over the step before it, and nothing did a check first.
 
-**Text is painted, not laid out.** It goes at the box's corner and runs to the
-right. Real text painting means rasterising glyphs from a font at a size, with
-hinting and subpixel positioning. The [font](/learn/graphics/) work in the
-graphics section is closer to that.
+**The canvas is an array.** A real framebuffer has four bytes for each pixel, not one character. The fill loop writes RGBA instead of a letter. The remainder of the structure is the same. The [pixel buffers](/learn/graphics/pixel-buffers/) chapter builds the full version.
+
+**Clipping is a bounds check.** Each write tests if the cell is inside the canvas. The check stops a box that is off the edge, so that the box cannot write outside the buffer. Without the check, a stylesheet could cause a buffer overflow.
+
+**The program paints text, but it does not do a layout of the text.** The text starts at the corner of the box and continues to the right. Real text needs glyphs from a font at a size, with hinting and subpixel positioning. The [font](/learn/graphics/) work in the graphics section is closer to that.
 
 ## Why this order and not another
 
-One alternative is to paint children first and let parents fill in around
-them. It fails at once. A parent's background would need to know the combined
-shape of all its children. That is a much harder question than "fill this
-rectangle".
+One alternative is to paint the children first, and then let the parents fill the area around them. That alternative fails immediately. The background of a parent would need the combined shape of all its children. That question is much more difficult than "fill this rectangle".
 
-The other alternative is to skip painting anything that will be covered. That
-is a real optimisation, called occlusion culling, and browsers do a limited
-version of it. It needs to know what is opaque, and `background:
-rgba(0,0,0,0.5)` makes that harder. So the general case stays the same: paint
-everything, in order, and accept that some pixels are painted twice.
+The other alternative is to skip each part that a later box will cover. That is a real optimisation, with the name occlusion culling. Browsers do a limited version of it. It needs to know which boxes are opaque, and `background: rgba(0,0,0,0.5)` makes that more difficult. Thus the general case stays the same: paint all boxes in order, and accept that the program paints some pixels two times.
 
 ## Check yourself
 
-`z-index` lets an element be painted in front of one that comes after it in
-the document. Where does that fit into a single ordered walk?
+With `z-index`, the browser can paint an element in front of an element that comes after it in the document. How does `z-index` fit into one ordered walk?
 
-It does not fit. Stacking contexts exist to solve this. An element with a
-`z-index` (and a `position` other than `static`) creates a
-*stacking context*. Its subtree is painted as a unit, and the units are sorted
-by `z-index` before being painted in that order.
+It does not fit. Stacking contexts solve this problem. An element with a `z-index`, and with a `position` that is not `static`, makes a *stacking context*. The browser paints the subtree of that element as a unit. It sorts the units by `z-index`, then paints them in that order.
 
-So the walk is still ordered. But the order comes from a sort, not from the
-document, and the sort is over groups, not single elements. For this reason a
-child can never paint outside its parent's stacking context, no matter how
-large its `z-index` is. This surprises many people until they know how
-painting works.
+Thus the walk is still ordered. But the order comes from a sort, not from the document, and the sort is over groups, not single elements. For this reason, a child can never paint outside the stacking context of its parent, however large its `z-index` is. This surprises many people, until they know how the paint stage works.
 
 ## If you know C
 
-The fill loop is the same as in any framebuffer, and so are the performance
-notes. Write whole rows instead of individual cells, so the
-compiler can vectorise. Keep the buffer row-major, so the writes are
-sequential.
+The fill loop is the same as in any framebuffer, and so are the notes about performance:
 
-The main danger here is the bounds check. A box with a negative position, or
-a width larger than the canvas, is normal, not a corner case. A stylesheet can
-produce one easily, and content that overflows its container does it all the
-time. C code that computes `row * width + col` and writes without clamping
-lets a stylesheet control an out-of-bounds write. That is a serious security
-bug. The version above clamps each cell. It is slow, and it is clearly
-correct. Production code clamps the rectangle once and then writes without
-checking. That is fast, but the clamp must be right.
+- Write full rows instead of single cells, so that the compiler can vectorise the loop.
+- Keep the buffer row-major, so that the writes are sequential.
 
-Next: the scripting engine, and then the pipeline end to end.
+The main danger here is the bounds check. A box with a negative position, or a width larger than the canvas, is normal, not a corner case. A stylesheet can make one easily. Content that overflows its container does it all the time.
+
+C code that calculates `row * width + col` and writes without a clamp lets a stylesheet control an out-of-bounds write. That is a serious security bug.
+
+The version above clamps each cell. It is slow, and it is clearly correct. Production code clamps the rectangle one time and then writes without a check. That method is fast, but the clamp must be correct.
+
+Next: the scripting engine, and then the full pipeline from start to end.

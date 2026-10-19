@@ -1,12 +1,12 @@
 //! title: A Stylesheet and the Cascade
-//! Matching is easy. Deciding which match wins is what "cascading" means.
+//! To match a rule is easy. The cascade decides which match wins.
 
 const std = @import("std");
 const dom = @import("html.zig");
 
-/// Three counts, compared left to right, never added into one number. The
-/// common 100/10/1 weighting is a simplification that gives wrong answers,
-/// and the "Check yourself" in the chapter shows where.
+/// Three counts. Compare them from left to right, and never add them into
+/// one number. The common 100/10/1 weights are a simplification that gives
+/// wrong answers. The "Check yourself" in the chapter shows where.
 pub const Specificity = struct {
     ids: u16 = 0,
     classes: u16 = 0,
@@ -32,8 +32,8 @@ pub const Selector = struct {
         };
     }
 
-    /// Every component present must match. An absent component matches
-    /// anything, which is why `*` needs no special case.
+    /// Each component that is present must match. A component that is absent
+    /// matches all values. Thus `*` needs no special case.
     pub fn matches(s: Selector, node: dom.Node) bool {
         if (node.kind != .element) return false;
         if (s.tag) |t| {
@@ -62,8 +62,8 @@ pub const Rule = struct {
     selector: Selector,
     decls: [8]Declaration = undefined,
     decl_count: u8 = 0,
-    /// Position in the stylesheet. Ties in specificity are broken by this,
-    /// and this is why "put your overrides last" works.
+    /// The position in the stylesheet. When two specificities are equal, the
+    /// position decides. Thus the advice "put your overrides last" works.
     order: u16 = 0,
 };
 
@@ -72,7 +72,7 @@ fn parseSelector(text: []const u8) Selector {
     var rest = std.mem.trim(u8, text, " \t\n");
     if (rest.len == 0) return s;
 
-    // Tag name, if the selector does not start with a marker.
+    // The tag name, if the selector does not start with a marker.
     if (rest[0] != '.' and rest[0] != '#' and rest[0] != '*') {
         const end = std.mem.findAny(u8, rest, ".#") orelse rest.len;
         s.tag = rest[0..end];
@@ -120,9 +120,9 @@ pub fn parse(source: []const u8, out: []Rule) ![]Rule {
     return out[0..n];
 }
 
-/// The cascade: every declaration that matches, with the winner decided by
-/// specificity first and source order second. There is no third tiebreak,
-/// because two identical selectors in the same sheet are ordered by position.
+/// The cascade: find each declaration that matches. Specificity decides the
+/// winner first, and source order decides second. A third tiebreak is not
+/// necessary, because each rule in the sheet has a different position.
 pub fn cascade(rules: []const Rule, node: dom.Node, property: []const u8) ?[]const u8 {
     var best: ?Declaration = null;
     var best_spec: Specificity = .{};

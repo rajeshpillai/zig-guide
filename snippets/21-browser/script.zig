@@ -4,11 +4,11 @@
 const std = @import("std");
 const dom = @import("html.zig");
 
-/// The smallest evaluator that can show the binding: names, integers, `+`,
-/// `<` and `print`. The real language is the one built in the Tiny Language
-/// section, with a lexer, a parser, an interpreter and a bytecode VM. It is
-/// not imported here because each snippet on this site compiles on its own,
-/// and in a browser the two are separate libraries linked together anyway.
+/// The smallest evaluator that can show the binding: names, integers, `+`
+/// and `print`. The Tiny Language section builds the real language, with a
+/// lexer, a parser, an interpreter and a bytecode VM. This file does not
+/// import it, because each snippet on this site compiles alone. Also, in a
+/// browser, the language and the host are separate libraries.
 ///
 /// The script and the page meet in one place: `Env`.
 const Env = struct {
@@ -31,9 +31,9 @@ const Env = struct {
     }
 };
 
-/// `print <expr>;` where an expression is a chain of names and numbers joined
-/// by `+`. Enough to show that a script reads host-provided values and
-/// nothing more.
+/// `print <expr>;`. An expression is a chain of names and numbers, with `+`
+/// between them. That is sufficient to show that a script reads the values
+/// from the host and nothing more.
 fn eval(env: Env, expr: []const u8) !i64 {
     var total: i64 = 0;
     var terms = std.mem.tokenizeAny(u8, expr, "+ \t");
@@ -53,7 +53,7 @@ fn run(env: Env, script: []const u8, out: *std.Io.Writer) !void {
     }
 }
 
-/// Count the elements with a given tag, anywhere in the tree.
+/// Count the elements with a given tag, at all levels of the tree.
 fn countTag(nodes: []const dom.Node, index: u32, tag: []const u8) u32 {
     var total: u32 = 0;
     const node = nodes[index];
@@ -63,11 +63,11 @@ fn countTag(nodes: []const dom.Node, index: u32, tag: []const u8) u32 {
     return total;
 }
 
-/// The link between page and script. The evaluator does not know what an
-/// element is. The host walks the document and defines ordinary variables.
-/// The script can see only what was put here about the page. That is what a
-/// "host object" means: it is not part of the language, and it is installed
-/// by whatever program embeds the language.
+/// The link between the page and the script. The evaluator does not know
+/// what an element is. The host walks the document and defines ordinary
+/// variables. About the page, the script sees only the values in this
+/// function. That is a "host object": it is not part of the language. The
+/// program that embeds the language installs it.
 fn bind(env: *Env, nodes: []const dom.Node, root: u32) !void {
     try env.define("paragraphs", countTag(nodes, root, "p"));
     try env.define("headings", countTag(nodes, root, "h1"));
@@ -99,8 +99,8 @@ pub fn main(init: std.process.Init) !void {
         try out.print("  {s: <11} {d}\n", .{ name, try env.get(name) });
     }
 
-    // The script has no syntax for documents and needs none. `paragraphs` is
-    // an ordinary variable that happens to have been set by walking a tree.
+    // The script has no syntax for documents, and it needs none. `paragraphs`
+    // is an ordinary variable. The host set its value with a walk of a tree.
     const script =
         \\print paragraphs;
         \\print paragraphs + images;
@@ -110,8 +110,8 @@ pub fn main(init: std.process.Init) !void {
     try out.writeAll("\nwhat the script printed\n");
     try run(env, script, out);
 
-    // A name the host never defined is an ordinary undefined variable. There
-    // is no separate category of "DOM error".
+    // A name that the host did not define is an ordinary undefined variable.
+    // There is no separate category of "DOM error".
     try out.writeAll("\nasking for something not in scope\n");
     if (run(env, "print stylesheets;", out)) |_| {
         try out.writeAll("  accepted, which is wrong\n");

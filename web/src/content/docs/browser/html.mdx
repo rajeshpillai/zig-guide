@@ -1,28 +1,23 @@
 ---
 title: An HTML Parser
-description: A format with no parse errors, because the browsers that shipped first decided so.
+description: A format with no parse errors, because the first browsers made that decision.
 section: The Browser
 order: 1
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Every parser in this guide so far has been allowed to refuse. The HTTP request
-parser rejects a header with no colon. The language parser reports
-`UnexpectedToken`. Refusing is how a parser tells you the input was not what
-it claimed to be.
+Each parser in this guide until now can refuse its input. The HTTP request parser rejects a header that has no colon. The language parser reports `UnexpectedToken`. When a parser refuses, it tells you that the input is not what it claims to be.
 
-HTML cannot refuse. No HTML document ever fails to parse, and this is on
-purpose. The specification defines the exact tree
-that every possible byte sequence produces, including sequences no author
-would ever write on purpose.
+An HTML parser cannot refuse. No HTML document fails to parse, and this rule is intentional. The specification defines the exact tree for each possible byte sequence. This includes sequences that no author would write intentionally.
 
-The reason is historical, and it explains most of what makes this parser
-strange. By the time anybody wrote a standard, there were already millions of
-pages on the web. Most of them were malformed, and all of them rendered fine
-in the browsers people used. A new browser that rejected them would have
-looked broken. So the standard describes what the existing browsers already
-did, including their error recovery. "Be lenient" became a written rule.
+The reason is historical, and it explains most of the strange parts of this parser:
+
+- Before anybody wrote a standard, the web already had millions of pages.
+- Most of these pages had errors in their markup. All of them looked correct in the browsers that people used.
+- A new browser that rejected these pages would look broken.
+
+Thus the standard describes what the old browsers already did, and their error recovery too. "Be lenient" became a written rule.
 
 ## The program
 
@@ -30,66 +25,34 @@ did, including their error recovery. "Be lenient" became a written rule.
 
 ## What just happened
 
-The input contains four things that would be errors in XML. All four produced
-a sensible tree.
+The input has four things that would be errors in XML. The parser made a sensible tree from all four.
 
-**The first `<p>` was never closed**, and it did not swallow the second one.
-They came out as siblings, because HTML says an open `<p>` is closed by a
-starting `<p>`. A paragraph cannot contain a paragraph, so the parser closes
-the first one for you. The real specification has a table of these rules
-covering list items, table cells, and about a dozen more.
+**The first `<p>` has no end tag**, and it did not swallow the second `<p>`. The two paragraphs are siblings in the tree. HTML says that a start tag `<p>` closes an open `<p>`. A paragraph cannot contain a paragraph, thus the parser closes the first one for you. The real specification has a table of these rules for list items, table cells and about a dozen more elements.
 
-**`<img>` is complete on its own.** It is a **void element**: it can never have
-children, so it is added to the tree and not pushed onto the open-element
-stack. If you get this wrong, everything after `<img>` becomes its child. The
-rest of the document ends up nested inside an image.
+**`<img>` is complete without an end tag.** It is a **void element**. A void element can never have children. Thus the parser adds it to the tree, but does not push it onto the stack of open elements. If you push it, each node after `<img>` becomes a child of the image. Then the remainder of the document is inside an image.
 
-**`</span>` closed nothing.** Nothing named `span` was open, so the end tag is
-ignored. This is a fixed rule: look for a matching open element, and do
-nothing if there isn't one.
+**`</span>` closed nothing.** No `span` element was open, thus the parser ignores the end tag. The rule does not change: find an open element with the same name, and do nothing if there is no such element.
 
-**`id=main` had no quotes**, and is legal. Attribute values need quoting when
-they are empty or contain a space, a quote, `=`, `<`, `>` or a backtick.
-Anything else may go unquoted.
+**`id=main` has no quotes, and it is legal.** An attribute value needs quotes when it is empty. It also needs quotes when it contains a space, a quote, `=`, `<`, `>` or a backtick. All other values can be without quotes.
 
-**The stack is what builds the tree.** There is no recursion here, unlike the
-language parser. Elements are pushed when opened and popped when closed, and
-every node is appended to whatever is on top. A stack fits a format where
-the nesting can be repaired as you go.
+**The stack makes the tree.** The language parser uses recursion, but this parser does not. The parser pushes an element when it opens, and pops the element when it closes. It appends each node to the element at the top of the stack. A stack is a good fit for a format where the parser can repair the nesting at each step.
 
 ## Check yourself
 
-The parser trims whitespace between tags and drops it if nothing is left.
-Where would that be wrong?
+The parser trims whitespace between tags. If no text remains, the parser discards the whitespace. Where is this behaviour wrong?
 
-Inside a paragraph. `<p>Hello <b>world</b></p>` has a space before `<b>` that
-is needed: without it the rendered text reads `Helloworld`. A real
-browser keeps that whitespace, collapses runs of it into one space, and then
-drops it in contexts where it cannot be seen.
+It is wrong inside a paragraph. `<p>Hello <b>world</b></p>` has a space before `<b>`, and the page needs that space. Without the space, the text on the page is `Helloworld`. A real browser keeps that whitespace. It collapses a run of whitespace into one space. Then it discards the whitespace where the reader cannot see it.
 
-The rules for which is which are detailed and easy to get wrong. They cause
-the unexpected gaps between inline-block elements. They are also why minifiers
-are careful about removing newlines in HTML but not in CSS. This parser drops
-all of it so the tree is readable. That loses information a layout engine
-would need.
+The rules for these cases have many details, and it is easy to make a mistake with them. They cause the unexpected gaps between inline-block elements. They are also the reason that minifiers are careful when they remove newlines in HTML, but not in CSS. This parser discards all of the whitespace, so that the tree is easy to read. A layout engine needs the information that the parser discards.
 
 ## If you know C
 
-The tokenizer is a state machine over bytes, and the C version is the same
-switch you would write for any of the parsers in the Unix tools section. The
-part that gets big is the tree.
+The tokenizer is a state machine over bytes. The C version is the same `switch` that you would write for the parsers in the Unix tools section. The large part is the tree.
 
-Every node needs children, and children come and go as the parser repairs
-nesting. So C code usually uses one allocation per node and a linked list for
-each child list. Then it must free all of it when the document is thrown
-away. The version here uses indices into one flat array. The whole
-document is freed by dropping the array, and a node is one fixed-size struct
-with no allocation at all.
+Each node needs children, and the children change when the parser repairs the nesting. Thus C code usually uses one allocation for each node and a linked list for each list of children. Then the code must free all of these allocations when the program discards the document.
 
-Real HTML parsers are also very large. The specification's tokenizer has
-around 80 states. The tree construction stage has more than twenty "insertion
-modes", each with different rules. Nobody wanted this complexity. It comes from
-writing down, byte by byte, what twenty years of browser behaviour actually
-did.
+The version here uses indices into one flat array. To free the full document, the program discards the array. A node is one struct of fixed size, and it needs no allocation.
 
-Next: a stylesheet, which decides what these nodes should look like.
+Real HTML parsers are also very large. The tokenizer in the specification has about 80 states. The tree construction stage has more than twenty "insertion modes", and each mode has different rules. Nobody wanted this complexity. The complexity comes from a byte-by-byte record of what twenty years of browsers actually did.
+
+Next: a stylesheet, which tells the browser how these nodes must look.

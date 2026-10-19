@@ -7,18 +7,14 @@ order: 6
 
 import Playground from "../../../components/Playground.astro";
 
-Each stage has had a chapter. This one runs them in a row. The pipeline is the
-answer to "how does a browser work", and here you can see it in forty lines of
-code.
+Each stage has a chapter. This chapter runs the stages one after the other. The pipeline answers the question "how does a browser work?", and here you can see the answer in about 50 lines of code.
 
 ```
 bytes ─► tree ─► boxes with widths ─► boxes with positions ─► pixels
         (HTML)      (CSS + layout)         (layout)            (paint)
 ```
 
-There are five stages, and each one takes only what the previous one produced.
-This separation is what makes a browser possible to build at all. The HTML
-parser knows nothing about pixels. The painter knows nothing about tags.
+There are five stages. Each stage uses only what the previous stage made. This separation is the reason that a person can build a browser at all. The HTML parser knows nothing about pixels. The painter knows nothing about tags.
 
 ## The program
 
@@ -26,65 +22,49 @@ parser knows nothing about pixels. The painter knows nothing about tags.
 
 ## What just happened
 
-**One declaration changed and the page rearranged itself.** `h1 { height: 30 }`
-became `height: 60`, and everything below moved down. Nothing else in the
-stylesheet or the document was touched.
+**One declaration changed, and the page changed its arrangement.** `h1 { height: 30 }` became `height: 60`, and each box below the `h1` moved down. Nothing else in the stylesheet or the document changed.
 
-This is the reason stylesheets exist. The height of the box is an input to
-layout. Every position below it is computed, not stored. Change the input, run
-the two passes again, and you get a new set of positions. Nothing was written
-down twice, so there is nothing to keep in sync.
+This is the reason that stylesheets exist. The height of the box is an input to layout. The program calculates each position below the box. It does not store the positions. When you change the input and run the two passes again, you get a new set of positions. The program writes no value two times, thus no two copies can disagree.
 
-**The counts are printed for each render.** 11 nodes, 4 rules, 11 boxes. The box tree and the node tree happen to be the same size here. In general
-they are not: some elements produce no box, and a single element can produce
-several, one per line of text or one per table cell.
+**The program prints the counts for each render.** The counts are 11 nodes, 4 rules and 11 boxes. Here, the box tree and the node tree have the same size. Usually they do not. Some elements make no box. One element can make several boxes, for example one box for each line of text or one for each table cell.
 
-**Each stage is replaceable.** The renderer writes characters; swapping it for
-one that writes RGBA changes nothing upstream. The layout engine does block
-flow; adding flexbox means a different function producing the same `Box`
-values. Because the stages are separate, browsers can rewrite one stage at a
-time.
+**You can replace each stage.** The renderer writes characters. A renderer that writes RGBA changes nothing in the earlier stages. The layout engine does block flow. To add flexbox, you add a different function that makes the same `Box` values. The stages are separate, thus browsers can rewrite one stage at a time.
 
-## What a real browser adds, in order of how much
+## What a real browser adds, largest first
 
-**Everything is incremental.** Nothing above caches anything: a second render
-redoes all five stages. A real engine tracks which nodes have changed, which
-boxes need layout again, and which regions need repainting. A page can have
-fifty thousand nodes, and a blinking cursor must not re-render all of them.
-The code that tracks these changes is larger than the pipeline itself.
+**Each stage is incremental.** The program above caches nothing. A second render does all five stages again. A real engine records which nodes changed, which boxes need a new layout, and which regions need new paint. A page can have fifty thousand nodes.
 
-**Everything is concurrent.** Parsing happens while bytes are still arriving.
-Images decode on other threads. Painting happens on a compositor thread so
-scrolling stays smooth while JavaScript is busy. The pipeline keeps the same
-shape. Several copies of it just run at once.
+A cursor that blinks must not cause a new render of all of these nodes. The code that records these changes is larger than the pipeline.
 
-The versions here show the shape of each stage with the details removed. The
-details are what take years to build: the HTML parser's 80 tokenizer states,
-CSS's dozen layout modes, text shaping, bidirectional text, and thirty years
-of old pages that must keep working.
+**Each stage is concurrent.** The browser parses the page while bytes still arrive. Images decode on other threads. The paint stage runs on a compositor thread, so that the page scrolls smoothly when JavaScript is busy. The pipeline keeps the same shape. The browser only runs several copies of the pipeline at the same time.
+
+The versions here show the shape of each stage without the details. The details take years to build:
+
+- the 80 tokenizer states of the HTML parser
+- the dozen layout modes of CSS
+- text shaping
+- bidirectional text
+- thirty years of old pages that must continue to work
 
 ## Check yourself
 
-The pipeline is drawn as one direction, but a script can change the document.
-What does that do to the diagram?
+The diagram shows the pipeline in one direction, but a script can change the document. What does that do to the diagram?
 
-A script changes the tree. The old boxes are then out of date, so layout and
-paint must run again. The browser tries to do this once per frame, not once
-per change.
+A script changes the tree. Then the old boxes are out of date, thus layout and paint must run again. The browser tries to do this one time for each frame, not one time for each change.
 
-A script that reads a size like `offsetHeight` in a loop that also writes
-forces a full layout on every iteration. This is called *layout thrashing*,
-and [the layout chapter](/learn/browser/layout/) explains it.
+A script can read a size such as `offsetHeight` in a loop that also writes to the page. Then each iteration causes a full layout. This problem has the name *layout thrashing*, and [the layout chapter](/learn/browser/layout/) explains it.
 
 ## Where this section ends
 
-Six chapters. A parser that cannot fail. A cascade that decides between rules.
-Two passes that turn a tree into rectangles. A painter that fills them. And a
-scripting engine attached at one point. Together they have the shape of a
-browser. Everything that makes a real browser hard to build has been left out.
+This section has six chapters:
 
-If you liked the graphics part, [the graphics section](/learn/graphics/)
-does rasterisation properly, with real pixel buffers, line and triangle
-drawing, antialiasing and image files. If you liked the language part, [the
-Tiny Language section](/learn/tiny-lang/lexer/) builds the scripting engine
-that this section only sketched.
+- a parser that cannot fail
+- a cascade that decides between rules
+- two passes that change a tree into rectangles
+- a painter that fills the rectangles
+- a scripting engine that connects at one point
+- this chapter, which joins the stages
+
+Together, they have the shape of a browser. The section leaves out each part that makes a real browser difficult to build.
+
+If you liked the graphics part, [the graphics section](/learn/graphics/) does rasterisation fully. It has real pixel buffers, lines and triangles, antialiasing and image files. If you liked the language part, [the Tiny Language section](/learn/tiny-lang/lexer/) builds the scripting engine that this section only shows in outline.
