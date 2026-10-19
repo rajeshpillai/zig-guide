@@ -1,7 +1,7 @@
 ---
 title: Slices
 seoTitle: "Zig Slices: A Pointer and a Length Together"
-seoDescription: "A slice carries a pointer and a length, and it is the type to reach for when passing sequences around. How slicing works, and what the result borrows."
+seoDescription: "A slice holds a pointer and a length. It is the default type to give a sequence to a function. How a slice works, and what memory it borrows."
 description: A pointer and a length, together.
 section: Language
 order: 23
@@ -9,95 +9,59 @@ order: 23
 
 import Playground from "../../../components/Playground.astro";
 
-A slice is a pointer plus a length. It is the type you should reach for by
-default when passing sequences around.
+A slice is a pointer plus a length. When you give a sequence to a function, use a slice by default.
 
 <Playground name="02-language.slices" />
 
-## Two words, and both of them matter
+## Two words, and the two are both important
 
-`[]T` is exactly a `[*]T` and a `usize`, side by side. Everything else follows
-from that. Indexing can be bounds-checked because the length is right there.
-`for` knows when to stop. A function taking `[]const u8` cannot be handed a
-buffer without also being told how much of it is real.
+`[]T` is exactly a `[*]T` and a `usize`, side by side. All other properties come from that structure:
 
-Compare that with C, where the same job takes two parameters and a convention.
-Every function that forgets to pass the length correctly is a buffer overrun.
-The slice makes it one value, so the two halves cannot be separated by an
-edit.
+- An index can have a bounds check, because the length is in the slice.
+- `for` knows when to stop.
+- A function that takes `[]const u8` cannot receive a buffer without the length of the real data in it.
 
-## Slicing does not copy
+Compare this with C. In C, the same job needs two parameters and a convention. Each function that does not give the length correctly causes a buffer overrun. A slice puts the two parts in one value. Thus an edit cannot separate the two parts.
 
-`array[1..4]` produces a view into the same memory: writing through the slice
-writes through to the array. The upper bound is exclusive, matching `for`
-ranges. `array[2..]` slices to the end.
+## A slice is not a copy
 
-Because a slice borrows, its lifetime is tied to whatever it points at. A
-slice of a local array must not outlive that array; Zig will not catch this
-for you.
+`array[1..4]` gives a view into the same memory. A write through the slice changes the array. The upper bound is exclusive, as in `for` ranges. `array[2..]` makes a slice to the end.
 
-Lifetime is the one hazard the type does not check. The slice will not stop you
-indexing it, because as far as the type is concerned it still has a valid
-pointer and a valid length. What changed is that the memory it points at now
-belongs to something else. Returning a slice
-of a stack buffer from the function that owns the buffer is the common
-instance; [who owns this
-memory](/learn/systems-from-scratch/who-owns-this-memory/) works through the
-shape of the problem.
+A slice borrows memory. Thus the lifetime of a slice depends on the memory that it points at. A slice of a local array must not live longer than that array. Zig does not catch this error for you.
 
-The bounds themselves *are* checked. Write `array[1..10]` on a three-element
-array with both bounds comptime-known and the compiler rejects it outright.
-When the upper bound comes from a runtime value, the check moves to runtime and
-panics in Debug and ReleaseSafe. Either way the check is on the slicing
-operation, not deferred to the first access.
+The type does not check the lifetime, and this is the one hazard of a slice. The slice does not stop you when you use an index on it. For the type, the slice still has a valid pointer and a valid length. But the memory that it points at now belongs to a different part of the program.
 
-Reversing, rotating, shifting and removing an element are in [Slice
-Recipes](/learn/language-basics/slice-recipes/).
+A usual example is a function that owns a stack buffer and returns a slice of that buffer. [Who owns this memory](/learn/systems-from-scratch/who-owns-this-memory/) shows the shape of this problem.
+
+The program *does* check the bounds. If you write `array[1..10]` on an array with three elements, and the two bounds are comptime-known, the compiler rejects the code. When the upper bound comes from a runtime value, the check occurs at runtime. It causes a panic in Debug and ReleaseSafe. In the two cases, the check is on the slice operation. It does not wait for the first access.
+
+[Slice Recipes](/learn/language-basics/slice-recipes/) shows how to reverse, rotate and shift a slice, and how to remove an element.
 
 ## `[]const T` vs `[]T`
 
-Take `[]const T` in function parameters unless you intend to mutate. It
-documents intent and accepts more callers, since `[]T` coerces to `[]const T`
-but not the reverse.
+In function parameters, use `[]const T`, unless the function changes the data. `[]const T` tells the reader the intent. It also accepts more callers, because `[]T` coerces to `[]const T`, but not in the opposite direction.
 
-A signature taking `[]const
-u8` says "I will read your bytes and not keep them", which is what most
-functions do. It is also the difference between a function that works on a
-literal and one that does not. String literals are const, so a parameter typed
-`[]u8` cannot accept `"hello"`.
+A signature that takes `[]const u8` says "I will read your bytes, and I will not keep them". Most functions do this. Also, the `const` decides if the function works on a literal. String literals are const. Thus a parameter of type `[]u8` cannot accept `"hello"`.
 
 ## Strings are slices
 
-Zig has no dedicated string type. A literal like `"hello"` is a `*const
-[5:0]u8` (a pointer to a null-terminated array), which coerces to `[]const
-u8`. This has three consequences:
+Zig has no special string type. A literal such as `"hello"` is a `*const [5:0]u8` (a pointer to a null-terminated array), and it coerces to `[]const u8`. There are three results:
 
-- `.len` is the byte count, not a character count. UTF-8 is bytes here.
-- Compare with `std.mem.eql(u8, a, b)`, never `==`, which would compare
-  pointers.
-- The null terminator is present for C interop but is *not* included in `.len`.
+- `.len` is the number of bytes, not the number of characters. Here, UTF-8 is bytes.
+- To compare two strings, use `std.mem.eql(u8, a, b)`. Never use `==`, because `==` compares the pointers.
+- The null terminator is there for C interop, but `.len` does *not* count it.
 
-Zig leaves out a string type on purpose. A
-string in Zig is a slice of bytes, so every function that works on `[]const
-u8` works on strings, and none of them had to be written twice. What you give
-up is any guarantee that the bytes are valid UTF-8. That is why
-[unicode](/learn/standard-library/unicode/) is a separate topic, and why "the
-length" has three different answers: bytes, code points, or what a reader
-would call characters.
+Zig omits a string type intentionally. A string in Zig is a slice of bytes. Thus each function that works on `[]const u8` also works on strings, and no function has two versions.
 
-## Getting one
+The cost is that there is no guarantee that the bytes are valid UTF-8. For this reason, [unicode](/learn/standard-library/unicode/) is a separate topic. "The length" also has three different answers: bytes, code points, or what a reader calls characters.
 
-Slices come from four places, and knowing which you have tells you who frees
-it:
+## Where slices come from
 
-- **Slicing an array or another slice.** Borrowed. Nothing to free, and the
-  lifetime is the original's.
-- **An allocator.** `try allocator.alloc(u8, n)` gives you a `[]u8` you own.
-  Pair it with a `defer allocator.free(...)` on the next line.
-- **A literal.** Static, lives for the whole program, and is `const`.
-- **A container.** `list.items` is a slice into memory the list owns, and it is
-  invalidated the moment the list reallocates. Do not hold it across an append.
+Slices come from four places. When you know the source of a slice, you know who frees it:
 
-The last case is an easy mistake to make. The slice is still a valid pair of
-numbers after the list grows. They just point at the memory the list used to
-be in.
+- **A slice of an array or of a different slice.** It borrows memory. You do not free it, and its lifetime is the lifetime of the original.
+- **An allocator.** `try allocator.alloc(u8, n)` gives you a `[]u8` that you own. On the next line, put a `defer allocator.free(...)`.
+- **A literal.** It is static, it lives for the full program, and it is `const`.
+- **A container.** `list.items` is a slice into memory that the list owns. When the list reallocates, the slice becomes invalid immediately. Do not keep the slice across an append.
+
+The last case is an easy mistake. After the list grows, the slice is still a valid pair of numbers. But the numbers point at the old memory of the list.

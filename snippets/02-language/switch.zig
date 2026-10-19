@@ -27,8 +27,8 @@ test "switch as an expression" {
 const Direction = enum { north, south, east, west };
 
 fn isVertical(d: Direction) bool {
-    // No `else` branch: the compiler proves every case is handled, so adding
-    // a new enum tag later turns this into a compile error rather than a bug.
+    // No `else` branch: the compiler proves that the code handles each case.
+    // Thus a new enum tag later causes a compile error, not a bug.
     return switch (d) {
         .north, .south => true,
         .east, .west => false,

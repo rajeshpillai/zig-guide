@@ -1,9 +1,9 @@
 //! title: Interfaces
-//! One idea, a sink that takes lines of text, built the four ways std builds an interface.
+//! A sink that takes lines of text, made in the four ways that std makes an interface.
 
 const std = @import("std");
 
-// Two sinks. Neither knows the other exists.
+// Two sinks. Neither sink knows about the other sink.
 
 const Counter = struct {
     lines: usize = 0,

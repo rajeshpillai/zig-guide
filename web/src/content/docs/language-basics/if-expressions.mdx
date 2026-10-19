@@ -1,7 +1,7 @@
 ---
 title: If Expressions
 seoTitle: "Zig if Expressions: No Truthiness, and No Ternary"
-seoDescription: "Zig has no truthy values: if takes a bool, and nothing else converts to one. if is also an expression, which is what replaces the ternary operator."
+seoDescription: "Zig has no truthy values. An if takes a bool, and no other type converts to bool. An if is also an expression, and it replaces the ternary operator."
 description: "No truthiness: if takes a bool."
 section: Language
 order: 12
@@ -9,55 +9,51 @@ order: 12
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `if` is both a control-flow statement and an expression that can
-produce a value. Unlike C, JavaScript and most languages you have used, Zig
-has no truthy or falsy values: the condition must be a `bool` and nothing else
-converts to one. There is no ternary `?:` either. An `if` used as an
-expression does that job: `const x = if (a) 1 else 2;`.
+In Zig, `if` is a control-flow statement. It is also an expression that can give a value.
+
+C, JavaScript and most other languages have truthy and falsy values. Zig does not. The condition must be a `bool`, and no other type converts to `bool`.
+
+Zig also has no ternary `?:`. An `if` that you use as an expression does that job: `const x = if (a) 1 else 2;`.
 
 <Playground name="02-language.if-expressions" />
 
-There is no truthiness in Zig. `if (1)` does not compile; neither does
-`if (pointer)`. The condition must be a `bool`:
+Zig has no truthiness. `if (1)` does not compile, and `if (pointer)` does not compile. The condition must be a `bool`:
 
 ```
 error: expected type 'bool', found 'u8'
 ```
 
-That removes an entire family of bugs where a value is accidentally treated as
-a flag. In C, `if (strcmp(a, b))` is true when the strings *differ*, `if (n = 0)`
-is an assignment that is always false, and `if (ptr)` and `if (*ptr)` are one
-character apart with completely different meanings. None of those parse here.
+This rule removes a full family of bugs, where code uses a value as a flag by accident. Some examples from C:
 
-## `if` produces a value
+- `if (strcmp(a, b))` is true when the strings are *different*.
+- `if (n = 0)` is an assignment, and it is always false.
+- `if (ptr)` and `if (*ptr)` have one character of difference, but their meanings are completely different.
 
-Zig has no ternary operator because it does not need one:
+None of these examples parse in Zig.
+
+## `if` gives a value
+
+Zig has no ternary operator, because it does not need one:
 
 ```zig
 const x: u16 = if (a) 1 else 2;
 ```
 
-Both branches must agree on a type. When `if` is used as an expression, the
-`else` is required. Without it, the missing branch produces `void`, and the
-error names that type:
+The two branches must have the same type. When you use `if` as an expression, the `else` is necessary. Without the `else`, the absent branch gives `void`, and the error gives the name of that type:
 
 ```
 error: expected type 'u16', found 'void'
 ```
 
-An `if` with no `else` has nothing to evaluate to when the condition is false,
-so its type is `void`. Read that message as "this expression does not always
-produce a value".
+An `if` with no `else` has no value when the condition is false. Thus its type is `void`. Read the message as "this expression does not always give a value".
 
-The one case that slips through is a condition the compiler already knows. If
-the condition is comptime-known, only the taken branch is compiled, so
-`const x: u16 = if (true) 1;` builds. Make the condition a runtime value and it
-stops. That is not a special rule for `if`; it is the same constant folding that
-lets `comptime` code disappear entirely.
+One case gets past this rule: a condition that the compiler knows. If the compiler knows the condition at comptime, it compiles only the branch that runs. Thus `const x: u16 = if (true) 1;` builds. If you make the condition a runtime value, the build fails.
 
-## Unwrapping
+This is not a special rule for `if`. It is the same constant folding that lets the compiler remove `comptime` code fully.
 
-`if` is also how you get inside an optional, using payload capture:
+## Unwrap an optional
+
+You also use `if` to get the value inside an optional, with a payload capture:
 
 ```zig
 if (maybe) |value| {
@@ -67,12 +63,9 @@ if (maybe) |value| {
 }
 ```
 
-The captured `value` is a copy. To change the thing inside the optional, capture
-by pointer with `|*value|` and write through it. Without the `*` the mutation
-applies to the copy and is lost, which is worth knowing because nothing warns
-you.
+The captured `value` is a copy. To change the value inside the optional, capture by pointer with `|*value|`, and write through the pointer. Without the `*`, the change goes to the copy, and the change is lost. Remember this, because the compiler gives no warning.
 
-Error unions use the same shape, with the error going to the `else`:
+Error unions use the same shape. The error goes to the `else`:
 
 ```zig
 if (parse(text)) |n| {
@@ -82,21 +75,16 @@ if (parse(text)) |n| {
 }
 ```
 
-This is a recurring theme: the check and the unwrap are one construct, so they
-cannot fall out of sync. There is no way to test for null and then read the
-payload through a different path that forgot the test.
+This idea occurs again and again in Zig. The check and the unwrap are one construct, thus they always agree. No code can test for null and then read the payload through a different path that does not do the test.
 
-## When to use something shorter
+## Shorter forms
 
-`if` on an optional is the general form. Three shorter forms cover the common
-cases:
+`if` on an optional is the general form. Three shorter forms are for the common cases:
 
-- `maybe orelse default` when you only want a fallback value.
-- `try f()` when you only want to propagate the error upward.
-- `f() catch |err| ...` when you want to handle it here.
+- `maybe orelse default`, when you only want a fallback value.
+- `try f()`, when you only want to return the error to the caller.
+- `f() catch |err| ...`, when you want to handle the error here.
 
-Reach for `if` when both sides do real work. Reach for the shorthands when one
-side is a single expression, because `x orelse 0` says what
-`if (x) |v| v else 0` says in a quarter of the space. Optionals are covered in
-[optionals](/learn/language-basics/optionals/) and the error forms in
-[errors](/learn/language-basics/errors/).
+Use `if` when the two sides do real work. Use a short form when one side is a single expression. `x orelse 0` says the same as `if (x) |v| v else 0` in a quarter of the space.
+
+[Optionals](/learn/language-basics/optionals/) explains optionals, and [errors](/learn/language-basics/errors/) explains the error forms.

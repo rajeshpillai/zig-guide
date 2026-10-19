@@ -5,8 +5,8 @@ const std = @import("std");
 const expect = std.testing.expect;
 
 test "block as an expression" {
-    // `break :label value` yields a value from the labelled block, so a
-    // multi-step computation can still produce a single const.
+    // `break :label value` gives a value from the labelled block. Thus a
+    // computation with many steps can still produce one const.
     const count = blk: {
         var sum: u32 = 0;
         for (0..10) |i| sum += i;

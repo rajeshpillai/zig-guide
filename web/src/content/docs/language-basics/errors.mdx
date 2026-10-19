@@ -7,8 +7,7 @@ order: 17
 
 import Playground from "../../../components/Playground.astro";
 
-Zig has no exceptions. A function that can fail returns an **error union**,
-written `E!T`: either an error from set `E`, or a `T`.
+Zig has no exceptions. A function that can fail returns an **error union**. You write it as `E!T`. The value is an error from the set `E`, or a `T`.
 
 <Playground name="02-language.errors" />
 
@@ -18,31 +17,21 @@ written `E!T`: either an error from set `E`, or a `T`.
 const FileOpenError = error{ AccessDenied, OutOfMemory, FileNotFound };
 ```
 
-A narrow set coerces into a wider one, so a function returning
-`error{OutOfMemory}` can be called from one returning `FileOpenError` with no
-extra code. `anyerror` is the set of all errors. It is convenient, but it
-throws away the list of possible errors, which is what makes error sets
-useful.
+A narrow set coerces into a wider set. Thus a function that returns `FileOpenError` can call a function that returns `error{OutOfMemory}`, and it needs no extra code.
 
-Sets combine with `||`, which is how a function that calls two subsystems
-declares that it can fail in either way:
+`anyerror` is the set of all errors. It is convenient, but it removes the list of possible errors. That list is the reason that error sets are useful.
+
+You combine sets with `||`. A function that calls two subsystems uses `||` to declare that it can fail in the two ways:
 
 ```zig
 const Error = ParseError || std.Io.Reader.Error;
 ```
 
-Writing `!T` with no set at all asks the compiler to infer it from every error
-the body can produce. Inside a program, that is the right default. It is the
-wrong default at a library's public boundary,
-because the inferred set is part of your interface and changes silently when
-the body changes.
+If you write `!T` with no set, the compiler infers the set from each error that the body can make. Inside a program, this is the correct default. At the public boundary of a library, it is the wrong default. The inferred set is part of your interface, and the set changes without a warning when the body changes.
 
-An error is just a value with a name. It does not carry a payload, a message
-or a stack trace. Because of this, you can compare errors, switch on them, and
-return them at no cost. When a failure needs detail, put the detail somewhere
-the caller can ask for it, not into the error.
+An error is only a value with a name. It does not contain a payload, a message or a stack trace. Thus you can compare errors, use them in a `switch`, and return them at no cost. When a failure needs detail, put the detail in a place where the caller can ask for it. Do not put it into the error.
 
-## Four ways to handle one
+## Four ways to handle an error
 
 | Form | Meaning |
 | --- | --- |
@@ -51,13 +40,10 @@ the caller can ask for it, not into the error.
 | `x catch \|err\| { ... }` | unwrap, or handle the error here |
 | `if (x) \|v\| ... else \|err\| ...` | branch on both outcomes |
 
-`try` is the most common form, and it is *only* shorthand: `x catch |err|
+`try` is the most common form, and it is *only* a short form of `x catch |err|
 return err`.
 
-To handle some errors and pass on the rest, switch inside the `catch`. The
-switch is exhaustive over the error set, so adding a new failure mode to a
-function you call becomes a compile error in every caller that was enumerating
-them:
+To handle some errors and return the other errors, use a `switch` inside the `catch`. The `switch` must have a prong for each error in the set. Thus, if a function that you call gets a new failure mode, each caller that lists the errors gets a compile error:
 
 ```zig
 const config = load(path) catch |err| switch (err) {
@@ -66,41 +52,26 @@ const config = load(path) catch |err| switch (err) {
 };
 ```
 
-`catch unreachable` asserts a call cannot fail. It is checked in safety builds
-and undefined behaviour in ReleaseFast. Use it where the reason the call
-cannot fail is visible right there in the code. Do not use it to avoid
-handling an error the signature says can happen.
+`catch unreachable` asserts that a call cannot fail. Safety builds check the assertion. In ReleaseFast, a failure is undefined behaviour.
+
+Use `catch unreachable` only where the code shows, in the same place, why the call cannot fail. Do not use it to avoid an error that the signature says can occur.
 
 ## Errors that need cleanup
 
-`errdefer` runs only on the error path. With it, a multi-step initialiser
-cleans up correctly without copying the cleanup into every `catch`. It is
-covered in [defer](/learn/language-basics/defer/). `try` can return from the
-middle of a function. `errdefer` is the cleanup you set up in advance for that
-case.
+`errdefer` runs only on the error path. With `errdefer`, an initialiser with many steps can clean up correctly, and you do not copy the cleanup into each `catch`. [Defer](/learn/language-basics/defer/) explains it.
 
-## Finding out where it came from
+`try` can return from the middle of a function. `errdefer` is the cleanup that you prepare before that return can occur.
 
-Because an error carries no stack, Zig builds an **error return trace**
-separately in Debug and ReleaseSafe. Letting an error escape `main` prints the
-chain of `try` sites it passed through on the way up. This gives you what a
-stack trace would, and often more: it shows where the error was produced, not
-where it was noticed. It costs nothing in ReleaseFast, where
-the trace is not built at all.
+## Find where an error comes from
 
-For [logging](/learn/standard-library/logging/) one yourself, `@errorName(err)` gives the name as a string, and
-the `{!}` format specifier prints an error union directly, as
-`error.FileNotFound`.
+An error contains no stack. Thus, in Debug and ReleaseSafe, Zig makes a separate **error return trace**. If an error goes out of `main`, Zig prints the chain of `try` sites that the error went through.
 
-## Why this beats exceptions
+This trace gives you the same information as a stack trace, and often more. It shows where the code made the error, not only where the code saw the error. In ReleaseFast, Zig does not make the trace, thus the trace has no cost there.
 
-The failure paths are in the type signature and in the control flow you can
-see. No line has a hidden second exit, and nothing unwinds the stack out of
-sight. Because every exit is visible, `defer` is both needed and enough for
-cleanup.
+To write an error to a [log](/learn/standard-library/logging/) yourself, use `@errorName(err)`. It gives the name as a string. The `{!}` format specifier prints an error union directly, as `error.FileNotFound`.
 
-With exceptions, the main path of the code stays clean and the error handling
-happens somewhere else. Error unions put a `try` on every fallible call. That
-adds noise. In return, each `try` shows the reader a place where the function
-might return early. A function also cannot fail in a way its signature does not
-declare.
+## Why error unions are better than exceptions
+
+The failure paths are in the type signature and in the control flow that you can see. No line has a hidden second exit, and no hidden code unwinds the stack. Each exit is visible. Thus `defer` is necessary for cleanup, and `defer` is also sufficient.
+
+With exceptions, the main path of the code stays clean, and the code that handles errors is in a different place. Error unions put a `try` on each call that can fail. This adds noise. In return, each `try` shows the reader a place where the function can return early. Also, a function cannot fail in a way that its signature does not declare.

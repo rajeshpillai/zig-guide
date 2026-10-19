@@ -1,20 +1,17 @@
 ---
 title: Payload Captures
-description: The |value| syntax that unwraps everything.
+description: The |value| syntax that unwraps all wrapper types.
 section: Language
 order: 32
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `|value|` after `if`, `while`, `for`, `switch` or `catch` names the
-unwrapped payload: the non-null value, the success value, the active variant
-or the current element. `|*value|` captures a pointer instead, so writes reach
-the original.
+In Zig, `|value|` after `if`, `while`, `for`, `switch` or `catch` names the unwrapped payload. The payload is the non-null value, the success value, the active variant or the current element. `|*value|` captures a pointer instead. Thus writes change the original.
 
 <Playground name="02-language.payload-captures" />
 
-The `|value|` syntax is one idea reused everywhere something is wrapped:
+The `|value|` syntax is one idea. Zig uses it in each place where a value is inside a wrapper:
 
 | Construct | Captures |
 | --- | --- |
@@ -25,25 +22,24 @@ The `|value|` syntax is one idea reused everywhere something is wrapped:
 | `for (slice) \|item\|` | each element |
 | `catch \|err\|` | the error |
 
-Learning it once means every wrapper type in the language is already familiar.
+When you know the syntax for one wrapper type, you know it for all wrapper types in the language.
 
-## Why it is one construct and not two
+## Why the test and the unwrap are one construct
 
-The capture is what makes these safe. There is no `isSome()` followed by a
-separate `unwrap()`, because those can be separated by an edit and then the
-unwrap runs without the test. Here the payload only has a name inside the
-branch where it is known to exist. Outside that branch there is nothing to
-misuse.
+The capture makes these constructs safe. Zig has no `isSome()` with a separate `unwrap()`. An edit can move those two calls apart, and then the unwrap runs without the test.
 
-That also explains the missing operations. There is no way to ask an optional
-"are you null" and get a bare bool you can store in a variable. There is no
-way to name the payload of a union variant that is not currently active. The
-language gives you the payload exactly where it is valid and nowhere else.
+In Zig, the payload has a name only inside the branch where the payload exists. Outside that branch, there is no name that you can use incorrectly.
 
-## Capture by pointer to mutate
+The capture also explains why some operations do not exist:
 
-`|*value|` captures a pointer instead of a copy, letting you modify the thing
-in place:
+- You cannot ask an optional "are you null" and get a bool that you can store in a variable.
+- You cannot name the payload of a union variant that is not active.
+
+The language gives you the payload exactly where it is valid, and in no other place.
+
+## Capture a pointer to change the value
+
+`|*value|` captures a pointer, not a copy. Thus you can change the original value in place:
 
 ```zig
 if (maybe) |*value| value.* += 1;
@@ -54,25 +50,20 @@ switch (shape) {
 }
 ```
 
-Without the `*` you get a copy, and mutating it silently does nothing to the
-original. This is one of the few places Zig will let you write something that
-looks effective but is not.
+Without the `*`, you get a copy. If you change the copy, the original does not change, and there is no error. This is one of the few places where Zig lets you write code that looks correct but has no effect.
 
-The rule for spotting it: ask what you are holding. `|v|` is a value you own
-and can freely change without affecting anything. `|*v|` is a pointer to the
-thing itself, so writes land. When the payload is large, the pointer form also
-avoids the copy, but correctness is the reason to reach for it, not speed.
+To find this bug, ask what you hold:
 
-Capturing by pointer requires something to point at. It works when the thing
-being unwrapped is a mutable location (a `var`, a field, an element). A
-temporary that only exists for the length of the expression has nothing stable
-to take the address of. The compiler says so, rather than handing you a
-pointer to memory that is already gone.
+- `|v|` is a value that you own. You can change it, and nothing else changes.
+- `|*v|` is a pointer to the original. Thus writes change the original.
 
-## `_` is a capture too
+When the payload is large, the pointer form also prevents the copy. But use the pointer form for correctness, not for speed.
 
-When a construct requires a capture and you do not want the value, `_`
-discards it without the unused-variable error:
+A pointer capture needs a location for the pointer. It works when the unwrapped value is in a mutable location: a `var`, a field or an element. A temporary value exists only for the duration of the expression. It has no fixed location, thus you cannot take its address. The compiler gives an error. It does not give you a pointer to memory that does not exist now.
+
+## `_` is also a capture
+
+Sometimes a construct requires a capture and you do not want the value. Then `_` discards the value, and you do not get the error for an unused variable:
 
 ```zig
 while (it.next()) |_| : (n += 1) {}
@@ -80,19 +71,16 @@ while (it.next()) |_| : (n += 1) {}
 if (result) |v| use(v) else |_| return default;
 ```
 
-That last one is the idiomatic "I do not care which error". It reads better
-than catching and ignoring, because the discard sits where the error arrives.
+The last line is the usual way to say "the type of the error is not important to me". It is easier to read than a `catch` that ignores the error, because the discard is where the error arrives.
 
-## Two captures at once
+## More than one capture
 
-A `for` can capture from several sequences, and the captures line up with the
-operands in order:
+A `for` can capture from more than one sequence. The captures are in the same order as the operands:
 
 ```zig
 for (names, scores, 0..) |name, score, i| { ... }
 ```
 
-Each can independently be a pointer capture, so `for (&items, extras) |*item,
-x|` mutates the first while reading the second. The count has to match the
-number of operands, and that is checked. So adding a sequence and forgetting
-its capture is a compile error, not a silent shift of every name by one.
+Each capture can be a pointer capture, independently of the others. Thus `for (&items, extras) |*item, x|` changes the first sequence and reads the second.
+
+The number of captures must be the same as the number of operands, and the compiler checks this. Thus, if you add a sequence and forget its capture, you get a compile error. You do not get a silent shift of each name by one position.

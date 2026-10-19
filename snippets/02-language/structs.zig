@@ -13,7 +13,7 @@ const Vec3 = struct {
         return a.x * b.x + a.y * b.y + a.z * b.z;
     }
 
-    // Taking `*Vec3` lets the method mutate the receiver.
+    // A `*Vec3` parameter lets the method change the receiver.
     pub fn scale(self: *Vec3, factor: f32) void {
         self.x *= factor;
         self.y *= factor;
@@ -45,7 +45,7 @@ test "mutating methods need a mutable receiver" {
 }
 
 test "field order is not guaranteed" {
-    // Zig may reorder fields for packing unless you say otherwise with
-    // `extern struct` (C ABI) or `packed struct` (bit-level layout).
+    // Zig can change the order of fields to pack them, unless you select a
+    // different layout: `extern struct` (C ABI) or `packed struct` (bit-level).
     try expect(@sizeOf(Vec3) == 12);
 }

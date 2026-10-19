@@ -1,5 +1,5 @@
 //! title: Array Recipes
-//! Grids, comptime tables, and getting an array back out of a slice.
+//! Grids, comptime tables, and how to get an array from a slice.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -11,8 +11,8 @@ test "a grid is an array of arrays" {
         .{ 7, 8, 9 },
     };
 
-    // Both lengths are part of the type. The grid is one contiguous block
-    // of nine bytes, with no pointers in it.
+    // The two lengths are part of the type. The grid is one contiguous block
+    // of nine bytes. The grid contains no pointers.
     try expect(grid.len == 3); // rows
     try expect(grid[0].len == 3); // columns
     try expect(@TypeOf(grid[0]) == [3]u8);
@@ -40,14 +40,15 @@ test "the outer loop hands you a copy" {
         .{ 3, 4 },
     };
 
-    // Arrays are values, so `row` is a copy and writing to it changes nothing.
+    // Arrays are values. Thus `row` is a copy, and a write to `row` changes
+    // nothing in `grid`.
     for (grid) |row| {
         var mutable = row;
         mutable[0] = 99;
     }
     try expect(grid[0][0] == 1);
 
-    // Take pointers at both levels to write through.
+    // To write through the loop, use pointers at the two levels.
     for (&grid) |*row| {
         for (row) |*cell| cell.* += 10;
     }
@@ -60,9 +61,9 @@ test "one flat array, computed indices" {
     const height = 3;
     var cells: [width * height]u8 = @splat(0);
 
-    // The type no longer carries the shape, so you must get the stride right
-    // yourself. Use this when the dimensions are not both compile-time
-    // constants.
+    // The type does not contain the shape. Thus you must keep the stride
+    // correct yourself. Use a flat array when one of the dimensions is not
+    // a compile-time constant.
     cells[1 * width + 2] = 7;
 
     try expect(cells[6] == 7);
@@ -70,8 +71,9 @@ test "one flat array, computed indices" {
 }
 
 test "build a lookup table at comptime" {
-    // Declare undefined storage, fill it in a loop, break the finished array
-    // out of the block. The result is a constant baked into the binary.
+    // Declare undefined storage, fill it in a loop, and use break to return
+    // the completed array from the block. The result is a constant in the
+    // binary.
     const hex_digits = comptime blk: {
         var table: [16]u8 = undefined;
         for (&table, 0..) |*slot, i| {
@@ -92,8 +94,8 @@ test "the table really is a compile-time constant" {
         break :blk table;
     };
 
-    // An array length has to be known at compile time, so this only compiles
-    // if the value came out of comptime. The compile itself proves it.
+    // The compiler must know an array length at compile time. Thus this line
+    // compiles only if the value came from comptime. The compile is the proof.
     const buf: [sizes[3]]u8 = @splat(0);
     try expect(buf.len == 6);
 }
@@ -102,13 +104,14 @@ test "turn a slice back into an array" {
     const numbers = [_]u8{ 1, 2, 3, 4, 5 };
     const slice: []const u8 = &numbers;
 
-    // .* on a slice of comptime-known length copies out a real array, which
-    // puts the length back in the type.
+    // .* on a slice with a comptime-known length copies a real array from the
+    // slice. The length is then part of the type again.
     const first_three = slice[0..3].*;
     try expect(@TypeOf(first_three) == [3]u8);
     try expect(first_three.len == 3);
 
-    // It is a copy, so writing to it leaves the original alone.
+    // The result is a copy. Thus a write to the copy does not change the
+    // original.
     var copy = first_three;
     copy[0] = 99;
     try expect(numbers[0] == 1);

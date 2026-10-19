@@ -1,5 +1,5 @@
 //! title: For Loops
-//! `for` iterates over slices, arrays, and ranges, never a bare counter.
+//! `for` iterates over slices, arrays and ranges, never over a bare counter.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -29,7 +29,7 @@ test "ranges" {
 }
 
 test "iterate two sequences at once" {
-    // Multi-object `for` requires equal lengths; a mismatch is checked.
+    // A `for` over many sequences needs equal lengths. Zig checks the lengths.
     const names = [_][]const u8{ "a", "b" };
     const scores = [_]u8{ 1, 2 };
     var total: u8 = 0;

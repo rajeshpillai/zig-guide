@@ -1,5 +1,5 @@
 //! title: Defer
-//! Run something at scope exit, on every path.
+//! Run code at scope exit, on each path.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -14,8 +14,8 @@ test "defer runs at scope exit" {
 }
 
 test "defers run in reverse order" {
-    // Last registered runs first, so cleanup unwinds in the order things
-    // were acquired.
+    // The last defer that you register runs first. Thus the cleanup occurs
+    // in the reverse order of the acquisitions.
     var order: [3]u8 = undefined;
     var index: usize = 0;
     {

@@ -2,43 +2,36 @@
 title: For Loops
 seoTitle: "Zig For Loops: Sequences, Ranges and Indices"
 seoDescription: "Zig's for iterates over a slice, an array or a range. There is no three-clause for loop, so the common case carries no opportunity for an off-by-one."
-description: Iterate over sequences and ranges, never a bare counter.
+description: Iterate over sequences and ranges, never over a bare counter.
 section: Language
 order: 14
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `for` loops over a slice, an array or a range, and the index comes
-from zipping in a second sequence: `for (items, 0..) |item, index|`.
+In Zig, `for` loops over a slice, an array or a range. To get the index, add a second sequence to the loop: `for (items, 0..) |item, index|`.
 
 <Playground name="02-language.for-loops" />
 
-There is no three-clause `for (i = 0; i < n; i++)`. Use `while` for that.
-The `for` loop takes its length from the sequence, so you never write the
-bound yourself. The common case has no place for an off-by-one error.
+Zig has no `for` with three clauses, such as `for (i = 0; i < n; i++)`. Use `while` for that. The `for` loop gets its length from the sequence. Thus you never write the bound yourself, and the common case cannot have an off-by-one error.
 
-## Indices are opt-in
+## You get an index only when you ask
 
 ```zig
 for (items, 0..) |item, index| { ... }
 ```
 
-The `0..` is not special syntax. It is a second sequence, iterated in
-lockstep with the first. You get an index only when you ask for one. The loop
-still cannot run off the end, because the length of `items` decides how long
-it runs.
+The `0..` is not special syntax. It is a second sequence, and the loop moves through the two sequences in step. You get an index only when you ask for one. The loop still cannot go past the end, because the length of `items` sets the number of iterations.
 
-## Iterating several sequences together
+## Iterate over several sequences together
 
-The same mechanism zips any number of sequences:
+The same mechanism pairs any number of sequences:
 
 ```zig
 for (names, scores) |name, score| { ... }
 ```
 
-Lengths must match. When both are known at compile time, a mismatch is a
-compile error that names the lengths:
+The lengths must be equal. When the compiler knows the two lengths, a difference is a compile error, and the error gives the lengths:
 
 ```
 error: non-matching for loop lengths
@@ -46,34 +39,30 @@ note: length 3 here
 note: length 2 here
 ```
 
-When they are runtime slices, it is a safety check that panics in Debug and
-ReleaseSafe. Either way, the loop cannot silently read past the end of the
-shorter one. An indexed loop can easily make that mistake.
+When the sequences are runtime slices, a safety check finds the difference. The check panics in Debug and ReleaseSafe. In the two cases, the loop does not read past the end of the shorter sequence. A loop with an index can easily make that mistake.
 
-A range with no upper bound pairs with anything: `0..` takes its length from
-whatever it is zipped with. A bare `for (0..)` with nothing to bound it is a
-compile error, because nothing says when to stop.
+A range with no upper bound can pair with each sequence. `0..` gets its length from the sequences next to it. A bare `for (0..)` with no other sequence is a compile error, because nothing tells the loop when to stop.
 
-## Mutating in place
+## Change the elements in place
 
-Capturing by value gives you a copy. To modify the underlying elements,
-iterate over a pointer to the array and capture by pointer:
+A capture by value gives you a copy. To change the elements in the array, iterate over a pointer to the array, and capture by pointer:
 
 ```zig
 for (&numbers) |*n| n.* *= 2;
 ```
 
-Both halves are needed. `&numbers` is what makes the loop walk the original
-rather than a copy of the array, and `|*n|` is what makes each capture a
-pointer into it. Leave off either and the loop compiles and does nothing
-useful.
+The two parts are necessary:
 
-For a slice, the `&` is unnecessary: a slice already refers to memory it does
-not own, so `for (slice) |*item|` writes through to the underlying elements.
+- `&numbers` makes the loop use the original array, not a copy of the array.
+- `|*n|` makes each capture a pointer into the array.
 
-## Going backwards
+If you remove one of the two parts, the loop compiles but does nothing useful.
 
-There is no reverse range and no step. Counting down is a `while`:
+For a slice, the `&` is not necessary. A slice already refers to memory that it does not own. Thus `for (slice) |*item|` writes to the elements of that memory.
+
+## Iterate backwards
+
+Zig has no reverse range and no step. To count down, use a `while`:
 
 ```zig
 var i = items.len;
@@ -83,23 +72,14 @@ while (i > 0) {
 }
 ```
 
-The decrement comes first for a reason: `items.len` is a `usize`, and a loop
-written `while (i >= 0) : (i -= 1)` never terminates, because an unsigned
-counter cannot go below zero. In a safety build it panics on the wraparound
-instead, so at least you find out. Zig accepts this cost on purpose. The
-forward loop cannot make this mistake. Going backwards means you manage the
-index yourself again.
+The decrement comes first for a reason. `items.len` is a `usize`. A loop with `while (i >= 0) : (i -= 1)` never stops, because an unsigned counter cannot go below zero. In a safety build, the loop panics on the wraparound instead, thus you see the problem.
 
-## `for` also breaks and yields
+Zig accepts this cost on purpose. The forward loop cannot make this mistake. When you iterate backwards, you must control the index yourself again.
 
-`break`, `continue`, labels and `else` all work here exactly as on `while`. A
-`for` used as an expression yields a value with `break x` and needs an `else`
-for the ran-out-of-elements case, which makes linear search a single
-expression. See [loops as
-expressions](/learn/language-basics/loops-as-expressions/) and [labelled
-loops](/learn/language-basics/labelled-loops/).
+## `for` can also break and give a value
 
-`inline for` unrolls the loop at compile time and makes the capture
-comptime-known. This lets a loop walk the fields of a struct or the tags of
-an enum. `inline for` is a different tool with a different purpose, covered in
-[inline loops](/learn/language-basics/inline-loops/).
+`break`, `continue`, labels and `else` work here exactly as they work on `while`. A `for` that you use as an expression gives a value with `break x`. It needs an `else` for the case where no elements remain. Thus a linear search is a single expression.
+
+See [loops as expressions](/learn/language-basics/loops-as-expressions/) and [labelled loops](/learn/language-basics/labelled-loops/).
+
+`inline for` unrolls the loop at compile time, and the compiler knows the capture at comptime. Thus a loop can visit the fields of a struct or the tags of an enum. `inline for` is a different tool with a different purpose. [Inline loops](/learn/language-basics/inline-loops/) explains it.

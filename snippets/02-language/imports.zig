@@ -1,11 +1,11 @@
 //! title: Imports
-//! `@import` returns a file as a struct; `pub` controls what escapes.
+//! `@import` returns a file as a struct. `pub` controls what other files see.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
-// A relative path imports another source file. The result is a struct type
-// whose declarations are that file's `pub` declarations.
+// A relative path imports another source file. The result is a struct type.
+// The declarations of that type are the `pub` declarations of the file.
 const shapes = @import("_shapes.zig");
 
 test "use an imported declaration" {
@@ -18,14 +18,14 @@ test "imported types work like any other" {
 }
 
 test "a file is a struct" {
-    // `@This()` inside a file refers to that file's implicit struct type,
-    // which is why `@import` can return something you access with `.`.
+    // `@This()` inside a file refers to the implicit struct type of the file.
+    // Thus `@import` returns a value that you can use with `.`.
     try expect(@TypeOf(shapes) == type);
     try expect(shapes.pi > 3.14);
 }
 
 test "std is just another import" {
-    // `@import("std")` is the same mechanism, resolved by the compiler
-    // rather than by path.
+    // `@import("std")` uses the same mechanism. The compiler resolves the
+    // name itself, and does not use a path.
     try expect(std.mem.eql(u8, "a", "a"));
 }

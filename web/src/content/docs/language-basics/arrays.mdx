@@ -1,7 +1,7 @@
 ---
 title: Arrays
 seoTitle: "Zig Arrays: Length Is Part of the Type"
-seoDescription: "An array is [N]T, and N belongs to the type, so [3]u8 and [4]u8 differ as much as u8 and u16. Arrays are values, and copying one copies every element."
+seoDescription: "An array is [N]T, and N is part of the type, so [3]u8 and [4]u8 differ as much as u8 and u16. Arrays are values: a copy copies each element."
 description: Fixed-length sequences whose length is part of the type.
 section: Language
 order: 11
@@ -9,29 +9,21 @@ order: 11
 
 import Playground from "../../../components/Playground.astro";
 
-An array is written `[N]T`. The length `N` is part of the *type*, so `[3]u8`
-and `[4]u8` are as different as `u8` and `u16`.
+You write an array as `[N]T`. The length `N` is part of the *type*. Thus `[3]u8` and `[4]u8` are as different as `u8` and `u16`.
 
 <Playground name="02-language.arrays" />
 
 ## Arrays are values
 
-Assigning an array copies it. This is the opposite of C, where an array
-turns into a pointer in almost every expression. If you want a reference, take one
-explicitly with `&`, which gives you a
-[slice](/learn/language-basics/slices/).
+When you assign an array, Zig copies the array. C does the opposite: in almost all expressions, a C array changes into a pointer. If you want a reference, take one explicitly with `&`. The result is a [slice](/learn/language-basics/slices/).
 
-`.len` is a compile-time constant, not a field read at runtime.
+`.len` is a compile-time constant. The program does not read it from a field at runtime.
 
-Because an array is a value, passing a `[4096]u8` to a function passes 4096
-bytes, or at least gives the compiler the option. Passing `&buffer` passes a
-slice, which is a pointer and a length. For anything larger than a few words,
-pass the slice.
+An array is a value. Thus, when you give a `[4096]u8` to a function, the compiler can pass all 4096 bytes. When you give `&buffer`, the call passes a slice, which is a pointer and a length. For data that is larger than a few words, pass the slice.
 
-## Writing one down
+## Write an array literal
 
-`[_]T` lets the compiler count for you. Prefer this form, because the length
-cannot fall out of sync with the contents:
+With `[_]T`, the compiler counts the elements for you. Use this form, because then the length always agrees with the contents:
 
 ```zig
 const a = [_]u8{ 1, 2, 3 };        // [3]u8
@@ -41,11 +33,9 @@ const grid = [2][3]u8{             // rows of columns
 };
 ```
 
-Multidimensional arrays are arrays of arrays, so `grid[1][2]` is 6 and
-`grid.len` is 2, the number of rows. There is no separate matrix type and no
-comma-indexing.
+Multidimensional arrays are arrays of arrays. Thus `grid[1][2]` is 6, and `grid.len` is 2, the number of rows. Zig has no separate matrix type, and no index syntax with commas.
 
-## Comparing and joining
+## Compare and join arrays
 
 `==` does not work on arrays:
 
@@ -53,56 +43,42 @@ comma-indexing.
 error: operator == not allowed for type '[3]u8'
 ```
 
-Zig will not silently pick between comparing the contents and comparing the
-addresses. Compare contents with `std.mem.eql(u8, &a, &b)`, which takes slices
-and so also works between an array and a slice of a larger buffer.
+Zig does not make a silent selection between a comparison of the contents and a comparison of the addresses. To compare the contents, use `std.mem.eql(u8, &a, &b)`. This function takes slices. Thus it also compares an array with a slice of a larger buffer.
 
-`++` concatenates, at compile time, producing an array whose length is the
-sum:
+`++` joins arrays at compile time. The result is an array, and its length is the sum of the two lengths:
 
 ```zig
 const joined = a ++ [_]u8{ 4 };    // [4]u8
 ```
 
-Both operands have to be comptime-known, because the result's *type* depends
-on their lengths. Joining runtime data is a copy into a buffer, not an
-operator.
+The compiler must know the two operands, because the *type* of the result depends on their lengths. To join runtime data, copy the data into a buffer. No operator does this.
 
 ## `**` is gone
 
-Older tutorials, including the current zig.guide, show array repetition:
+Older tutorials, and the current zig.guide too, show array repetition:
 
 ```zig
 const dashes = "-" ** 5;   // does not compile on master
 ```
 
-The `**` operator has been **removed**. `**` is no longer even a token, so the
-compiler reports a confusing message about whitespace around `*`. Use `@splat`
-instead:
+The `**` operator does not exist now. `**` is not even a token. Thus the compiler gives a message about whitespace around `*`, and the message is not clear. Use `@splat` instead:
 
 ```zig
 const dashes: [5]u8 = @splat('-');
 ```
 
-`@splat` takes its length from the type you are assigning to, which is why the
-annotation is not optional here. It is the same builtin used to fill a
-[vector](/learn/language-basics/vectors/), and reading it as "every element
-gets this value" covers both uses.
+`@splat` gets its length from the type of the destination. Thus the type annotation is necessary here. The same builtin fills a [vector](/learn/language-basics/vectors/). Read it as "each element gets this value", and the meaning is correct for the two uses.
 
-Concatenation with `++` is unaffected and still works at comptime.
+The change does not affect `++`. It still joins arrays at comptime.
 
 ## Coercion to slices
 
-An array coerces to a slice of the same element type when you take a reference
-to it, and the length comes along:
+When you take a reference to an array, the array coerces to a slice of the same element type. The slice gets the length too:
 
 ```zig
 const s: []const u8 = &a;    // len 3, checked
 ```
 
-Array to slice is the usual direction. Build with an array, where the size is known and
-the memory is on the stack. Then pass a slice, where the length travels with
-the pointer. Going back the other way, turning a slice into a fixed-size
-array, needs the length to be comptime-known. It is covered in [array
-recipes](/learn/language-basics/array-recipes/), along with grids and tables
-computed at compile time.
+The usual direction is from array to slice. Make the data with an array, where the compiler knows the size and the memory is on the stack. Then pass a slice, where the length moves with the pointer.
+
+The other direction, from a slice to a fixed-size array, needs a length that the compiler knows. [Array recipes](/learn/language-basics/array-recipes/) explains this direction. That chapter also shows grids and tables that the compiler calculates at compile time.

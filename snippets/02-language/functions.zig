@@ -1,5 +1,5 @@
 //! title: Functions
-//! Parameters are immutable; recursion needs care about stack depth.
+//! Parameters are immutable. Recursion needs care about stack depth.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -25,7 +25,7 @@ test "recursion" {
 }
 
 test "values must be used" {
-    // An unused value is a compile error in Zig, not a warning. `_ =` is the
-    // explicit way to discard something.
+    // In Zig, an unused value is a compile error, not a warning. Use `_ =`
+    // to discard a value explicitly.
     _ = addFive(1);
 }

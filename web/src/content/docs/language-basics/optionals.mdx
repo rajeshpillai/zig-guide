@@ -1,100 +1,71 @@
 ---
 title: Optionals
 seoTitle: "Zig Optionals: ?T, orelse, and No Null Dereference"
-seoDescription: "A ?T holds either a T or null, and the compiler will not let you touch the value before handling null. orelse, if captures, and unwrapping the compiler checks."
-description: Zig's answer to null, checked by the compiler.
+seoDescription: "A ?T holds a T or null. The compiler does not let you use the value before you handle null. orelse, if captures, and the checks on .?."
+description: The Zig answer to null, checked by the compiler.
 section: Language
 order: 33
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-A `?T` holds either a `T` or `null`. The compiler will not let you use the
-value without handling the `null` case first, so there is no such thing as an
-accidental null dereference.
+A `?T` holds a `T` or `null`. The compiler does not let you use the value before you handle the `null` case. Thus an accidental null dereference cannot occur.
 
-These are real tests. Run executes the actual `zig test` runner, compiled to
-WebAssembly.
+These are real tests. Run executes the real `zig test` runner, compiled to WebAssembly.
 
 <Playground name="02-language.optionals" />
 
 ## Payload capture
 
-The `if (maybe) |value|` form is *payload capture*: inside the block, `value`
-is a plain `i32`, not an optional. The unwrapping and the null check are the
-same piece of syntax, so they cannot drift apart.
+The `if (maybe) |value|` form is *payload capture*. Inside the block, `value` is a plain `i32`, not an optional. The unwrap and the null check are the same syntax. Thus they cannot become different.
 
-`orelse` is the shorthand when all you want is a fallback:
+When you want only a fallback value, use the short form `orelse`:
 
 ```zig
 const port = maybe_port orelse 8080;
 ```
 
-`orelse` takes an expression on the right, not just a value, and that
-expression can exit:
+On the right, `orelse` takes an expression, not only a value. That expression can exit:
 
 ```zig
 const port = maybe_port orelse return error.MissingPort;
 const item = list.pop() orelse break;
 ```
 
-Both read as "or else give up this way", and both keep the happy path
-unindented. This is the form to reach for when null means the function cannot
-continue.
+Read the two lines as "or else stop in this way". In the two lines, the usual path has no indent. Use this form when the function cannot continue after a null.
 
-## Forcing it with `.?`
+## Force the value with `.?`
 
-`maybe.?` unwraps and asserts the value is there. It is `orelse unreachable`,
-which means: checked and panicking in Debug and ReleaseSafe, undefined
-behaviour in ReleaseFast.
+`maybe.?` unwraps the value and asserts that the value exists. It is the same as `orelse unreachable`:
 
-Use it where the invariant is local and visible, such as immediately
-after inserting a key you are about to look up. Do not use it to quiet the
-compiler on a value that came from outside the function, because the assertion
-you are making is about someone else's code.
+- In Debug and ReleaseSafe, the program checks the assertion, and a null causes a panic.
+- In ReleaseFast, a null causes undefined behaviour.
 
-## What is missing on purpose
+Use `.?` where the invariant is local and visible. For example, use it immediately after you insert a key, when the next line reads that key. Do not use `.?` to stop a compiler error on a value from outside the function. In that case your assertion is about the code of a different person.
 
-There is no way to compare an optional to its payload without unwrapping it.
-There is no implicit conversion from `?T` to `T`. There is no way to call a
-method on a `?T`. Every one of those exists in languages where null is a value
-of every type, and every one of them is a place a null slips through.
+## Operations that Zig omits intentionally
 
-The cost is that a chain of optional lookups is more verbose than an `a?.b?.c`
-operator would be. The benefit is that each `orelse` names what happens when
-that particular step finds nothing, which is usually different at each step
-and usually worth saying.
+Zig has no way to compare an optional to its payload without an unwrap. Zig has no implicit conversion from `?T` to `T`. Zig has no way to call a method on a `?T`.
 
-## Optional pointers are free
+Languages where null is a value of each type have all of these features. In those languages, each feature is a place where a null can pass without a check.
 
-`?*T` is the same size as `*T`. Zig uses the null address as the `null` tag,
-so optional pointers cost nothing: no extra byte, no wrapper struct. The last
-test above asserts exactly this with `@sizeOf`.
+The cost is that a chain of optional lookups needs more code than an `a?.b?.c` operator. The benefit is that each `orelse` names the result when that step finds nothing. Usually that result is different at each step, and usually the code must state it.
 
-Note that this only applies to pointers. A `?u32` does need a tag byte
-alongside the payload, because every `u32` bit pattern is a valid `u32`.
+## Optional pointers use no extra space
 
-The rule is that an optional pays for a tag only when the payload has no bit
-pattern to spare. A pointer has one, the null address, and `?T` uses it. A
-`u32` does not, so `?u32` is larger than a `u32`.
+`?*T` has the same size as `*T`. Zig uses the null address as the `null` tag. Thus optional pointers have no cost: no extra byte, and no wrapper struct. The last test above uses `@sizeOf` to check exactly this.
 
-Error unions do not get the same treatment: `error{A}!*u8` is twice the size
-of a `*u8`, because it has to carry the error code as well as the pointer.
-Sometimes a value that is just "there or not" gets returned as an
-error union to avoid writing an explanation. This is one more reason to make
-it a `?T` instead.
+This rule applies only to pointers. A `?u32` needs a tag byte together with the payload, because each bit pattern of a `u32` is a valid `u32`.
 
-## Optional versus error
+The rule is that an optional needs a tag only when the payload has no free bit pattern. A pointer has one free pattern, the null address, and `?T` uses it. A `u32` has no free pattern, thus `?u32` is larger than a `u32`.
 
-Both mean "you might not get a value", and choosing between them is a question
-about whether there is anything to say about the failure.
+Error unions do not get the same treatment. `error{A}!*u8` is two times the size of a `*u8`, because it must hold the error code and the pointer. Sometimes a function returns an error union for a value that is only "there or not". The programmer does this to avoid an explanation. The size is one more reason to use a `?T` for such a value.
 
-- **`?T`** when absence is ordinary and needs no explanation: a lookup that
-  found nothing, an iterator that ended, a field that was not set.
-- **`E!T`** when the caller would want to know *why*: the file did not exist, the
-  input was malformed, the allocation failed.
+## Optional or error
 
-A function returning `?T` for something that failed for a reason has thrown
-the reason away. A function returning `error{NotFound}!T` for an ordinary miss
-makes every caller write a `catch` for a case that is not exceptional.
-[Errors](/learn/language-basics/errors/) covers the other half.
+The two types both mean "you possibly do not get a value". To select one, decide if there is information to give about the failure.
+
+- **`?T`**: use it when the absence is usual and needs no explanation. Examples are a lookup that found nothing, an iterator that ended, or a field that has no value.
+- **`E!T`**: use it when the caller wants to know *why*. Examples are a file that did not exist, input with an incorrect format, or an allocation that failed.
+
+A function that returns `?T` for a failure with a reason loses the reason. A function that returns `error{NotFound}!T` for a usual miss makes each caller write a `catch` for a case that is not exceptional. [Errors](/learn/language-basics/errors/) has the other half of this topic.

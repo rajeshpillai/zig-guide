@@ -7,7 +7,7 @@ const expect = std.testing.expect;
 test "sentinel-terminated array" {
     // `[3:0]u8` is three bytes plus a guaranteed 0 at index 3.
     const array: [3:0]u8 = .{ 1, 2, 3 };
-    try expect(array.len == 3); // the sentinel is not counted
+    try expect(array.len == 3); // `.len` does not count the sentinel
     try expect(array[3] == 0); // but it is there
 }
 

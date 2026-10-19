@@ -17,7 +17,8 @@ test "if as a statement" {
 
 test "if as an expression" {
     const a = true;
-    // The ternary equivalent; both branches must yield the same type.
+    // This replaces the ternary operator. The two branches must give the
+    // same type.
     const x: u16 = if (a) 1 else 2;
     try expect(x == 1);
 }

@@ -4,8 +4,8 @@
 const std = @import("std");
 const expect = std.testing.expect;
 
-// Typically this stands in for a C type you were never given a definition
-// for: `typedef struct Window Window;`
+// Usually this type replaces a C type that has no definition that you can
+// see: `typedef struct Window Window;`
 const Window = opaque {
     // Opaque types can still have methods.
     pub fn close(self: *Window) void {
@@ -16,15 +16,15 @@ const Window = opaque {
 const Handle = opaque {};
 
 test "opaque types are only usable behind a pointer" {
-    // `var w: Window = ...` is impossible: the size is unknown. Only
-    // pointers to it exist. C handles are used the same way.
+    // `var w: Window = ...` is impossible, because the size is unknown. Only
+    // pointers to a `Window` exist. C code uses C handles in the same way.
     var storage: u32 = 0;
     const handle: *Handle = @ptrCast(&storage);
     try expect(@TypeOf(handle) == *Handle);
 }
 
 test "distinct opaque types do not mix" {
-    // *Window and *Handle are unrelated types, so the compiler prevents
-    // passing one where the other is expected, unlike C's void*.
+    // *Window and *Handle are unrelated types. Thus the compiler does not let
+    // you use one type where the other type is necessary. C's void* allows it.
     try expect(*Window != *Handle);
 }

@@ -7,84 +7,64 @@ order: 28
 
 import Playground from "../../../components/Playground.astro";
 
-Zig never converts between integers and floats implicitly: `@floatFromInt`
-and `@intFromFloat` do it, and `@intFromFloat` truncates toward zero.
+Zig never converts between integers and floats implicitly. `@floatFromInt` and `@intFromFloat` do the conversion. `@intFromFloat` truncates toward zero.
 
 <Playground name="02-language.floats" />
 
-Zig has `f16`, `f32`, `f64`, `f80`, and `f128`. All are IEEE-754 (except
-`f80`, the x87 extended format).
+Zig has `f16`, `f32`, `f64`, `f80` and `f128`. All of them are IEEE-754, except `f80`, the x87 extended format.
 
-## No implicit int/float mixing
+## No implicit mix of ints and floats
 
-Neither direction happens on its own:
+Zig does not do a conversion in either direction automatically:
 
 ```zig
 const f: f32 = @floatFromInt(n);
 const n: i32 = @intFromFloat(f);   // truncates toward zero
 ```
 
-This is deliberate. Implicit int-to-float conversion silently loses precision
-for large integers, and float-to-int silently truncates. Both cause enough
-bugs that the two extra words are worth writing.
+Zig does this on purpose. An implicit conversion from int to float loses precision for large integers, and you get no warning. An implicit conversion from float to int truncates, and you get no warning. The two conversions cause many bugs. Thus the two extra words are a good cost.
 
-`@intFromFloat` truncates rather than rounds, and the result has to be
-representable. Converting a value outside the target's range, or a NaN, is
-illegal behaviour and is caught in a safety build. When the input is not
-already known to be in range, clamp or check first: `std.math.lossyCast` does
-the saturating version if that is what you want.
+`@intFromFloat` truncates. It does not round. The target type must be able to hold the result. A value outside the range of the target, or a NaN, is illegal behaviour, and a safety build finds it.
 
-Between float types, `@floatCast` narrows and widening is implicit, since it
-cannot lose anything.
+If you do not know that the input is in range, clamp the input or check it first. If you want the saturating version, use `std.math.lossyCast`.
 
-## `comptime_float` is `f128`, not magic
+Between float types, `@floatCast` makes a value narrower. A change to a wider type is implicit, because it cannot lose data.
 
-An earlier draft of this page got this wrong. Unlike
-`comptime_int`, which really is arbitrary precision, `comptime_float` is
-backed by `f128`. Doing arithmetic at compile time gives you more bits, not
-exact decimal:
+## `comptime_float` is `f128`
+
+An earlier version of this page had this fact wrong. `comptime_int` really has arbitrary precision, but `comptime_float` does not: it uses `f128`. Arithmetic at compile time gives you more bits, but it does not give you exact decimal values:
 
 ```zig
 const x = 0.1 + 0.2;
 // x != 0.3, even at comptime
 ```
 
-Comptime floats still have rounding error. Compare with a tolerance:
+Comptime floats still have rounding error. Compare them with a tolerance:
 
 ```zig
 std.math.approxEqAbs(f64, a, b, 1e-12)
 ```
 
-`approxEqAbs` takes an absolute tolerance and is right when you know the
-magnitude of the numbers. `approxEqRel` takes a relative one and is right when
-you do not. An absolute tolerance of `1e-12` is impossibly strict for values
-around a billion, and far too loose for values around `1e-15`.
+`approxEqAbs` takes an absolute tolerance. It is correct when you know the magnitude of the numbers. `approxEqRel` takes a relative tolerance. It is correct when you do not know the magnitude.
+
+For values near a billion, an absolute tolerance of `1e-12` is so strict that no result can meet it. For values near `1e-15`, the same tolerance is much too loose.
 
 ## NaN and infinity
 
-`std.math.nan(f32)` and `std.math.inf(f32)` construct them; `isNan` and
-`isInf` test for them. Remember `nan != nan`. This is why `approxEqAbs`
-exists, and why you should be careful with `==` on floats.
+`std.math.nan(f32)` and `std.math.inf(f32)` make these values. `isNan` and `isInf` test for them. Remember that `nan != nan`. This is the reason that `approxEqAbs` exists, and the reason to be careful with `==` on floats.
 
-Because NaN fails every comparison, it can break code without any error. `a <
-b` and `a >= b` are both false when either is NaN. So a sort with a NaN in it
-does not merely put that value in an odd place. It breaks the ordering the
-algorithm assumes. Filter NaNs out before sorting. Do not expect the
-comparator to handle them.
+A NaN makes each comparison false. Thus a NaN can break code without an error. `a < b` and `a >= b` are both false when `a` or `b` is NaN.
 
-Division by zero follows IEEE rather than trapping: `1.0 / 0.0` is infinity
-and `0.0 / 0.0` is NaN. Integer division by zero is different: it is illegal
-behaviour.
+Thus a NaN in a sort does more than put that value in a strange position. It breaks the order that the algorithm expects. Remove NaNs before the sort. Do not expect the comparator to handle them.
+
+Division by zero follows IEEE and does not trap. `1.0 / 0.0` is infinity, and `0.0 / 0.0` is NaN. Integer division by zero is different: it is illegal behaviour.
 
 ## Which width to use
 
-Use `f64` unless you have a reason not to. `f32` halves the memory and is what graphics
-and audio pipelines expect. It gives roughly seven decimal digits of
-precision. That precision runs out quickly once values are added up in a
-loop. `f16` is for storage and for machine learning weights, not for
-arithmetic. `f80` and `f128` exist for the cases that need them and
-are software-emulated on most targets, so they are slow.
+Use `f64` unless you have a reason to use a different width:
 
-The precision question that actually matters is usually not the width. Money
-in floats is wrong at any width, because 0.1 is not representable in binary at
-all. Use an integer count of the smallest unit.
+- `f32` uses half the memory, and graphics and audio pipelines expect it. It gives approximately seven decimal digits of precision. When a loop adds many values, this precision is quickly not sufficient.
+- `f16` is for storage and for machine learning weights, not for arithmetic.
+- `f80` and `f128` exist for the cases that need them. Most targets emulate them in software, thus they are slow.
+
+Usually, the important precision question is not the width. Money in floats is wrong at all widths, because binary cannot represent 0.1 exactly. Use an integer count of the smallest unit.

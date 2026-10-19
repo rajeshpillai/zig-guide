@@ -13,8 +13,8 @@ test "basic while" {
 }
 
 test "while with a continue expression" {
-    // The continue expression runs after every iteration, including ones
-    // ended by `continue`, which is why it is not just the last statement.
+    // The continue expression runs after each iteration, also after one that
+    // `continue` ends. Thus it is different from the last statement of the body.
     var sum: u8 = 0;
     var i: u8 = 1;
     while (i <= 10) : (i += 1) {
@@ -34,7 +34,7 @@ test "break and continue" {
 }
 
 test "while as an expression with else" {
-    // `break x` yields a value; `else` runs when the loop ends normally.
+    // `break x` gives a value. `else` runs when the loop ends normally.
     var i: u8 = 0;
     const found = while (i < 10) : (i += 1) {
         if (i * i > 20) break i;

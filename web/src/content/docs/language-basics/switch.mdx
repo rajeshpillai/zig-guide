@@ -1,7 +1,7 @@
 ---
 title: Switch
 seoTitle: "Zig switch: Exhaustive, and No Fallthrough"
-seoDescription: "Zig's switch must cover every value, and it never falls through. Ranges, multiple values, else, and switch used as an expression that returns a value."
+seoDescription: "A Zig switch must cover each value, and it never falls through. Ranges, lists of values, else, and switch as an expression that returns a value."
 description: Exhaustive by construction.
 section: Language
 order: 18
@@ -9,20 +9,15 @@ order: 18
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `switch` can match single values, lists such as `10, 100` and
-inclusive ranges such as `-1...1`, and it can be used as an expression whose
-value goes straight into a `const`.
+In Zig, `switch` can match single values, lists such as `10, 100`, and inclusive ranges such as `-1...1`. You can also use `switch` as an expression, and put its value directly into a `const`.
 
 <Playground name="02-language.switch" />
 
-Zig's `switch` has no fallthrough, and it must be **exhaustive**: every
-possible value needs a branch, or the program does not compile.
+The Zig `switch` has no fallthrough, and it must be **exhaustive**. Each possible value needs a branch, or the program does not compile.
 
-No fallthrough means no `break` at the end of every arm, and no bug from
-forgetting one. An arm that should cover several values lists them. In C,
-that was the usual reason to use fallthrough.
+Because there is no fallthrough, an arm does not need a `break` at its end. Thus there is no bug from a `break` that you forgot. An arm for many values lists the values. In C, that was the usual reason to use fallthrough.
 
-## Ranges and multiple values
+## Ranges and lists of values
 
 ```zig
 switch (x) {
@@ -32,19 +27,16 @@ switch (x) {
 }
 ```
 
-Note `...` for ranges is inclusive on both ends, unlike the `..` used in `for`
-ranges, which excludes the upper bound. The difference is deliberate, and it
-is easy to get wrong: `0..3` in a `for` visits three values, `0...3` in a `switch`
-matches four.
+A `...` range includes the two ends. The `..` range in a `for` does not include the upper bound. The difference is intentional, and it is easy to make a mistake with it: `0..3` in a `for` gives three values, and `0...3` in a `switch` matches four.
 
-Cases must not overlap. Two arms that can both match the same value are a
-compile error. There is no first-match-wins rule, so the order the arms are
-written in never changes behaviour.
+Cases must not overlap. If two arms can match the same value, the code does not compile. There is no rule that the first match wins. Thus the order of the arms never changes the behaviour.
 
 ## A statement or an expression
 
-Both forms are in the snippet. As a statement each arm does something; as an
-expression each arm produces a value and the whole `switch` is that value:
+The snippet has the two forms:
+
+- In a statement, each arm does an action.
+- In an expression, each arm produces a value, and the full `switch` has that value.
 
 ```zig
 const y: i8 = switch (x) {
@@ -54,13 +46,11 @@ const y: i8 = switch (x) {
 };
 ```
 
-Prefer the expression form where it fits, for the same reason as [loops as
-expressions](/learn/language-basics/loops-as-expressions/). The result goes
-straight into a `const`, and every arm has to produce one.
+Use the expression form where possible, for the same reason as [loops as expressions](/learn/language-basics/loops-as-expressions/). The result goes directly into a `const`, and each arm must produce a value.
 
-## The exhaustiveness payoff
+## The benefit of exhaustiveness
 
-When switching over an enum and covering every tag, **leave out `else`**:
+When you switch over an enum and cover each tag, **do not write `else`**:
 
 ```zig
 return switch (direction) {
@@ -69,26 +59,22 @@ return switch (direction) {
 };
 ```
 
-Now adding a `.up` variant later turns this into a compile error pointing
-straight at the code that needs updating. Adding `else => false` would instead
-silently classify the new direction as horizontal. With an `else` branch, the
-compiler can no longer tell you about a new tag. Use `else` only when that is
-what you want.
+If you add a `.up` variant later, this code becomes a compile error. The error points directly at the code that you must update. If you add `else => false`, the switch puts the new direction in the horizontal group, and you get no error.
 
-The error names the tag you missed and points at its declaration:
+With an `else` branch, the compiler cannot tell you about a new tag. Use `else` only when you want that result.
+
+The error names the tag that you did not handle, and points at its declaration:
 
 ```
 error: switch must handle all possibilities
 note: unhandled enumeration value: 'west'
 ```
 
-For an integer, "all possibilities" means all of them. A `switch` on a `u8`
-needs `else` or 256 arms, which is why `else` is normal there and suspicious
-on an enum.
+For an integer, "all possibilities" means all the values. A `switch` on a `u8` needs `else` or 256 arms. Thus `else` is usual on an integer, and suspicious on an enum.
 
-## Switching on a tagged union
+## Switch on a tagged union
 
-Each arm can capture the payload of the variant it matched:
+Each arm can capture the payload of the variant that it matched:
 
 ```zig
 switch (value) {
@@ -97,17 +83,13 @@ switch (value) {
 }
 ```
 
-Capture by reference with `|*n|` when the arm needs to modify it. This is the
-main way tagged unions are consumed and it is covered in
-[unions](/learn/language-basics/unions/) and [payload
-captures](/learn/language-basics/payload-captures/).
+When the arm must change the payload, capture by reference with `|*n|`. A switch is the main way to use a tagged union. [Unions](/learn/language-basics/unions/) and [payload captures](/learn/language-basics/payload-captures/) have more about this topic.
 
 ## `inline else` and non-exhaustive enums
 
-Two more forms help once you are generating code instead of writing it out.
+Two more forms are useful when code generates code, and you do not write each case.
 
-`inline else` compiles a separate copy of the arm for every remaining case,
-with the tag available as a comptime value:
+`inline else` compiles a separate copy of the arm for each case that no other arm handles. In each copy, the tag is a comptime value:
 
 ```zig
 switch (d) {
@@ -115,12 +97,9 @@ switch (d) {
 }
 ```
 
-Ordinary `else` cannot do that, because at runtime the tag is just a number.
-The inline form is how reflection-style code stays type-safe.
+A usual `else` cannot do this, because at runtime the tag is only a number. With the inline form, code that uses reflection stays type-safe.
 
-An enum declared with a trailing `_` is non-exhaustive: values outside its
-named tags are legal, usually because the numbers come from a protocol or a C
-header. Those switch on `_` rather than `else`:
+An enum with a `_` at the end is non-exhaustive. Values outside its named tags are legal. Usually the numbers come from a protocol or a C header. A switch on such an enum uses `_`, not `else`:
 
 ```zig
 const Op = enum(u8) { get = 1, set = 2, _ };
@@ -132,13 +111,8 @@ switch (op) {
 }
 ```
 
-`_` means "a value with no name". It keeps the named-tag exhaustiveness check
-working: add `.delete` to the enum and this switch still fails to compile
-until you handle it. `else` would have swallowed it.
+`_` means "a value with no name". The exhaustiveness check for named tags still works. If you add `.delete` to the enum, this switch does not compile until you handle `.delete`. An `else` would hide the new tag.
 
-## A switch can be labelled
+## A switch can have a label
 
-Give a switch a label and `continue :label value` runs it again with a new
-operand, while `break :label value` leaves it with a result. That turns a
-switch into a state machine with no loop around it. It has its own chapter:
-[labelled switch](/learn/language-basics/labelled-switch/).
+Give a switch a label. Then `continue :label value` runs the switch again with a new operand, and `break :label value` leaves the switch with a result. Thus a switch becomes a state machine with no loop around it. [Labelled switch](/learn/language-basics/labelled-switch/) is the chapter about this form.

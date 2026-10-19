@@ -28,7 +28,7 @@ const Inferred = union(enum) {
 test "bare union" {
     var p = Payload{ .int = 42 };
     try expect(p.int == 42);
-    // Reading `p.float` here would be illegal behaviour: wrong active field.
+    // A read of `p.float` here is illegal behaviour: it is not the active field.
     p = Payload{ .float = 1.5 };
     try expect(p.float == 1.5);
 }

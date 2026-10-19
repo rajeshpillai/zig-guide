@@ -7,14 +7,11 @@ order: 30
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `break :outer` leaves a labelled outer loop from inside a nested one,
-and `continue :outer` moves on to its next iteration, so no flag variable is
-needed.
+In Zig, `break :outer` leaves a labelled outer loop from inside a nested loop. `continue :outer` starts the next iteration of the outer loop. Thus you do not need a flag variable.
 
 <Playground name="02-language.labelled-loops" />
 
-`break` and `continue` affect the innermost loop by default. Label a loop to
-target it explicitly:
+By default, `break` and `continue` affect the innermost loop. To select a different loop, give that loop a label:
 
 ```zig
 outer: for (0..5) |i| {
@@ -25,15 +22,11 @@ outer: for (0..5) |i| {
 }
 ```
 
-A label is an identifier followed by a colon, written before the loop keyword.
-The name is arbitrary. `outer` and `blk` are conventional, but nothing
-enforces them. A label that says what the loop is scanning (`rows:`,
-`candidates:`) usually reads better at the `break` site, which is where
-someone will be looking.
+A label is an identifier and a colon, before the loop keyword. You can use any name. `outer` and `blk` are usual names, but the compiler does not require them. Usually, a label that tells what the loop examines (`rows:`, `candidates:`) is easier to read at the `break`. The `break` is where a reader looks.
 
-## What the alternative costs
+## The cost of the alternative
 
-Without labels, leaving two loops at once means a flag:
+Without labels, you need a flag to leave two loops at the same time:
 
 ```zig
 var found = false;
@@ -45,23 +38,15 @@ for (rows) |row| {
 }
 ```
 
-The flag adds three lines of bookkeeping, and the `if (found) break` has to
-be repeated at every level of nesting. Worse, the flag survives the loop, so later code can
-read it. And the `break` in the inner loop no longer tells you what it does
-until you read the two lines after it. In C you would use `goto` to jump past
-the loops. That works, but the label then names a place in the code, not a
-loop.
+The flag adds three lines of bookkeeping. You must also repeat `if (found) break` at each level of nesting. The flag also continues to exist after the loop, so later code can read it. And the `break` in the inner loop does not tell you what it does until you read the next two lines.
 
-Naming the loop also keeps the code correct when it is edited later. If you
-wrap either loop in one more level of nesting, an unlabelled `break` silently
-changes meaning. `break :outer` does not.
+In C, you use `goto` to jump past the loops. That method works, but then the label names a place in the code, not a loop.
+
+A loop with a name also keeps the code correct when a person edits it later. If you put one more level of nesting around either loop, a `break` without a label changes its meaning and gives no error. `break :outer` keeps its meaning.
 
 ## `continue :outer` runs the outer continue expression
 
-A labelled
-`continue` does not jump to the top of the outer loop. It ends the current
-iteration of that loop, which means the outer loop's continue expression runs
-first, exactly as if the outer body had reached its end:
+A labelled `continue` does not jump to the top of the outer loop. It ends the current iteration of that loop. Thus the continue expression of the outer loop runs first, exactly as if the outer body got to its end:
 
 ```zig
 outer: while (i < 3) : (i += 1) {
@@ -71,30 +56,24 @@ outer: while (i < 3) : (i += 1) {
 }
 ```
 
-If `continue :outer` skipped the `i += 1`, that loop would never terminate. It
-does not, and the loop runs three times. The rule is that `continue` always
-means "this iteration is done", never "go back to the condition".
+If `continue :outer` did not run `i += 1`, that loop would not stop. But `continue :outer` runs `i += 1`, and the loop runs three times. The rule is that `continue` always means "this iteration is complete". It never means "return to the condition".
 
 ## An unused label is a compile error
 
-Label a loop and never mention the label, and the program does not build:
+If you give a label to a loop and never use the label, the program does not compile:
 
 ```
 error: unused for loop label
 ```
 
-Labels usually appear because a `break
-:outer` was added, and they usually become dead when that `break` is deleted
-or moved during a refactor. A dead label is a strong hint that the control
-flow it was written for is gone. Zig treats it the way it treats an unused
-variable: a leftover that should be used or removed.
+Usually, a programmer adds a label together with a `break :outer`. Usually, the label becomes unused when a refactor deletes or moves that `break`. An unused label is a strong sign that the control flow for the label does not exist now. Zig treats an unused label as it treats an unused variable. You must use it or remove it.
 
 ## Labels are not only for loops
 
-A label can also name a plain block, and `break :label value` yields a value
-from it. The third test in the snippet uses that to turn a search into a
-single `const`. The block runs the loop, breaks out with the index on a hit,
-and falls through to a default at the end. That construct is covered on its
-own in [labelled blocks](/learn/language-basics/labelled-blocks/), and
-combined with `for` and `else` it becomes the shorter form in [loops as
-expressions](/learn/language-basics/loops-as-expressions/).
+A label can also name a plain block, and `break :label value` gives a value from the block. The third test in the snippet uses a labelled block to change a search into one `const`:
+
+1. The block runs the loop.
+2. If the loop finds a match, the block breaks out with the index.
+3. If the loop finds no match, the block gets to the end and gives a default.
+
+[Labelled blocks](/learn/language-basics/labelled-blocks/) has more about this construct. Together with `for` and `else`, the construct becomes the shorter form in [loops as expressions](/learn/language-basics/loops-as-expressions/).

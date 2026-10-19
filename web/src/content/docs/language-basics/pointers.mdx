@@ -7,19 +7,15 @@ order: 20
 
 import Playground from "../../../components/Playground.astro";
 
-A `*T` refers to exactly one `T`. Take an address with `&`, and dereference
-with `.*`, a postfix operator, so it chains left to right like field access.
+A `*T` refers to exactly one `T`. Use `&` to get an address. Use `.*` to dereference the pointer. `.*` is a postfix operator, so a chain of operations reads from left to right, as field access does.
 
 <Playground name="02-language.pointers" />
 
 ## Exactly one
 
-A `*T` is not a cursor into a
-sequence, and there is no pointer arithmetic on it: `p + 1` does not compile.
-Anything that walks memory needs a type that says how much memory there is.
+A `*T` is not a cursor into a sequence, and it has no pointer arithmetic: `p + 1` does not compile. Code that moves through memory needs a type that tells how much memory there is.
 
-That splits into three, and picking the right one is most of what pointer types
-are for in Zig:
+Thus there are three types. In Zig, the main purpose of pointer types is to help you select the correct one:
 
 | Type | Means |
 | --- | --- |
@@ -27,70 +23,48 @@ are for in Zig:
 | `[*]T` | many `T`, count unknown, arithmetic allowed |
 | `[]T` | many `T`, count carried alongside |
 
-`[]T` is the one to reach for. It is a pointer and a length together, so
-indexing it can be bounds-checked, and the length cannot be forgotten because it
-is part of the value. `[*]T` exists for the C boundary, where the count lives
-somewhere else or in a sentinel. See [slices](/learn/language-basics/slices/)
-and [many-item pointers](/learn/language-basics/many-item-pointers/).
+Usually, use `[]T`. It is a pointer and a length together. Thus an index into it can have a bounds check. You cannot forget the length, because the length is part of the value.
+
+`[*]T` is for the C boundary, where the count is in a different place or in a sentinel. See [slices](/learn/language-basics/slices/) and [many-item pointers](/learn/language-basics/many-item-pointers/).
 
 ## Never null
 
-There is no null `*T`. If a pointer may be absent, its type says so: `?*T`.
-The compiler enforces this. It will not let you dereference the
-optional without unwrapping it first.
+A `*T` cannot be null. If a pointer can be absent, its type says so: `?*T`. The compiler enforces this rule. It does not let you dereference the optional before you unwrap it.
 
-The representation costs nothing. Zig uses the null address as the `null` tag,
-so `?*T` is the same size as `*T`.
+The representation has no cost. Zig uses the null address as the `null` tag. Thus `?*T` has the same size as `*T`.
 
-The practical effect is that "did I check this for null" stops being a question
-about the code and becomes a question about the type. A function taking `*T`
-cannot be handed nothing. A function taking `?*T` cannot use it without saying
-what happens when it is null. The middle case, where both are spelled the same
-way and one of them is a bug, does not exist.
+The result is that "did I check this pointer for null" is a question about the type, not about the code:
 
-## Constness travels with the pointer
+- A function that takes `*T` cannot receive nothing.
+- A function that takes `?*T` cannot use the pointer before it says what occurs for null.
 
-`&some_const` gives you a `*const T`, and you cannot assign through it. Note
-that this is about what the *pointer* permits, which is separate from whether
-the pointer variable itself can be reassigned:
+There is no third case, where the two types have the same syntax and one of them is a bug.
+
+## Constness stays with the pointer
+
+`&some_const` gives you a `*const T`, and you cannot assign through it. This rule is about what the *pointer* permits. It is a different rule from whether you can assign a new value to the pointer variable:
 
 ```zig
 var p: *const u8 = &a;   // p can point elsewhere; p.* cannot be written
 const q: *u8 = &b;       // q always points at b; q.* can be written
 ```
 
-Two different questions, two different places to write `const`. The one on the
-left of the colon is about the variable. The one inside the type is about what
-you may do through it.
+These are two different questions, and you write `const` in two different places. The `const` on the left of the colon is about the variable. The `const` inside the type is about what you can do through the pointer.
 
-Const is one-way. A `*T` coerces to a `*const T` freely, because giving up the
-right to write is always safe. The reverse needs `@constCast`, and doing it to
-memory that really is constant is undefined behaviour rather than a check that
-fires.
+Const works in one direction. A `*T` coerces to a `*const T` without a cast, because it is always safe to remove the right to write. The opposite direction needs `@constCast`. If you use `@constCast` on memory that is really constant, the result is undefined behaviour, not a check that fails.
 
 ## Alignment is part of the type
 
-A pointer carries the alignment the compiler can rely on, written `*align(n) T`
-when it differs from the natural one. Usually this is invisible: `&x` produces a
-correctly aligned pointer and nothing needs saying. It becomes visible when you
-cast a byte buffer to something wider, because `[]u8` promises nothing about
-alignment and `*u32` requires four bytes of it.
+A pointer carries the alignment that the compiler can trust. When this alignment is different from the natural alignment, the type is `*align(n) T`.
 
-`@alignCast` is how you assert the alignment you know you have. In a safety
-build it is checked and panics if you were wrong. In ReleaseFast it is taken on
-trust, and being wrong is a misaligned load, which on some targets is a crash
-and on others is slow and silently correct.
+Usually you do not see the alignment. `&x` produces a correctly aligned pointer, and you do not have to write anything. You see the alignment when you cast a byte buffer to a wider type. `[]u8` gives no promise about alignment, and `*u32` requires an alignment of four bytes.
 
-## Getting the number out
+Use `@alignCast` to assert the alignment that you know is correct. In a safety build, the program checks the alignment and causes a panic if you are wrong. In ReleaseFast, the program trusts you. If you are wrong, the result is a misaligned load. On some targets a misaligned load causes a crash. On other targets it is slow, but the result is correct and there is no error.
 
-`@intFromPtr` gives you the address as a `usize` and `@ptrFromInt` goes back.
-Both exist for the cases that really need an integer: talking to hardware,
-tagging pointers, printing an address while debugging. Neither is a general way
-to move between types, and a round trip through an integer discards everything
-the compiler knew about what was there.
+## Get the address as a number
 
-The address of a local is only meaningful while that local exists. Returning
-`&x` from a function whose frame is about to disappear is a dangling pointer,
-and nothing in the type system catches it. That is the one classic pointer bug
-Zig does not remove, and it gets its own treatment in
-[the stack](/learn/systems-from-scratch/the-stack/).
+`@intFromPtr` gives you the address as a `usize`, and `@ptrFromInt` converts the number back to a pointer. The two builtins are for the cases that really need an integer: hardware access, pointer tags, or an address that you print when you debug.
+
+They are not a general method to convert between types. When a pointer becomes an integer and then a pointer again, the compiler loses all the information that it had about the data at the address.
+
+The address of a local has a meaning only while that local exists. If a function returns `&x`, and the frame of the function ends, the result is a dangling pointer. Nothing in the type system catches this bug. This is the one usual pointer bug that Zig does not remove. [The stack](/learn/systems-from-scratch/the-stack/) has more about it.

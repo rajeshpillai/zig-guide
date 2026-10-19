@@ -1,5 +1,5 @@
 //! title: Floats
-//! IEEE-754 types, and conversions that must be spelled out.
+//! IEEE-754 types, and conversions that you must write explicitly.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -17,15 +17,15 @@ test "int and float do not mix implicitly" {
     const f: f32 = @floatFromInt(n);
     try expect(f == 3.0);
 
-    // Truncates toward zero; checked in safety builds.
+    // Truncates toward zero. Safety builds check the conversion.
     const back: i32 = @intFromFloat(3.9);
     try expect(back == 3);
 }
 
 test "comptime_float is f128, not magic" {
-    // Unlike comptime_int, which really is arbitrary precision,
-    // comptime_float is backed by f128. Doing the arithmetic at compile
-    // time gives you more bits, but the result is still not exact:
+    // comptime_int really has arbitrary precision, but comptime_float uses
+    // f128. Arithmetic at compile time gives you more bits, but the result
+    // is still not exact:
     const x = 0.1 + 0.2;
     try expect(x != 0.3);
 

@@ -22,6 +22,6 @@ test "orelse supplies a default" {
 }
 
 test "optional pointers are free" {
-    // A `?*T` is the same size as a `*T`; null is the 0 address.
+    // A `?*T` has the same size as a `*T`. The 0 address is the null value.
     try expect(@sizeOf(?*i32) == @sizeOf(*i32));
 }

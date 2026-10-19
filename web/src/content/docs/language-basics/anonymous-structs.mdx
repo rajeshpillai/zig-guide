@@ -1,32 +1,36 @@
 ---
 title: Anonymous Structs
-description: Inferred struct literals, and tuples.
+description: Struct literals with an inferred type, and tuples.
 section: Language
 order: 37
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Zig has anonymous structs in two forms: a struct type written inline where it
-is used, and a tuple, which is a struct whose fields are numbered rather than
-named. The argument list passed to `print` is a tuple.
+Zig has anonymous structs in two forms:
+
+- A struct type that you write inline, at the place where you use it.
+- A tuple. A tuple is a struct with numbered fields instead of named fields.
+
+The argument list that you give to `print` is a tuple.
 
 <Playground name="02-language.anonymous-structs" />
 
-`.{ ... }` is a struct literal whose type comes from context. When the target
-type is known (a parameter, a field, a return type), the name is redundant:
+`.{ ... }` is a struct literal. The literal gets its type from the context. When the compiler knows the target type (a parameter, a field, a return type), you do not have to write the name:
 
 ```zig
 describe(.{ .x = 1, .y = 2 });
 ```
 
-The same leading dot appears wherever a type can be inferred: `.north` for an
-enum tag, `.{ .ok = value }` for a union variant, `.{}` for a struct whose
-fields all have defaults. It is one rule, not four. The dot means "you already
-know the type, so I am not going to repeat it".
+The same dot at the start occurs in each place where the compiler can infer a type:
 
-Where the target type is *not* known, there is nothing to infer from and the
-literal has to be named:
+- `.north` for an enum tag.
+- `.{ .ok = value }` for a union variant.
+- `.{}` for a struct with a default value for each field.
+
+These are one rule, not four. The dot means "you know the type, so I do not write the type again".
+
+If the compiler does not know the target type, it has no type to infer. Then you must write the name of the type in the literal:
 
 ```zig
 const p = Point{ .x = 1, .y = 2 };   // no context, so say the type
@@ -34,8 +38,7 @@ const p = Point{ .x = 1, .y = 2 };   // no context, so say the type
 
 ## Anonymous struct types
 
-A struct type can also be written inline, which is what the snippet's
-`describe` does:
+You can also write a struct type inline. The `describe` function in the snippet does this:
 
 ```zig
 fn describe(point: struct { x: i32, y: i32 }) i32 {
@@ -43,16 +46,13 @@ fn describe(point: struct { x: i32, y: i32 }) i32 {
 }
 ```
 
-This is useful for a one-off shape that does not need a name, and for
-returning several values at once without declaring a type for the pair. Two
-separately written anonymous struct types are distinct types even if their
-fields match. So use them for local convenience, not for types that cross an
-interface.
+An inline type is useful for a shape that you use one time and that does not need a name. It is also useful when a function returns several values and you do not want to declare a type for them.
+
+Two anonymous struct types that you write separately are different types, also when their fields are the same. Thus, use them for local convenience. Do not use them for types that cross an interface.
 
 ## Tuples
 
-Leave out the field names and you get a tuple: a struct whose fields are
-numbered. Tuples have `.len`, support indexing, and may mix types freely:
+If you do not write the field names, you get a tuple. A tuple is a struct with numbered fields. A tuple has `.len`, you can use an index on it, and its fields can have different types:
 
 ```zig
 const tuple = .{ @as(u8, 1), true, @as(f32, 2.5) };
@@ -61,41 +61,30 @@ tuple.@"1";   // true
 tuple.len;    // 3
 ```
 
-The numbers are the field names. The first field is called `0`, the second
-`1`, and so on. A name cannot start with a digit, so `tuple.1` does not
-parse. Wrap the name in `@""` instead: `tuple.@"1"` is ordinary field access,
-the same escape Zig uses for any name that is not a plain identifier.
-`tuple[1]` is a shorter way to write it. When the name is a string you built
-at compile time, `@field(tuple, "1")` reads the same field.
+The numbers are the field names. The name of the first field is `0`, the name of the second field is `1`, and so on.
 
-Index with a comptime-known constant: `tuple[i]` for a runtime `i` cannot
-work, because each element has its own type. A runtime index would mean the
-type of the expression depends on a runtime value, and Zig does not allow that.
-Walk them with [`inline for`](/learn/language-basics/inline-loops/), which
-compiles the body separately per element and so can give each one a different
-type.
+A name cannot start with a digit, thus `tuple.1` does not parse. Put the name in `@""` instead. `tuple.@"1"` is usual field access. Zig uses the same escape for each name that is not a plain identifier.
 
-The `++` operator concatenates tuples, which is how variadic-looking helpers
-build up an argument list at compile time.
+`tuple[1]` is a shorter form of the same access. When the name is a string that you make at compile time, `@field(tuple, "1")` reads the same field.
 
-## This is what format arguments are
+The index must be a constant that the compiler knows. `tuple[i]` with a runtime `i` cannot work, because each element has its own type. With a runtime index, the type of the expression would depend on a runtime value. Zig does not allow that.
+
+To visit each element, use [`inline for`](/learn/language-basics/inline-loops/). `inline for` compiles the body one time for each element. Thus each element can have a different type.
+
+The `++` operator joins tuples. Helpers that look variadic use `++` to make an argument list at compile time.
+
+## Format arguments are a tuple
 
 ```zig
 std.mem.print(&buf, "{s}={d}", .{ "x", 42 });
 ```
 
-That second argument is just a tuple. There is no varargs mechanism in Zig.
-`print` takes one value that happens to be a struct, walks it with `inline
-for`, and checks it against the format string at compile time. A mismatched
-`{d}` is a compile error, not a runtime error.
+The second argument is only a tuple. Zig has no mechanism for varargs. `print` takes one value, and that value is a struct. `print` visits the struct with `inline for`, and compares it with the format string at compile time. A `{d}` that does not match is a compile error, not a runtime error.
 
-Because the arguments are a tuple, several rules follow. Passing the wrong number of
-arguments is a compile error because the tuple has a length. Passing a struct
-where `{d}` expects a number is a compile error because the field's type is
-known. Zig has no `printf` format-string vulnerability, because the format
-string and the arguments are checked against each other before the
-program runs.
+The arguments are a tuple, and some rules follow from that:
 
-The tuple also explains the empty case. A call with no arguments still passes a
-tuple, which is why `.{}` appears at the end of every `print` that
-interpolates nothing.
+- The wrong number of arguments is a compile error, because the tuple has a length.
+- A struct where `{d}` expects a number is a compile error, because the compiler knows the type of the field.
+- Zig has no `printf` format-string vulnerability. The compiler compares the format string and the arguments before the program runs.
+
+The tuple also explains the empty case. A call with no arguments still gives a tuple to `print`. Thus `.{}` occurs at the end of each `print` call that inserts no values.

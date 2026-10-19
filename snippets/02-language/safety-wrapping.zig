@@ -7,8 +7,8 @@ const expect = std.testing.expect;
 test "+% wraps, and says so at the call site" {
     var x: u8 = 255;
     _ = &x;
-    // `x + 1` is the checked add and stops the program. `+%` is a different
-    // operator with a defined answer, in every build mode.
+    // `x + 1` is the checked add, and it stops the program. `+%` is a different
+    // operator. It has a defined answer in each build mode.
     try expect(x +% 1 == 0);
 }
 
@@ -21,7 +21,7 @@ test "+| saturates at the limit instead" {
 test "@addWithOverflow reports rather than stops" {
     var x: u8 = 255;
     _ = &x;
-    // A tuple: the wrapped value, and a u1 that is 1 when it overflowed.
+    // A tuple: the wrapped value, and a u1 that is 1 when an overflow occurred.
     const result = @addWithOverflow(x, 1);
     try expect(result[0] == 0);
     try expect(result[1] == 1);

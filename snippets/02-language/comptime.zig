@@ -1,5 +1,5 @@
 //! title: Comptime
-//! Run ordinary Zig at compile time; types are values there.
+//! Run usual Zig code at compile time. Types are values there.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -9,7 +9,7 @@ fn fibonacci(n: u32) u32 {
     return fibonacci(n - 1) + fibonacci(n - 2);
 }
 
-// A generic function is just one that takes a `type` parameter.
+// A generic function is only a function that takes a `type` parameter.
 fn List(comptime T: type) type {
     return struct {
         items: []T,
@@ -25,17 +25,17 @@ fn max(comptime T: type, a: T, b: T) T {
 }
 
 test "evaluate at compile time" {
-    // `comptime` forces evaluation during compilation; the binary contains
-    // the answer, not the recursion.
+    // `comptime` makes the compiler evaluate the call during compilation.
+    // The binary contains the answer, not the recursion.
     const small = comptime fibonacci(10);
     try expect(small == 55);
     try expect(@TypeOf(small) == u32);
 }
 
 test "the branch quota is a real limit" {
-    // Comptime evaluation is capped at 1000 backwards branches so a runaway
-    // computation fails the build instead of hanging the compiler.
-    // fibonacci(20) needs more than that, so raise the limit on purpose.
+    // Comptime evaluation has a limit of 1000 backwards branches. Thus a
+    // calculation that does not stop makes the build fail, and the compiler
+    // does not hang. fibonacci(20) needs more, thus increase the limit.
     @setEvalBranchQuota(100_000);
     const result = comptime fibonacci(20);
     try expect(result == 6765);
@@ -52,7 +52,7 @@ test "generic data structure" {
     const list = List(i32){ .items = &backing };
     try expect(list.first().? == 10);
 
-    // A different T produces a different type.
+    // A different T makes a different type.
     try expect(List(i32) != List(u8));
 }
 

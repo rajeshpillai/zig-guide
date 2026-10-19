@@ -12,8 +12,8 @@ pub fn main(init: std.process.Init) !void {
     _ = init;
 
     // Zig inserts checks for out-of-bounds access, integer overflow, invalid
-    // casts, and more. In a safety-enabled build this panics with
-    // "index out of bounds" rather than reading whatever memory follows.
+    // casts, and more. In a build with safety checks, this code panics with
+    // "index out of bounds". It does not read the memory after the array.
     const array = [_]u8{ 1, 2, 3 };
     var index: usize = 5;
     _ = &index; // stop comptime evaluation
@@ -21,5 +21,5 @@ pub fn main(init: std.process.Init) !void {
     std.debug.print("never printed: {d}\n", .{value});
 }
 
-// Panics on purpose. CI runs it and requires it to stop with exactly the
-// message this chapter quotes.
+// This program panics intentionally. CI runs it and requires it to stop with
+// exactly the message that this chapter quotes.

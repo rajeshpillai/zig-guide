@@ -7,73 +7,62 @@ order: 24
 
 import Playground from "../../../components/Playground.astro";
 
-A Zig enum is a type whose value is exactly one of a fixed set of named tags.
-An enum can pin its integer tag type with `enum(u8)`, declare methods, and
-accept values outside the named tags when a trailing `_` makes it
-non-exhaustive.
+A Zig enum is a type. Its value is exactly one tag from a fixed set of named tags. An enum can do three more things:
+
+- It can set its integer tag type with `enum(u8)`.
+- It can declare methods.
+- It can accept values that are not named tags. A `_` at the end of the tag list makes the enum non-exhaustive.
 
 <Playground name="02-language.enums" />
 
 ## Inferred literals
 
-When the expected type is known, the leading dot is enough:
+When the compiler knows the expected type, the dot at the start is sufficient:
 
 ```zig
 const d: Direction = .north;
 takeDirection(.south);
 ```
 
-This keeps `switch` prongs and struct literals readable without repeating the
-type name everywhere. `.north` on its own has a type of its own, the enum
-literal type, which coerces to any enum that has a matching tag. So the same
-`.north` works for two unrelated enums in two different calls.
+Thus `switch` prongs and struct literals stay easy to read, and you do not write the type name again in each place.
 
-## Pinning the representation
+`.north` alone has its own type, the enum literal type. This type coerces to each enum that has a tag with the same name. Thus the same `.north` works for two unrelated enums in two different calls.
+
+## Set the representation
 
 ```zig
 const Value = enum(u8) { zero = 0, one = 1, hundred = 100 };
 ```
 
-Specifying the tag type fixes both the size and the numeric values, which
-matters for wire formats and C interop. Convert with `@intFromEnum` and
-`@enumFromInt`. The latter is checked in safety builds, because not every
-integer is a valid tag.
+When you specify the tag type, you fix the size and the numeric values. This is important for wire formats and for C interop.
 
-Without a tag type, the compiler picks the smallest integer that fits and
-numbers the tags from zero. So `@intFromEnum` still works on a plain enum, and
-the values are still ordered by declaration, but do not write either into a
-file format. Pin the type when the numbers leave your program.
+To convert, use `@intFromEnum` and `@enumFromInt`. In safety builds, Zig checks `@enumFromInt`, because not all integers are valid tags.
+
+Without a tag type, the compiler selects the smallest integer that fits. It gives the tags numbers from zero. Thus `@intFromEnum` still works on a plain enum, and the values still have the order of the declaration. But do not write these numbers into a file format. When the numbers go out of your program, set the tag type.
 
 ## Non-exhaustive enums
 
-A trailing `_` says that values outside the named tags are legal:
+A `_` at the end of the list says that values outside the named tags are legal:
 
 ```zig
 const Opcode = enum(u8) { get = 1, set = 2, _ };
 ```
 
-This is the right type for a byte that arrives from a network or a C library,
-where you do not control the set of values. `@enumFromInt` on one of these
-cannot fail, because every value is legal. A `switch` handles the unnamed case
-with `_` rather than `else`, which keeps the exhaustiveness check alive for
-the named ones. See [switch](/learn/language-basics/switch/).
+Use this type for a byte that comes from a network or a C library, where you do not control the set of values. `@enumFromInt` on such an enum cannot fail, because each value is legal.
+
+A `switch` uses `_` for the unnamed values, not `else`. Thus the compiler still checks that the `switch` has a prong for each named tag. See [switch](/learn/language-basics/switch/).
 
 ## Methods
 
-Enums can declare functions. `Suit.hearts.isRed()` is exactly
-`Suit.isRed(Suit.hearts)`: method syntax is a shorter way to pass the receiver
-as the first argument. The call goes straight to that function, with no
-dynamic dispatch.
+Enums can declare functions. `Suit.hearts.isRed()` is exactly `Suit.isRed(Suit.hearts)`. The method syntax is a shorter way to give the receiver as the first argument. The call goes directly to that function, with no dynamic dispatch.
 
-They can hold constants and nested types too, so an enum is a fine place to
-put the parsing and formatting that belong to it. A `fromString` returning
-`?Suit` next to a `toString` returning `[]const u8` keeps the whole mapping in
-one place, and `std.meta.stringToEnum(Suit, text)` writes the parsing half for
-you from the tag names.
+Enums can also contain constants and nested types. Thus an enum is a good place for the parsing and the formatting that belong to it.
+
+For example, put a `fromString` that returns `?Suit` next to a `toString` that returns `[]const u8`. Then the full mapping is in one place. `std.meta.stringToEnum(Suit, text)` can also write the parsing half for you from the tag names.
 
 ## Reflection
 
-`@typeInfo(T).@"enum"` exposes the tags at comptime:
+`@typeInfo(T).@"enum"` gives the tags at comptime:
 
 ```zig
 const info = @typeInfo(Direction).@"enum";
@@ -83,22 +72,17 @@ info.tag_type;         // u2
 info.mode;             // .exhaustive
 ```
 
-Note these are **parallel arrays**, not one array of field structs. Older
-tutorials show `info.fields[i].name`. That shape is gone. The split landed
-between `0.17.0-dev.644` and `dev.1441`, and was the only break anywhere in
-this guide when the compiler was updated.
+These are **parallel arrays**, not one array of field structs. Older tutorials show `info.fields[i].name`. That shape does not exist now.
 
-`@tagName` gives the name as a string. With `@tagName` and these arrays,
-generic code prints or parses enums without a hand-written table. Walk `field_names` with
-`inline for` and you have a parser, a formatter or a table of every case,
-built from the declaration and unable to fall out of sync with it. See [inline
-loops](/learn/language-basics/inline-loops/).
+The change occurred between `0.17.0-dev.644` and `dev.1441`. When the compiler got that update, this change was the only break in this guide.
 
-## Enums versus the alternatives
+`@tagName` gives the name as a string. With `@tagName` and these arrays, generic code can print or parse enums without a table that you write by hand.
 
-An enum is the right answer when a value is exactly one of a fixed, known set
-and carries nothing else. When each case needs its own payload, that is a
-[tagged union](/learn/language-basics/unions/), which is an enum with data
-attached. When the cases are independent flags that can combine, an enum is
-the wrong shape. Use a `packed struct` of `bool` fields, which gives you named
-bits backed by a single integer.
+Use `inline for` on `field_names`, and you have a parser, a formatter or a table of all cases. The compiler makes them from the declaration, thus they always agree with the declaration. See [inline loops](/learn/language-basics/inline-loops/).
+
+## Enums and the alternatives
+
+Use an enum when a value is exactly one item of a fixed, known set, and the value contains no other data. The other conditions need different types:
+
+- If each case needs its own payload, use a [tagged union](/learn/language-basics/unions/). A tagged union is an enum with data.
+- If the cases are independent flags that you can combine, an enum is the wrong shape. Use a `packed struct` of `bool` fields. It gives you named bits in a single integer.

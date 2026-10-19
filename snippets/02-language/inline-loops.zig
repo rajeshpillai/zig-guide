@@ -1,12 +1,12 @@
 //! title: Inline Loops
-//! Unroll at compile time, so each iteration can have its own types.
+//! Unroll at compile time. Then each iteration can have its own types.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
 test "inline for over a tuple" {
-    // A tuple's elements have different types, so the loop body must be
-    // compiled separately for each. That is what `inline` provides.
+    // The elements of a tuple have different types. Thus the compiler must
+    // compile the loop body separately for each element. `inline` does this.
     const tuple = .{ @as(u8, 1), @as(f32, 2.5), true };
     var count: usize = 0;
     inline for (tuple) |value| {
@@ -27,8 +27,8 @@ test "inline for over types" {
 test "the loop variable becomes comptime-known" {
     var sum: usize = 0;
     inline for (0..4) |i| {
-        // `i` is comptime here, so it can be used where a comptime value
-        // is required, such as an array type's length.
+        // `i` is comptime here. Thus you can use `i` where a comptime value
+        // is necessary, for example the length of an array type.
         const arr: [i]u8 = undefined;
         sum += arr.len;
     }

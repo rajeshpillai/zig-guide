@@ -22,7 +22,7 @@ test "continue an outer loop" {
     var count: u32 = 0;
     outer: for (0..4) |i| {
         for (0..4) |j| {
-            if (j > i) continue :outer; // next i, skip remaining j
+            if (j > i) continue :outer; // next i, skip the other j values
             count += 1;
         }
     }

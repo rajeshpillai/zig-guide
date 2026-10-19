@@ -1,5 +1,5 @@
 //! title: Payload Captures
-//! `|value|` unwraps whatever the construct is holding.
+//! `|value|` unwraps the value that the construct holds.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -45,7 +45,7 @@ test "capture by pointer to mutate" {
 }
 
 test "while captures until null" {
-    // A `while` over an optional-returning expression loops until null.
+    // A `while` over an expression that returns an optional stops at null.
     var countdown: u32 = 3;
     var seen: u32 = 0;
     while (nextValue(&countdown)) |value| {

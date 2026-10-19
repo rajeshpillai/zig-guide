@@ -1,28 +1,23 @@
 ---
 title: Comptime
-description: Ordinary Zig, executed by the compiler.
+description: Usual Zig code that the compiler runs.
 section: Language
 order: 34
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-`comptime` is Zig's answer to templates, macros, generics, reflection, and
-constant folding, all with one mechanism: **run normal Zig at compile time,
-where types are values.**
+`comptime` is the Zig solution for templates, macros, generics, reflection and constant folding. It uses one mechanism for all of them: **the compiler runs usual Zig code at compile time, and types are values there.**
 
 <Playground name="02-language.comptime" />
 
-There is no second language here. The code that runs during compilation is the
-same Zig, with the same syntax and the same standard library functions. You
-debug it by reading it, not by expanding a macro. C++ templates, C macros and Rust's
-declarative macros are each a separate language with separate rules. None of
-them can be stepped through.
+Zig has no second language for this. The code that runs during compilation is the same Zig, with the same syntax and the same standard library functions. To debug it, you read it. You do not expand a macro.
+
+C++ templates, C macros and the declarative macros of Rust are each a separate language with separate rules. You cannot step through any of them.
 
 ## Types are values
 
-A `type` is an ordinary comptime value. That single fact removes the need for
-a separate generics language:
+A `type` is a usual comptime value. Because of this one fact, Zig does not need a separate language for generics:
 
 ```zig
 fn max(comptime T: type, a: T, b: T) T {
@@ -30,23 +25,17 @@ fn max(comptime T: type, a: T, b: T) T {
 }
 ```
 
-`comptime T: type` says this parameter must be known at compile time. Each
-distinct `T` produces a separately compiled function. This is called
-monomorphisation, and it needs no special syntax.
+`comptime T: type` says that the compiler must know this parameter at compile time. The compiler makes a separately compiled function for each different `T`. The name of this process is monomorphisation, and it needs no special syntax.
 
-Values other than types can be `comptime` too, and that is how a function
-specialises on a configuration rather than a type:
+Values that are not types can also be `comptime`. A function uses such a value to specialise on a configuration instead of a type:
 
 ```zig
 fn hash(comptime seed: u64, data: []const u8) u64 { ... }
 ```
 
-Every call with a different `seed` gets its own compiled copy with the
-constant folded in. Those copies are also the cost. `comptime` parameters multiply the
-amount of code generated. They belong on things that take a handful of
-distinct values, not on things that take a thousand.
+Each call with a different `seed` gets its own compiled copy, and the compiler folds the constant into that copy. These copies are also the cost. `comptime` parameters multiply the quantity of generated code. Use them for parameters that have a small number of different values, not for parameters that have a thousand values.
 
-## Generic types are functions returning types
+## Generic types are functions that return types
 
 ```zig
 fn List(comptime T: type) type {
@@ -54,59 +43,35 @@ fn List(comptime T: type) type {
 }
 ```
 
-`List(i32)` and `List(u8)` are different types. `std.ArrayList` and
-`std.HashMap` are ordinary functions like this one. Nothing in the standard
-library gets privileged syntax you cannot use yourself.
+`List(i32)` and `List(u8)` are different types. `std.ArrayList` and `std.HashMap` are usual functions, the same as this one. The standard library gets no special syntax that you cannot use yourself.
 
-Calling the same function with the same arguments gives the same type back,
-not a new one each time. So `List(u8)` in two different files refers to one
-thing.
+When you call the same function with the same arguments, you get the same type. You do not get a new type for each call. Thus `List(u8)` in two different files is one type.
 
 ## What can and cannot run at compile time
 
-Anything that is pure computation can: arithmetic, control flow, building
-arrays, walking a type's fields, formatting a string. Anything that touches
-the outside world cannot. Comptime code cannot read a file, read the clock,
-allocate from a runtime allocator, or call into C.
+Code that is pure computation can run at compile time. Examples are arithmetic, control flow, array construction, a walk over the fields of a type, and string formatting.
 
-When you use a value the compiler already knows, evaluation happens whether or
-not you wrote `comptime`. The keyword forces it. `comptime` before an
-expression demands that it be evaluated now, and fails the build if it cannot.
-Without the keyword, such code would silently run at runtime instead. With it,
-you get an error.
+Code that touches the outside world cannot run at compile time. Comptime code cannot read a file, read the clock, allocate from a runtime allocator, or call C.
 
-A related tool is `@compileError`, which fails the build with your message
-when a branch is reached during compilation. With `@typeInfo`, a generic
-function can use it to reject a type it cannot handle. The user then gets your
-message instead of an error from inside the function body.
+When you use a value that the compiler knows, the compiler evaluates the code, with or without `comptime`. The keyword makes the evaluation necessary. `comptime` before an expression tells the compiler to evaluate the expression now. If the compiler cannot, the build fails. Without the keyword, such code runs at runtime and you get no message. With the keyword, you get an error.
+
+A related tool is `@compileError`. When the compiler reaches a branch with `@compileError`, the build fails with your message. With `@typeInfo`, a generic function can use `@compileError` to refuse a type that it cannot use. Then the user gets your message, not an error from inside the function body.
 
 ## The branch quota
 
-Comptime evaluation is capped at **1000 backwards branches**, so an accidental
-infinite loop fails the build instead of hanging the compiler. Real work often
-exceeds it:
+Comptime evaluation has a limit of **1000 backwards branches**. Thus an accidental infinite loop makes the build fail, and the compiler does not hang. Real work is often more than this limit:
 
 ```zig
 @setEvalBranchQuota(100_000);
 const result = comptime fibonacci(20);
 ```
 
-Raising it is normal. If you need to raise it to a huge number, the work
-probably belongs at runtime.
+An increase of the quota is normal. If you must increase the quota to a very large number, the work possibly belongs at runtime.
 
-## Where it saves you work
+## The work that comptime saves
 
-Anything computed at comptime is not in the binary as code, only as its
-result. Format strings are checked against their arguments, lookup tables are
-generated, and dead configuration branches disappear entirely.
+When the compiler calculates something at comptime, the binary contains only the result, not the code. The compiler compares format strings with their arguments. It makes lookup tables. It removes dead configuration branches fully.
 
-A check against a comptime-known configuration value does not become a branch
-in the output, so the CPU never has to predict it. So a library can
-offer a dozen options without any of them costing a test at runtime. A
-debug-only code path can be written normally, rather than hidden behind
-conditional compilation.
+A check of a configuration value that the compiler knows does not become a branch in the output. Thus the CPU never has to predict the branch. A library can therefore have a dozen options, and none of the options costs a test at runtime. You can write a debug-only code path as usual code. You do not have to hide it behind conditional compilation.
 
-The limit to keep in mind is compile time. Every table you generate and every
-type you create is work the compiler does on every build. It is possible to
-write a program that is fast at runtime and very slow to build. A comptime
-computation that needs a large branch quota is a warning sign of this.
+The limit to remember is compile time. Each table that you generate and each type that you make is work for the compiler on each build. You can write a program that is fast at runtime and very slow to build. A comptime calculation that needs a large branch quota is a warning sign of this problem.

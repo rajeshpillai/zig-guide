@@ -1,5 +1,5 @@
 //! title: Anonymous Structs
-//! `.{ ... }` infers the type, and gives you tuples for free.
+//! `.{ ... }` infers the type. It also makes tuples.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -9,7 +9,7 @@ fn describe(point: struct { x: i32, y: i32 }) i32 {
 }
 
 test "anonymous struct literal" {
-    // The type is inferred from context, so the name need not be written.
+    // The compiler infers the type from the context. Thus you do not write the name.
     try expect(describe(.{ .x = 1, .y = 2 }) == 3);
 }
 
@@ -18,8 +18,8 @@ test "tuples are anonymous structs with numeric fields" {
     try expect(tuple.len == 3);
     try expect(tuple[0] == 1);
     try expect(tuple[1] == true);
-    // The field is named `1`, which is not a valid identifier, so the
-    // field syntax needs `@""`. Both forms reach the same field.
+    // The name of the field is `1`. `1` is not a valid identifier, thus the
+    // field syntax needs `@""`. The two forms read the same field.
     try expect(tuple.@"1" == true);
     try expect(@field(tuple, "2") == 2.5);
 }
@@ -31,8 +31,8 @@ test "tuples hold mixed types" {
 }
 
 test "this is how format arguments work" {
-    // `.{ a, b }` in a print call is just a tuple; the format string is
-    // checked against it at compile time.
+    // `.{ a, b }` in a print call is only a tuple. The compiler compares the
+    // format string with the tuple at compile time.
     var buf: [32]u8 = undefined;
     const text = try std.mem.print(&buf, "{s}={d}", .{ "x", 42 });
     try expect(std.mem.eql(u8, text, "x=42"));

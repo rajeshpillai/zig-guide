@@ -1,5 +1,5 @@
 //! title: Slices
-//! `[]T` is a pointer plus a length, the workhorse of Zig code.
+//! `[]T` is a pointer plus a length, the usual sequence type in Zig code.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -21,7 +21,7 @@ test "slices share memory" {
     var array = [_]u8{ 1, 2, 3 };
     const slice = array[0..2];
     slice[0] = 100;
-    try expect(array[0] == 100); // no copy was made
+    try expect(array[0] == 100); // the slice is not a copy
 }
 
 test "strings are slices" {

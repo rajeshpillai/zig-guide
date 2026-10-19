@@ -7,54 +7,43 @@ order: 27
 
 import Playground from "../../../components/Playground.astro";
 
-Zig integer types carry an explicit width, such as `u8`, `i32` or `u3`, and
-narrowing from a wider type needs `@intCast`. Plain `+` treats overflow as
-illegal behaviour, which panics in safety builds; `+%` wraps and `+|`
-saturates when that is what you want.
+Zig integer types have an explicit width, such as `u8`, `i32` or `u3`. A conversion from a wider type to a narrower type needs `@intCast`.
+
+For plain `+`, overflow is illegal behaviour, and safety builds panic on it. When you want a different result, use one of the two other operators:
+
+- `+%` wraps.
+- `+|` saturates.
 
 <Playground name="02-language.integer-rules" />
 
-## Any width you like
+## Any width that you want
 
-`u3`, `i7`, `u64`, `u1000` are all real types. `u8` is not special. It is just
-the width that matches a byte. Packed structs use this to describe
-bitfields exactly.
+`u3`, `i7`, `u64` and `u1000` are all real types. `u8` is not special. It is only the width of a byte. Packed structs use these widths to describe bitfields exactly.
 
-The width is part of the type and never depends on the platform. Zig has no
-`int` whose size changes with the compiler, and no integer promotion rules to
-remember. Your machine and the CI machine compute the same results. The one target-dependent integer type is `usize`, and it is
-target-dependent on purpose, because it is the width of a pointer. See
-[pointer-sized integers](/learn/language-basics/pointer-sized-integers/).
+The width is part of the type, and the width never depends on the platform. Zig has no `int` whose size changes with the compiler, and no integer promotion rules to remember. Your computer and the CI computer calculate the same results.
 
-`@sizeOf(u3)` is 1, because memory is addressed in bytes. Inside a `packed
-struct` the same `u3` occupies exactly three bits. Odd widths are for
-describing layout and for expressing a bound, not for saving memory on their
-own.
+The only integer type that depends on the target is `usize`. It depends on the target on purpose, because it is the width of a pointer. See [pointer-sized integers](/learn/language-basics/pointer-sized-integers/).
 
-## Widening is free, narrowing is not
+`@sizeOf(u3)` is 1, because memory addresses are in bytes. Inside a `packed
+struct`, the same `u3` uses exactly three bits. Unusual widths are for the description of a layout and for a limit on a value. Alone, they do not save memory.
 
-`u8` → `u16` is always safe, so Zig does it implicitly. The reverse can lose
-data, so it must be written:
+## A wider type has no cost, a narrower type has a cost
+
+A conversion from `u8` to `u16` is always safe. Thus Zig does it implicitly. The reverse conversion can lose data. Thus you must write it:
 
 ```zig
 const c: u8 = @intCast(b);
 ```
 
-In a safety-enabled build `@intCast` panics if the value does not fit. In
-`ReleaseFast` it is illegal behaviour. Either way, the cast is visible in the
-source, so you cannot lose the top bits by accident.
+In a build with safety checks, `@intCast` panics if the value does not fit. In `ReleaseFast`, a value that does not fit is illegal behaviour. In the two cases, the cast is visible in the source. Thus you cannot lose the top bits by accident.
 
-Signedness counts as information. `i8` to `u8` is a narrowing in Zig's sense
-even though the widths match, because a negative value has nowhere to go, and
-it needs `@intCast` too. `@bitCast` is the other conversion. It keeps the
-same bits and reads them as a different type. It never checks anything,
-because nothing can go wrong at the bit level. Use `@intCast` when you mean
-"this number" and `@bitCast` when you mean "these bits".
+The sign is also information. For Zig, a conversion from `i8` to `u8` is a narrowing, also when the widths are equal. The reason is that `u8` has no place for a negative value. Thus this conversion also needs `@intCast`.
 
-## Overflow is a decision
+`@bitCast` is the other conversion. It keeps the same bits and reads them as a different type. It never checks the value, because nothing can go wrong at the bit level. Use `@intCast` when you mean "this number", and `@bitCast` when you mean "these bits".
 
-Plain `+` on integers **traps** on overflow rather than wrapping. If you want
-different behaviour, ask for it:
+## You decide what overflow does
+
+On overflow, plain `+` on integers **traps**. It does not wrap. If you want a different behaviour, ask for it:
 
 | Operator | On overflow |
 | --- | --- |
@@ -62,44 +51,32 @@ different behaviour, ask for it:
 | `+%` `-%` `*%` | wrap around |
 | `+\|` `-\|` `*\|` | saturate at the type's limit |
 
-Or detect it: `@addWithOverflow(a, b)` returns a tuple of the wrapped result
-and an overflow bit.
+You can also detect the overflow. `@addWithOverflow(a, b)` returns a tuple of the wrapped result and an overflow bit.
 
-In C, overflow can corrupt a value silently. In Zig, the behaviour is an
-explicit choice.
+In C, overflow can corrupt a value, and you get no warning. In Zig, the behaviour is an explicit selection.
 
-Each of the three has a domain where it is the right answer. Wrapping is
-correct for hashes, checksums and counters that are meant to cycle. Saturating
-is correct for pixel arithmetic and audio mixing, where the answer above the
-limit really is the limit. The trapping default is correct for everything
-else. A number that no longer fits its type means there is a bug. It is
-better to find out at once than three functions later.
+Each of the three behaviours is the correct answer for some data:
 
-A common mistake is unsigned subtraction. `a - b` where `b > a` is
-an overflow, not a negative number, and it panics. Counting down from `.len`
-needs the decrement written where it cannot run at zero.
+- Wrapping is correct for hashes, checksums and counters that must cycle.
+- Saturating is correct for pixel arithmetic and audio mixing. In these cases, the correct answer above the limit really is the limit.
+- The default trap is correct for all other data.
 
-## Division and shifts have rules too
+A number that does not fit its type now means that the code has a bug. It is better to find the bug immediately than three functions later.
 
-`/` on a signed integer that is not comptime-known does not compile at all.
-Rounding towards zero and rounding down disagree the moment an operand is
-negative, so Zig makes you name the one you meant: `@divTrunc`, `@divFloor`,
-`@divCeil` or `@divExact`. `%` is the same, and pairs with `@rem` and `@mod`.
-C shows why the choice matters: its answer to `-7 / 2` was
-implementation-defined for twenty years.
+A common mistake is unsigned subtraction. When `b > a`, `a - b` is an overflow, not a negative number, and it panics. When you count down from `.len`, put the decrement in a place where it cannot run at zero.
 
-Shifting by more than the width is illegal behaviour on every platform. The shift amount's type is also narrowed to just enough bits to
-express a legal shift, so `x << 8` on a `u8` will not compile.
+## Division and shifts also have rules
+
+`/` on a signed integer that the compiler does not know at comptime does not compile at all. Rounding toward zero and rounding down give different results when an operand is negative. Thus Zig makes you write the one that you want: `@divTrunc`, `@divFloor`, `@divCeil` or `@divExact`.
+
+`%` has the same rule, and you use `@rem` or `@mod`. C shows why the selection is important: for twenty years, the C answer to `-7 / 2` was implementation-defined.
+
+On all platforms, a shift by more than the width is illegal behaviour. Also, the type of the shift amount has only enough bits for a legal shift. Thus `x << 8` on a `u8` does not compile.
 
 ## `comptime_int`
 
-Literals have no width until they are assigned one. `1 << 100` is fine at
-compile time; it only needs to fit once it becomes a runtime value.
+Literals have no width until they get one from an assignment. `1 << 100` is correct at compile time. It must fit only when it becomes a runtime value.
 
-`comptime_int` has arbitrary precision, unlike `comptime_float`,
-which is `f128` underneath. So compile-time integer arithmetic is exact at any
-magnitude, and the error only arrives when the result has to be stored
-somewhere with a size. For this reason a `var` cannot hold a `comptime_int`,
-and
-`std.math.maxInt(T)` and `minInt(T)` are the right way to talk about a type's
-limits rather than writing the constant out.
+`comptime_int` has arbitrary precision. `comptime_float` does not, because it uses `f128`. Thus integer arithmetic at compile time is exact at all magnitudes. The error occurs only when you store the result in a location with a size.
+
+For this reason, a `var` cannot hold a `comptime_int`. To refer to the limits of a type, use `std.math.maxInt(T)` and `minInt(T)`. Do not write the constant yourself.

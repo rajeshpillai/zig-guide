@@ -1,15 +1,15 @@
 //! title: Assignment
-//! `const` by default; `var` only when you must mutate.
+//! `const` by default, and `var` only when you must change the value.
 
 const std = @import("std");
 const expect = std.testing.expect;
 
 test "const and var" {
-    const constant: i32 = 5; // may not be reassigned
-    var variable: u32 = 5000; // may be reassigned
+    const constant: i32 = 5; // cannot get a new value
+    var variable: u32 = 5000; // can get a new value
     variable += 1;
 
-    // The type can be inferred from the value.
+    // The compiler can infer the type from the value.
     const inferred_constant = @as(i32, 5);
     var inferred_variable = @as(u32, 5000);
     inferred_variable += 1;
@@ -21,8 +21,8 @@ test "const and var" {
 }
 
 test "undefined leaves memory uninitialised" {
-    // `undefined` means "I will assign this before I read it". Reading it
-    // first is illegal behaviour, not a guaranteed zero.
+    // `undefined` means "I will assign this before I read it". A read before
+    // the assignment is illegal behaviour. The value is not always zero.
     var x: i32 = undefined;
     x = 7;
     try expect(x == 7);

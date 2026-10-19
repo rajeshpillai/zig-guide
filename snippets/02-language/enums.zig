@@ -6,7 +6,7 @@ const expect = std.testing.expect;
 
 const Direction = enum { north, south, east, west };
 
-// The tag type can be pinned, which fixes the numeric values.
+// You can set the tag type. The tag type fixes the numeric values.
 const Value = enum(u8) { zero = 0, one = 1, hundred = 100 };
 
 const Suit = enum {
@@ -15,7 +15,7 @@ const Suit = enum {
     diamonds,
     hearts,
 
-    // Enums can have methods; they are namespaced functions, not vtables.
+    // Enums can have methods. They are functions in a namespace, not vtables.
     pub fn isRed(self: Suit) bool {
         return switch (self) {
             .diamonds, .hearts => true,
@@ -30,7 +30,7 @@ test "enum values" {
 }
 
 test "inferred enum literals" {
-    // When the type is known, `.north` is enough.
+    // When the compiler knows the type, `.north` is sufficient.
     const d: Direction = .north;
     try expect(d == Direction.north);
 }

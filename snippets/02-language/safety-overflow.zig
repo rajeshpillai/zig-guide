@@ -14,10 +14,10 @@ pub fn main(init: std.process.Init) !void {
     var x: u8 = 255;
     _ = &x; // stop comptime evaluation
 
-    // 256 does not fit in a u8. `+=` is the checked add: in this build the
-    // check runs and the program stops here. In ReleaseFast or ReleaseSmall
-    // there is no check, and the value is undefined. It is not guaranteed
-    // to wrap.
+    // 256 does not fit in a u8. `+=` is the checked add. In this build, the
+    // check runs and the program stops here. In ReleaseFast or ReleaseSmall,
+    // there is no check, and the value is undefined. Zig does not guarantee
+    // that the value wraps.
     x += 1;
 
     std.debug.print("never printed: {d}\n", .{x});

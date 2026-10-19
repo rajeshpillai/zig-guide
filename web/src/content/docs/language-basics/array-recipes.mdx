@@ -1,70 +1,64 @@
 ---
 title: Array Recipes
-description: Grids, comptime lookup tables, and getting an array back out of a slice.
+description: Grids, lookup tables made at compile time, and how to get an array from a slice.
 section: Language
 order: 41
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Three things you need once arrays grow past small examples: a grid, a
-table computed at compile time, and a fixed-size array taken back out of a
-slice. All three are language mechanics. None of them needs an allocator.
+When arrays become larger than small examples, you need three things:
+
+- A grid.
+- A table that the compiler calculates at compile time.
+- A fixed-size array that you take from a slice.
+
+The three are language mechanics. None of them needs an allocator.
 
 <Playground name="02-language.array-recipes" />
 
 ## A grid is an array of arrays
 
-`[3][3]u8` is nine bytes in one contiguous block. Both lengths are part of the
-type. `grid.len` is the row count and `grid[0].len` is the column count.
-`@sizeOf` shows there is no hidden pointer anywhere. Index rows first, then
-columns.
+`[3][3]u8` is nine bytes in one contiguous block. The two lengths are part of the type. `grid.len` is the number of rows, and `grid[0].len` is the number of columns.
 
-`[3][3]u8` is not the same type as `[][]u8`, a slice of slices. A slice of
-slices is a list of pointers to rows that may live anywhere. The nested array
-is one block with no allocation. The slice of slices is as many blocks as the
-code that built it made.
+`@sizeOf` shows that the grid contains no hidden pointer. Use the row index first, then the column index.
 
-## The outer loop hands you a copy
+`[3][3]u8` is not the same type as `[][]u8`, a slice of slices. A slice of slices is a list of pointers to rows, and the rows can be at any location in memory. The nested array is one block, and it needs no allocation. The slice of slices has as many blocks as the code that made it.
 
-Arrays are values, which the [Arrays](/learn/language-basics/arrays/) chapter
-states. In a nested loop this rule has a direct effect. `for (grid) |row|`
-copies each row, so writing through `row` changes nothing in `grid`. The
-compiler does not complain, because the code is valid.
+## The outer loop gives you a copy
 
-`for (&grid) |*row|` iterates pointers, and then `for (row) |*cell|` reaches
-the elements. Both levels have to be pointers before a write lands.
+The [Arrays](/learn/language-basics/arrays/) chapter states that arrays are values. In a nested loop, this rule has a direct effect.
 
-## Or one flat array
+`for (grid) |row|` copies each row. Thus a write through `row` changes nothing in `grid`. The compiler does not give an error, because the code is valid.
 
-`[width * height]T` with `y * width + x` is the other shape. The type no
-longer carries the geometry, so you must keep the stride right yourself. In
-exchange, the dimensions no longer have to be two separate compile-time
-constants.
+`for (&grid) |*row|` iterates over pointers, and then `for (row) |*cell|` gets the elements. The two levels must be pointers before a write can change the grid.
 
-Pick the nested array when the shape is fixed and small. Pick the flat one in
-three cases. When the width is computed. When you want to hand the whole thing
-to something that takes a `[]T`. Or when the rows are large enough that
-copying one by accident would matter.
+## Use one flat array
 
-## Tables built at compile time
+The other shape is `[width * height]T` with the index `y * width + x`. The type does not contain the geometry. Thus you must keep the stride correct yourself. In return, the dimensions do not have to be two separate compile-time constants.
 
-Declare `undefined` storage, fill it in a loop, and `break :blk` the finished
-array out of the block. Run that inside `comptime` and the result is a
-constant baked into the binary, with no initialization code at startup.
+Use the nested array when the shape is fixed and small. Use the flat array in these three conditions:
 
-You can check this: use one of the table's entries as an array length.
-Array lengths must be known at compile time, so if it compiles, the value came
-out of comptime.
+- The program calculates the width.
+- You want to give the full array to a function that takes a `[]T`.
+- The rows are so large that an accidental copy of one row is a problem.
 
-## From slice back to array
+## Make a table at compile time
 
-`slice[0..N].*` copies out a real `[N]T`, where `N` has to be known at compile
-time. The length moves back into the type, which is what a function expecting
-`*const [4]u8` wants.
+To make the table, do these steps:
 
-It is a copy. Writing to the result leaves the original slice untouched.
+1. Declare storage that is `undefined`.
+2. Fill the storage in a loop.
+3. Use `break :blk` to return the completed array from the block.
 
-Concatenating at runtime uses `std.mem.concat` and is covered in [String
-Recipes](/learn/standard-library/string-recipes/). The operations that work on
-slices in place are in [Slice Recipes](/learn/language-basics/slice-recipes/).
+Do these steps inside `comptime`. The result is a constant in the binary, and the program runs no initialization code at startup.
+
+You can do a check of this. Use one of the entries of the table as an array length. The compiler must know each array length at compile time. Thus, if the code compiles, the value came from comptime.
+
+## Change a slice back to an array
+
+`slice[0..N].*` copies a real `[N]T` from the slice. The compiler must know `N` at compile time. The length moves back into the type. A function that expects `*const [4]u8` needs this.
+
+The result is a copy. A write to the result does not change the original slice.
+
+To join slices at runtime, use `std.mem.concat`. [String Recipes](/learn/standard-library/string-recipes/) explains it. The operations that change slices in place are in [Slice Recipes](/learn/language-basics/slice-recipes/).

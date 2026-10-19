@@ -5,8 +5,8 @@ const std = @import("std");
 const expect = std.testing.expect;
 
 fn firstIndexOf(haystack: []const u8, needle: u8) ?usize {
-    // The `else` branch runs only if the loop finished without breaking,
-    // so "not found" cannot be forgotten.
+    // The `else` branch runs only if the loop ends without a `break`. Thus
+    // you cannot forget the "not found" case.
     return for (haystack, 0..) |c, i| {
         if (c == needle) break i;
     } else null;

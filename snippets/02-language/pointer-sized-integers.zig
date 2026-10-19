@@ -10,7 +10,7 @@ test "usize matches pointer width" {
 }
 
 test "usize is the index and length type" {
-    // `.len` is a usize, and so is anything used to index a slice.
+    // `.len` is a usize. A value that you use as a slice index is also a usize.
     const array = [_]u8{ 1, 2, 3 };
     const length: usize = array.len;
     try expect(length == 3);
@@ -18,7 +18,7 @@ test "usize is the index and length type" {
 }
 
 test "wasm32 is a 32-bit target" {
-    // These snippets are compiled to wasm32-wasi, so a pointer is 4 bytes.
-    // The same source on x86_64 would see 8.
+    // The build compiles these snippets to wasm32-wasi, so a pointer is 4 bytes.
+    // On x86_64, the same source gets 8.
     try expect(@sizeOf(usize) == 4);
 }

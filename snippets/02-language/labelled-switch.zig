@@ -9,10 +9,10 @@ const Token = struct { tag: Tag, start: usize, end: usize };
 
 const State = enum { start, identifier, number };
 
-// One token from `src`, starting at `index.*`.
+// One token from `src`. The token starts at `index.*`.
 //
-// The source is zero-terminated, like the one std.zig.Tokenizer reads, so the
-// terminator is the end-of-input byte and no prong checks a length.
+// The source ends with a zero byte, as the source of std.zig.Tokenizer does.
+// Thus the terminator marks the end of the input, and no prong checks a length.
 fn next(src: [:0]const u8, index: *usize, out: *std.Io.Writer) !Token {
     var i = index.*;
     var start = i;
@@ -83,8 +83,8 @@ fn visit(out: *std.Io.Writer, state: []const u8, src: [:0]const u8, i: usize) !v
     }
 }
 
-// The same tokenizer written the way it had to be before Zig 0.14: a loop
-// around a switch, with the state kept in a variable.
+// The same tokenizer in the form that was necessary before Zig 0.14: a loop
+// around a switch, and a variable that holds the state.
 fn nextLoop(src: [:0]const u8, index: *usize) Token {
     var i = index.*;
     var start = i;
@@ -141,8 +141,8 @@ const Instruction = union(enum) {
     halt,
 };
 
-// A tiny stack machine. The operand of every `continue` is the next
-// instruction, which is only known at run time.
+// A small stack machine. The operand of each `continue` is the next
+// instruction. The program knows the next instruction only at run time.
 fn run(code: []const Instruction) i32 {
     var stack: [8]i32 = undefined;
     var sp: usize = 0;

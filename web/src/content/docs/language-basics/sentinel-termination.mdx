@@ -7,14 +7,11 @@ order: 38
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, a string literal has type `*const [N:0]u8`, and `[:0]u8` and
-`[*:0]u8` are the slice and pointer forms of a zero-terminated sequence, which
-can be passed to C without a copy.
+In Zig, a string literal has the type `*const [N:0]u8`. `[:0]u8` is the slice form of a zero-terminated sequence, and `[*:0]u8` is the pointer form. You can give these types to C without a copy.
 
 <Playground name="02-language.sentinel-termination" />
 
-A sentinel-terminated type guarantees a specific value sits just past the end.
-The syntax puts it after a colon:
+A sentinel-terminated type guarantees a specific value immediately after the end. In the syntax, the value comes after a colon:
 
 | Type | Meaning |
 | --- | --- |
@@ -22,23 +19,15 @@ The syntax puts it after a colon:
 | `[:0]u8` | slice with a `0` after the last element |
 | `[*:0]u8` | many-item pointer, terminated by `0` |
 
-The sentinel is **not** counted in `.len`, but it is really there and you may
-read it.
+`.len` does **not** count the sentinel. But the sentinel is really in memory, and you can read it.
 
-A `[:0]u8` carries a length like any slice, so iterating it is bounds-checked
-and `.len` is one instruction. It *also* promises a zero after the last
-element, so it can be handed to C without a copy. One value carries both the
-length and the terminator.
+A `[:0]u8` has a length, as each slice has. Thus iteration over it has bounds checks, and `.len` is one instruction. The type *also* promises a zero after the last element. Thus you can give it to C without a copy. One value holds the length and the terminator.
 
-## The sentinel need not be zero
+## The sentinel can be a value other than zero
 
-`0` is the common case because C strings are the common case, but the value is
-part of the type: `[:255]u8` and `[: '\n']u8` are legal. Anything with a
-recognisable terminator can be described this way. It occasionally lets a
-protocol buffer or a line reader state its rule in the type rather than in a
-comment.
+`0` is the usual case, because C strings are the usual case. But the value is part of the type: `[:255]u8` and `[: '\n']u8` are legal. You can use this form for any data that has a known terminator. Sometimes a protocol buffer or a line reader can use the type to state its rule, and a comment is not necessary.
 
-## String literals get this for free
+## String literals have a sentinel
 
 ```zig
 const literal = "hi";   // *const [2:0]u8
@@ -46,55 +35,41 @@ literal.len;            // 2
 literal[2];             // 0
 ```
 
-So passing a Zig string literal to a C function that wants `const char *`
-needs no conversion and no copy. Ordinary Zig code still has the length, so
-the C compatibility costs it nothing.
+Thus, when you give a Zig string literal to a C function that wants `const char *`, you need no conversion and no copy. Usual Zig code still has the length. Thus the C compatibility has no cost for Zig code.
 
-Note the type is a *pointer to an array*, not a slice. That is why a literal
-has a comptime-known length, and why `@TypeOf("hi") != @TypeOf("hip")`. It
-coerces to `[]const u8` or `[:0]const u8` the moment it is used somewhere
-expecting one, which is nearly always, so the difference only shows up in
-error messages and in `@TypeOf`.
+The type is a *pointer to an array*, not a slice. For this reason, a literal has a comptime-known length, and `@TypeOf("hi") != @TypeOf("hip")`.
 
-## Recovering a length
+A literal coerces to `[]const u8` or `[:0]const u8` when code uses it in a place that expects one of these types. This occurs almost always. Thus you see the difference only in error messages and in `@TypeOf`.
 
-`[*:0]T` has no length, but the sentinel makes it discoverable:
+## Find the length
+
+`[*:0]T` has no length, but the sentinel lets you find the length:
 
 ```zig
 const slice = std.mem.span(c_string);   // scans to the sentinel
 ```
 
-Scanning is O(n), the same cost C pays for `strlen`. Do it once at the boundary
-and work with slices from there.
+The scan is O(n), the same cost that C has for `strlen`. Do the scan one time at the boundary, and then use slices.
 
-Two related functions help here. `std.mem.sliceTo(slice, 0)` truncates at the
-first sentinel in something that already has a length, which is what you want
-for a fixed-size C struct field holding a padded name. `std.mem.len` gives
-just the count without building a slice.
+Two related functions are also useful:
 
-## Producing one
+- `std.mem.sliceTo(slice, 0)` cuts a value that already has a length at the first sentinel. Use it for a C struct field of fixed size that holds a name with padding.
+- `std.mem.len` gives only the count, and does not make a slice.
 
-Going the other way, when a C function wants a null-terminated string and
-yours is a plain `[]const u8`, the terminator has to exist in memory
-somewhere. Three routes:
+## Make a sentinel-terminated value
 
-- **A literal**, if the string is fixed. It is already terminated.
-- **`allocator.dupeSentinel(u8, s, 0)`**, which copies and appends the
-  terminator, returning a `[:0]u8`. Remember to free it. If you have seen
-  `dupeZ` in older code, this is what replaced it, and the sentinel value is now
-  an argument rather than baked into the name.
-- **A stack buffer with an explicit sentinel slice**, `buf[0..n :0]`, which
-  asserts the byte at `buf[n]` really is zero. In a safety build that assertion
-  is checked.
+Sometimes a C function wants a null-terminated string, and your string is a plain `[]const u8`. Then the terminator must be in memory. There are three methods:
 
-Be careful when you slice with a sentinel. `buf[0..n :0]` does not write the
-terminator. It claims one is already there. Writing it is your job.
+- **A literal**, if the string does not change. A literal already has the terminator.
+- **`allocator.dupeSentinel(u8, s, 0)`**. It copies the string, adds the terminator and returns a `[:0]u8`. Remember to free it. Older code used `dupeZ`. `dupeSentinel` replaced `dupeZ`, and the sentinel value is now an argument. It is not part of the name.
+- **A stack buffer with an explicit sentinel slice**, `buf[0..n :0]`. This slice asserts that the byte at `buf[n]` is really zero. In a safety build, the program checks that assertion.
 
-## Why this is not just C strings again
+Be careful when you slice with a sentinel. `buf[0..n :0]` does not write the terminator. It states that the terminator is already there. You must write the terminator yourself.
 
-C's model is that the length is *only* discoverable by scanning, so every
-operation is O(n) and every buffer overrun begins with a missing terminator.
-Zig's model is that the length is carried and the sentinel is an additional
-guarantee. Ordinary code uses the length. Only the C boundary uses the
-sentinel. In C, a string without a terminator is read until it hits something.
-In Zig that can only happen if you built the sentinel type incorrectly by hand.
+## How this is different from C strings
+
+In C, a scan is the only way to find the length. Thus each operation is O(n), and each buffer overrun starts with a terminator that is not there.
+
+In Zig, the value carries the length, and the sentinel is an additional guarantee. Usual code uses the length. Only the C boundary uses the sentinel.
+
+In C, the program reads a string without a terminator until the read finds a zero or fails. In Zig, this can occur only if you made the sentinel type incorrectly by hand.

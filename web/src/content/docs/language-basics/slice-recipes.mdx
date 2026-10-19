@@ -7,66 +7,45 @@ order: 42
 
 import Playground from "../../../components/Playground.astro";
 
-A slice is a pointer and a length, so everything here rewrites memory that
-already exists. No allocator appears on this page.
+A slice is a pointer and a length. Thus each recipe on this page writes to memory that already exists. No allocator is on this page.
 
 <Playground name="02-language.slice-recipes" />
 
-## In place means the length does not change
+## In place means that the length does not change
 
-`std.mem.reverse` and `std.mem.rotate` rewrite the same bytes and hand nothing
-back. Both work on any `[]T`.
+`std.mem.reverse` and `std.mem.rotate` write to the same bytes and return nothing. The two functions work on each `[]T`.
 
-Reversing a `[]const u8` reverses the bytes, not the characters. On anything
-outside ASCII that splits every multi-byte sequence and produces invalid UTF-8,
-which is one of the things
-[Unicode Recipes](/learn/standard-library/unicode-recipes/) is about.
+When you reverse a `[]const u8`, the function reverses the bytes, not the characters. Outside ASCII, this breaks each sequence of more than one byte, and the result is invalid UTF-8. [Unicode Recipes](/learn/standard-library/unicode-recipes/) is about this problem and others.
 
-## Overlapping copies
+## Copies that overlap
 
-`@memcpy` requires that the source and destination do not overlap. Shifting
-elements within one slice always overlaps, and a release build will not tell
-you: the check is a safety check, so it disappears exactly where the bug is
-expensive.
+`@memcpy` requires that the source and the destination do not overlap. A shift of elements inside one slice always overlaps. A release build does not tell you about the error. The check is a safety check, so it is not in the build where the bug costs the most.
 
-`@memmove` is the one that handles it. It works in either direction, so unlike
-the older `std.mem.copyForwards` and `std.mem.copyBackwards` pair there is no
-direction to pick and no way to pick it wrong. Those two are now deprecated in
-favour of the builtin.
+`@memmove` handles the overlap. It works in the two directions. Before `@memmove`, there was the pair `std.mem.copyForwards` and `std.mem.copyBackwards`. With `@memmove`, you do not have to select a direction, and you cannot select the wrong direction. The two older functions are now deprecated, and the builtin replaces them.
 
-Use `@memcpy` when you know the ranges are disjoint, and `@memmove` when they
-might not be.
+Use `@memcpy` when you know that the ranges do not overlap. Use `@memmove` when the ranges possibly overlap.
 
-## Removing an element
+## Remove an element
 
-Shift the tail down over the gap, then reslice one shorter. The backing array
-keeps its length forever; the slice is the thing that shrinks. This is what
-`orderedRemove` does for you on an `ArrayList`. Here it is without the
-container.
+To remove an element, do these steps:
 
-## Stopping at a value
+1. Move the tail one position lower, over the gap.
+2. Make the slice one element shorter.
 
-`std.mem.sliceTo` takes the part of a buffer before the first occurrence of a
-value. It is the answer whenever something else filled a fixed buffer and
-terminated its own output, which includes most C interop.
+The backing array always keeps its length. Only the slice becomes shorter. `orderedRemove` does these steps for you on an `ArrayList`. Here they are without the container.
 
-## Min, max, and all the same
+## Stop at a value
 
-`std.mem.findMin` and `findMax` return **indices**, not values. That looks
-odd at first. It makes sense when you have a second array of labels lined up
-with the first, which is the case they are built for. `std.mem.allEqual` answers the
-whole-slice question without a loop.
+`std.mem.sliceTo` takes the part of a buffer before the first occurrence of a value. Use it when a different part of the program filled a fixed buffer and terminated its own output. Most C interop is of this type.
 
-## Indices belong to the slice they came from
+## Min, max, and all equal
 
-An offset found in one slice means nothing measured against another.
-`std.mem.find` on a sub-slice returns a position relative to that sub-slice, and
-using it against the parent is a bug the type system cannot see, because both
-are `[]const u8`.
+`std.mem.findMin` and `findMax` return **indices**, not values. This looks strange at first. It is correct when a second array holds labels in the same order as the first array. The functions are for this case. `std.mem.allEqual` checks if all elements of the slice are equal, and you do not need a loop.
 
-Convert by adding the sub-slice's own offset, or keep searching the parent and
-narrow afterwards. This mistake is easy to make with every function in the
-`find` family once you work with sub-slices.
+## An index belongs to its slice
 
-Searching a *sorted* slice, and sorting one in the first place, are in
-[Sorting](/learn/standard-library/sorting/).
+An offset from one slice has no meaning in a different slice. `std.mem.find` on a sub-slice returns a position relative to that sub-slice. If you use the position on the parent, you have a bug. The type system cannot see this bug, because the two slices are `[]const u8`.
+
+To convert the position, add the offset of the sub-slice. Alternatively, search the parent and then make the result narrower. When you use sub-slices, this mistake is easy to make with each function in the `find` family.
+
+[Sorting](/learn/standard-library/sorting/) shows how to search a *sorted* slice, and how to sort a slice.

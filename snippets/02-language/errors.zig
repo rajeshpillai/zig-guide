@@ -1,5 +1,5 @@
 //! title: Errors
-//! Errors are values, returned in an error union, never thrown.
+//! Errors are values in an error union. Zig never throws them.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -10,8 +10,8 @@ const FileOpenError = error{
     FileNotFound,
 };
 
-// Error sets coerce into supersets, so a narrow error can be returned
-// from a function that declares a wider set.
+// Error sets coerce into supersets. Thus a function that declares a wider
+// set can return a narrow error.
 const AllocationError = error{OutOfMemory};
 
 test "error set coercion" {
@@ -24,7 +24,7 @@ fn failingFunction() error{Oops}!void {
 }
 
 test "catch supplies a fallback" {
-    // `!u8` is shorthand for "some inferred error set, or u8".
+    // `!u8` is a short form of "an inferred error set, or u8".
     const parsed = std.fmt.parseInt(u8, "not a number", 10) catch 0;
     try expect(parsed == 0);
 }
@@ -43,7 +43,7 @@ test "capture the error in catch" {
 }
 
 fn parseOrDefault(text: []const u8) u32 {
-    // `if` can unwrap an error union too, with `else |err|`.
+    // `if` can also unwrap an error union, with `else |err|`.
     if (std.fmt.parseInt(u32, text, 10)) |value| {
         return value;
     } else |_| {

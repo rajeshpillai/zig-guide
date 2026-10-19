@@ -16,14 +16,14 @@ test "take an address and dereference" {
 
 test "pointers to const are const" {
     const x: u8 = 1;
-    // `&x` here is a `*const u8`; assigning through it would not compile.
+    // Here `&x` is a `*const u8`. A write through it does not compile.
     const ptr: *const u8 = &x;
     try expect(ptr.* == 1);
 }
 
 test "pointers are never null" {
-    // There is no null `*T`. Absence is spelled `?*T`, and costs nothing
-    // extra because the null address is used as the tag.
+    // There is no null `*T`. Write `?*T` for a pointer that can be absent.
+    // It uses no extra space, because the null address is the tag.
     var x: u8 = 5;
     const ptr: *u8 = &x;
     const maybe: ?*u8 = ptr;
