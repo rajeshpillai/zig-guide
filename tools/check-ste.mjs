@@ -27,7 +27,11 @@ const TECHNICAL = new Set(
    underlying swing sing wing wings sting kerning blending smoothing antialiasing
    shading clipping dithering scaling caching pooling plumbing routing
    tokenizing linking polling streaming batching padding painting drawing
-   drawings meaning meanings beginning`.split(/\s+/).filter(Boolean),
+   drawings meaning meanings beginning greeting backing formatting testing
+   addressing probing chaining clustering splicing bookkeeping coupling
+   ascending descending operating
+   blocking networking interleaving publishing outstanding dangling aliasing
+   programming framing self-describing reordering sliding`.split(/\s+/).filter(Boolean),
 );
 
 // Words after "is" that end like a participle but are not one.
