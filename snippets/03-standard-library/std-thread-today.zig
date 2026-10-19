@@ -1,14 +1,14 @@
 //! title: What moved off std.Thread
-//! Every lock and every wait primitive left `std.Thread` for `std.Io`. This
-//! table is printed from `@hasDecl`, so the compiler is answering rather than
-//! a changelog, and CI fails the day any of it moves back.
+//! Each lock and each wait primitive moved from `std.Thread` to `std.Io`. The
+//! program prints this table from `@hasDecl`. Thus the compiler gives the
+//! answer, not a changelog. If a name moves back, CI fails on that day.
 
 const std = @import("std");
 
 const Move = struct {
-    /// The name it had on `std.Thread`.
+    /// The old name on `std.Thread`.
     was: []const u8,
-    /// The name it has on `std.Io`.
+    /// The new name on `std.Io`.
     now: []const u8,
 };
 
@@ -22,8 +22,8 @@ const moves = [_]Move{
     .{ .was = "Pool", .now = "Threaded" },
 };
 
-/// What `std.Thread` kept: the parts about an OS thread itself, not about
-/// waiting for one.
+/// The declarations that stayed on `std.Thread`. They are about an OS thread,
+/// not about a wait for a thread.
 const kept = [_][]const u8{ "spawn", "getCpuCount", "getCurrentId", "yield", "detach" };
 
 fn mark(present: bool) []const u8 {

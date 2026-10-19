@@ -1,19 +1,20 @@
 ---
 title: Choosing an Io
-description: Threaded, the evented implementations, and building one yourself.
+description: Threaded, the evented implementations, and how to build an Io yourself.
 section: Concurrency
 order: 70
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-Every other chapter in this section takes `init.io` and passes it down. This
-one looks at where that value comes from. The choice belongs to the program,
-and `main` is the only place in a codebase that has to make it.
+Each other chapter in this section takes `init.io` and gives it to the
+functions that it calls. This chapter shows where that value comes from. The
+program makes the choice, and `main` is the only place in a codebase that must
+make it.
 
 <Playground
   name="03-standard-library.choosing-an-io"
-  note="Built and run natively by CI. The point is the difference between an implementation with threads and one without, which needs a host that has them."
+  note="CI builds and runs this program natively. The program shows the difference between an implementation with threads and an implementation without threads. Thus it needs a host that has threads."
   tryLocally="zig run choosing-an-io.zig"
 />
 
@@ -25,17 +26,24 @@ defer pool.deinit();
 const io = pool.io();
 ```
 
-A thread pool, portable to every target Zig supports, and what `init.io` hands
-you unless the target has no threads. The allocator is used only to spawn
-tasks: pass `Allocator.failing` if you never call `async` or `concurrent` and
-the implementation will still work for plain I/O.
+`Io.Threaded` is a thread pool. It is portable to each target that Zig
+supports. `init.io` gives you this implementation, except when the target has
+no threads.
 
-Two options are useful. `async_limit` caps the pool used by `io.async`;
-past it, tasks run inline rather than waiting for a thread. `concurrent_limit`
-caps `io.concurrent`, and past it the call returns
-`error.ConcurrencyUnavailable`. The snippet builds a second instance with
-`.concurrent_limit = .nothing` to show what code sees on a target that cannot
-give it real concurrency, without leaving the host to find one.
+The implementation uses the allocator only to spawn tasks. If you never call
+`async` or `concurrent`, you can pass `Allocator.failing`. The implementation
+still works for plain I/O.
+
+Two options are useful:
+
+- `async_limit` sets the maximum size of the pool for `io.async`. Past that
+  limit, tasks run inline. They do not wait for a thread.
+- `concurrent_limit` sets the maximum for `io.concurrent`. Past that limit,
+  the call returns `error.ConcurrencyUnavailable`.
+
+The snippet makes a second instance with `.concurrent_limit = .nothing`. This
+instance shows what code sees on a target that cannot give real concurrency.
+You do not need a different host to see it.
 
 ## `init_single_threaded` spawns nothing
 
@@ -43,29 +51,33 @@ give it real concurrency, without leaving the host to find one.
 var lone: std.Io.Threaded = .init_single_threaded;
 ```
 
-A compile-time constant instance: no allocator, no threads, no deinit needed.
-`async` still works, because `async` is allowed to run the task inline;
-`concurrent` always fails and cancellation requests do nothing. This is what a
-wasm build gets, and it is why every browser playground on this site runs the
-same source as CI does.
+This instance is a compile-time constant. It needs no allocator, no threads
+and no deinit. `async` still works, because `async` can run the task inline.
+`concurrent` always fails, and cancellation requests do nothing.
 
-It is also a good way to test that library code still works correctly with no
-threads. If your
-code needs `concurrent`, run it against this instance and find out now.
+A wasm build gets this instance. For this reason, each browser playground on
+this site runs the same source as CI.
+
+This instance is also a good way to test that library code still works
+correctly with no threads. If your code needs `concurrent`, run it against
+this instance and find the problem now.
 
 ## Evented implementations
 
-`std.Io.Uring` on Linux and `std.Io.Kqueue` on Darwin and the BSDs are the
-other two in the standard library. Rather than parking a thread per blocking
-call, they submit the operation to the kernel and suspend the task. A task
-that suspends this way costs a stack rather than a thread. `std.Io.fiber` is
-the machinery that does it, saving a handful of registers and switching
-stacks; it is what an implementation uses, not something application code
-calls.
+The standard library has two more implementations: `std.Io.Uring` on Linux
+and `std.Io.Kqueue` on Darwin and the BSDs. They do not park one thread for
+each blocking call. Instead, they submit the operation to the kernel and
+suspend the task. A task that suspends in this way costs a stack, not a
+thread.
 
-This is the benefit of the `Io` parameter. A server written against the interface
-runs on a thread pool during development and on io_uring in production without
-a line changing, and the decision that picks between them stays in `main`.
+`std.Io.fiber` does the work of the suspension. It saves a small number of
+registers and changes to a different stack. An implementation uses
+`std.Io.fiber`. Application code does not call it.
+
+This is the advantage of the `Io` parameter. You write a server against the
+interface. The server runs on a thread pool during development and on
+io_uring in production, without a change to one line. The decision between
+the two stays in `main`.
 
 ## Library code names none of them
 
@@ -73,12 +85,18 @@ a line changing, and the decision that picks between them stays in `main`.
 fn run(io: std.Io, ...) !void
 ```
 
-The function in the snippet is called three times with three different
-implementations and does not know the difference. Take an `Io` parameter,
-never reach for a global, and handle `error.ConcurrencyUnavailable` where you
-ask for concurrency. Then the choice on this page is the caller's. That is why blocking goes
-through an interface.
+The snippet calls this function three times with three different
+implementations. The function does not know the difference.
 
-`Io.Threaded.global_single_threaded` exists as a fallback for debugging
-and for code that really cannot take a parameter. Using it in a library takes
-the choice of implementation away from the caller.
+To get this result in your library, do these steps:
+
+1. Take an `Io` parameter.
+2. Never use a global instead.
+3. Handle `error.ConcurrencyUnavailable` where you ask for concurrency.
+
+Then the caller makes the choice on this page. That is the reason that
+blocking calls go through an interface.
+
+`Io.Threaded.global_single_threaded` exists as a fallback for debug work. It
+is also for code that really cannot take a parameter. If a library uses it,
+the library removes the choice of implementation from the caller.

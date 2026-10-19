@@ -1,13 +1,13 @@
 //! title: Select
 //! native
-//! Waiting for whichever task finishes first. Built and run for the host: a
-//! race needs the tasks to be running at the same time, which is `io.concurrent`
-//! and not something single-threaded wasm can offer.
+//! Wait for the task that completes first. Built and run for the host. A race
+//! needs the tasks to run at the same time. That needs `io.concurrent`, and
+//! single-threaded wasm cannot give it.
 
 const std = @import("std");
 
-/// Whichever arm wins, the result arrives as this union, tagged with the arm
-/// that produced it.
+/// The result of the winner arrives as this union. The tag is the arm that
+/// made the result.
 const Outcome = union(enum) {
     reply: u32,
     timeout: void,
@@ -22,9 +22,9 @@ fn deadline(io: std.Io, after: std.Io.Duration) void {
     io.sleep(after, .awake) catch {};
 }
 
-/// Runs both arms and reports the one that finished first, cancelling the
-/// other. The margin between the two durations is an hour, so the winner is
-/// decided by the code and not by how loaded the machine is.
+/// Runs the two arms, reports the arm that completed first, and cancels the
+/// other arm. The two durations are different by an hour. Thus the code
+/// decides the winner, not the load on the computer.
 fn race(
     io: std.Io,
     out: *std.Io.Writer,
@@ -42,8 +42,8 @@ fn race(
         .timeout => try out.print("timed out\n", .{}),
     }
 
-    // The losing arm is still running. A select owns its tasks, so cancelling
-    // the select stops it, and nothing is left behind when this returns.
+    // The arm that lost still runs. A select owns its tasks. Thus a cancel of
+    // the select stops the arm, and no task remains when this function returns.
     select.cancelDiscard();
 }
 

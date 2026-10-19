@@ -1,5 +1,5 @@
 //! title: Locks and Semaphores
-//! Beyond `Io.Mutex`: many readers or one writer, and counting permits.
+//! More than `Io.Mutex`: many readers or one writer, and a count of permits.
 
 const std = @import("std");
 
@@ -10,33 +10,33 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // An RwLock admits any number of readers at once, or exactly one writer.
+    // An RwLock admits any number of readers at the same time, or exactly one writer.
     var rw: std.Io.RwLock = .init;
 
     try rw.lockShared(io);
     try rw.lockShared(io);
     try out.print("two readers: yes\n", .{});
 
-    // `tryLock` never blocks; it reports whether it got the lock. Readers hold
-    // it, so a writer cannot have it.
+    // `tryLock` never blocks. It tells you if it got the lock. Readers hold the
+    // lock, thus a writer cannot get it.
     try out.print("writer while reading: {}\n", .{rw.tryLock(io)});
 
     rw.unlockShared(io);
     rw.unlockShared(io);
 
-    // With the readers gone the writer gets in.
+    // When the readers release the lock, the writer gets it.
     try out.print("writer once alone: {}\n", .{rw.tryLock(io)});
     rw.unlock(io);
 
-    // A semaphore counts permits rather than granting exclusive access. Two
-    // permits let two tasks past before the third has to wait.
+    // A semaphore counts permits. It does not give exclusive access. With two
+    // permits, two tasks continue, and the third task must wait.
     var sem: std.Io.Semaphore = .{ .permits = 2 };
     try sem.wait(io);
     try sem.wait(io);
     try out.print("permits taken: 2, left: {d}\n", .{sem.permits});
 
-    // `waitTimeout` is how you avoid waiting forever for a permit that is not
-    // coming. There is nothing to release this one.
+    // Use `waitTimeout` when a permit may never come. Then the task does not
+    // wait forever. Here, no code releases a permit.
     const patience: std.Io.Timeout = .{ .duration = .{ .raw = .fromMilliseconds(1), .clock = .awake } };
     if (sem.waitTimeout(io, patience)) |_| {
         try out.print("third permit: taken\n", .{});

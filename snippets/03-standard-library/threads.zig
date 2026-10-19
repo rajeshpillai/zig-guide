@@ -1,7 +1,7 @@
 //! title: Threads
 //! native
-//! Real OS threads. Built and run for the host: wasm32-wasi is single-threaded,
-//! so `std.Thread.spawn` does not even compile for it.
+//! Real OS threads. Built and run for the host. wasm32-wasi is single-threaded.
+//! Thus `std.Thread.spawn` does not compile for wasm32-wasi.
 
 const std = @import("std");
 
@@ -22,14 +22,14 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // One thread, joined explicitly.
+    // One thread. The program joins it explicitly.
     var value: u32 = 0;
     const thread = try std.Thread.spawn(.{}, addTo, .{ &value, 42 });
     thread.join();
     try out.print("single: {d}\n", .{value});
 
-    // Many threads touching one variable need synchronisation; without the
-    // mutex this is a data race and the total is unreliable.
+    // Many threads that change one variable need synchronisation. Without the
+    // mutex, this code is a data race, and the total is not reliable.
     var total: u32 = 0;
     var mutex: std.Io.Mutex = .init;
     var threads: [8]std.Thread = undefined;
@@ -39,7 +39,7 @@ pub fn main(init: std.process.Init) !void {
     for (threads) |t| t.join();
     try out.print("locked total: {d}\n", .{total});
 
-    // Atomics cover the simple counter case without a lock.
+    // For a simple counter, use an atomic. It needs no lock.
     var counter = std.atomic.Value(u32).init(0);
     _ = counter.fetchAdd(1, .monotonic);
     _ = counter.fetchAdd(1, .monotonic);

@@ -1,15 +1,16 @@
 //! title: A Batch Job Runner
 //! native
-//! Four workers over one batch of records: an atomic work index, one private
-//! result slot per record, and a mutex over the only state that is genuinely
-//! shared. Native because `wasm32-wasi` has one thread, so every worker would
-//! run inline and this would be a `for` loop wearing a costume.
+//! Four workers over one batch of records. The program has an atomic work
+//! index and one private result slot for each record. A mutex protects the
+//! only state that the workers really share. Native, because `wasm32-wasi`
+//! has one thread. On it, each worker runs inline, and the program is only a
+//! `for` loop.
 
 const std = @import("std");
 
-/// The batch. A `const` rather than stdin, so CI checks the same bytes the
-/// chapter shows. Three records are malformed on purpose, each in a different
-/// way, because a batch runner has to handle bad input.
+/// The batch. It is a `const`, not stdin. Thus CI checks the same bytes that
+/// the chapter shows. Three records are malformed on purpose, each in a
+/// different way, because a batch runner must handle bad input.
 const input =
     \\1001,3,450
     \\1002,1,300
@@ -28,31 +29,31 @@ const input =
 const worker_count = 4;
 const capacity = 32;
 
-/// One record's outcome. Each worker writes only the slot it claimed, so this
-/// needs no lock at all.
+/// The result for one record. Each worker writes only the slot that it
+/// claimed. Thus this struct needs no lock.
 const Result = struct {
     id: u32 = 0,
     total: u64 = 0,
     failure: ?[]const u8 = null,
 };
 
-/// The only state the workers really share: the biggest order in the batch and
-/// which record it came from. The two fields have to agree with each other,
-/// and a single atomic cannot keep two fields in agreement.
+/// The only state that the workers really share: the biggest order in the
+/// batch and the record that it came from. The two fields must agree with each
+/// other, and a single atomic cannot keep two fields in agreement.
 const Largest = struct {
     value: u64 = 0,
     index: usize = 0,
 };
 
-/// Turn one record into a `Result`. It uses no `Io`, allocator or shared
-/// state, so it can be read and tested on its own.
+/// Change one record into a `Result`. The function uses no `Io`, allocator or
+/// shared state. Thus you can read it and test it alone.
 fn parseOrder(line: []const u8) Result {
     var fields = std.mem.splitScalar(u8, line, ',');
     const id_text = fields.next() orelse return .{ .failure = "no id" };
     const id = std.fmt.parseInt(u32, id_text, 10) catch return .{ .failure = "bad id" };
 
-    // The id is read before anything else can fail, so every line of the
-    // report names the record it is about.
+    // The function reads the id before other parts can fail. Thus each line of
+    // the report names its record.
     const quantity_text = fields.next() orelse return .{ .id = id, .failure = "missing quantity" };
     const price_text = fields.next() orelse return .{ .id = id, .failure = "missing price" };
     if (fields.next() != null) return .{ .id = id, .failure = "extra field" };
@@ -66,8 +67,8 @@ fn parseOrder(line: []const u8) Result {
     return .{ .id = id, .total = @as(u64, quantity) * price };
 }
 
-/// Claim records until there are none left. Every worker runs this same
-/// function, and which records each one gets is up to the scheduler.
+/// Claim records until none remain. Each worker runs this same function. The
+/// scheduler decides which records each worker gets.
 fn worker(
     io: std.Io,
     records: []const []const u8,
@@ -77,8 +78,8 @@ fn worker(
     mutex: *std.Io.Mutex,
 ) void {
     while (true) {
-        // One atomic add hands out one record. `fetchAdd` returns the value
-        // from before the add, so no two workers can claim the same index.
+        // One atomic add gives one record to a worker. `fetchAdd` returns the
+        // value from before the add. Thus no two workers can claim one index.
         const index = next.fetchAdd(1, .monotonic);
         if (index >= records.len) return;
 
@@ -89,10 +90,10 @@ fn worker(
         mutex.lock(io) catch return;
         defer mutex.unlock(io);
 
-        // The tie break on index is needed. Without it, two records of
-        // equal value would leave whichever worker got there first in the
-        // answer, and the program would print a different line on a different
-        // machine.
+        // The tie break on the index is necessary. Without it, if two records
+        // have equal value, the answer is the record from the first worker.
+        // Then the program can print a different line on a different
+        // computer.
         if (result.total > largest.value or
             (result.total == largest.value and index < largest.index))
         {
@@ -108,8 +109,9 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // Cutting the batch into records is sequential work, done once, before any
-    // worker starts. Handing out slices is what makes the rest parallel.
+    // The program divides the batch into records one time, in sequence,
+    // before a worker starts. The slices that it gives to the workers make the
+    // remainder parallel.
     var reader: std.Io.Reader = .fixed(input);
     var lines: [capacity][]const u8 = undefined;
     var count: usize = 0;
@@ -125,18 +127,19 @@ pub fn main(init: std.process.Init) !void {
     var largest: Largest = .{};
     var mutex: std.Io.Mutex = .init;
 
-    // `group.async` rather than `group.concurrent`: these tasks all finish on
-    // their own, so an `Io` that runs one inline because its pool is busy is
-    // still correct. Anything you intend to cancel needs `concurrent`.
+    // Use `group.async`, not `group.concurrent`. These tasks all complete
+    // without help. Thus an `Io` that runs one inline, because its pool is
+    // busy, is still correct. A task that you intend to cancel needs
+    // `concurrent`.
     var group: std.Io.Group = .init;
     for (0..worker_count) |_| {
         group.async(io, worker, .{ io, records, results[0..count], &next, &largest, &mutex });
     }
     try group.await(io);
 
-    // Printing happens after every worker is done, in record order rather than
-    // completion order. The work runs concurrently, but the report is
-    // printed in a fixed order.
+    // The program prints after all workers are done. It prints in record
+    // order, not in completion order. The work runs concurrently, but the
+    // report has a fixed order.
     var ok: usize = 0;
     var value: u64 = 0;
     try out.print("  id     total  status\n", .{});

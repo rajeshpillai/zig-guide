@@ -1,7 +1,7 @@
 ---
 title: "Async, Future and Group"
 seoTitle: "Zig Concurrency: async, Future and Group via std.Io"
-seoDescription: "async, Future and Group all run through std.Io, so the caller decides how work is scheduled. The snippet runs in your browser, on a target with no threads."
+seoDescription: "async, Future and Group all go through std.Io, thus the caller selects how the work runs. The snippet runs in your browser, on a target with no threads."
 description: async, Future, and Group, all through the Io interface.
 section: Concurrency
 order: 10
@@ -9,12 +9,12 @@ order: 10
 
 import Playground from "../../../components/Playground.astro";
 
-Zig's concurrency now runs through `std.Io`. That interface is the
-subject of [The Io Interface](/learn/standard-library/io-interface/), and this
-section assumes it: every chapter here takes an `Io` and passes it down.
+Concurrency in Zig now goes through `std.Io`.
+[The Io Interface](/learn/standard-library/io-interface/) explains that
+interface, and this section expects you to know it. Each chapter here takes an
+`Io` and gives it to the functions that it calls.
 
-Press Run: this executes in your browser, on a target with **no threads at
-all**.
+Press Run. The program runs in your browser, on a target with **no threads**.
 
 <Playground name="03-standard-library.concurrency" />
 
@@ -27,20 +27,21 @@ first.await(io);
 second.await(io);
 ```
 
-The `Io` implementation decides what "async" means. A threaded implementation
-runs these in parallel; the single-threaded WASI one runs them inline. **Your
-code does not change**, and that is why this page is runnable and the
-[Threads](/learn/concurrency/threads/) page is not.
+The `Io` implementation decides the meaning of "async". A threaded
+implementation runs these calls in parallel. The single-threaded WASI
+implementation runs them inline. **Your code does not change.** For this
+reason, you can run this page, and you cannot run the
+[Threads](/learn/concurrency/threads/) page.
 
-## `async` may run it inline; `concurrent` may not
+## `async` can run a task inline, and `concurrent` cannot
 
-`io.async` promises only that the result is ready after you await it. It is
-free to call the function immediately, finish it, and hand back a Future that
-is already resolved. That is what happens on this page.
+`io.async` promises only one thing: the result is ready after you await it.
+`io.async` can call the function immediately, complete it, and return a Future
+that is already resolved. On this page, that occurs.
 
-`io.concurrent` makes the stronger promise: the caller gets to keep going
-while the task runs. Not every `Io` can deliver that, so it returns an error
-union:
+`io.concurrent` makes a stronger promise: the caller continues while the task
+runs. Not all `Io` implementations can keep that promise. Thus
+`io.concurrent` returns an error union:
 
 ```zig
 if (io.concurrent(slowDouble, .{ &c, 30 })) |handle| {
@@ -51,20 +52,29 @@ if (io.concurrent(slowDouble, .{ &c, 30 })) |handle| {
 }
 ```
 
-The snippet above prints `concurrent: ConcurrencyUnavailable`, because the
-single-threaded wasm running it has no second unit of concurrency to give.
-Hand the same binary an `Io.Threaded` and it prints `concurrent: 60`.
+The snippet above prints `concurrent: ConcurrencyUnavailable`. The
+single-threaded wasm that runs the snippet has no second unit of concurrency
+to give. If you give the same binary an `Io.Threaded`, it prints
+`concurrent: 60`.
 
-The distinction decides correctness, not performance. If a task must make
-progress *before* you await it, `io.async` can deadlock. A producer that fills
-a queue the same thread is about to drain will run to completion first and
-block on a full queue, with nobody left to empty it. Reach for `concurrent`
-there, and handle `error.ConcurrencyUnavailable` rather than `try`-ing it, or
-the program fails on the single-threaded targets where `async` still works.
-`Group` has both spellings too, `group.async` and `group.concurrent`, with the
+The difference has an effect on correctness, not on performance. If a task
+must make progress *before* you await it, `io.async` can deadlock. For
+example, a producer fills a queue, and the same thread must empty the queue
+later. The producer runs first until it stops on a full queue. Then no code is
+available to empty the queue.
+
+For that case, do these steps:
+
+- Use `concurrent`.
+- Handle `error.ConcurrencyUnavailable`. Do not use `try` on it. If you use
+  `try`, the program fails on the single-threaded targets, where `async`
+  still works.
+
+`Group` also has the two forms, `group.async` and `group.concurrent`, with the
 same difference.
 
-Default to `async`. It is the one that runs everywhere, including here.
+Use `async` as the default. `async` runs on all targets, and this page is one
+of them.
 
 ## `Group` for many tasks
 
@@ -74,36 +84,43 @@ for (0..8) |_| group.async(io, work, .{ ... });
 try group.await(io);
 ```
 
-A `Group` owns its tasks. Awaiting it waits for all of them, and cancelling it
-cancels all of them, so a task cannot outlive the scope that started it. That
-property is what "structured" means here. Raw `Thread.spawn` does not give
-you this.
+A `Group` owns its tasks. When you await the group, it waits for all of the
+tasks. When you cancel the group, it cancels all of the tasks. Thus a task
+cannot continue after the end of the scope that started it. That property is
+the meaning of "structured" here. A raw `Thread.spawn` does not give you this
+property.
 
 ## Shared state still needs a lock
 
-Concurrency is not parallelism, but as soon as an implementation *is*
-parallel, unsynchronised shared mutation is a data race. `std.Io.Mutex` is the
-tool, and like everything else it takes the io instance:
+Concurrency is not parallelism. But when an implementation *is* parallel, a
+change to shared data without synchronisation is a data race. Use
+`std.Io.Mutex` for this. Like the other tools, it takes the io instance:
 
 ```zig
 try mutex.lock(io);
 defer mutex.unlock(io);
 ```
 
-Cancelling a `Group` cancels every member, which is the subject of the [next
-chapter](/learn/concurrency/cancellation/).
+When you cancel a `Group`, it cancels each member. The [next
+chapter](/learn/concurrency/cancellation/) is about cancellation.
 
-## The bigger picture
+## How `Io` compares to `Allocator`
 
-`Io` works the way `Allocator` does. A function that takes an `Allocator`
-lets the caller choose where memory comes from. A function that takes an `Io`
-announces that it may block, and the caller
-chooses the execution strategy. Libraries written this way work unchanged on a
+`Io` works in the same way as `Allocator`:
+
+- A function that takes an `Allocator` lets the caller select the source of
+  the memory.
+- A function that takes an `Io` tells you that it can block. The caller
+  selects how the function runs.
+
+A library that uses `Io` in this way works without a change. It works on a
 thread pool, an event loop, or a single-threaded wasm runtime.
 
-The other chapters in this section build on this.
-[Queues](/learn/concurrency/queues/) for tasks that hand work to each
-other. [Select](/learn/concurrency/select/) for whichever finishes first.
-[Locks](/learn/concurrency/locks/) for the shared state underneath. And
-[Choosing an Io](/learn/concurrency/choosing-an-io/) for where the
-instance comes from in the first place.
+The other chapters in this section use this design:
+
+- [Queues](/learn/concurrency/queues/) is for tasks that give work to other
+  tasks.
+- [Select](/learn/concurrency/select/) is for the task that completes first.
+- [Locks](/learn/concurrency/locks/) is for the shared state below the tasks.
+- [Choosing an Io](/learn/concurrency/choosing-an-io/) shows where the `Io`
+  instance comes from.

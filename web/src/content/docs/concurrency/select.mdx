@@ -1,20 +1,20 @@
 ---
 title: Select
-description: Waiting for whichever task finishes first, and cancelling the rest.
+description: Wait for the task that completes first, and cancel the other tasks.
 section: Concurrency
 order: 30
 ---
 
 import Playground from "../../../components/Playground.astro";
 
-`Future.await` waits for one task. `Group.await` waits for all of them.
-`std.Io.Select` is the third shape: wait for whichever finishes first, then
-decide what to do about the others. A request against a timeout is the case
-you will write most often.
+`Future.await` waits for one task. `Group.await` waits for all of the tasks.
+`std.Io.Select` is the third shape. It waits for the task that completes
+first. Then you decide what to do with the other tasks. The most frequent case
+that you will write is a request against a timeout.
 
 <Playground
   name="03-standard-library.select"
-  note="Built and run natively by CI. A race needs the arms running at the same time, which is io.concurrent, and single-threaded wasm has none to give."
+  note="CI builds and runs this program natively. A race needs the arms to run at the same time. That needs io.concurrent, and single-threaded wasm cannot give it."
   tryLocally="zig run select.zig"
 />
 
@@ -30,10 +30,12 @@ var slots: [2]Outcome = undefined;
 var select: std.Io.Select(Outcome) = .init(io, &slots);
 ```
 
-Each arm is a field. `Select(U)` is a `Group` and a `Queue(U)` together, so
-the buffer you pass is the queue's. It must have room for every task you
-spawn. Cancelling with less space than that deadlocks, because the tasks being
-cancelled still need somewhere to put their results.
+Each arm is a field. `Select(U)` is a `Group` and a `Queue(U)` together. Thus
+the buffer that you pass is the buffer of the queue. The buffer must have
+space for each task that you spawn.
+
+If you cancel with less space than that, the result is a deadlock. The
+cancelled tasks still need a place to put their results.
 
 ```zig
 try select.concurrent(.reply, request, .{ io, reply_after });
@@ -45,38 +47,44 @@ switch (try select.await()) {
 }
 ```
 
-The field name is comptime, and the function's return type has to match that
-field. So an arm returning the wrong type is a compile error, not a mis-tagged
-union at run time. `await` returns as soon as any arm completes; call it again
-for the next one, or stop.
+The field name is comptime, and the return type of the function must agree
+with that field. Thus, if an arm returns the wrong type, the result is a
+compile error, not a union with the wrong tag at run time.
 
-## The losers are still running
+`await` returns when one arm completes. Call `await` again for the next arm,
+or stop.
+
+## The other arms still run
 
 ```zig
 select.cancelDiscard();
 ```
 
-A select owns its tasks the way a `Group` does, and the arm that lost is still
-in flight when `await` returns. `cancelDiscard` requests cancellation on all
-of them and waits until they are done, throwing the results away. Use `cancel`
-instead when an arm can return something that has to be freed: it hands back
-one outstanding result per call, and you loop until it returns `null`.
+A select owns its tasks, the same as a `Group`. When `await` returns, the arm
+that lost still runs. `cancelDiscard` sends a cancellation request to all of
+the tasks. It waits until they are done, and it discards their results.
 
-Skipping this does not leak in the ordinary sense. But the select cannot be
-destroyed while a task still points into its buffer, so there is nothing to be
-gained by leaving it out.
+Use `cancel` instead when an arm can return a value that you must free.
+`cancel` returns one outstanding result on each call. Call it in a loop until it
+returns `null`.
+
+If you do not cancel, the result is not a leak in the usual meaning. But you
+cannot destroy the select while a task still points into its buffer. Thus you
+get no advantage when you omit the cancel.
 
 ## Use `concurrent` for the arms
 
-`select.async` exists and matches `Group.async`, but arms that are allowed to
-run inline do not really race. On an `Io` that runs tasks inline,
-the first arm spawned runs to completion first and wins every time. For a
-timeout arm, that means sleeping out the entire timeout before the request is
-even started. The arms here use `concurrent` for that reason, and the snippet
-is native because `concurrent` is what wasm cannot provide.
+`select.async` exists, and it agrees with `Group.async`. But arms that can run
+inline do not really race. On an `Io` that runs tasks inline, the first arm
+that you spawn runs first until it completes. Thus it wins each time.
 
-The durations in the snippet differ by an hour in each direction. That is
-deliberate: the winner is decided by the code rather than by how loaded the
-machine is, so the expected output holds on CI. With a margin of
-milliseconds, the winner could change from run to run, and the test would
-sometimes fail.
+For a timeout arm, this means that the program sleeps for the full timeout
+before the request starts. For that reason, the arms here use `concurrent`.
+The snippet is native, because wasm cannot give `concurrent`.
+
+The durations in the snippet are different by an hour in each direction. This
+difference is intentional. The code decides the winner, not the load on the
+computer. Thus the expected output is correct on CI.
+
+If the difference is only some milliseconds, the winner can change from one
+run to the next. Then the test can fail sometimes.

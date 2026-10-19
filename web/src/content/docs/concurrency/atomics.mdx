@@ -1,8 +1,8 @@
 ---
 title: Atomics
 seoTitle: "Zig Atomics: std.atomic.Value, Compare-and-Swap and Memory Ordering"
-seoDescription: "Atomics in Zig with std.atomic.Value: why a plain += 1 loses updates, what fetchAdd hands back, the compare-and-swap loop and why null means success, which memory ordering each operation will accept, and the ten-line mutex underneath it all."
-description: One counter, every way to add one to it, and what that ordering argument is for.
+seoDescription: "Atomics in Zig with std.atomic.Value: why a plain += 1 loses updates, fetchAdd, the compare-and-swap loop, memory ordering and a ten-line mutex."
+description: One counter, all the ways to add one to it, and the purpose of the ordering argument.
 section: Concurrency
 order: 55
 ---
@@ -10,169 +10,121 @@ order: 55
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Adding one to a number is three steps.
+To add one to a number, the computer does three steps:
 
-Read it. Add one. Write it back.
+1. Read the number.
+2. Add one.
+3. Write the number back.
 
-On a single thread, that makes no difference.
+On one thread, the three steps cause no problem. With two threads, a different thread can act between the steps, and the program can lose an update.
 
-With two threads, another thread can act between those steps, and an update can be lost.
+This chapter shows the operations that prevent a lost update. It also shows the ordering argument that each of these operations takes.
 
-This chapter covers the operations that prevent that, and the ordering argument that every one of them takes.
-
-The program runs in your browser.
-
-It starts no threads and needs none, because what an atomic operation does is the same whether or not another thread is running.
+The program runs in your browser. It starts no threads, and it does not need threads. An atomic operation does the same thing when no other thread runs.
 
 <Playground name="03-standard-library.atomics" />
 
-## A lost update in slow motion
+## A lost update, step by step
 
-A real race is hard to show, because it only sometimes happens.
+A real race is difficult to show, because it occurs only sometimes. Thus the program writes the interleaving by hand.
 
-So we write the interleaving out by hand instead.
-
-Two workers each want to add one.
-
-Both read before either writes.
+Two workers each must add one. Both workers read before one of them writes.
 
 <SnippetSource name="03-standard-library.atomics" decl="lostUpdate" />
 
-Worker B does its whole job correctly.
+Worker B does all of its work correctly. It reads zero, adds one, and stores one.
 
-It reads zero, adds one, stores one.
-
-Then worker A stores one on top, because one is what it computed from the zero it read.
+Then worker A stores one over the value from worker B. Worker A read zero, thus worker A calculated one.
 
 ```
 two increments, plain:  1
 ```
 
-Two increments went in and one came out.
+The program did two increments, and the result is one.
 
-Nothing above is undefined behaviour and nothing is racing.
+The code above has no undefined behaviour, and no race occurs. The code runs the same sequence that a race can make. The program selects the order, thus the result is the same on each run.
 
-It is the same sequence a race would have produced, run in an order we chose so the result is the same every time.
+## `fetchAdd` makes the three steps one operation
 
-## `fetchAdd` joins the three steps together
-
-`std.atomic.Value(T)` wraps one value and gives it operations that cannot be split.
+`std.atomic.Value(T)` contains one value. It gives the value operations that a different thread cannot divide.
 
 <SnippetSource name="03-standard-library.atomics" decl="atomicIncrements" />
 
-`fetchAdd` still reads, adds and writes.
-
-The difference is that no other core can observe or modify the value between those parts.
+`fetchAdd` still reads, adds and writes. But no other core can see or change the value between those three parts.
 
 ```
 two increments, atomic: 2
 ```
 
-The wrapper adds no logic of its own.
+The wrapper adds no logic. On x86, that line is one `lock xadd` instruction. The hardware gives the guarantee.
 
-On x86 that line is one `lock xadd` instruction, and the guarantee comes from the hardware.
+## Each fetch returns the old value
 
-## Every fetch hands back the old value
-
-`fetchAdd` returns what the counter held *before* the addition.
+`fetchAdd` returns the value that the counter held *before* the addition.
 
 ```
 fetchAdd returned 2, counter is now 12
 ```
 
-This is deliberate, and it is useful.
+This design is intentional, and it is useful. With it, the counter can give tickets. If two threads call `fetchAdd(1, ...)`, each thread gets a different number. Each thread also knows which number it got.
 
-It lets the counter hand out tickets: two threads calling `fetchAdd(1, ...)` are guaranteed different numbers, and each one knows which number it got.
+If `fetchAdd` returned the new value, a caller could not know if it was the third caller or the fourth caller. Two callers can see the same total.
 
-If it returned the new value you could not tell "I am the third caller" from "I am the fourth", because two callers could see the same total.
+All the functions in the family work in this way: `fetchSub`, `fetchAnd`, `fetchOr`, `fetchXor`, `fetchMin`, `fetchMax`.
 
-The whole family works this way: `fetchSub`, `fetchAnd`, `fetchOr`, `fetchXor`, `fetchMin`, `fetchMax`.
-
-`swap` is the same idea with no arithmetic.
-
-It stores your value and hands back what was there.
+`swap` uses the same idea without arithmetic. It stores your value and returns the old value.
 
 ## Compare-and-swap is the general tool
 
-There is no `fetchMul`.
+No `fetchMul` exists. Also, no special operation exists for each problem. Instead, Zig has compare-and-swap. You can make each other operation on this page from compare-and-swap.
 
-There is no special operation for every problem either.
-
-Instead, there is compare-and-swap.
-
-Every other operation on this page can be built from it.
-
-You say what you think the value is, and what you want it to become.
-
-The swap happens only if you were right.
+You give two values: the value that you think is there, and the new value. The swap occurs only if your first value is correct.
 
 <SnippetSource name="03-standard-library.atomics" decl="multiplyBy" />
 
-Read the loop condition carefully, because it works the opposite way from how it looks.
+Read the loop condition carefully. It works in the opposite way to its appearance.
 
 `cmpxchgWeak` returns an optional.
 
-**Null means the swap succeeded.** A payload means it failed, and the payload is the value that was really there.
+**Null means that the swap was successful.** A payload means that the swap failed. The payload is the value that was really there.
 
-So `while (...) |actual|` loops while the swap is *failing*, and each turn feeds the fresh value back in for another attempt.
+Thus `while (...) |actual|` loops while the swap *fails*. On each turn, the loop gives the new value back for one more attempt.
 
-We can watch a failure directly by guessing wrong on purpose:
+The program shows a failure directly. It guesses a wrong value on purpose:
 
 ```
 cmpxchg against a wrong guess: 36
 ```
 
-The counter was 36, we guessed 0, and the swap did not happen.
+The counter was 36, the guess was 0, and the swap did not occur. The returned 36 is the value that the counter really holds.
 
-The 36 we got back is the counter telling us what it actually holds.
+`cmpxchgWeak` can fail spuriously, also when your guess is correct. This helps on ARM and RISC-V. On these CPUs, the function compiles to a load-linked/store-conditional pair, and a context switch can interrupt that pair. Thus, if the function can sometimes fail falsely, the loop is tighter.
 
-`cmpxchgWeak` is allowed to fail spuriously, even when your guess was right.
-
-This helps on ARM and RISC-V.
-
-There it compiles to a load-linked/store-conditional pair that a context switch can interrupt, so allowing an occasional false failure produces a tighter loop.
-
-Inside a retry loop a spurious failure costs one more turn.
-
-Use `cmpxchgStrong` when there is no loop and a false failure would be wrong.
+In a retry loop, a spurious failure costs one more turn. When there is no loop and a false failure is wrong, use `cmpxchgStrong`.
 
 ## Ordering is an argument, not a fence
 
-Every operation so far took a second argument we have not discussed.
+Each operation in this chapter has a second argument. The chapter did not explain that argument yet.
 
-There are six values and the program prints them weakest first:
+The argument has six values. The program prints them, weakest first:
 
 ```
 orderings: .unordered .monotonic .acquire .release .acq_rel .seq_cst
 ```
 
-The ordering does not change what happens to the atomic variable.
+The ordering does not change the result on the atomic variable. The ordering controls what the compiler and the CPU can do with **the other memory around the operation**.
 
-It constrains what the compiler and the CPU may do with **the other memory around it**.
+The compiler and the CPU can both change the order of your instructions. Usually, you cannot see the difference, and it costs nothing. When a different thread watches, the order that the thread sees changes what your program does.
 
-Both are allowed to reorder your instructions.
-
-Usually you cannot see the difference, and it costs nothing.
-
-Once another thread is watching, the order that thread sees affects what your program does.
-
-`.monotonic` is the weakest ordering a read-modify-write accepts.
-
-It promises the operation itself is indivisible and promises nothing about neighbouring memory.
-
-That is exactly right for a statistics counter, where you want the total at the end and nothing else depends on when each increment landed.
+`.monotonic` is the weakest ordering that a read-modify-write accepts. It makes the operation indivisible. It gives no promise about the memory near the operation. That is correct for a statistics counter. For such a counter, you need the total at the end, and no other data depends on the time of each increment.
 
 Use a stronger ordering when the atomic is a **signal about other data**.
 
-`.seq_cst` is the strongest, and it is the one to use when you are unsure.
+`.seq_cst` is the strongest ordering. Use it when you are not sure. It is slower, but it is always correct.
 
-It is slower, but it is never wrong.
+No `@fence` builtin exists to use with these orderings. The ordering is an argument of each operation.
 
-There is no `@fence` builtin to pair with these.
-
-The ordering is an argument of each operation.
-
-The compiler rejects the combinations that make no sense, so you do not have to remember them:
+The compiler rejects the combinations that have no meaning. Thus you do not have to remember them:
 
 ```
 c.fetchAdd(1, .unordered)   error: @atomicRmw atomic ordering must not be unordered
@@ -180,11 +132,9 @@ c.load(.release)            error: @atomicLoad atomic ordering must not be relea
 c.store(1, .acquire)        error: @atomicStore atomic ordering must not be acquire or acq_rel
 ```
 
-A load cannot release, because there is nothing to publish.
+A load cannot release, because it has no data to publish. A store cannot acquire, because it reads no data.
 
-A store cannot acquire, because there is nothing to read.
-
-Compare-and-swap takes two orderings, one for the success path and one for failure, and the failure one may not be stricter than the success one:
+Compare-and-swap takes two orderings: one for the success path and one for the failure path. The failure ordering must not be stricter than the success ordering:
 
 ```
 c.cmpxchgStrong(0, 1, .monotonic, .acquire)
@@ -193,17 +143,14 @@ error: failure atomic ordering must be no stricter than success
 
 ## Acquire and release are a pair
 
-The most common pattern is called publishing.
+The most common pattern has the name *publishing*. It has two halves:
 
-One thread fills in some data and then sets a flag.
-
-Another sees the flag and reads the data.
+- One thread writes some data, and then it sets a flag.
+- A different thread sees the flag, and then it reads the data.
 
 <SnippetSource name="03-standard-library.atomics" decl="publish" />
 
-The `.release` store draws a line.
-
-Every write above it is visible to any thread that reads that `true` back with `.acquire`.
+The `.release` store makes a boundary. Each write above the store is visible to each thread that reads that `true` with `.acquire`.
 
 <SnippetSource name="03-standard-library.atomics" decl="consume" />
 
@@ -212,35 +159,25 @@ before publish: null
 after publish:  7
 ```
 
-Without the pairing, a reader could see `ready` as true and `payload` as zero.
+Without the pair, a reader can see `ready` as true and `payload` as zero. The two writes go to different addresses. Without the pair, the store to `payload` can become visible second.
 
-The two writes are to different addresses, and nothing otherwise stops the store to `payload` from becoming visible second.
+That bug is very difficult to find. The problem lasts for a few nanoseconds, it depends on the CPU, and it does not occur under a debugger.
 
-That bug is very hard to find.
+On this page, the two calls run on one thread. Thus the output shows only the pattern. On targets with real threads, the guarantee is true, and this pattern is the one to learn.
 
-The window is a few nanoseconds wide, it depends on the CPU, and it does not reproduce under a debugger.
-
-On this page both calls run on one thread, so the output only shows the pattern.
-
-On targets with real threads, the guarantee holds, and the pattern is the one to learn.
-
-`.acq_rel` is for an operation that does both at once, which means a read-modify-write and not a plain load or store.
+`.acq_rel` is for an operation that does the two at the same time. Such an operation is a read-modify-write, not a plain load or store.
 
 ## A lock is a compare-and-swap
 
-Ordinary tools such as locks are built from atomics.
+Usual tools, for example locks, use atomics as their parts.
 
 <SnippetSource name="03-standard-library.atomics" decl="SpinLock" />
 
-Those ten lines are a working mutex.
+Those ten lines are a mutex that works.
 
-`tryLock` swaps `unlocked` for `locked` and reports whether it won.
+`tryLock` changes `unlocked` to `locked`, and it tells you if it was successful. Only one caller can see `unlocked` and take the lock. The reason is that only one compare-and-swap can succeed against a given value.
 
-Only one caller can see `unlocked` and take it, because only one compare-and-swap can succeed against a given value.
-
-`unlock` stores `unlocked` back with `.release`, which publishes everything the holder did inside the critical section to whoever takes the lock next.
-
-The orderings are the pattern from the previous section, applied to the lock itself.
+`unlock` stores `unlocked` with `.release`. The store publishes all that the holder did inside the critical section. The next thread that takes the lock sees those changes. These orderings are the pattern from the previous section, applied to the lock.
 
 ```
 first tryLock:  true
@@ -248,56 +185,36 @@ second tryLock: false
 after unlock:   true
 ```
 
-`std.atomic.Mutex` is this type, in the standard library, at about this length.
+`std.atomic.Mutex` is this type, in the standard library, at approximately this length.
 
-What it does not do is wait.
+But `std.atomic.Mutex` does not wait. A caller that fails to get the lock either spins or stops the attempt. A real mutex must put the thread to sleep, and then something must wake the thread. The operating system does that part.
 
-A caller that loses either spins or gives up.
-
-A real mutex has to put the thread to sleep and have something wake it, and the operating system does that part.
-
-[`Io.Mutex`](/learn/concurrency/locks/) takes an `Io` for that reason.
-
-`SpinLock` does not.
+For that reason, [`Io.Mutex`](/learn/concurrency/locks/) takes an `Io`. `SpinLock` does not take an `Io`.
 
 ## When a mutex is the better answer
 
-Atomics are for one machine word.
+Atomics are for one machine word. You cannot update two related fields atomically together.
 
-Two related fields cannot be updated atomically together.
+If your invariant includes a counter and a pointer, no combination of atomic operations protects it. Use a lock for that case.
 
-If your invariant covers a counter and a pointer, no combination of atomic operations protects it.
+Lock-free code is also not always fast. A contended `fetchAdd` moves a cache line between cores on each call. Eight threads that all update one counter can be slower than eight threads that take a mutex.
 
-A lock is the right tool there.
+`std.atomic.cache_line` exists for this problem. With it, you can put separate counters on separate cache lines when a profiler shows contention between them.
 
-Lock-free is also not the same as fast.
+Select the tool in this way:
 
-A contended `fetchAdd` moves a cache line between cores on every call.
-
-Eight threads all updating one counter can be slower than eight threads taking a mutex.
-
-`std.atomic.cache_line` exists so you can pad separate counters onto separate lines when profiling says they are fighting.
-
-Use an atomic for a counter, a flag, or a single pointer swapped as a unit.
-
-Use [`Io.Mutex`](/learn/concurrency/locks/) for anything with an invariant, and reach for [`Io.Queue`](/learn/concurrency/queues/) before writing a lock-free structure of your own.
+- For a counter, a flag, or a single pointer that you swap as a unit, use an atomic.
+- For data that has an invariant, use [`Io.Mutex`](/learn/concurrency/locks/).
+- Before you write your own lock-free structure, try [`Io.Queue`](/learn/concurrency/queues/).
 
 ## What moved
 
-Two things here differ from what an older tutorial will show you.
+Two things on this page are different from an older tutorial.
 
-`AtomicOrder` now lives in `std.lang`, the home for declarations the standard library shares with the compiler.
+`AtomicOrder` is now in `std.lang`. `std.lang` contains the declarations that the standard library shares with the compiler. `std.builtin` stays as an alias. Thus `std.builtin.AtomicOrder` still resolves, and the snippet on this page uses `std.lang.AtomicOrder`.
 
-`std.builtin` is kept as an alias, so `std.builtin.AtomicOrder` still resolves and the snippet on this page uses `std.lang.AtomicOrder`.
+`@fence` does not exist now. Code that called `@fence` could almost always put the ordering on the operation instead. Now the operation is the only place for an ordering.
 
-`@fence` is gone.
+The builtins are still available under the wrapper. `std.atomic.Value` calls `@atomicLoad`, `@atomicStore`, `@atomicRmw` and `@cmpxchgStrong`. `SpinLock` above uses two of these builtins directly, because `Value` is not designed for an `enum(u8)`.
 
-Code that called it could almost always have put the ordering on the operation instead.
-
-That is now the only way to write an ordering.
-
-The builtins are still there under the wrapper.
-
-`@atomicLoad`, `@atomicStore`, `@atomicRmw` and `@cmpxchgStrong` are what `std.atomic.Value` calls, and `SpinLock` above uses two of them directly because an `enum(u8)` is not what `Value` is shaped for.
-
-Next: [Threads](/learn/concurrency/threads/) for the real threads these guarantees are about, and [Locks and Semaphores](/learn/concurrency/locks/) for the tools to prefer over these.
+Next: [Threads](/learn/concurrency/threads/) shows the real threads that these guarantees are for. [Locks and Semaphores](/learn/concurrency/locks/) shows the tools to prefer over atomics.

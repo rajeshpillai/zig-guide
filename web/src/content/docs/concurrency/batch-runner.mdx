@@ -1,8 +1,8 @@
 ---
 title: A Batch Job Runner
 seoTitle: "A Real Zig Concurrency Example: Batch Job Runner with std.Io"
-seoDescription: "A complete concurrent Zig program: four workers over one batch, an atomic work index, a private result slot per record, and a mutex over the only state the workers share. Includes the measurement showing all twelve records ran on one thread, and why that is the correct outcome."
-description: Four workers, one batch, three kinds of shared state, and a measurement that says one thread did all of it.
+seoDescription: "A complete concurrent Zig program: four workers, an atomic work index, a result slot per record, and a mutex over the one shared state."
+description: Four workers, one batch, three kinds of shared state, and a measurement that says one thread did all of the work.
 section: Concurrency
 order: 80
 ---
@@ -10,169 +10,107 @@ order: 80
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Every other chapter here shows one primitive at a time.
+Each other chapter here shows one primitive at a time. This chapter is a full program.
 
-This chapter is a whole program.
-
-A batch of order records goes in, four workers process them, and a report comes out.
-
-Three of the records are malformed, each in a different way, because a real batch runner cannot assume clean input.
+A batch of order records goes in, four workers process the records, and a report comes out. Three of the records are malformed, each in a different way. A real batch runner cannot assume that its input is clean.
 
 <Playground
   name="03-standard-library.batch-runner"
-  note="Built and run natively by CI. wasm32-wasi has a single thread, so every worker would run inline and the program would behave like a plain for loop."
+  note="CI builds and runs this program natively. wasm32-wasi has a single thread. Thus each worker runs inline, and the program behaves like a plain for loop."
 />
 
-The program has three pieces of state that workers touch.
-
-Each one is protected in a different way.
+The program has three items of state that the workers use. The program protects each item in a different way.
 
 ## Three kinds of state, three different answers
 
-The results are one slot per record.
+The results are one slot for each record.
 
 <SnippetSource name="03-standard-library.batch-runner" decl="Result" />
 
-Each worker writes only the slot whose record it claimed, so two workers never touch the same bytes.
+Each worker writes only the slot of the record that it claimed. Thus two workers never write the same bytes, and the slots need no lock and no atomic. This is the cheapest way to share state, and the first way to try.
 
-So the slots need no lock and no atomic.
+The work index is a single number that each worker increments. It is one machine word, and one operation changes it. It does not have to agree with a different value. Thus an atomic is sufficient for the work index.
 
-This is the cheapest kind of sharing, and the first one to try.
-
-The work index is a single number that every worker increments.
-
-It is one machine word, changed by one operation, and it does not have to agree with any other value.
-
-So an atomic is enough for it.
-
-The largest order in the batch is the third kind.
+The largest order in the batch is the third kind of state.
 
 <SnippetSource name="03-standard-library.batch-runner" decl="Largest" />
 
-Two fields that have to agree with each other.
+The struct has two fields that must agree with each other. One is a value that belongs to an index. The other is an index that belongs to a value.
 
-A value that belongs to an index, and an index that belongs to a value.
+Atomic operations cannot keep that pair consistent. The end of [Atomics](/learn/concurrency/atomics/) explains why. Thus the pair needs a mutex, and the pair is the only item in the program that needs one.
 
-Atomic operations cannot keep that pair consistent, as [Atomics](/learn/concurrency/atomics/) explains at its end.
-
-So the pair needs a mutex, and it is the only thing in the program that does.
-
-## Claiming work with one atomic add
+## Claim work with one atomic add
 
 <SnippetSource name="03-standard-library.batch-runner" decl="worker" />
 
-Every worker runs that same function and they compete for records.
+Each worker runs the same function, and the workers compete for records.
 
-`fetchAdd` returns the value from before the addition, so the index each worker gets is one nobody else can get.
+`fetchAdd` returns the value from before the addition. Thus each worker gets an index that no other worker can get. That is how the program gives work to the workers.
 
-That is how work gets handed out.
+When the returned index is past the end, the worker returns. Then the batch is done.
 
-When the returned index is past the end, the worker returns and the batch is done.
+No code counts or divides the batch at the start. Thus no worker is idle because its share was the easy half.
 
-Nothing counts or splits the batch up front, so no worker sits idle because its share happened to be the easy half.
-
-## The parser knows nothing about any of this
+## The parser knows nothing about concurrency
 
 <SnippetSource name="03-standard-library.batch-runner" decl="parseOrder" />
 
-`parseOrder` takes no `Io` and no allocator, touches no shared state, and does not know that anything concurrent is happening.
+`parseOrder` takes no `Io` and no allocator. It uses no shared state, and it does not know that concurrent work occurs. You can read it and test it alone.
 
-You can read it and test it on its own.
+A mistake in the concurrency cannot make the parse wrong. When this part has no concurrency, the full program is much easier to review. The networking chapters keep protocol code away from sockets for the same reason.
 
-A mistake in the concurrency cannot make the parsing wrong.
-
-Keeping this part free of concurrency makes the whole program much easier to review.
-
-The networking chapters keep protocol code away from sockets for the same reason.
-
-## The tie break is not decoration
+## The tie break is necessary
 
 Look again at the comparison inside the lock.
 
-A plain "greater than" would be enough to find the largest value.
+A plain "greater than" is sufficient to find the largest value. It is not sufficient to find the value **the same way two times**.
 
-It would not be enough to find it **the same way twice**.
+If two records have equal value, the answer is the record from the worker that got there first. That worker changes with the computer, with the run, and with the load on the computer.
 
-Two records of equal value would leave whichever worker got there first in the answer, and that varies by machine, by run, and by how busy the box is.
+The tie break on the index gives the reduction a total order. Thus the result does not depend on the worker that arrived first.
 
-The tie break on index gives the reduction a total order, so the result no longer depends on who arrived first.
-
-Any reduction shared between workers needs this, whether it finds a maximum, a minimum, a first match or a best candidate.
-
-If two inputs can tie, something other than arrival order has to decide between them.
+Each reduction that workers share needs this rule. The reduction can find a maximum, a minimum, a first match or a best candidate. If two inputs can tie, something other than the order of arrival must decide between them.
 
 ## The run is concurrent, the report is not
 
-Nothing prints until every worker has finished.
+The program prints nothing until all of the workers are done. Then the report reads the results in record order, not in the order that the workers made them.
 
-Then the report walks the results in record order, which is not the order they were produced in.
+This is intentional. Each program on this site runs each night, and CI compares its output with a recorded file. If the output depended on the scheduler, no person could check it.
 
-This is deliberate.
+The same rule applies outside this site. Sometimes the result of a concurrent program depends on the order in which its tasks ran. Then you cannot test the program, and you do not see when it starts to give wrong answers.
 
-Every program on this site runs nightly, and its output is compared with a recorded file.
-
-If the output depended on scheduling, nobody could check it.
-
-The same rule applies outside this site.
-
-If a concurrent program's result depends on the order its tasks happened to run, you cannot test it, and you will not notice when it starts giving wrong answers.
-
-Make the result independent of scheduling, and you can change how the work runs later without changing the result.
+Make the result independent of the scheduler. Then you can change how the work runs later, and the result does not change.
 
 ## `group.async`, not `group.concurrent`
 
-The workers start on a `Group`, and the spelling matters.
+The workers start on a `Group`, and the selected function is important.
 
-`group.async` is allowed to run a task inline when the pool is busy.
+`group.async` can run a task inline when the pool is busy. That is correct for these workers. Each worker completes without help, thus a worker on the thread that calls `group.async` still completes its work.
 
-That is fine for these workers: each one finishes on its own, so running it on the calling thread still gets it done.
+`group.concurrent` promises a separate unit of concurrency. It returns an error when it cannot give one.
 
-`group.concurrent` promises a separate unit of concurrency and returns an error when it cannot provide one.
-
-Use `concurrent` when a task might not finish by itself, which in practice means anything you intend to cancel.
-
-[Cancellation](/learn/concurrency/cancellation/) shows what goes wrong otherwise, including how it happened in this guide's own CI.
+Use `concurrent` when a task possibly does not complete without help. In practice, this means each task that you intend to cancel. [Cancellation](/learn/concurrency/cancellation/) shows what goes wrong if you do not. It also shows how the problem occurred in the CI of this guide.
 
 ## What actually happened
 
-I instrumented a copy of this program to record which thread claimed each record, and ran it on a twelve-core machine.
+I added instrumentation to a copy of this program. The copy recorded which thread claimed each record. I ran it on a computer with twelve cores.
 
-All twelve records went to one thread.
+All twelve records went to one thread. That result occurred on each run, with each setting for the work per record.
 
-It happened on every run, whatever the per-record work was set to.
+The first worker starts before the second worker exists. Twelve records is much too little work. The first worker is already done when the second worker starts.
 
-The first worker starts before the second one exists.
+A larger batch changes the result. At two hundred records, the same binary gives a different answer on each run: one thread, then three, then two. The runs were seconds apart on a computer with no other load. At five thousand records, the result is four threads each time.
 
-Twelve records is far too little work for the first worker to still be busy when the second one starts.
+Thus, **the work index makes the batch safe to share, but it does not make the batch parallel**. The safety comes from the structure, thus it is true at all sizes. The work runs in parallel only when the work is sufficient to keep the first worker busy while the other workers start.
 
-Raising the batch changes it.
-
-At two hundred records the same binary gives a different answer run to run: one thread, then three, then two, on a quiet machine seconds apart.
-
-At five thousand it is four every time.
-
-So **the work index makes the batch safe to share, but it does not make it parallel**.
-
-The safety comes from the structure, so it holds at any size.
-
-Work runs in parallel only when there is enough of it that the first worker is still busy when the others start.
-
-This is also why the report does not depend on scheduling.
-
-The same program with the same input on the same machine split the work differently two seconds apart.
-
-A report that mentioned threads would have been wrong by the time you read it.
+This is also why the report does not depend on the scheduler. The same program, with the same input on the same computer, divided the work differently two seconds apart. A report that showed threads would be wrong when you read it.
 
 ## When this shape is the wrong one
 
-A work index suits a fixed batch that is known up front.
+A work index is correct for a fixed batch that you know at the start. For other work, use a different shape:
 
-Work that arrives while the program is running needs [`Io.Queue`](/learn/concurrency/queues/) instead.
+- For work that arrives while the program runs, use [`Io.Queue`](/learn/concurrency/queues/). Producers and consumers run at the same time. The capacity of the queue limits how far the producers can go ahead of the consumers.
+- For work with a deadline, put [Select](/learn/concurrency/select/) around the group. Then cancel the work that is not complete.
+- For work where each job is a network round trip, use many more workers than cores. The workers block for most of their time, and they do not compute.
 
-There, producers and consumers run at the same time, and the queue's capacity limits how far producers can get ahead.
-
-Work with a deadline needs [Select](/learn/concurrency/select/) around the group, and then cancellation for whatever has not finished.
-
-Work where each job is a network round trip needs far more workers than cores, because the workers spend most of their time blocked, not computing.
-
-Next: [Choosing an Io](/learn/concurrency/choosing-an-io/) for the choice this program makes in one line, which the other chapters assume.
+Next: [Choosing an Io](/learn/concurrency/choosing-an-io/) explains the choice that this program makes in one line. The other chapters assume that choice.

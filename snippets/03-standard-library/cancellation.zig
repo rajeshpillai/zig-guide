@@ -1,19 +1,19 @@
 //! title: Cancellation
 //! native
-//! Cancelling a running task, and the cancellation points that let it happen.
-//! Built and run for the host: cancelling a task that is still running needs an
-//! `Io` that can run it somewhere else, and wasm32-wasi cannot.
+//! How to cancel a task that runs, and the cancellation points that make it
+//! possible. Built and run for the host. To cancel a task that still runs, the
+//! `Io` must run the task in a different place. wasm32-wasi cannot do that.
 
 const std = @import("std");
 
-/// Sleeps for an hour, or until someone cancels it. `io.sleep` is a
+/// Sleeps for an hour, or until a caller cancels it. `io.sleep` is a
 /// *cancellation point*: a function on `Io` that can return `error.Canceled`.
 fn nap(io: std.Io) std.Io.Cancelable!void {
     try io.sleep(.fromSeconds(3600), .awake);
 }
 
-/// The same sleep, but recording how it ended so the group below can be inspected
-/// after the fact.
+/// The same sleep, but it records how it ended. Then the program can examine
+/// the group below after the sleep ends.
 fn trackedNap(io: std.Io, status: *[]const u8) std.Io.Cancelable!void {
     io.sleep(.fromSeconds(3600), .awake) catch |err| {
         status.* = @errorName(err);
@@ -22,8 +22,8 @@ fn trackedNap(io: std.Io, status: *[]const u8) std.Io.Cancelable!void {
     status.* = "finished";
 }
 
-/// Pure computation calls nothing on `Io`, so it has no cancellation point of
-/// its own and would spin forever. `io.checkCancel` is the point you add.
+/// Pure computation calls nothing on `Io`. Thus it has no cancellation point,
+/// and it spins forever. `io.checkCancel` is the point that you add.
 fn count(io: std.Io, counter: *u64) std.Io.Cancelable!void {
     while (true) {
         try io.checkCancel();
@@ -42,8 +42,8 @@ pub fn main(init: std.process.Init) !void {
     var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
     const out = &file_writer.interface;
 
-    // `cancel` is `await` plus a cancellation request: it blocks until the task
-    // is done, and hands back what the task returned.
+    // `cancel` is `await` plus a cancellation request. It blocks until the task
+    // is done, and it returns the value that the task returned.
     var sleeping = try io.concurrent(nap, .{io});
     if (sleeping.cancel(io)) |_| {
         try out.print("nap: finished\n", .{});
@@ -51,13 +51,13 @@ pub fn main(init: std.process.Init) !void {
         try out.print("nap: {s}\n", .{@errorName(err)});
     }
 
-    // Cancelling a task that already finished is not an error. There was no
-    // cancellation point left to reach, so you get the result.
+    // If you cancel a task that is already complete, the result is not an
+    // error. The task has no cancellation point left, thus you get the result.
     var finished = io.async(double, .{21});
     try out.print("double: {d}\n", .{finished.cancel(io)});
 
-    // The counting task only notices because it asks. Take the `checkCancel`
-    // out and this line never prints.
+    // The task sees the request only because it asks. If you remove the
+    // `checkCancel`, this line never prints.
     var counter: u64 = 0;
     var counting = try io.concurrent(count, .{ io, &counter });
     if (counting.cancel(io)) |_| {
@@ -66,15 +66,17 @@ pub fn main(init: std.process.Init) !void {
         try out.print("count: {s}\n", .{@errorName(err)});
     }
 
-    // A Group cancels as a whole: every member gets the request, and `cancel`
-    // returns once all of them have stopped.
+    // A Group cancels as a whole. Each member gets the request, and `cancel`
+    // returns when all of the members stop.
     //
-    // `concurrent`, not `async`. `async` may run the task on this thread, and
-    // the threaded `Io` does once it is out of spare capacity: `async_limit`
-    // defaults to one less than the core count. A sleep run on this thread
-    // sleeps for an hour here, and `group.cancel` below is never reached. It hangs
-    // whenever the group is at least as large as the core count, so it passes
-    // on a development machine and deadlocks on a small one.
+    // Use `concurrent`, not `async`. `async` can run the task on this thread.
+    // The threaded `Io` does that when it has no spare capacity: `async_limit`
+    // has a default of one less than the core count. A sleep on this thread
+    // sleeps for an hour here, and the program never gets to `group.cancel`.
+    //
+    // The program hangs when the group is equal to or larger than the core
+    // count. Thus it passes on a development computer and deadlocks on a
+    // small one.
     var status: [3][]const u8 = @splat("still running");
     var group: std.Io.Group = .init;
     for (&status) |*slot| try group.concurrent(io, trackedNap, .{ io, slot });
