@@ -2,7 +2,7 @@
 title: Open, Read, Close
 seoTitle: "Zig Read File: readFileAlloc, readFile and openFile"
 description: Three ways to read a file, and what each one does when the file is larger than you expect.
-seoDescription: How to read a file in Zig with std.Io. Why the readFileAlloc limit fails at the file size, why a full readFile buffer is ambiguous, how to use openFile with length and a positional read, and what to do with FileNotFound.
+seoDescription: Read a file in Zig with std.Io. Learn why the readFileAlloc limit fails at the file size and why a full readFile buffer is ambiguous. Use openFile with length, a positional read and FileNotFound.
 section: Working with Files
 order: 10
 ---
@@ -63,7 +63,7 @@ The 8-byte buffer has space for 8 bytes. Thus the function read 8 bytes and stop
 When the result fills the full buffer, the result does not tell you which of these two conditions is true:
 
 - The file is exactly 8 bytes long.
-- The file is longer than 8 bytes, and the remaining bytes are not read.
+- The file is longer than 8 bytes, and the program did not read the other bytes.
 
 If you must know the difference, make the buffer one byte larger than the largest file that you accept. Then a full buffer always means that the file is too large.
 
