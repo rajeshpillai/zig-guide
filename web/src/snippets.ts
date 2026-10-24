@@ -26,6 +26,12 @@ export interface SnippetEntry {
    * expects everywhere else.
    */
   expectFail: boolean;
+  /**
+   * True for `//! compile-fails` snippets: CI requires the compiler to refuse
+   * them with the text in their `.expected-error` file, and the page shows
+   * that text under the code. There is no wasm.
+   */
+  compileFails: boolean;
 }
 
 // Anchored to the Astro project root (`web/`) rather than `import.meta.url`,
@@ -92,4 +98,14 @@ export async function findSnippet(name: string): Promise<SnippetEntry> {
 export async function snippetSource(entry: SnippetEntry): Promise<string> {
   const source = await readFile(resolve(webRoot, "..", entry.source), "utf8");
   return source.replace(/^(\/\/!.*\n)+\n?/, "").trimEnd();
+}
+
+/**
+ * The compiler message a `//! compile-fails` snippet must produce, read from
+ * the same `.expected-error` file CI matches against, so the message on the
+ * page is the checked one.
+ */
+export async function snippetCompileError(entry: SnippetEntry): Promise<string> {
+  const path = resolve(webRoot, "..", entry.source.replace(/\.zig$/, ".expected-error"));
+  return (await readFile(path, "utf8")).trim();
 }

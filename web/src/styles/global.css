@@ -2020,6 +2020,28 @@ zig-playground pre.astro-code,
   color: var(--text);
 }
 
+/* The message a `//! compile-fails` snippet must produce. It is read from the
+   `.expected-error` file CI matches, so it sits under the code as output, in
+   the same band as `.pg-try`. */
+.pg-compile-error {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.pg-compile-label {
+  display: block;
+  padding: 0.5rem var(--gutter) 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.pg-static .pg-compile-error pre {
+  padding-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
 .pg-toolbar {
   display: flex;
   align-items: center;

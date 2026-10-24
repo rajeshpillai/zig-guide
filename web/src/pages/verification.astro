@@ -20,7 +20,8 @@ const total = snippets.length;
 const executables = snippets.filter((s) => s.kind === "exe").length;
 const tests = snippets.filter((s) => s.kind === "test").length;
 const inBrowser = snippets.filter((s) => s.runnable).length;
-const hostOnly = total - inBrowser;
+const mustNotCompile = snippets.filter((s) => s.compileFails).length;
+const hostOnly = total - inBrowser - mustNotCompile;
 const mustFail = snippets.filter((s) => s.expectFail).length;
 ---
 
@@ -168,6 +169,21 @@ const mustFail = snippets.filter((s) => s.expectFail).length;
       no correct answer, and a recorded expectation would assert undefined
       behaviour. Where this difference is important, the chapter states both
       halves, and shows only the defined half.
+    </p>
+
+    <h2>The {mustNotCompile} that are required not to compile</h2>
+    <p>
+      Some lessons are a compile error. Examples are a runtime value used as
+      an array length, and a comptime loop that is longer than the branch
+      quota. These snippets have a marker, and the build never makes a
+      binary from them. The build compiles each one for wasm and asserts that
+      the compiler stops. The compiler output must contain each line of a
+      sibling file, in order.
+    </p>
+    <p>
+      The page shows the lines of that file under the code. Thus the error
+      message that you read is the message that CI checks. If the snippet
+      starts to compile, or the compiler changes its words, the build fails.
     </p>
 
     <h2>What happens every night</h2>

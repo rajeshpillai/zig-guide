@@ -8,7 +8,7 @@
  */
 import { existsSync } from "node:fs";
 import { Code } from "astro:components";
-import { findSnippet, snippetSource } from "../snippets";
+import { findSnippet, snippetCompileError, snippetSource } from "../snippets";
 
 /**
  * The same pair `astro.config.mjs` gives fenced blocks in prose. Repeated
@@ -42,6 +42,7 @@ const { name, note, tryLocally } = Astro.props;
 // the same text.
 const entry = await findSnippet(name);
 const shown = await snippetSource(entry);
+const compileError = entry.compileFails ? await snippetCompileError(entry) : null;
 
 /**
  * Whether this deployment carries the in-browser compiler, decided here rather
@@ -73,10 +74,19 @@ const canCompile = existsSync(new URL("../../public/compiler/zig.wasm", import.m
     <div class="pg-static">
       <div class="pg-toolbar">
         <span class="pg-note">
-          {note ?? "CI compiles this snippet, but it cannot run in the browser sandbox."}
+          {note ??
+            (compileError
+              ? "This program does not compile. CI checks that the compiler stops with the message below."
+              : "CI compiles this snippet, but it cannot run in the browser sandbox.")}
         </span>
       </div>
       <Code code={shown} lang="zig" themes={CODE_THEMES} defaultColor={false} />
+      {compileError && (
+        <div class="pg-compile-error">
+          <span class="pg-compile-label">The compiler says:</span>
+          <pre><code>{compileError}</code></pre>
+        </div>
+      )}
       {tryLocally && (
         <p class="pg-try">
           <span class="pg-try-label">Run it yourself:</span>

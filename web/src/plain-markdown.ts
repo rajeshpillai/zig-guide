@@ -14,7 +14,7 @@
  * thing this repo exists to avoid.
  */
 import type { Doc } from "./nav";
-import { findSnippet, snippetSource } from "./snippets";
+import { findSnippet, snippetCompileError, snippetSource } from "./snippets";
 
 const base = import.meta.env.BASE_URL;
 
@@ -67,7 +67,11 @@ export async function chapterBody(entry: Doc, origin?: string): Promise<string> 
     const note = snippet.runnable
       ? `Runnable: compiled to WebAssembly and executed by CI against Zig master.`
       : (attr(tag, "note") ?? "Compiled by CI, but not runnable in the browser sandbox.");
-    blocks.push(`\`\`\`zig\n${source}\n\`\`\`\n\n*${note} (\`${name}\`)*`);
+    // A compile-fails snippet's lesson is the message, so the twin carries it.
+    const error = snippet.compileFails
+      ? `\n\nThe compiler says:\n\n\`\`\`\n${await snippetCompileError(snippet)}\n\`\`\``
+      : "";
+    blocks.push(`\`\`\`zig\n${source}\n\`\`\`${error}\n\n*${note} (\`${name}\`)*`);
   }
 
   let at = 0;

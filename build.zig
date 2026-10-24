@@ -92,6 +92,21 @@ pub fn build(b: *std.Build) void {
     }
 
     for (snippets.items) |snippet| {
+        // `//! compile-fails`: the lesson is the compiler's refusal, so there
+        // is no binary to ship or run. The runner compiles the snippet for the
+        // same wasm target as the rest and requires the compiler to fail with
+        // the text in `.expected-error`.
+        if (snippet.compile_fails) {
+            const check = b.addSystemCommand(&.{ "node", "tools/expect-compile-error.mjs" });
+            check.addArg(b.graph.zig_exe);
+            check.addArg(b.fmt("{f}", .{@import("builtin").zig_version}));
+            check.addFileArg(b.path(snippet.path));
+            check.addFileArg(b.path(snippet.expected_error.?));
+            check.expectExitCode(0);
+            verify_step.dependOn(&check.step);
+            continue;
+        }
+
         const module = b.createModule(.{
             .root_source_file = b.path(snippet.path),
             .target = if (snippet.native)
@@ -327,6 +342,15 @@ const Snippet = struct {
     /// Use this sparingly. `.safe` costs about 1.1 MB against 45 KB, paid by
     /// anyone who presses Run on that snippet.
     fails: bool,
+    /// True for snippets marked `//! compile-fails`: never built to a binary,
+    /// and required to fail compilation with the message in its
+    /// `.expected-error` file. The page shows that message under the code.
+    ///
+    /// This exists for the comptime chapters, where the lesson is often a
+    /// compile error: a `@compileError` with a custom message, or two units
+    /// the type system will not add. Without it the message could only be a
+    /// fenced block in prose, which nothing checks.
+    compile_fails: bool,
     /// False for snippets marked `//! norun`: still compiled (so the API gate
     /// still applies) but never executed, because they need capabilities the
     /// browser sandbox lacks — a real filesystem, sockets.
@@ -428,14 +452,15 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
         // to accept any failure, including the compile-shaped ones a rewrite
         // introduces by accident.
         const fails = hasMarker(source, "//! fails");
+        const compile_fails = hasMarker(source, "//! compile-fails");
         const expected_error_rel =
             b.fmt("{s}/{s}.expected-error", .{ root, replaceExt(b, entry.path) });
         const expected_error: ?[]const u8 =
             if (fileExists(b, expected_error_rel)) expected_error_rel else null;
-        if (fails and expected_error == null) {
+        if ((fails or compile_fails) and expected_error == null) {
             std.debug.panic(
-                "{s} is marked `//! fails` but has no sibling {s} naming the message it must fail with",
-                .{ rel, expected_error_rel },
+                "{s} is marked `//! {s}` but has no sibling {s} naming the message it must fail with",
+                .{ rel, if (fails) "fails" else "compile-fails", expected_error_rel },
             );
         }
 
@@ -451,6 +476,18 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
         // even without an explicit `//! native` line.
         const native = hasMarker(source, "//! native") or
             link_libs.len > 0 or c_includes.len > 0 or c_sources.len > 0;
+        // A compile-fails snippet is compiled as a wasm executable and nothing
+        // else, so the markers that change how a binary is built or run have
+        // nothing to act on. Refusing the pair is clearer than ignoring one.
+        if (compile_fails and (fails or norun or native or simd)) {
+            std.debug.panic(
+                "{s}: `//! compile-fails` cannot be combined with fails, norun, native, simd or C markers",
+                .{rel},
+            );
+        }
+        if (compile_fails and std.mem.find(u8, source, "pub fn main") == null) {
+            std.debug.panic("{s}: a `//! compile-fails` snippet needs `pub fn main`", .{rel});
+        }
         if (stdin != null and !native) {
             std.debug.panic(
                 "{s} has a sibling {s}, but only a `//! native` snippet is given stdin: " ++
@@ -468,8 +505,9 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
             .stdin = stdin,
             .expected_error = expected_error,
             .fails = fails,
-            // `//! norun` and native builds are both unshippable to the browser.
-            .runnable = !norun and !native,
+            .compile_fails = compile_fails,
+            // `//! norun`, native and compile-fails snippets have no wasm to ship.
+            .runnable = !norun and !native and !compile_fails,
             .norun = norun,
             .native = native,
             .simd = simd,
@@ -525,8 +563,8 @@ fn writeManifest(b: *std.Build, snippets: []const Snippet) std.Build.LazyPath {
     w.writeAll("[\n") catch @panic("OOM");
     for (snippets, 0..) |s, i| {
         w.print(
-            \\  {{"name":"{s}","chapter":"{s}","kind":"{t}","source":"{s}","wasm":"{s}.wasm","runnable":{},"expectFail":{}}}
-        , .{ s.name, s.chapter, s.kind, s.path, s.name, s.runnable, s.fails }) catch @panic("OOM");
+            \\  {{"name":"{s}","chapter":"{s}","kind":"{t}","source":"{s}","wasm":"{s}.wasm","runnable":{},"expectFail":{},"compileFails":{}}}
+        , .{ s.name, s.chapter, s.kind, s.path, s.name, s.runnable, s.fails, s.compile_fails }) catch @panic("OOM");
         w.writeAll(if (i + 1 == snippets.len) "\n" else ",\n") catch @panic("OOM");
     }
     w.writeAll("]\n") catch @panic("OOM");
