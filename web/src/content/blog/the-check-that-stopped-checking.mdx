@@ -1,0 +1,126 @@
+---
+title: "The Check That Stopped Checking"
+seoTitle: "Zig @compileError: Test That Bad Code Does Not Compile"
+description: "A comptime guard in a small library stopped working after a refactor, and no test failed. The fix is a build step that requires a compile error."
+date: "2026-10-24"
+zig: "0.18.0-dev.246+05671ced9"
+---
+
+import Playground from "../../components/Playground.astro";
+
+## Monday, 10:05 AM
+
+Urvashi looked after a dashboard for a group of rain gauges. Each gauge sent one value each hour, in tenths of a millimetre, as a `u8`. The dashboard added the values for each day.
+
+On Monday, one gauge showed 4.4 mm for Sunday. The hourly values for Sunday were much larger. Five of the hours alone gave 59 mm.
+
+The dashboard added the values with `total` from `stats`, a small library that Shivam wrote.
+
+## 10:20 AM: the guard
+
+Shivam knew this mistake. A `u8` holds 255 at most, and two hours of heavy rain are more than 255. Thus `stats.total` had a guard. It refused small integer types during compilation:
+
+```zig
+fn Item(comptime T: type) type {
+    const I = @typeInfo(T).pointer.child;
+    if (@typeInfo(I) == .int and @bitSizeOf(I) < 32) {
+        @compileError("total: " ++ @typeName(I) ++ " items overflow after a few values; convert them to u32 first");
+    }
+    return I;
+}
+```
+
+With the guard, a call with `u8` values does not compile:
+
+<Playground name="blog.total-guard" />
+
+The dashboard passed `u8` values, and the dashboard compiled. Thus the guard did not run.
+
+## 10:40 AM: the refactor
+
+Last week, Shivam changed the signature of `total`:
+
+```zig
+// Before
+pub fn total(values: anytype) Item(@TypeOf(values)) {
+
+// After
+pub fn total(values: anytype) @typeInfo(@TypeOf(values)).pointer.child {
+```
+
+The new line was shorter, and all tests passed. But now nothing called `Item`.
+
+Zig compiles only the code that the program uses. A function that no code calls is not analysed, thus a `@compileError` inside it never fires. The guard was still in the file, and it looked correct in review. It checked nothing.
+
+The dashboard runs a release build without safety checks. In that build, integer overflow is illegal behaviour, and the program does not stop. The sum went past 255 and the result was wrong. A Debug build of the same dashboard stops with `panic: integer overflow`.
+
+## 11:10 AM: what the tests did not test
+
+The tests of `stats` called `total` with `u32` values and checked the sums. They tested what `total` accepts. No test checked what `total` refuses.
+
+A `zig test` file cannot hold that test. Each test in the file must compile. If one test does not compile, the full test binary does not compile, and no test runs.
+
+Thus the test must be a separate compile. It must pass when the compiler stops, and fail when the compiler succeeds.
+
+## 11:30 AM: a build step that expects an error
+
+Shivam put the call that must fail into its own file, `tests/compile_fail/total_u8.zig`:
+
+```zig
+const stats = @import("stats");
+
+pub fn main() void {
+    const readings = [_]u8{ 200, 100 };
+    _ = stats.total(@as([]const u8, &readings));
+}
+```
+
+Then Shivam added a step to `build.zig`. The step runs the compiler on that file and checks the result:
+
+```zig
+const must_fail = b.addSystemCommand(&.{ b.graph.zig_exe, "build-obj", "-fno-emit-bin" });
+must_fail.addArgs(&.{ "--dep", "stats" });
+must_fail.addPrefixedFileArg("-Mroot=", b.path("tests/compile_fail/total_u8.zig"));
+must_fail.addPrefixedFileArg("-Mstats=", b.path("src/stats.zig"));
+must_fail.expectExitCode(1);
+must_fail.expectStdErrMatch("total: u8 items overflow after a few values");
+test_step.dependOn(&must_fail.step);
+```
+
+The parts of the step:
+
+- `b.graph.zig_exe` is the compiler that runs the build. Thus the check uses the same compiler as the rest of the project.
+- `-fno-emit-bin` does the full analysis and writes no output file. Each comptime error comes from the analysis.
+- `--dep stats` and the two `-M` arguments give the test file the module `stats`. Without them, the compile stops at the `@import` line, before it reaches the guard.
+- `expectExitCode(1)` requires the compile to fail.
+- `expectStdErrMatch` requires the message of the guard. Any other error makes the step fail.
+
+With the refactor in place, `zig build test` failed:
+
+```txt
+error: ========= expected to find in stderr: =========
+       total: u8 items overflow after a few values
+       ========= but stderr does not contain it: =====
+```
+
+Shivam put the `Item` call back into the return type, and the step passed. Urvashi changed the dashboard to convert each value to `u32` before the sum:
+
+<Playground name="blog.total" />
+
+## Match your own words
+
+`expectStdErrMatch` takes text from the `@compileError` in the library. Do not match an error that the compiler writes, such as `expected type 'u8', found 'comptime_int'`. The Zig team can change those words in any release. Then the step fails, and your code did not change. The text in your own `@compileError` changes only when you change it.
+
+The step reruns when one of its two files changes. If `stats.zig` imports other files, add each one with `must_fail.addFileInput(b.path("src/other.zig"))`. Otherwise a change in an imported file does not run the check again.
+
+## How this guide does the same
+
+Each page of this guide is a program that CI compiles and runs. Some pages of the [Comptime](/learn/metaprogramming/) section show a program that must not compile. CI compiles each one and requires the compiler to stop with the message that the page shows. If a guard does not fire, the nightly build fails.
+
+[Reject Bad Input with @compileError](/learn/metaprogramming/compile-error/) explains how to write a guard. [The verification page](/verification/) describes all the checks.
+
+## About the numbers
+
+Urvashi, Shivam and the rain gauges are not real. The code, the error messages and the output of the `build.zig` step are real. Each of them came from the Zig version at the top of this post.
+
+The 4.4 mm is an example of a wrong result, not a measurement. In a release build without safety checks, the language does not define the result of an overflow. Do not depend on any particular wrong number.
