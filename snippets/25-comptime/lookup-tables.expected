@@ -1,0 +1,14 @@
+table: 256 entries, 1024 bytes
+  table[0] = 0x00000000
+  table[1] = 0x77073096
+  table[2] = 0xee0e612c
+  table[3] = 0x990951ba
+""
+  ours 0x00000000, std 0x00000000, same
+"a"
+  ours 0xe8b7be43, std 0xe8b7be43, same
+"hello, world"
+  ours 0xffab723a, std 0xffab723a, same
+"The quick brown fox jumps over the lazy dog"
+  ours 0x414fa339, std 0x414fa339, same
+comptime crc32("hello, world") = 0xffab723a

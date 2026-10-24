@@ -1,0 +1,23 @@
+Config: 4 fields, 2 declarations
+  name: []const u8 = "server"
+  port: u16 = 8080
+  verbose: bool = false
+  retries: u8 (no default)
+  pub max_port
+  pub isDefaultPort
+@hasField(Config, "port"): true
+@hasField(Config, "host"): false
+@hasDecl(Config, "isDefaultPort"): true
+@FieldType(Config, "port"): u16
+Level: tag type u8
+  debug = 0
+  info = 1
+  warn = 10
+  err = 11
+Shape: 3 variants
+  circle: f32
+  square: f32
+  empty: void
+diff(before, after):
+  name: "server" -> "api"
+  verbose: false -> true

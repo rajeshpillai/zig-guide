@@ -1,0 +1,9 @@
+1. u12: 12 bits, 2 bytes, max 4095
+2. Partial(Config):
+   name: ?[]const u8
+   port: ?u16
+   verbose: ?bool
+   apply(.{ .port = 9090 }): name "server", port 9090, verbose false
+3. FieldTag(Config): .name .port .verbose
+   .port is a number
+4. @Tuple: 2 fields, values 7 and true

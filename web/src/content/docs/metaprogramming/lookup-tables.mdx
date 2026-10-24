@@ -1,0 +1,119 @@
+---
+title: Build Lookup Tables
+seoTitle: "Zig Comptime Lookup Table: CRC-32 Table at Compile Time"
+description: The compiler calculates a CRC-32 table, and the program checks it against the standard library.
+seoDescription: Build a CRC-32 lookup table at compile time in Zig. Check it against std.hash.Crc32, and raise the branch quota with @setEvalBranchQuota.
+section: Comptime
+order: 20
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A lookup table replaces a calculation with an array read. You calculate each answer one time and keep the answers in an array. Then the program reads the answer for an input from the array.
+
+In many languages, you calculate the table with a separate script and paste the numbers into the source. In Zig, the compiler calculates the table from usual Zig code. The source keeps the calculation, and the binary keeps only the numbers.
+
+This chapter builds the table for CRC-32. CRC-32 is the checksum in Zip files, PNG files and Ethernet frames. The program then compares its results with `std.hash.Crc32`.
+
+<Playground name="25-comptime.lookup-tables" />
+
+## The calculation without a table
+
+CRC-32 processes the input one bit at a time. For each bit, it does one shift and one conditional xor with a constant, the polynomial `0xEDB88320`. A byte has 8 bits, thus each byte of input costs 8 steps.
+
+The result of the 8 steps depends only on one byte. A byte has 256 possible values. Thus there are only 256 possible results, and a table can hold all of them.
+
+## Build the table
+
+```zig
+const table: [256]u32 = blk: {
+    @setEvalBranchQuota(256 * 8 + 256);
+    var t: [256]u32 = undefined;
+    for (&t, 0..) |*entry, byte| {
+        var c: u32 = @intCast(byte);
+        for (0..8) |_| {
+            c = if (c & 1 != 0) poly ^ (c >> 1) else c >> 1;
+        }
+        entry.* = c;
+    }
+    break :blk t;
+};
+```
+
+`table` is a `const` at the top level of the file. The compiler always calculates a top-level `const` during compilation. Thus this block does not need the `comptime` keyword.
+
+The output shows the first entries:
+
+```
+table: 256 entries, 1024 bytes
+  table[0] = 0x00000000
+  table[1] = 0x77073096
+  table[2] = 0xee0e612c
+  table[3] = 0x990951ba
+```
+
+The table in the zlib source, `crc32.h`, starts with the same four numbers. The table is 1024 bytes in the binary, because each of the 256 entries is a `u32`.
+
+## Use the table
+
+```zig
+fn crc32(data: []const u8) u32 {
+    var crc: u32 = 0xFFFFFFFF;
+    for (data) |byte| {
+        crc = table[(crc ^ byte) & 0xFF] ^ (crc >> 8);
+    }
+    return ~crc;
+}
+```
+
+Each byte of input now costs one table read, one xor and one shift. The 8 steps for each bit are gone. They ran one time, in the compiler, for each of the 256 possible bytes.
+
+## Check the table against `std`
+
+A table with one wrong entry gives a wrong checksum for some inputs and the correct checksum for others. Thus the program compares its result with `std.hash.Crc32.hash` for four inputs:
+
+```
+"The quick brown fox jumps over the lazy dog"
+  ours 0x414fa339, std 0x414fa339, same
+```
+
+`0x414fa339` is also the published CRC-32 of this sentence. The `.expected` file pins the full output. Thus if a change to the table makes one result different, `zig build verify` fails.
+
+The program also has a `comptime` block at the top level:
+
+```zig
+comptime {
+    std.debug.assert(table[0] == 0);
+    std.debug.assert(table[128] == poly);
+}
+```
+
+During compilation, a failed `assert` is a compile error. These two checks stop the build before the program can run. Entry 128 is the byte `0x80`, and only its top bit is 1. Seven shifts move that bit to the bottom. Then the eighth step does the only xor, and the result is the polynomial.
+
+## The branch quota
+
+The compiler counts each backward branch during comptime evaluation. A backward branch is a jump back to the start of a loop. After 1000 of them, the compiler stops with an error. The limit makes sure that a loop which never ends gives an error, and the compiler does not run forever.
+
+The table needs more than 1000. The inner loop runs 8 times for each of 256 bytes, and that is 2048 branches. The outer loop adds 256 more. Without `@setEvalBranchQuota`, the same block fails:
+
+<Playground name="25-comptime.table-no-quota" />
+
+`@setEvalBranchQuota(256 * 8 + 256)` sets the limit for the current comptime evaluation. Calculate the number from the loops, as this program does. A number that you calculate tells the next reader why the limit has that value. A large round number such as `1_000_000` tells the reader nothing.
+
+## A table is also comptime-known
+
+The last line of the output is:
+
+```
+comptime crc32("hello, world") = 0xffab723a
+```
+
+`crc32` reads only `table`, and `table` is comptime-known. Thus the compiler can also run `crc32` during compilation, when the input is comptime-known. The binary then contains only the checksum.
+
+## Check yourself
+
+The program runs `crc32` at runtime on a string from a file. Does the binary contain the 8-step loop?
+
+No. The 8-step loop is inside the block that builds `table`. That block runs only during compilation. At runtime, `crc32` contains only the loop over the input bytes and the table read.
+
+The next chapter reads the fields of a type, and uses them to write a function that works for all struct types.

@@ -251,6 +251,25 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "`comptime` is not a macro language. `comptime` is the same Zig, run at an earlier time. Thus a generic container is a function that returns a type.",
     ],
   },
+  metaprogramming: {
+    seoTitle: "Zig Comptime in Depth: Tables, Reflection and New Types",
+    description:
+      "Zig comptime by example: comptime-known values, lookup tables that the " +
+      "compiler builds, @typeInfo reflection, and new types with @Struct, " +
+      "@Enum and @Int.",
+    lede:
+      "The compiler runs usual Zig code during compilation. Each chapter in " +
+      "this section is one complete program, and CI checks its output. Some " +
+      "programs in this section do not compile, and the lesson is the error. " +
+      "CI checks that the compiler stops with the message that the page shows.",
+    takeaways: [
+      "A `var` is never comptime-known, even when no code changes it. A `const` is comptime-known only when its value is.",
+      "A `const` at the top level of a file always runs during compilation. A CRC-32 table needs no `comptime` keyword and no script.",
+      "Comptime evaluation stops after 1000 backward branches. A 256-entry table with an inner loop of 8 steps needs `@setEvalBranchQuota`.",
+      "`@typeInfo` lists only the `pub` declarations of a type.",
+      "`@Type` is gone. Use `@Int`, `@Struct`, `@Enum`, `@Union` or `@Tuple`.",
+    ],
+  },
   "standard-library": {
     seoTitle: "The Zig Standard Library, by Example",
     description:

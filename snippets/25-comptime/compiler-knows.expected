@@ -1,0 +1,8 @@
+1. width: comptime_int, height: u32
+   row: ########
+2. comptime where(): compile time
+   where(): runtime
+3. squares: { 0, 1, 4, 9, 16, 25 }
+4. aaa is a [3]u8
+   bbbbb is a [5]u8
+5. letters in 3 words: 12

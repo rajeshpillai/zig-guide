@@ -75,3 +75,5 @@ When the compiler calculates something at comptime, the binary contains only the
 A check of a configuration value that the compiler knows does not become a branch in the output. Thus the CPU never has to predict the branch. A library can therefore have a dozen options, and none of the options costs a test at runtime. You can write a debug-only code path as usual code. You do not have to hide it behind conditional compilation.
 
 The limit to remember is compile time. Each table that you generate and each type that you make is work for the compiler on each build. You can write a program that is fast at runtime and very slow to build. A comptime calculation that needs a large branch quota is a warning sign of this problem.
+
+[Comptime](/learn/metaprogramming/) is a full section on this subject. It builds a lookup table, reads the fields of a type and makes new types, with one program for each chapter.

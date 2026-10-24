@@ -51,12 +51,18 @@ export const TRACKS: Track[] = [
     // the filesystem, JSON and readers/writers chapters using something
     // nothing had introduced. This section links back to it instead.
     //
+    // Comptime (`metaprogramming/`, because `/learn/comptime/` is the legacy
+    // redirect to the Language Basics chapter) follows Language Basics, whose one comptime page is the
+    // introduction this section starts from. It comes before Standard
+    // Library because its programs use only the language and a writer.
+    //
     // Working with Files follows Standard Library because it uses the Io,
     // Reader and Writer pages from it on every page. Its snippets run in the
     // browser: both runners preopen an empty directory as the current one.
     sections: [
       "getting-started",
       "language-basics",
+      "metaprogramming",
       "standard-library",
       "files",
       "data-structures",
