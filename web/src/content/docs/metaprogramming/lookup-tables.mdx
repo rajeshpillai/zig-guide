@@ -8,6 +8,7 @@ order: 20
 ---
 
 import Playground from "../../../components/Playground.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 A lookup table replaces a calculation with an array read. You calculate each answer one time and keep the answers in an array. Then the program reads the answer for an input from the array.
 
@@ -67,6 +68,10 @@ fn crc32(data: []const u8) u32 {
 ```
 
 Each byte of input now costs one table read, one xor and one shift. The 8 steps for each bit are gone. They ran one time, in the compiler, for each of the 256 possible bytes.
+
+The program also runs the 8 steps for byte 1 at runtime and prints each step. The figure plays that trace. The last register is `table[1]`, the same value that the compiler put in the table.
+
+<TraceFigure name="crc-steps" />
 
 ## Check the table against `std`
 

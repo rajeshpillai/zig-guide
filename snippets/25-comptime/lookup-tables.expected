@@ -12,3 +12,15 @@ table: 256 entries, 1024 bytes
 "The quick brown fox jumps over the lazy dog"
   ours 0x414fa339, std 0x414fa339, same
 comptime crc32("hello, world") = 0xffab723a
+
+the 8 steps for byte 1
+  start   0x00000001
+  step 1  low bit 1, shift, then xor  0xedb88320
+  step 2  low bit 0, shift            0x76dc4190
+  step 3  low bit 0, shift            0x3b6e20c8
+  step 4  low bit 0, shift            0x1db71064
+  step 5  low bit 0, shift            0x0edb8832
+  step 6  low bit 0, shift            0x076dc419
+  step 7  low bit 1, shift, then xor  0xee0e612c
+  step 8  low bit 0, shift            0x77073096
+  table[1] = 0x77073096, same -> true

@@ -4,6 +4,7 @@
  */
 import type { TimelineDefinition } from "@algorisys/tinyfly";
 import { binarySearchStall, binarySearchSteps } from "./binary-search";
+import { crcSteps } from "./comptime";
 import { bfsFrontier, bfsRoutes } from "./grid-bfs";
 import { bytesTwoWays, structLayout } from "./groundwork";
 import { knapsackDirection, knapsackTable } from "./knapsack";
@@ -42,6 +43,7 @@ const FIGURES: Record<string, () => Promise<Figure>> = {
   "union-find-forest": unionFindForest,
   "struct-layout": structLayout,
   "bytes-two-ways": bytesTwoWays,
+  "crc-steps": crcSteps,
 };
 
 const built = new Map<string, Promise<Figure>>();

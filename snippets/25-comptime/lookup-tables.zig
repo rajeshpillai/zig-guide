@@ -32,6 +32,21 @@ fn crc32(data: []const u8) u32 {
     return ~crc;
 }
 
+// The same eight steps for one byte, at runtime, with each step printed.
+// The table block above does exactly this work for each of the 256 bytes,
+// during compilation.
+fn traceEntry(out: *std.Io.Writer, byte: u8) !u32 {
+    var c: u32 = byte;
+    try out.print("  start   0x{x:0>8}\n", .{c});
+    for (1..9) |step| {
+        const low = c & 1;
+        c = if (low != 0) poly ^ (c >> 1) else c >> 1;
+        const what = if (low != 0) "shift, then xor" else "shift";
+        try out.print("  step {d}  low bit {d}, {s: <16} 0x{x:0>8}\n", .{ step, low, what, c });
+    }
+    return c;
+}
+
 // A table can be a type check too. The compiler runs this block, and
 // a false condition stops the build.
 comptime {
@@ -65,4 +80,8 @@ pub fn main(init: std.process.Init) !void {
     // A table that the compiler made is also usable at compile time.
     const at_compile = comptime crc32("hello, world");
     try out.print("comptime crc32(\"hello, world\") = 0x{x:0>8}\n", .{at_compile});
+
+    try out.print("\nthe 8 steps for byte 1\n", .{});
+    const traced = try traceEntry(out, 1);
+    try out.print("  table[1] = 0x{x:0>8}, same -> {}\n", .{ table[1], traced == table[1] });
 }
