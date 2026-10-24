@@ -1,0 +1,6 @@
+sum(array of u8) = 60
+sum(&array of u8) = 60
+sum(slice of f64) = 3.75
+2 dogs:
+  dog Moti
+  dog Raja

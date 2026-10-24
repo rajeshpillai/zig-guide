@@ -1,0 +1,105 @@
+---
+title: Reject Bad Input with @compileError
+seoTitle: "Zig @compileError: Custom Errors for Generic Functions"
+description: Check the type that a generic function receives, and stop the build with a message that names the problem.
+seoDescription: Use @compileError and std.fmt.comptimePrint in Zig to reject a bad argument type with a clear message. Compare the error with and without the check.
+section: Comptime
+order: 60
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A generic function accepts `anytype`. Thus a caller can give it a type that the function cannot use. The compiler always finds this mistake, but the error message can be bad. It often points at a line inside the function, not at the call.
+
+`@compileError("text")` stops the build with your text. Put it in a branch that the compiler reaches only for a bad type. Then the user of the function reads a message about their call.
+
+<Playground name="25-comptime.compile-error" />
+
+## The same mistake, two messages
+
+`sum` adds the items of an array or a slice. The two programs below call `sum` with a list of strings. The first `sum` has no check:
+
+<Playground name="25-comptime.sum-unguarded" />
+
+The message is correct, but it does not help. It points at `total += v` inside `sum`, and it talks about a `comptime_int`. The caller did not write that line, and the caller did not use a `comptime_int`. The `0` that sets the start value of `total` is the `comptime_int`.
+
+The second `sum` checks the type first:
+
+<Playground name="25-comptime.sum-guarded" />
+
+The message names the argument type and the item type, and it says what is wrong. The note `generic function instantiated here` points at the call in `main`. That is the line that the caller must change.
+
+## The check
+
+```zig
+fn Item(comptime T: type) type {
+    const I = switch (@typeInfo(T)) {
+        .array => |info| info.child,
+        .pointer => |info| switch (info.size) { ... },
+        else => @compileError("sum: expected an array or a slice, found " ++ @typeName(T)),
+    };
+    switch (@typeInfo(I)) {
+        .int, .float => {},
+        else => @compileError(std.fmt.comptimePrint(
+            "sum: the items of {s} are {s}, not numbers",
+            .{ @typeName(T), @typeName(I) },
+        )),
+    }
+    return I;
+}
+```
+
+`Item` returns the item type of `T`, or it stops the build. `sum` uses `Item` in its return type:
+
+```zig
+fn sum(values: anytype) Item(@TypeOf(values)) {
+```
+
+The compiler calculates the return type before it reads the body. Thus the check runs first, and the body never sees a bad type.
+
+The check accepts three shapes: an array, a slice and a pointer to an array. The output shows all three:
+
+```
+sum(array of u8) = 60
+sum(&array of u8) = 60
+sum(slice of f64) = 3.75
+```
+
+## The message is a comptime string
+
+`@compileError` takes a comptime-known string. There are two ways to build one:
+
+- `++` joins strings that are comptime-known. `@typeName(T)` returns one.
+- `std.fmt.comptimePrint` formats a string with the same syntax as `print`. Use it when the message contains a number, or when it has many parts.
+
+`comptimePrint` is not only for errors. The program uses it to make the label `2 dogs` during compilation.
+
+## Check for a method
+
+```zig
+if (!@hasDecl(E, "describe")) {
+    @compileError(@typeName(E) ++ " needs a `pub fn describe`");
+}
+```
+
+`describeAll` calls `describe` on each item. Without the check, a type with no `describe` method gives the error `no field or member function named 'describe'`. That error points at the line in the loop. With the check, the message says what the type must have.
+
+`@hasDecl` sees only `pub` declarations. Thus the message says `pub fn`, and a method without `pub` fails the check.
+
+[Interfaces](/learn/language-basics/interfaces/) shows other ways to give a generic function an interface.
+
+## When to add a check
+
+Do not check each generic function. The compiler finds each type error without your help. Add a check when one of these conditions is true:
+
+- Other people call the function, for example in a library.
+- The error without a check points deep inside your code.
+- The rule is not visible in the code, for example "the items must be numbers".
+
+## Check yourself
+
+`sum("abc")` calls `sum` with a string literal. Does the build stop?
+
+No. The type of `"abc"` is `*const [3:0]u8`, a pointer to an array. `Item` accepts a pointer to an array, and the items are `u8`, an integer. Thus `sum("abc")` returns 97 + 98 + 99. That sum is 294, and it does not fit in a `u8`. In a build with safety checks, the program stops with an integer overflow.
+
+A check accepts what its rules accept. If the function must refuse strings, the rules must say so.

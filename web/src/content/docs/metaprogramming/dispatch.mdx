@@ -1,0 +1,115 @@
+---
+title: Dispatch with Comptime
+seoTitle: "Zig Dispatch: inline else, Function Tables and std.EnumArray"
+description: Connect each tag of an enum to its handler at compile time, with a switch or with a table.
+seoDescription: Dispatch on an enum in Zig with inline else and @field, a function-pointer table in std.EnumArray, and std.meta.stringToEnum. A new tag without a handler stops the build.
+section: Comptime
+order: 50
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A program that reads commands must connect each command to the code for that command. The name of this connection is dispatch.
+
+In Zig, the commands are often the tags of an enum. The compiler knows each tag, thus it can make the connection during compilation. If a tag has no handler, the build stops.
+
+The program below reads five commands from a script. It connects each command to its handler in two ways, and the two results must agree.
+
+<Playground name="25-comptime.dispatch" />
+
+## Handlers with the same names as the tags
+
+```zig
+const Op = enum { add, sub, mul, neg };
+
+const Handlers = struct {
+    pub fn add(a: i64, b: i64) i64 { ... }
+    pub fn sub(a: i64, b: i64) i64 { ... }
+    pub fn mul(a: i64, b: i64) i64 { ... }
+    pub fn neg(a: i64, _: i64) i64 { ... }
+};
+```
+
+`Handlers` is a struct with no fields. It is a namespace for four functions. Each function has the same name as one tag of `Op`. The program uses this rule to find the handler for a tag.
+
+## Dispatch with `inline else`
+
+```zig
+fn runSwitch(op: Op, a: i64, b: i64) i64 {
+    return switch (op) {
+        inline else => |tag| @field(Handlers, @tagName(tag))(a, b),
+    };
+}
+```
+
+`inline else` makes one branch for each tag. In each branch, `tag` is comptime-known. Thus `@tagName(tag)` is a comptime-known string, and `@field(Handlers, "add")` finds the function `Handlers.add`.
+
+The compiler then has four usual branches, and each branch calls one function directly. The result is the same as a `switch` that you write by hand, with one line for each tag.
+
+## Dispatch with a table
+
+```zig
+const Handler = *const fn (i64, i64) i64;
+const table: std.EnumArray(Op, Handler) = blk: {
+    var t: std.EnumArray(Op, Handler) = undefined;
+    for (std.enums.values(Op)) |tag| {
+        t.set(tag, @field(Handlers, @tagName(tag)));
+    }
+    break :blk t;
+};
+```
+
+`std.EnumArray(Op, Handler)` is an array with one item for each tag of `Op`. The block fills it during compilation, with the address of each handler. At runtime, `table.get(op)` reads one item and calls the function at that address.
+
+The two methods give the same results:
+
+```
+add 2 3 = 5 (switch), 5 (table), symbol +
+mul 4 5 = 20 (switch), 20 (table), symbol *
+neg 7 0 = -7 (switch), -7 (table), symbol neg
+sub 10 4 = 6 (switch), 6 (table), symbol -
+```
+
+Select one method with these rules:
+
+- Use `inline else` when the set of handlers does not change at runtime. Each call is direct, and the compiler can inline the handler.
+- Use a table when the program must change a handler at runtime, or when it must keep the handlers in data.
+
+## Data for each tag
+
+```zig
+const symbols: std.EnumArray(Op, []const u8) = .init(.{
+    .add = "+",
+    .sub = "-",
+    .mul = "*",
+    .neg = "neg",
+});
+```
+
+`.init` takes a struct with one field for each tag. If the struct has no field for one tag, the compiler stops with the error `missing struct field`. Thus a table of data cannot become shorter than the enum.
+
+## From a string to a tag
+
+The script contains text, not tags. `std.meta.stringToEnum(Op, name)` compares the text with each tag name. It returns `null` when no tag has that name:
+
+```
+div: unknown command
+```
+
+`stringToEnum` is a usual generic function. The compiler makes the list of names from `Op`, thus the list always agrees with the enum.
+
+## A new tag without a handler
+
+Add a `div` tag to `Op`, and do not add a `div` function to `Handlers`:
+
+<Playground name="25-comptime.dispatch-new-tag" />
+
+The `inline else` branch for `div` asks for `Handlers.div`, and that function does not exist. The build stops before the program can receive a `div` command. In the full program, the table and `symbols` also stop the build, each with its own error.
+
+Without comptime, the same mistake gives a different result. A `switch` with an `else` branch accepts `div` and does the wrong thing at runtime.
+
+## Check yourself
+
+`runSwitch` has no `else` branch for unknown tags. Why does it not need one?
+
+`op` has the type `Op`, and `inline else` makes a branch for each tag of `Op`. Thus the `switch` handles each possible value. An unknown command never reaches `runSwitch`: `stringToEnum` returns `null` for it first.

@@ -1,0 +1,2 @@
+error: unable to resolve comptime value
+note: called at comptime from here

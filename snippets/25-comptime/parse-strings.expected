@@ -1,0 +1,8 @@
+UserPost.Params has 2 fields: user post
+/users/42/posts/7: user=42 post=7
+/users/tejas/posts/hello-world: user=tejas post=hello-world
+/users/42/posts: no match
+/users/42/comments/7: no match
+/users/42/posts/7/edit: no match
+/health: match
+Health.Params has 0 fields

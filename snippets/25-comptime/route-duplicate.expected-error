@@ -1,0 +1,1 @@
+error: route /users/:id/friends/:id: parameter 'id' occurs two times

@@ -1,0 +1,120 @@
+---
+title: "Project: Units of Measure"
+seoTitle: "Zig Units of Measure: Dimension Checks at Compile Time"
+description: A number type that carries its unit. Metres times metres is an area, and metres plus seconds does not compile.
+seoDescription: Build a units-of-measure type in Zig with a comptime struct parameter. Multiply and divide units, print unit names made at comptime, and reject metres plus seconds.
+section: Comptime
+order: 100
+---
+
+import Playground from "../../../components/Playground.astro";
+
+A program that calculates with physical values must keep the units correct. A value in metres plus a value in seconds has no meaning, but two `f64` values add without a complaint.
+
+This project puts the unit into the type. The compiler then checks each calculation, and a wrong unit stops the build. At runtime, each value is one `f64` and nothing more.
+
+The project uses these chapters:
+
+- [Know What the Compiler Knows](/learn/metaprogramming/compiler-knows/), for a struct value as a `comptime` parameter.
+- [Reject Bad Input with @compileError](/learn/metaprogramming/compile-error/), for the message.
+
+<Playground name="25-comptime.units" />
+
+## A unit is a list of powers
+
+```zig
+const Dim = struct {
+    m: i8 = 0,
+    s: i8 = 0,
+    kg: i8 = 0,
+};
+```
+
+Each physical unit in this program is a product of three base units. `Dim` keeps the power of each one:
+
+- Metres is `.{ .m = 1 }`.
+- Metres per second is `.{ .m = 1, .s = -1 }`.
+- Newtons, the unit of force, is `.{ .kg = 1, .m = 1, .s = -2 }`.
+
+To multiply two units, add their powers. To divide, subtract the powers. `Dim.mul` and `Dim.div` do this. They are usual functions, and the compiler runs them.
+
+## A type for each unit
+
+```zig
+fn Quantity(comptime dim: Dim) type {
+    return struct {
+        value: f64,
+        ...
+    };
+}
+
+const Metres = Quantity(.{ .m = 1 });
+const Seconds = Quantity(.{ .s = 1 });
+```
+
+A `comptime` parameter can be a struct value, not only a type. Each different `Dim` makes a different type. Each type has one field, thus the size of a `Quantity` is the size of an `f64`:
+
+```
+size of a Quantity: 8 bytes
+```
+
+## Multiply and divide
+
+```zig
+pub fn div(a: Self, b: anytype) Quantity(dim.div(@TypeOf(b).dim_value)) {
+    return .{ .value = a.value / b.value };
+}
+```
+
+The return type is a calculation. The compiler reads the `Dim` of `b`, subtracts it from the `Dim` of `a`, and calls `Quantity` with the result. The body only divides two numbers.
+
+The program calculates the values for a 100 m sprint in 9.58 s, by a runner of 94 kg:
+
+```
+distance = 100 m
+speed = 10.438413361169102 m/s
+acceleration = 1.0896047349863363 m/s^2
+force = 102.4228450887156 kg*m/s^2
+area = 10000 m^2
+```
+
+Each unit name in the output comes from the type. `Dim.name` builds the text during compilation, with `++` and `comptimePrint`. Each `Quantity` type keeps its name in the constant `unit`.
+
+## The same unit is the same type
+
+```
+area / distance = 100 m
+area / distance is Metres: true
+```
+
+`area.div(distance)` calculates `.{ .m = 2 }` minus `.{ .m = 1 }`, and the result is `.{ .m = 1 }`. The compiler keeps one type for each set of comptime arguments. Thus `Quantity(.{ .m = 1 })` from this calculation is the same type as `Metres`. A function that takes `Metres` accepts the result.
+
+## Add two values
+
+```zig
+pub fn add(a: Self, b: anytype) Self {
+    const other = @TypeOf(b).dim_value;
+    if (comptime !dim.eql(other)) {
+        @compileError("cannot add " ++ Dim.name(other) ++ " to " ++ unit);
+    }
+    return .{ .value = a.value + b.value };
+}
+```
+
+Addition needs the same unit on both sides. The check is comptime, thus it costs nothing at runtime. Add seconds to metres:
+
+<Playground name="25-comptime.units-mismatch" />
+
+The message uses the unit names, not the type names. The `referenced by` list under the message names the line in `main` that called `add`.
+
+## Limits of this design
+
+- The program has three base units. To add a base unit such as amperes, add a field to `Dim`, and add it in `mul`, `div`, `eql` and `name`.
+- A value in kilometres has the same `Dim` as a value in metres. This design checks the dimension, not the scale. A scale needs a second comptime value, for example a factor of 1000.
+- `add` accepts any type with a `dim_value` declaration. A type from another library with the same declaration name also passes the check.
+
+## Check yourself
+
+What is the unit of `speed.mul(time)`, and which type is it?
+
+`speed` is `.{ .m = 1, .s = -1 }` and `time` is `.{ .s = 1 }`. The product adds the powers: `.{ .m = 1, .s = 0 }`. That `Dim` is equal to `.{ .m = 1 }`, thus the result is the `Metres` type, and its name is `m`.

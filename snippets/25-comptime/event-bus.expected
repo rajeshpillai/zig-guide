@@ -1,0 +1,11 @@
+handlers for .click: 1
+handlers for .key: 2
+handlers for .resize: 0
+emit .click
+  logClick: (10, 20)
+emit .key
+  countKey: code 65, 1 so far
+emit .resize
+emit .key
+  countKey: code 27, 2 so far
+  quitOnEscape: escape, quit

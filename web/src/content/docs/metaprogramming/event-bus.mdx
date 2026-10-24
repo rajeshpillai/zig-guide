@@ -1,0 +1,125 @@
+---
+title: "Project: A Typed Event Bus"
+seoTitle: "Zig Event Bus: Handlers Matched by Parameter Type at Compile Time"
+description: Handlers are plain functions. The bus reads their parameter types and connects each one to its event during compilation.
+seoDescription: Build a typed event bus in Zig. Read function parameter types with @typeInfo, dispatch with inline else, and reject a handler for an event that does not exist.
+section: Comptime
+order: 120
+---
+
+import Playground from "../../../components/Playground.astro";
+
+An event bus delivers each event to the functions that want it. In many languages, a handler registers with a string name, and the bus calls it at runtime with an untyped value. A misspelled name or a wrong type shows only when the event arrives.
+
+In this project, a handler is a plain function, and its parameter type says which event it wants. The bus reads the parameter types during compilation. Thus a handler for an event that does not exist stops the build.
+
+The project uses three earlier chapters:
+
+- [Read a Type](/learn/metaprogramming/read-a-type/), to read the parameter types of a function.
+- [Dispatch with Comptime](/learn/metaprogramming/dispatch/), for `inline else`.
+- [Reject Bad Input with @compileError](/learn/metaprogramming/compile-error/), for the message.
+
+<Playground name="25-comptime.event-bus" />
+
+## Events and handlers
+
+```zig
+const Event = union(enum) {
+    click: Click,
+    key: Key,
+    resize: Resize,
+};
+
+fn logClick(out: *Writer, c: Click) !void { ... }
+fn countKey(out: *Writer, k: Key) !void { ... }
+fn quitOnEscape(out: *Writer, k: Key) !void { ... }
+
+const UiBus = Bus(Event, .{ logClick, countKey, quitOnEscape });
+```
+
+Each variant of `Event` has its own payload type. Each handler takes a writer and one payload type. The list of handlers is a tuple of functions, and it is a `comptime` argument to `Bus`.
+
+## Read the payload type of a handler
+
+```zig
+fn Payload(comptime handler: anytype) type {
+    const info = @typeInfo(@TypeOf(handler)).@"fn";
+    if (info.param_types.len != 2) @compileError("a handler takes (*Writer, payload)");
+    return info.param_types[1].?;
+}
+```
+
+The type of a function is a usual type, and `@typeInfo` describes it. `param_types` is a list of the parameter types. Each item is optional, because a parameter of a generic function has no fixed type. Here, the `.?` stops the build if the second parameter is `anytype`.
+
+## Check each handler
+
+```zig
+for (handlers, 0..) |handler, i| {
+    const P = Payload(handler);
+    for (variants.field_types) |V| {
+        if (V == P) break;
+    } else @compileError(std.fmt.comptimePrint(
+        "handler {d} takes {s}, which is not a payload of {s}",
+        .{ i, @typeName(P), @typeName(E) },
+    ));
+}
+```
+
+The check runs when the compiler evaluates `Bus(...)`. The `else` of a `for` runs when the loop ends without a `break`. Thus the error occurs only when no variant has the payload type of the handler.
+
+Give the bus a handler for a `Scroll` event, which `Event` does not have:
+
+<Playground name="25-comptime.event-bus-wrong" />
+
+`handler 1` is the second item of the tuple, because the count starts at 0. The note `called at comptime here` points at the line that makes the bus.
+
+## Deliver an event
+
+```zig
+pub fn emit(out: *Writer, event: E) !void {
+    switch (event) {
+        inline else => |payload| {
+            inline for (handlers) |handler| {
+                if (comptime Payload(handler) == @TypeOf(payload)) {
+                    try handler(out, payload);
+                }
+            }
+        },
+    }
+}
+```
+
+`inline else` makes one branch for each variant. In each branch, the `inline for` checks each handler, and the `if` is comptime-known. Thus each branch contains only the calls for its variant. The branch for `.key` contains two direct calls, in the order of the list. The branch for `.resize` contains no calls:
+
+```
+emit .key
+  countKey: code 65, 1 so far
+emit .resize
+emit .key
+  countKey: code 27, 2 so far
+  quitOnEscape: escape, quit
+```
+
+At runtime, `emit` is one `switch` and some direct calls. There is no list of function pointers and no lookup by name.
+
+## Count the handlers
+
+```
+handlers for .click: 1
+handlers for .key: 2
+handlers for .resize: 0
+```
+
+`count` runs during compilation. A program can use it in a test, for example to require at least one handler for each event. Then a new variant in `Event` without a handler stops the test.
+
+## Limits of this design
+
+- The program cannot change the list of handlers after it compiles. A plugin that registers a handler at runtime needs a list of function pointers.
+- Two variants with the same payload type, for example `key_down: Key` and `key_up: Key`, cannot have different handlers. `Payload` connects a handler to a type, not to a variant. To separate them, give each variant its own payload type.
+- Handlers share the writer and nothing else. A handler that needs state, such as `countKey`, uses a global variable here. A real bus passes a context pointer.
+
+## Check yourself
+
+Add the variant `scroll: Scroll` to `Event`, and do not add a handler. Does the program still compile?
+
+Yes. The check requires each handler to match a variant. It does not require each variant to have a handler. `emit` makes a branch for `.scroll` with no calls, and `count(.scroll)` returns 0.

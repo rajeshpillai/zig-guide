@@ -254,14 +254,15 @@ export const SECTIONS: Record<string, SectionMeta> = {
   metaprogramming: {
     seoTitle: "Zig Comptime in Depth: Tables, Reflection and New Types",
     description:
-      "Zig comptime by example: comptime-known values, lookup tables that the " +
-      "compiler builds, @typeInfo reflection, and new types with @Struct, " +
-      "@Enum and @Int.",
+      "Zig comptime by example: lookup tables that the compiler builds, " +
+      "@typeInfo reflection, @Struct and @Enum, dispatch, @compileError, and " +
+      "three projects: units of measure, an argument parser and an event bus.",
     lede:
       "The compiler runs usual Zig code during compilation. Each chapter in " +
       "this section is one complete program, and CI checks its output. Some " +
       "programs in this section do not compile, and the lesson is the error. " +
-      "CI checks that the compiler stops with the message that the page shows.",
+      "CI checks that the compiler stops with the message that the page shows. " +
+      "The last three chapters are small projects that use the earlier chapters.",
     takeaways: [
       "A `var` is never comptime-known, even when no code changes it. A `const` is comptime-known only when its value is.",
       "A `const` at the top level of a file always runs during compilation. A CRC-32 table needs no `comptime` keyword and no script.",

@@ -1,0 +1,7 @@
+1. colors.txt: 51 bytes, 4 colors
+   saffron = #f4c430
+   blue = #0000ff
+   purple: not in the file
+2. names: red, green, blue, saffron (25 bytes)
+3. List(u8) == List(u8): true
+   List(u8) == List(u16): false

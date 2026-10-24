@@ -1,0 +1,2 @@
+error: sum: the items of [2][]const u8 are []const u8, not numbers
+note: generic function instantiated here

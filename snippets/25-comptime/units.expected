@@ -1,0 +1,9 @@
+distance = 100 m
+speed = 10.438413361169102 m/s
+acceleration = 1.0896047349863363 m/s^2
+force = 102.4228450887156 kg*m/s^2
+area = 10000 m^2
+distance + distance = 200 m
+area / distance = 100 m
+area / distance is Metres: true
+size of a Quantity: 8 bytes

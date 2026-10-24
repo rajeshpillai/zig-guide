@@ -1,0 +1,20 @@
+options:
+  --port <u16>
+  --host <text>
+  --verbose
+  --level <debug|info|warn>
+  --name <text> (required)
+args: --name api
+  port=8080 host=localhost verbose=false level=info name=api
+args: --name api --port 9090 --verbose --level debug
+  port=9090 host=localhost verbose=true level=debug name=api
+args: --port
+  error: MissingValue
+args: --port 99999 --name x
+  error: BadValue
+args: --level loud --name x
+  error: BadValue
+args: --colour red
+  error: UnknownOption
+args: --verbose
+  error: MissingOption

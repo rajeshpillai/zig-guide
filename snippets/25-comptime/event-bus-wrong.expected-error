@@ -1,0 +1,2 @@
+error: handler 1 takes event-bus-wrong.Scroll, which is not a payload of event-bus-wrong.Event
+note: called at comptime here

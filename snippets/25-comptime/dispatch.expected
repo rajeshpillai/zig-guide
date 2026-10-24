@@ -1,0 +1,5 @@
+add 2 3 = 5 (switch), 5 (table), symbol +
+mul 4 5 = 20 (switch), 20 (table), symbol *
+neg 7 0 = -7 (switch), -7 (table), symbol neg
+sub 10 4 = 6 (switch), 6 (table), symbol -
+div: unknown command
