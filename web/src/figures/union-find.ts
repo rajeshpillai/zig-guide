@@ -27,7 +27,8 @@ function row(lines: string[], from: number, label: string, name: string): number
 const R = 17;
 const LEVEL = 74;
 const SLOT = 58;
-const X0 = 30;
+/** Room on the left for the lanes of arrows that go around the tree. */
+const X0 = 76;
 const Y0 = 34;
 
 export async function unionFindForest(): Promise<Figure> {
@@ -110,13 +111,36 @@ export async function unionFindForest(): Promise<Figure> {
   for (const s of steps) if (s.link) links.set(`${s.link[0]}-${s.link[1]}`, s.link);
   for (const i of moved) links.set(`${i}-${after[i]}`, [i, after[i]]);
   let svg = `<defs><marker id="uf-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker></defs>`;
+  // An arrow to the parent one level up is straight. An arrow that skips
+  // levels (path compression makes them) would cross the nodes it skips, so
+  // it goes around the outside of the tree instead: out of its node to the
+  // left, up a lane of its own in the left margin, and into the root from the
+  // left at its own height. A longer skip takes an outer lane, so two such
+  // arrows never share one.
+  const towards = (px: number, py: number, qx: number, qy: number, d: number) => {
+    const len = Math.hypot(qx - px, qy - py);
+    return [px + ((qx - px) / len) * d, py + ((qy - py) / len) * d];
+  };
+  const around = [...links.entries()]
+    .filter(([, [from, to]]) => depth[from] - depth[to] > 1)
+    .sort(([, [a, pa]], [, [b, pb]]) => depth[a] - depth[pa] - (depth[b] - depth[pb]));
+  const lane = new Map(around.map(([key], k) => [key, k]));
   for (const [key, [from, to]] of links) {
-    const dx = x[to] - x[from];
-    const dy = y(to) - y(from);
-    const len = Math.hypot(dx, dy);
-    const ux = dx / len;
-    const uy = dy / len;
-    svg += `<line data-tinyfly="uf-l-${key}" x1="${x[from] + ux * R}" y1="${y(from) + uy * R}" x2="${x[to] - ux * (R + 2)}" y2="${y(to) - uy * (R + 2)}" stroke="var(--muted)" stroke-width="2" marker-end="url(#uf-head)"/>`;
+    const [fx, fy, tx, ty] = [x[from], y(from), x[to], y(to)];
+    const k = lane.get(key);
+    if (k === undefined) {
+      const [sx, sy] = towards(fx, fy, tx, ty, R);
+      const [ex, ey] = towards(tx, ty, fx, fy, R + 2);
+      svg += `<path data-tinyfly="uf-l-${key}" d="M${sx} ${sy} L${ex} ${ey}" fill="none" stroke="var(--muted)" stroke-width="2" marker-end="url(#uf-head)"/>`;
+      continue;
+    }
+    // Left of every node from here up to the root.
+    let left = fx;
+    for (let v = from; v !== to; v = parent[v]) left = Math.min(left, x[v]);
+    const laneX = left - R - 16 - 20 * k;
+    const dy = 7 * (k + 1) - 4 * around.length;
+    const ex = tx - Math.sqrt((R + 2) ** 2 - dy ** 2);
+    svg += `<path data-tinyfly="uf-l-${key}" d="M${fx - R} ${fy} C${laneX} ${fy} ${laneX} ${ty + dy} ${ex} ${ty + dy}" fill="none" stroke="var(--muted)" stroke-width="2" marker-end="url(#uf-head)"/>`;
   }
   for (let v = 0; v < n; v++) {
     svg += `<circle data-tinyfly="uf-n-${v}" cx="${x[v]}" cy="${y(v)}" r="${R}" fill="var(--surface)" stroke="var(--muted)" stroke-width="2"/>`;
