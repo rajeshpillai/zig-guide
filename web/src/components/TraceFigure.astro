@@ -47,6 +47,7 @@ const json = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
   data-tinyfly-embed
   data-alt={fig.alt}
   data-scenario-legend={scenarios ? fig.legend : undefined}
+  data-options={fig.options ? JSON.stringify(fig.options) : undefined}
 >
   <Fragment set:html={staticMarkup} />
   {

@@ -9,6 +9,7 @@ order: 70
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 Breadth-first search, or BFS, is useful to find the shortest path on a grid when each move has the same cost.
 
@@ -62,6 +63,10 @@ the first route a depth-first walk finds: 68 moves, against 24
 ```
 
 DFS finds a route of 68 moves, and BFS finds a route of 24 moves.
+
+The figure draws the two routes on the same grid. Select a walk to compare them.
+
+<TraceFigure name="bfs-routes" />
 
 The result also depends on the order of the possible moves. A different order of `moves` can make DFS find a completely different route.
 
@@ -129,6 +134,10 @@ The search at a point before it is complete:
 ```
 
 The cells with the value 5 are the current frontier. BFS already processed each cell with a smaller distance.
+
+The figure shows the same search for all distances. Press **Play**. Each ring is the set of cells at one distance, in the order the queue reaches them.
+
+<TraceFigure name="bfs-frontier" />
 
 This order gives the guarantee of the shortest path:
 

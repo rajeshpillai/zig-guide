@@ -9,6 +9,7 @@ order: 20
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 The input is a sorted array and a target sum. The task is to find two values with a sum that is equal to the target.
 
@@ -152,3 +153,7 @@ At step one, the left wall is shorter. Thus `lo` moves. At step two, the right w
 At step four, the two walls have the same height. In this case, either pointer can move. The code moves `hi` because of the form of the comparison, but a move of `lo` is also correct.
 
 Always move the shorter wall. A move of the taller wall can work for some inputs. But it can remove a pair that has the maximum area.
+
+The figure plays all eight steps. The shaded area is the water between `lo` and `hi`. After step 2, a dashed outline keeps the best area on the drawing.
+
+<TraceFigure name="container-water" />

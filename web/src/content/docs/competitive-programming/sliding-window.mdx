@@ -9,6 +9,7 @@ order: 30
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 The example uses ten numbers and two questions about them:
 
@@ -106,6 +107,10 @@ The final answer is:
 ```
 
 The loop records the current window before it removes the left value. If the loop removes the value first and checks the window after the removal, the loop can miss a valid candidate.
+
+The figure plays the 17 rows of the trace. The outline is the window. It grows to the right until the sum gets to 19, then it shrinks from the left. At the end, a dashed outline marks the answer.
+
+<TraceFigure name="shortest-run" />
 
 ## Why the inner loop is still O(n)
 

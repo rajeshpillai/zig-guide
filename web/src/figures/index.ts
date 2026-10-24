@@ -4,7 +4,10 @@
  */
 import type { TimelineDefinition } from "@algorisys/tinyfly";
 import { binarySearchStall, binarySearchSteps } from "./binary-search";
+import { bfsFrontier, bfsRoutes } from "./grid-bfs";
 import { monotonicStack } from "./monotonic-stack";
+import { shortestRun } from "./sliding-window";
+import { containerWater } from "./two-pointers";
 
 export interface Figure {
   /** The SVG, with `data-tinyfly` names on each part that moves. */
@@ -13,6 +16,11 @@ export interface Figure {
   timelines: Array<{ id: string; label?: string; timeline: TimelineDefinition }>;
   /** The name of the choice between scenarios, for example "Branch". */
   legend?: string;
+  /**
+   * Player options for this figure, which win over the page-wide ones. A
+   * figure with many short steps sets `stepMode: false`, so Play runs it.
+   */
+  options?: Record<string, unknown>;
   /** The accessible name of the figure. */
   alt: string;
   caption: string;
@@ -22,6 +30,10 @@ const FIGURES: Record<string, () => Promise<Figure>> = {
   "binary-search-steps": binarySearchSteps,
   "binary-search-stall": binarySearchStall,
   "monotonic-stack": monotonicStack,
+  "container-water": containerWater,
+  "shortest-run": shortestRun,
+  "bfs-frontier": bfsFrontier,
+  "bfs-routes": bfsRoutes,
 };
 
 const built = new Map<string, Promise<Figure>>();
