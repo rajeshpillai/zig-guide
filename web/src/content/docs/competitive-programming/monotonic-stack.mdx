@@ -9,6 +9,7 @@ order: 50
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 The problem: for each value in an array, find the first larger value to its right. Some values find a larger value immediately. Some values must look much farther. Some values do not have a larger value to their right.
 
@@ -93,6 +94,10 @@ At index 2, the value is 4. The value 4 is larger than 1, thus the loop pops ind
 Later, at index 10, the value is 7. The value 7 answers indices 9, 8 and 7. Then the loop gets to index 5, which has the value 9. The value 7 is not larger than 9, thus the pops stop.
 
 At the end, two indices stay on the stack: `5:9` and `10:7`. These two indices do not have a larger value to their right. Thus their answers stay null.
+
+The figure plays the same trace. Each step moves `i` to the next value, pops the entries that the value answers, and pushes the new index. At index 2 and at index 10, the figure stops. Predict the pops, then press **Reveal**.
+
+<TraceFigure name="monotonic-stack" />
 
 The program compares the stack solution with the direct scan:
 

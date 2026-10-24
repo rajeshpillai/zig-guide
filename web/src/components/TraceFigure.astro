@@ -1,0 +1,69 @@
+---
+/**
+ * A stepped figure built from a snippet's verified output, played by tinyfly.
+ *
+ * The figure is made during `astro build` by a builder in `src/figures/`, which
+ * reads the `.expected` file CI diffs the snippet against. Nothing in it is
+ * drawn by hand, so a trace that changes moves the picture with it, and a
+ * trace that changes shape fails the build.
+ *
+ * Progressive enhancement, on the same terms as `<Playground>`: the markup is
+ * the figure's final frame, rendered here, so with JS off the reader sees the
+ * finished state and the caption. With JS on, the embed mounts it at the first
+ * frame with step controls. Under `prefers-reduced-motion` the player shows the
+ * final frame and the steps jump.
+ */
+import { renderFrame, validateEmbed, validateScenarios } from "@algorisys/tinyfly/embed";
+import { buildFigure } from "../figures";
+
+interface Props {
+  /** A figure name from `src/figures/index.ts`. */
+  name: string;
+}
+
+const { name } = Astro.props;
+const fig = await buildFigure(name);
+
+// The validator is the one tinyfly ships for build pipelines: a track aimed at
+// a name the markup lacks, or markers out of order, fail the build here
+// rather than playing wrongly on the page.
+const problems =
+  fig.timelines.length === 1
+    ? validateEmbed(fig.timelines[0].timeline, { markup: fig.markup })
+    : validateScenarios(fig.timelines.map((t) => ({ id: t.id, timeline: t.timeline })), { markup: fig.markup });
+const errors = problems.filter((p) => p.level === "error");
+if (errors.length > 0) {
+  throw new Error(`TraceFigure "${name}":\n${errors.map((p) => `  ${p.message}`).join("\n")}`);
+}
+
+const staticMarkup = renderFrame(fig.markup, fig.timelines[0].timeline, "end");
+const scenarios = fig.timelines.length > 1;
+// `</script` inside the JSON would end the element early.
+const json = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
+---
+
+<figure
+  class="trace-figure"
+  data-tinyfly-embed
+  data-alt={fig.alt}
+  data-scenario-legend={scenarios ? fig.legend : undefined}
+>
+  <Fragment set:html={staticMarkup} />
+  {
+    fig.timelines.map((t) => (
+      <script
+        is:inline
+        type="application/json"
+        data-tinyfly-timeline
+        data-scenario={scenarios ? t.id : undefined}
+        data-scenario-label={scenarios ? t.label : undefined}
+        set:html={json(t.timeline)}
+      />
+    ))
+  }
+  <figcaption>{fig.caption}</figcaption>
+</figure>
+
+<script>
+  import "../scripts/trace-figure.ts";
+</script>

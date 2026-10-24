@@ -177,6 +177,7 @@ let outputChecked = 0;
 let pictures = 0;
 let compileOnly = 0;
 let sourceQuotes = 0;
+let traceFigures = 0;
 
 /**
  * What a crawler and a link preview read. None of it is visible on the page,
@@ -313,6 +314,46 @@ async function checkSourceQuotes(href) {
   }
 }
 
+/**
+ * Stepped figures (`<TraceFigure>`). Each is built from verified output at
+ * build time, so the drawing is checked there. What only a browser shows is
+ * whether the embed mounted and whether a step moves: a figure that loaded its
+ * final frame and ignored "Next step" would look correct to every other check.
+ */
+async function checkTraceFigures(href) {
+  const figures = page.locator(".trace-figure");
+  const count = await figures.count();
+  for (let i = 0; i < count; i++) {
+    traceFigures += 1;
+    const figure = figures.nth(i);
+    const where = `${href} trace figure ${i + 1}`;
+    try {
+      await figure.locator(".tf-ctl").waitFor({ timeout: 5000 });
+    } catch {
+      failures.push(`${where}: the step controls never mounted`);
+      continue;
+    }
+    const caption = figure.locator(".tf-ctl-caption");
+    const before = (await caption.textContent())?.trim() ?? "";
+    if (!before) failures.push(`${where}: no caption at the first step`);
+    await figure.scrollIntoViewIfNeeded();
+    await figure.getByRole("button", { name: "Next step" }).click();
+    let after = before;
+    for (let t = 0; t < 30 && after === before; t++) {
+      await page.waitForTimeout(100);
+      after = (await caption.textContent())?.trim() ?? "";
+    }
+    if (after === before) failures.push(`${where}: "Next step" did not change the caption ("${before}")`);
+
+    // A scenario figure: the second choice must become the selected one.
+    const choices = figure.locator(".tf-ctl-choices input");
+    if ((await choices.count()) > 1) {
+      await figure.locator(".tf-ctl-choice").nth(1).click();
+      if (!(await choices.nth(1).isChecked())) failures.push(`${where}: selecting the second scenario did not select it`);
+    }
+  }
+}
+
 async function checkSidebarSync(href) {
   const state = await page.evaluate(() => {
     const sidebar = document.querySelector(".sidebar");
@@ -442,6 +483,7 @@ for (const href of chapters) {
   await checkHead(href);
   await checkSidebarSync(href);
   await checkSourceQuotes(href);
+  await checkTraceFigures(href);
   compileOnly += await page.locator(".pg-static").count();
 
   pagers.set(
@@ -1381,6 +1423,26 @@ let jsOffChecks = 0;
   const readable = await bare.$$eval(".astro-code", (n) => n.length);
   jsOffChecks++;
   if (!readable) failures.push("JS off: no snippet rendered as a code block");
+
+  // A stepped figure is its final frame with scripting off: the drawing and
+  // the caption, and no controls.
+  await bare.goto(BASE + `${PREFIX}/learn/competitive-programming/binary-search/`, {
+    waitUntil: "domcontentloaded",
+  });
+  const frame = await bare.$$eval(".trace-figure", (figures) =>
+    figures.map((f) => ({
+      parts: f.querySelectorAll("svg [data-tinyfly]").length,
+      caption: f.querySelector("figcaption")?.textContent?.trim() ?? "",
+      controls: f.querySelectorAll(".tf-ctl").length,
+    })),
+  );
+  jsOffChecks++;
+  if (frame.length === 0) failures.push("JS off: the binary search chapter shows no trace figure");
+  for (const f of frame) {
+    if (!f.parts || !f.caption || f.controls) {
+      failures.push(`JS off: a trace figure has ${f.parts} drawn parts, caption "${f.caption}", ${f.controls} controls`);
+    }
+  }
   await context.close();
 }
 
@@ -1957,7 +2019,7 @@ console.log(
     `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  riddle: ${riddleChecks}  paint: ${paintChecks}  ` +
     `editor: ${editorLooks}  code tokens: ${codeTokens}  ` +
     `header widths: ${headerWidths}  blog posts: ${blogPosts}  ` +
-    `source quotes: ${sourceQuotes}  ` +
+    `source quotes: ${sourceQuotes}  trace figures: ${traceFigures}  ` +
     `links: ${internalLinks.size}  ` +
     `broken: ${brokenLinks}  sitemap: ${sitemapCount}  ` +
     `legacy redirects: ${redirectsChecked}  ` +

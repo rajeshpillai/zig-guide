@@ -9,6 +9,7 @@ order: 10
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 Binary search is a small loop, but some details must be correct. One common mistake gives the wrong index. A different mistake makes the loop run forever.
 
@@ -47,6 +48,10 @@ When `lo == hi`, the search window is empty and the search is complete. Then `lo
 
 The array has twelve values, and the search stops after four steps. A dot shows an index that the search removed. Each step removes approximately half of the range that is still in the window.
 
+The figure below plays the same four rows. Use **Next step** to move one state at a time. The highlighted line is the line of `lowerBound` that runs. At step 2, the figure stops and asks you to predict the branch.
+
+<TraceFigure name="binary-search-steps" />
+
 The program calculates the midpoint as `lo + (hi - lo) / 2`. You can also see `(lo + hi) / 2` in other code. The second form is shorter, but `lo + hi` can overflow if the two values are sufficiently large. The first form does not have this problem.
 
 The overflow is more probable with small integer types and very large arrays. `lo + (hi - lo) / 2` is the safer form, and the cost is only one subtraction.
@@ -70,6 +75,10 @@ If the loop keeps `mid`, the loop can stop progress. When `hi - lo` becomes 1, i
 ```
 
 Steps four, five and six are the same. The example has a step limit, thus the program can find the problem and stop. Without the limit, the loop does not stop. On a competitive programming judge, the result is usually a time-limit error.
+
+The next figure runs both versions on the same array. Select a branch, and step through the search. The steps have the same names in the two versions, thus you can change the branch at any step. Up to step 2, the two windows are the same. At step 3, `lo = mid` keeps index 3, and the window stops at two values.
+
+<TraceFigure name="binary-search-stall" />
 
 A simple rule helps you find this bug: the search window must become smaller after each iteration. In this implementation, each branch makes the window smaller by one index or more.
 

@@ -2365,3 +2365,46 @@ zig-playground pre.astro-code,
     margin-inline: auto;
   }
 }
+
+/*
+ * A stepped figure (`<TraceFigure>`). The SVG takes its colours from the
+ * tokens through `style`, so the palette and the mode reach it with no script.
+ *
+ * tinyfly's controls read their colours from `--tf-ctl-*`, and its injected
+ * stylesheet sets light defaults on `.tf-ctl` itself. A value set on the
+ * figure would only be inherited, and the defaults on the element win over an
+ * inherited value, which left a light bar with dark-on-dark captions in dark
+ * mode. Two classes outrank tinyfly's one.
+ */
+.trace-figure {
+  margin: 1.5rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-x: auto;
+  --tf-fullscreen-bg: var(--bg);
+}
+
+.trace-figure .tf-ctl {
+  --tf-ctl-fg: var(--text);
+  --tf-ctl-bg: var(--raised);
+  --tf-ctl-accent: var(--accent);
+  --tf-ctl-radius: 6px;
+  --tf-ctl-font: inherit;
+}
+
+/* Below 600px the cells and the code would scale to an unreadable size. The
+   figure scrolls inside its own frame instead; the page does not. */
+.trace-figure svg {
+  display: block;
+  max-width: 100%;
+  min-width: 600px;
+  height: auto;
+}
+
+.trace-figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

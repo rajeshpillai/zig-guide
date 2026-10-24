@@ -15,11 +15,15 @@
  */
 import type { Doc } from "./nav";
 import { findSnippet, snippetCompileError, snippetSource } from "./snippets";
+import { buildFigure } from "./figures";
 
 const base = import.meta.env.BASE_URL;
 
 /** `<Playground ... />`, on one line or spread over several. */
 const PLAYGROUND = /<Playground\b([\s\S]*?)\/>/g;
+
+/** `<TraceFigure name="..." />`. */
+const TRACE_FIGURE = /<TraceFigure\b([\s\S]*?)\/>/g;
 
 function attr(tag: string, name: string): string | undefined {
   return tag.match(new RegExp(`${name}=\\{?"([^"]*)"`))?.[1];
@@ -76,6 +80,17 @@ export async function chapterBody(entry: Doc, origin?: string): Promise<string> 
 
   let at = 0;
   md = md.replace(PLAYGROUND, () => blocks[at++]);
+
+  // A stepped figure has no text form, but its description and caption do:
+  // the reader of this copy learns that the page has one and what it shows.
+  const figures: string[] = [];
+  for (const [, tag] of md.matchAll(TRACE_FIGURE)) {
+    const name = attr(tag, "name");
+    const fig = name ? await buildFigure(name) : null;
+    figures.push(fig ? `*Figure: ${fig.alt} ${fig.caption}*` : "");
+  }
+  let figureAt = 0;
+  md = md.replace(TRACE_FIGURE, () => figures[figureAt++]);
 
   return absolutise(md, origin).replace(/\n{3,}/g, "\n\n").trim();
 }
