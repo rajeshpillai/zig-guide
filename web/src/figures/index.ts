@@ -5,6 +5,7 @@
 import type { TimelineDefinition } from "@algorisys/tinyfly";
 import { binarySearchStall, binarySearchSteps } from "./binary-search";
 import { bfsFrontier, bfsRoutes } from "./grid-bfs";
+import { bytesTwoWays, structLayout } from "./groundwork";
 import { knapsackDirection, knapsackTable } from "./knapsack";
 import { monotonicStack } from "./monotonic-stack";
 import { shortestRun } from "./sliding-window";
@@ -39,6 +40,8 @@ const FIGURES: Record<string, () => Promise<Figure>> = {
   "knapsack-table": knapsackTable,
   "knapsack-direction": knapsackDirection,
   "union-find-forest": unionFindForest,
+  "struct-layout": structLayout,
+  "bytes-two-ways": bytesTwoWays,
 };
 
 const built = new Map<string, Promise<Figure>>();

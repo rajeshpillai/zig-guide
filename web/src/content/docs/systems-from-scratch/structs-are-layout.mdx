@@ -6,6 +6,7 @@ order: 9
 ---
 
 import Playground from "../../../components/Playground.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 When you put some values together under one name, you get a struct. In a
 managed language, that is all. At the level of the machine, there is a second
@@ -45,6 +46,11 @@ are at the end.
 The order of the fields decides the size. In C, you alone must get the order
 correct. Four bytes on one struct are not important. Four bytes on ten million
 rows are 40 MB.
+
+The figure places the fields one at a time, at the offsets that the program
+printed. Select an order to compare the two layouts at the same step.
+
+<TraceFigure name="struct-layout" />
 
 **The layout that Zig selected also used eight bytes.** Here Zig is different
 from C. A plain `struct` in Zig has **no guaranteed layout**. The compiler can

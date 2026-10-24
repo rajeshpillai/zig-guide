@@ -6,6 +6,7 @@ order: 1
 ---
 
 import Playground from "../../../components/Playground.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 A computer stores one kind of thing: numbers from 0 to 255. One of these
 numbers is a **byte**. Letters do not have a separate place in memory.
@@ -64,8 +65,14 @@ arithmetic.
 `@bitCast` tells the compiler: read the four bytes as four `u8` values, not as
 one `u32`. The bytes did not move. Only the agreement changed.
 
-(`0x41` is 65, thus the first byte is `A`. The letters are in the reverse
-order because of the little-endian order above.)
+(`0x41` is 65, the number for `A`. In memory, the first byte is `0x44`, the
+number for `D`, because of the little-endian order above. Thus the letters
+print in the reverse order.)
+
+The figure shows the four bytes from the program, and reads them once as a
+`u32` and once as four `u8` values.
+
+<TraceFigure name="bytes-two-ways" />
 
 ## Check yourself
 

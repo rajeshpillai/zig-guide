@@ -36,6 +36,26 @@ if (errors.length > 0) {
   throw new Error(`TraceFigure "${name}":\n${errors.map((p) => `  ${p.message}`).join("\n")}`);
 }
 
+// In a scenario figure, a part that one scenario moves and another never
+// touches keeps the first scenario's state after a switch: the player's reset
+// did not undo it. Each scenario must therefore give every such part a track
+// (a `set` of its start state is enough). Checked here, from the timelines,
+// because a stale part looks like a correct drawing to every browser check.
+if (fig.timelines.length > 1) {
+  const targets = fig.timelines.map((t) => new Set(t.timeline.tracks.map((track) => track.target)));
+  const all = new Set(targets.flatMap((set) => [...set]));
+  fig.timelines.forEach((t, k) => {
+    const missing = [...all].filter((target) => !targets[k].has(target));
+    if (missing.length > 0) {
+      throw new Error(
+        `TraceFigure "${name}": scenario "${t.id}" never touches ${missing.slice(0, 5).join(", ")}` +
+          `${missing.length > 5 ? ` and ${missing.length - 5} more` : ""}, which another scenario moves. ` +
+          `Give each one a start state with set().`,
+      );
+    }
+  });
+}
+
 const staticMarkup = renderFrame(fig.markup, fig.timelines[0].timeline, "end");
 const scenarios = fig.timelines.length > 1;
 // `</script` inside the JSON would end the element early.

@@ -149,10 +149,19 @@ export async function bfsRoutes(): Promise<Figure> {
     `<text x="${X0 + (CELL - 2) / 2}" y="${Y0 + (CELL - 2) / 2}" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700" fill="var(--text)">S</text>` +
     `<text x="${X0 + (start[0].length - 1) * CELL + (CELL - 2) / 2}" y="${Y0 + (start.length - 1) * CELL + (CELL - 2) / 2}" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700" fill="var(--text)" data-tinyfly="br-T">T</text>`;
 
+  // Both scenarios colour cells of the same grid, and each route has cells
+  // the other does not. Each scenario therefore resets every cell of either
+  // route with \`set\`, which always makes a track; otherwise a switch from BFS
+  // to DFS left the BFS-only cells coloured.
+  const both = [...new Map([...short, ...deep].map(([r, c]) => [`br-${r}-${c}`, true])).keys()];
   const timeline = (id: string, path: Array<[number, number]>, label: string) => {
     const l = lesson({ id });
-    for (const [r, c] of path) l.initial(`br-${r}-${c}`, { fill: "var(--sunken)" });
+    for (const target of both) {
+      l.initial(target, { fill: "var(--sunken)" });
+      l.set(target, { fill: "var(--sunken)" });
+    }
     l.initial("br-T", { fill: "var(--text)" });
+    l.set("br-T", { fill: "var(--text)" });
     l.marker("start", { label: "Both walks start at S and end at T." });
     l.together(() => {
       for (const [r, c] of path) l.to(`br-${r}-${c}`, { fill: "var(--accent)" }, { duration: 500 });

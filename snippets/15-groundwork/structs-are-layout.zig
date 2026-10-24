@@ -28,13 +28,16 @@ pub fn main(init: std.process.Init) !void {
     try out.print("the fields hold {d} bytes of data\n", .{@sizeOf(u8) + @sizeOf(u32) + @sizeOf(u8)});
     try out.print("but @sizeOf(Row) = {d}\n\n", .{@sizeOf(Row)});
 
-    // The start of each field. The gaps are the padding.
-    try out.print("flag  starts at byte {d}\n", .{@offsetOf(Row, "flag")});
-    try out.print("count starts at byte {d}\n", .{@offsetOf(Row, "count")});
-    try out.print("tag   starts at byte {d}\n\n", .{@offsetOf(Row, "tag")});
+    // The start and the size of each field. The gaps are the padding.
+    try out.print("flag  starts at byte {d}, size {d}\n", .{ @offsetOf(Row, "flag"), @sizeOf(u8) });
+    try out.print("count starts at byte {d}, size {d}\n", .{ @offsetOf(Row, "count"), @sizeOf(u32) });
+    try out.print("tag   starts at byte {d}, size {d}\n\n", .{ @offsetOf(Row, "tag"), @sizeOf(u8) });
 
     // Only the order of the fields changed.
     try out.print("same fields, largest first: {d} bytes\n", .{@sizeOf(Packed)});
+    try out.print("count starts at byte {d}, size {d}\n", .{ @offsetOf(Packed, "count"), @sizeOf(u32) });
+    try out.print("flag  starts at byte {d}, size {d}\n", .{ @offsetOf(Packed, "flag"), @sizeOf(u8) });
+    try out.print("tag   starts at byte {d}, size {d}\n\n", .{ @offsetOf(Packed, "tag"), @sizeOf(u8) });
 
     // Without `extern`, Zig can put the fields in any order. Zig usually
     // selects the smaller layout.
