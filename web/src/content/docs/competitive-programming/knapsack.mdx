@@ -9,6 +9,7 @@ order: 110
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 A bag holds 10 kilograms, and there are five items. Each item has a weight and a value. The problem is to get the most value that fits in the bag.
 
@@ -168,6 +169,10 @@ walking back from the bottom-right cell
 
 The walk gives items 2, 4 and 5. The subset search found the same set.
 
+The figure fills the table one row at a time, then walks back from the last cell. At the answer, it stops and asks you to predict the first decision.
+
+<TraceFigure name="knapsack-table" />
+
 Two different sets can have the same best value. The walk skips an item when the skip keeps the same value. Thus, when two sets are equal, the walk selects the set without the later item. If a judge wants one specific set, the problem tells you how to select between equal sets.
 
 ## Use one row instead of a table
@@ -220,6 +225,10 @@ The first row already shows the problem. Item 1 weighs 5 and its value is 10, bu
 The row for item 4 is 100 at capacity 6 and 150 at capacity 9. These values are two and three copies of item 4.
 
 The upward loop compiles, runs, and returns a number that looks correct. But the number is the answer to a different problem.
+
+The figure runs the one-row version in both directions. Select a direction, and compare the last cell after each item.
+
+<TraceFigure name="knapsack-direction" />
 
 <SnippetSource name="23-competitive.knapsack" decl="bestUnbounded" />
 

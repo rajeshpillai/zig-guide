@@ -5,9 +5,11 @@
 import type { TimelineDefinition } from "@algorisys/tinyfly";
 import { binarySearchStall, binarySearchSteps } from "./binary-search";
 import { bfsFrontier, bfsRoutes } from "./grid-bfs";
+import { knapsackDirection, knapsackTable } from "./knapsack";
 import { monotonicStack } from "./monotonic-stack";
 import { shortestRun } from "./sliding-window";
 import { containerWater } from "./two-pointers";
+import { unionFindForest } from "./union-find";
 
 export interface Figure {
   /** The SVG, with `data-tinyfly` names on each part that moves. */
@@ -34,6 +36,9 @@ const FIGURES: Record<string, () => Promise<Figure>> = {
   "shortest-run": shortestRun,
   "bfs-frontier": bfsFrontier,
   "bfs-routes": bfsRoutes,
+  "knapsack-table": knapsackTable,
+  "knapsack-direction": knapsackDirection,
+  "union-find-forest": unionFindForest,
 };
 
 const built = new Map<string, Promise<Figure>>();

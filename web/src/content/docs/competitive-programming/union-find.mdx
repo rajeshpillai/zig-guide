@@ -9,6 +9,7 @@ order: 100
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 Think of ten nodes with no connections between them. Edges arrive one at a time. After each edge, the problem asks how many separate groups there are. The problem also asks for each edge that joins two nodes in the same group. Such an edge closes a cycle.
 
@@ -152,6 +153,10 @@ one compressing find on node 0 of that forest
 ```
 
 Nodes 0 and 1 now point at 7. Node 2 is still two links below the root. Node 2 was not on the path, thus this `find` did not change node 2.
+
+The figure replays the plain merges from the earlier section, one edge for each step. An arrow points from a node to its parent. Then it runs this `find` on node 0 and moves the two arrows that change.
+
+<TraceFigure name="union-find-forest" />
 
 The `compress` column in the chain table shows the same limit. Each union follows two links or fewer. But the final tree is still eight links tall. Compression makes the followed paths shorter. After compression, the next union can still put a tall tree under a single node.
 

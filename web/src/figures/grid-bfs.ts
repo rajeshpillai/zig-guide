@@ -90,7 +90,13 @@ export async function bfsFrontier(): Promise<Figure> {
   const l = lesson({ id: name });
   // Each distance is hidden until its ring arrives. A track starts from the
   // default opacity of 1, not from the markup's style, so say so here.
-  field.forEach((row, r) => row.forEach((cell, c) => /^\d+$/.test(cell) && l.initial(`bf-n-${r}-${c}`, { opacity: 0 })));
+  field.forEach((row, r) =>
+    row.forEach((cell, c) => {
+      if (!/^\d+$/.test(cell)) return;
+      l.initial(`bf-${r}-${c}`, { fill: "var(--sunken)" });
+      l.initial(`bf-n-${r}-${c}`, { opacity: 0, fill: "var(--text)" });
+    }),
+  );
   l.marker("start", { label: "S is at the top left and T at the bottom right. Grey cells are walls." });
   let previous: Array<[number, number]> = [];
   for (let d = 0; d <= max; d++) {
@@ -145,6 +151,8 @@ export async function bfsRoutes(): Promise<Figure> {
 
   const timeline = (id: string, path: Array<[number, number]>, label: string) => {
     const l = lesson({ id });
+    for (const [r, c] of path) l.initial(`br-${r}-${c}`, { fill: "var(--sunken)" });
+    l.initial("br-T", { fill: "var(--text)" });
     l.marker("start", { label: "Both walks start at S and end at T." });
     l.together(() => {
       for (const [r, c] of path) l.to(`br-${r}-${c}`, { fill: "var(--accent)" }, { duration: 500 });
