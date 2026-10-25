@@ -41,9 +41,9 @@ The easiest method is a prebuilt tarball from [ziglang.org/download](https://zig
 <summary>Linux</summary>
 
 ```bash
-curl -L https://ziglang.org/builds/zig-x86_64-linux-0.17.0-dev.xxxx+xxxxxxxxx.tar.xz -o zig.tar.xz
+curl -L https://ziglang.org/builds/zig-x86_64-linux-0.18.0-dev.xxxx+xxxxxxxxx.tar.xz -o zig.tar.xz
 tar xf zig.tar.xz -C ~/.local
-echo 'export PATH="$HOME/.local/zig-x86_64-linux-0.17.0-dev.xxxx+xxxxxxxxx:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/.local/zig-x86_64-linux-0.18.0-dev.xxxx+xxxxxxxxx:$PATH"' >> ~/.bashrc
 ```
 
 The `xxxx+xxxxxxxxx` part is the name of the build, and it changes each night. Copy the current name from the download page, and put it in the two lines. If you do not change the commands, they do not work.
@@ -90,7 +90,7 @@ asdf install zig master && asdf global zig master
 
 ```bash
 zig version
-# 0.17.0-dev.xxxx+xxxxxxxxx
+# 0.18.0-dev.xxxx+xxxxxxxxx
 ```
 
 If the version does not contain `-dev`, it is a tagged release. Several chapters on this site do not build against a tagged release. If the shell cannot find `zig`, step 2 did not work.

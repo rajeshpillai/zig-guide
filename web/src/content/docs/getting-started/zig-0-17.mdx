@@ -1,8 +1,8 @@
 ---
 title: What Changed in Zig 0.17
 seoTitle: "Zig 0.17: What Changed Since 0.16, With Working Code"
-seoDescription: "The changes between Zig 0.16.0 and 0.17 master that break or change everyday code: ** removed, @typeInfo changed, errdefer capture gone, lowercase build modes."
-description: The changes between 0.16.0 and master, checked on the two compilers.
+seoDescription: "The changes between Zig 0.16.0 and 0.17.0 that break or change everyday code: ** removed, @typeInfo changed, errdefer capture gone, lowercase build modes."
+description: The changes between 0.16.0 and 0.17.0, checked on the two compilers.
 section: Getting Started
 order: 4
 ---
@@ -10,11 +10,9 @@ order: 4
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
 
-Zig 0.17 is not released yet. Master calls itself `0.17.0-dev`, and this guide uses that compiler.
+The Zig team released 0.17.0 on 2 October 2026. This page gives a list of the changes between the 0.16.0 release and the 0.17.0 release. The list includes the changes that have an effect on everyday code: the language, the parts of `std` that most programs use, and `build.zig`. The list does not include compiler internals, OS ports and changes to the linker.
 
-This page gives a list of the changes between the 0.16.0 release and master. The list includes the changes that have an effect on everyday code: the language, the parts of `std` that most programs use, and `build.zig`. The list does not include compiler internals, OS ports and changes to the linker.
-
-No person announced a release date, thus this page does not give a date. Master continues to change, and the list can change before 0.17.0 ships.
+This guide now uses master, which calls itself `0.18.0-dev`. The changes after 0.17.0 are not on this page.
 
 [Migrate from an Older Zig](/learn/getting-started/coming-from-older-zig/) explains the larger changes from before 0.16, for example the buffered writers and the `Init` parameter of `main`. This page explains only the last step.
 
@@ -28,9 +26,11 @@ The "0.16.0" blocks are different. They contain 0.16.0 code, and most of them do
 
 On 2026-09-25, the author compiled each of these blocks with the two compilers, `0.16.0` and `0.17.0-dev.2056`. The error messages below come from that run.
 
+On 2026-10-25, the author compiled the blocks again with the `0.17.0` release, and each block gave the same error. The program above also runs on `0.17.0`, and its output is the same as the output that CI checks on master.
+
 ## Summary
 
-| What | 0.16.0 | Master | Old code |
+| What | 0.16.0 | 0.17.0 | Old code |
 | --- | --- | --- | --- |
 | Array repeat | `"-" ** 5` | `@splat('-')` | fails |
 | Struct and enum reflection | `info.fields[i].name` | `info.field_names[i]` | fails |
@@ -60,7 +60,7 @@ const rule = "-" ** 12;
 
 <SnippetSource name="01-getting-started.zig-0-17" decl="repeat" />
 
-Master does not read `**` as one operator now. Master sees two `*` signs, thus the error is about a different problem:
+0.17.0 does not read `**` as one operator. It sees two `*` signs, thus the error is about a different problem:
 
 ```
 error: binary operator '*' has whitespace on one side, but not the other
@@ -72,7 +72,7 @@ If you see that message on a line with `**`, the removal of `**` is the cause. `
 
 ## `@typeInfo` returns parallel arrays
 
-In 0.16.0, the `@typeInfo` of a struct had one `fields` array. Each element had a `name`, a `type` and a default value. Master divides that array into separate arrays. The arrays agree by index.
+In 0.16.0, the `@typeInfo` of a struct had one `fields` array. Each element had a `name`, a `type` and a default value. 0.17.0 divides that array into separate arrays. The arrays agree by index.
 
 ```zig
 // 0.16.0
@@ -89,7 +89,7 @@ error: no field named 'fields' in struct 'lang.Type.Struct'
 
 Each kind of type has the same change:
 
-| Kind | 0.16.0 | Master |
+| Kind | 0.16.0 | 0.17.0 |
 | --- | --- | --- |
 | struct | `.fields[i].name`, `.type` | `.field_names[i]`, `.field_types[i]`, `.field_attrs[i]` |
 | enum | `.fields[i].name`, `.value`, `.is_exhaustive` | `.field_names[i]`, `.field_values[i]`, `.mode == .exhaustive` |
@@ -107,7 +107,7 @@ The helpers in `std.meta` also changed. `std.meta.fields(T)` is now a compile er
 
 ## `errdefer |err|` is gone
 
-In 0.16.0, `errdefer` could capture the error that the function returned. Master removed that capture.
+In 0.16.0, `errdefer` could capture the error that the function returned. 0.17.0 removed that capture.
 
 ```zig
 // 0.16.0
@@ -136,7 +136,7 @@ The function still returns the same error to its caller. The only change is the 
 
 ## `@cImport` is gone
 
-Master removed `@cImport`, `@cInclude`, `@cDefine` and `@cUndef`.
+0.17.0 removed `@cImport`, `@cInclude`, `@cDefine` and `@cUndef`.
 
 ```
 error: invalid builtin function: '@cImport'
@@ -201,9 +201,9 @@ That function shows four changes.
 
 `std.heap.stackFallback` is gone, and there is no alias. `BufferFirstAllocator` does the same work. It gives memory from your buffer until the buffer is full. Then it gets memory from the backing allocator.
 
-Master also removed some smaller declarations, with no alias:
+0.17.0 also removed some smaller declarations, with no alias:
 
-| 0.16.0 | Master |
+| 0.16.0 | 0.17.0 |
 | --- | --- |
 | `std.fmt.bufPrintZ(&buf, fmt, args)` | `std.mem.printSentinel(&buf, fmt, args, 0)` |
 | `gpa.dupeZ(u8, s)` | `gpa.dupeSentinel(u8, s, 0)` |
@@ -242,22 +242,22 @@ The bit set types also have new names. `StaticBitSet` is `std.bit_set.Static`, a
 
 ## The change that the compiler does not find
 
-`std.mem.containsAtLeastScalar` has its last two arguments in the opposite order now. In 0.16.0, it took the count, then the element. On master, it takes the element, then the count.
+`std.mem.containsAtLeastScalar` has its last two arguments in the opposite order now. In 0.16.0, it took the count, then the element. In 0.17.0, it takes the element, then the count.
 
 ```zig
 // 0.16.0: "is there at least 1 copy of 5?"
 std.mem.containsAtLeastScalar(usize, &.{ 5, 5, 1 }, 1, 5)
 ```
 
-On 0.16.0, that call returns `true`. On master, the same call asks "are there at least 5 copies of 1?" and returns `false`.
+On 0.16.0, that call returns `true`. On 0.17.0, the same call asks "are there at least 5 copies of 1?" and returns `false`.
 
 The two arguments are integers, thus the two orders are correct types. There is no error and no deprecation warning. If your code calls this function, examine each call yourself.
 
-In 0.16.0, there was also a `containsAtLeastScalar2` with the new order. Master removed it. Thus code that already uses `containsAtLeastScalar2` does not compile, and that is the easy condition.
+In 0.16.0, there was also a `containsAtLeastScalar2` with the new order. 0.17.0 removed it. Thus code that already uses `containsAtLeastScalar2` does not compile, and that is the easy condition.
 
 ## Other `std` moves
 
-| 0.16.0 | Master | Old code |
+| 0.16.0 | 0.17.0 | Old code |
 | --- | --- | --- |
 | `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions` | fails |
 | `std.Io.File.CreateFlags` | `std.Io.Dir.CreateFileOptions` | fails |
@@ -277,13 +277,13 @@ In 0.16.0, there was also a `containsAtLeastScalar2` with the new order. Master 
 
 `@divCeil` divides and rounds up. Like `@divTrunc`, it assumes that the divisor is never zero. If you want an error instead, `std.math.divCeil` is still available.
 
-`@backingInt` reads the integer below an enum or a packed struct. `@fromBackingInt` does the opposite operation. For those types, these builtins do the work of `@intFromEnum`, `@enumFromInt` and `@bitCast`. The old builtins still work, and the master language reference marks them deprecated.
+`@backingInt` reads the integer below an enum or a packed struct. `@fromBackingInt` does the opposite operation. For those types, these builtins do the work of `@intFromEnum`, `@enumFromInt` and `@bitCast`. The old builtins still work, and the 0.17.0 language reference marks them deprecated.
 
 `@bitCast` can now also make an enum. 0.16.0 did not accept that.
 
 ## `build.zig`
 
-A project from `zig init` on 0.16.0 fails on master. It fails before the compiler gets to your own code.
+A project from `zig init` on 0.16.0 fails on 0.17.0. It fails before the compiler gets to your own code.
 
 ### `zig build run -- args`
 
@@ -298,7 +298,7 @@ if (b.args) |args| run_cmd.addArgs(args);
 error: no field named 'args' in struct 'Build'
 ```
 
-On master, `zig init` writes this one line:
+On 0.17.0, `zig init` writes this one line:
 
 ```zig
 run_cmd.addPassthruArgs();
@@ -328,7 +328,7 @@ There is no direct replacement for a custom `makeFn`. Do these steps:
 
 ### Renames that still compile
 
-| 0.16.0 | Master |
+| 0.16.0 | 0.17.0 |
 | --- | --- |
 | `b.lazyDependency` | `b.dependencyLazy` |
 | `b.runAllowFail` | `b.runFallible` |
@@ -350,7 +350,7 @@ Most of a normal `build.zig` compiles without a change. `b.createModule`, `b.add
 
 ## What did not change
 
-For each item in this list, a comparison of the public declarations in 0.16.0 and in master found no difference:
+On 2026-09-25, a comparison of the public declarations in 0.16.0 and in master (`0.17.0-dev.2056`) found no difference for each item in this list:
 
 - `std.json`
 - `std.Thread`
