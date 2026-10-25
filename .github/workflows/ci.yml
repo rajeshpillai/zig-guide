@@ -27,7 +27,12 @@ concurrency:
 jobs:
   verify:
     name: Snippets compile & run on Zig master
-    runs-on: ubuntu-latest
+    # Pinned, not `ubuntu-latest`. GitHub began moving `ubuntu-latest` to
+    # Ubuntu 26 on 2026-10-19, image by image, so any night could switch.
+    # `playwright install --with-deps` and the apt packages below install by
+    # name for the OS they find, and a red nightly must mean Zig master moved,
+    # never that the runner did. Move to 26 on purpose, in a PR that runs this.
+    runs-on: ubuntu-24.04
     # Job-level so the browser check sees the same prefix the site was built
     # with — a mismatch makes every page 404. Defaults target the custom
     # domain (web/public/CNAME) served at the root. Repo variables override,
