@@ -9,6 +9,7 @@ order: 80
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 The example below has eleven intervals. The problem is to combine the intervals that overlap. The input has three special cases:
 
@@ -98,6 +99,10 @@ The last result is:
 The correct result has four merged intervals.
 
 The correct update is `end = @max(end, iv.end)`. When intervals overlap, the merged interval must keep the end that goes further.
+
+The figure runs both passes on the sorted intervals. Select a rule, and step through the intervals. At the second interval, `[3, 5]`, the two rules separate.
+
+<TraceFigure name="merge-intervals" />
 
 ## Check the merged result
 

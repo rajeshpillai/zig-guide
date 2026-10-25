@@ -9,6 +9,7 @@ order: 90
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 A window moves across an array one step at a time. At each step, one value enters from the right and one value leaves from the left. The problem is to find the largest value in each window.
 
@@ -116,6 +117,10 @@ At index 11, the two ends of the deque both remove an index. The new value 3 rem
 The maximum is always available directly from the front, as `items[d.front().?]`. You do not have to search the deque.
 
 The deque keeps equal values, because the back rule removes only values that are strictly smaller. Thus, if two equal maximum values exist, the older value can expire while the newer value stays available.
+
+The figure plays the deque trace, one step for each new value. The outline is the window. Under it, the deque holds the candidates, and the front is the maximum.
+
+<TraceFigure name="window-maximum" />
 
 ## Remove by value at the back
 

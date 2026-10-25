@@ -9,6 +9,7 @@ order: 40
 
 import Playground from "../../../components/Playground.astro";
 import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
 
 A range-sum query asks for the total of one part of an array. This problem has many of these queries.
 
@@ -149,6 +150,10 @@ The `+5` at index 0 makes the cumulative sum 5. Indices 1 and 2 have no change, 
 There are three updates, and each update needs two writes. Thus the difference-array version needs six writes. The direct version changes eleven array cells in total, because eleven is the sum of the widths of the three update ranges. For wider ranges, the difference between the two methods becomes larger.
 
 The final `-10` at index 8 is not in the output array, because index 8 is outside the original eight values. The `-10` closes the update after the last value. If the cumulative sum continues through index 8, the cumulative sum becomes zero again. This result is a useful check that the differences are consistent.
+
+The figure plays the three updates, then the running sum, one index at a time. Before the sum, it stops and asks you to predict one value.
+
+<TraceFigure name="difference-array" />
 
 ## Prefix sums and difference arrays are related
 

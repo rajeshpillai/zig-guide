@@ -9,6 +9,7 @@ import { bfsFrontier, bfsRoutes } from "./grid-bfs";
 import { bytesTwoWays, structLayout } from "./groundwork";
 import { knapsackDirection, knapsackTable } from "./knapsack";
 import { monotonicStack } from "./monotonic-stack";
+import { differenceArray, mergeIntervals, windowMaximum } from "./ranges";
 import { shortestRun } from "./sliding-window";
 import { containerWater } from "./two-pointers";
 import { unionFindForest } from "./union-find";
@@ -44,6 +45,9 @@ const FIGURES: Record<string, () => Promise<Figure>> = {
   "struct-layout": structLayout,
   "bytes-two-ways": bytesTwoWays,
   "crc-steps": crcSteps,
+  "difference-array": differenceArray,
+  "merge-intervals": mergeIntervals,
+  "window-maximum": windowMaximum,
 };
 
 const built = new Map<string, Promise<Figure>>();
