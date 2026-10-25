@@ -120,11 +120,11 @@ fn resample(
                 continue;
             }
             const fx = if (correct_centres)
-                (((@as(i64, @intCast(x)) << frac_bits) + one / 2) * x_scale >> frac_bits) - one / 2
+                ((((@as(i64, @intCast(x)) << frac_bits) + one / 2) * x_scale) >> frac_bits) - one / 2
             else
                 @as(i64, @intCast(x)) * x_scale;
             const fy = if (correct_centres)
-                (((@as(i64, @intCast(y)) << frac_bits) + one / 2) * y_scale >> frac_bits) - one / 2
+                ((((@as(i64, @intCast(y)) << frac_bits) + one / 2) * y_scale) >> frac_bits) - one / 2
             else
                 @as(i64, @intCast(y)) * y_scale;
 

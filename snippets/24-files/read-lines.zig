@@ -75,7 +75,9 @@ fn readSkippingLong(io: Io, dir: Io.Dir, name: []const u8, out: *Io.Writer) !voi
 
     var n: usize = 1;
     while (true) : (n += 1) {
-        const line = r.takeDelimiter('\n') catch |err| switch (err) {
+        // The parentheses are necessary: `catch` handles the error, then
+        // `orelse` handles the end of the file.
+        const line = (r.takeDelimiter('\n') catch |err| switch (err) {
             error.StreamTooLong => {
                 // The reader consumed no bytes. Skip to the end of this line,
                 // then continue.
@@ -84,7 +86,7 @@ fn readSkippingLong(io: Io, dir: Io.Dir, name: []const u8, out: *Io.Writer) !voi
                 continue;
             },
             else => |e| return e,
-        } orelse break;
+        }) orelse break;
         try out.print("   line {d}: {s}\n", .{ n, line });
     }
 }

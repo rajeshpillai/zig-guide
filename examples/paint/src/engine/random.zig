@@ -27,7 +27,7 @@ pub const Random = struct {
     pub fn next(r: *Random) f32 {
         // The product needs 46 bits, thus the code calculates it in u64. In u32
         // it would overflow, and Zig would stop the program in a safe build.
-        r.state = @intCast(@as(u64, r.state) * multiplier % modulus);
+        r.state = @intCast((@as(u64, r.state) * multiplier) % modulus);
         return @as(f32, @floatFromInt(r.state - 1)) / 2147483646.0;
     }
 };

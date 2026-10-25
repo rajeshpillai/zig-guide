@@ -16,9 +16,7 @@ const Platform = enum { desktop, web };
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    // On master, this function returns null when you give no mode. Null means
-    // "the default".
-    const optimize = b.standardOptimizeOption(.{}) orelse .debug;
+    const optimize = b.standardOptimizeOption(.{});
 
     // A headless smoke run. CI uses it, and you can use it after a change to
     // check that the game still draws, without a person who watches.

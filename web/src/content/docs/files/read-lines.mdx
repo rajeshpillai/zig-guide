@@ -83,6 +83,10 @@ Then the loop continues, and the reader reads line 3 correctly.
 
 <SnippetSource name="24-files.read-lines" decl="readSkippingLong" />
 
+The result of `takeDelimiter` can be an error or `null`. `catch` handles the error, and `orelse break` handles `null`, the end of the file. Put parentheses around the `catch` part, as the code above does.
+
+Zig 0.17 accepted the line without the parentheses and read it as `(… catch …) orelse break`. Zig master does not accept the two operators together without parentheses. The error is `ambiguous operator precedence with operators ... catch ... orelse ...`. The parentheses make the old meaning explicit, and the program does not change.
+
 Skip the line for a log file, where one bad line must not stop the program. For input from a user or from a different program, the error is frequently the correct result.
 
 In that case, the buffer size is the longest line that you accept, and the reader rejects each longer line. If a line can truly have any length, use a larger buffer. Alternatively, copy each part of the line into an `ArrayList` when the reader reads it.

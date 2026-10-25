@@ -15,8 +15,7 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    // Master returns null when no mode is given, meaning "the default".
-    const optimize = b.standardOptimizeOption(.{}) orelse .debug;
+    const optimize = b.standardOptimizeOption(.{});
 
     const engine = b.createModule(.{
         .root_source_file = b.path("src/engine.zig"),

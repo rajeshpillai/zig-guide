@@ -92,7 +92,7 @@ const Report = struct {
 
     fn scan(r: *Report, in: *Io.Reader) !void {
         while (true) {
-            const text = in.takeDelimiter('\n') catch |err| switch (err) {
+            const text = (in.takeDelimiter('\n') catch |err| switch (err) {
                 // A line that is longer than the buffer. Skip the line and continue.
                 error.StreamTooLong => {
                     r.bytes += try in.discardDelimiterInclusive('\n');
@@ -101,7 +101,7 @@ const Report = struct {
                     continue;
                 },
                 else => |e| return e,
-            } orelse break;
+            }) orelse break;
 
             r.lines += 1;
             r.bytes += text.len + 1;
