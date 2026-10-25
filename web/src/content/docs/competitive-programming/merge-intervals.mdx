@@ -34,7 +34,7 @@ For each new interval, there are two cases:
 - If the new interval starts before or at the end of the current merged interval, the two intervals overlap. The pass extends the current merged interval if necessary.
 - If the new interval starts after the end of the current merged interval, there is a gap. The current merged interval is complete, and the pass starts a new merged interval.
 
-The intervals are sorted by start position. Thus the pass never has to check an older merged interval again, because the starts only move forward.
+The program sorts the intervals by start position. Thus the pass never has to check an older merged interval again, because the starts only move forward.
 
 The sorted input is:
 
@@ -131,7 +131,7 @@ A check of each coordinate is useful for small test cases. It is not suitable fo
 
 ## Closed intervals that touch
 
-The intervals in this example are closed. The closed interval `[3, 5]` holds 3, 4 and 5. The interval `[5, 8]` also holds 5. Thus the two intervals overlap at the coordinate 5.
+This example uses closed intervals. The closed interval `[3, 5]` holds 3, 4 and 5. The interval `[5, 8]` also holds 5. Thus the two intervals overlap at the coordinate 5.
 
 For this reason, the merge condition uses `<=`: `iv.start <= current.end`.
 
@@ -166,7 +166,7 @@ Ordinary continuous closed intervals do not use the `+ 1`. Thus, before you writ
 
 ## A merge cannot count overlaps
 
-Merged intervals tell you which coordinates are covered. They do not tell you how many original intervals overlap at the same point.
+Merged intervals tell you which coordinates the intervals cover. They do not tell you how many original intervals overlap at the same point.
 
 For example, the merged interval `[1, 21]` is only one interval in the output. But at the coordinate 5, four original intervals are active at the same time. If these intervals are meetings, four rooms are necessary. If they are jobs, four machines can be necessary.
 
@@ -201,7 +201,7 @@ The maximum number of active intervals is four.
 
 Two events occur at the coordinate 5. `[5, 8]` starts there, and `[3, 5]` ends there.
 
-These are closed intervals. Thus the two intervals both hold the coordinate 5, and the sweep must use the start event before the end event. Then the two intervals both count as active at the same coordinate.
+This sweep uses closed intervals. Thus the two intervals both hold the coordinate 5, and the sweep must use the start event before the end event. Then the two intervals both count as active at the same coordinate.
 
 <SnippetSource name="23-competitive.merge-intervals" decl="startsFirst" />
 
@@ -240,7 +240,7 @@ The merged runs did not change, but the overlap count changed.
 
 ## Merge and sweep answer different questions
 
-The merge keeps the start and the end of the current combined interval. Thus the merge tells you which regions are covered.
+The merge keeps the start and the end of the current combined interval. Thus the merge tells you which regions the intervals cover.
 
 The sweep keeps a count. Thus the sweep tells you how many intervals are active at the same time.
 

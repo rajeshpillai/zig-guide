@@ -68,7 +68,7 @@ Union-find does not keep the group name in each node. Each node stores one other
 
 <SnippetSource name="23-competitive.union-find" decl="findRoot" />
 
-To find the group of a node, follow the parent links until you get to the root. Two nodes are connected if and only if they get to the same root.
+To find the group of a node, follow the parent links until you get to the root. Two nodes are in the same group if and only if they get to the same root.
 
 <SnippetSource name="23-competitive.union-find" decl="unitePlain" />
 
@@ -237,7 +237,7 @@ The bound is not a true constant. The proof of the bound is long, thus this chap
 
 ## Do not compare parents instead of roots
 
-Two nodes are connected when they have the same root. The same parent is a different test.
+Two nodes are in the same group when they have the same root. The same parent is a different test.
 
 <SnippetSource name="23-competitive.union-find" decl="connectedByParent" />
 

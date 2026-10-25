@@ -137,7 +137,7 @@ For the `increasing` array, the direct scan does only eight comparisons. The sta
 
 Thus the stack is not always faster on each input. Its advantage is the worst-case bound. The direct scan can increase to O(n²). The monotonic stack stays O(n) for all inputs.
 
-A nested loop does not always mean quadratic time. Count how many times each item can go into the inner loop in the full algorithm. If that number is fixed, the total work can still be linear.
+A nested loop does not always mean quadratic time. Count how many times each item can go into the inner loop in the full algorithm. If that count has a constant limit, the total work can still be linear.
 
 ## Previous smaller element
 

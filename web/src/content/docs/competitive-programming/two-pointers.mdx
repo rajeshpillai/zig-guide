@@ -15,7 +15,7 @@ The input is a sorted array and a target sum. The task is to find two values wit
 
 One method is to try each possible pair. That method takes O(n²) time. For an array with 100,000 values, the number of comparisons is much too large.
 
-The array is sorted. Thus a better method is possible:
+The values are in ascending order. Thus a better method is possible:
 
 1. Put one index at the start and a second index at the end.
 2. Add the two values.
@@ -45,7 +45,7 @@ When the sum is too large, look at `items[lo]`. It is the smallest value in the 
 
 Each step removes exactly one index from the search. The two pointers never move backward. Thus the distance between `lo` and `hi` becomes smaller on each iteration, and the loop runs O(n) times or fewer.
 
-This argument is correct only when the array is sorted. If the array is not sorted, a move of `lo` or `hi` tells you nothing about the values in the range. The function does not check that the array is sorted. Thus sort the input first.
+This argument is correct only when the values are in ascending order. If they are not in order, a move of `lo` or `hi` tells you nothing about the values in the range. The function does not check the order of the values. Thus sort the input first.
 
 [Sorting](/learn/standard-library/sorting/) explains `std.mem.sort` and its comparator.
 

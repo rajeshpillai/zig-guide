@@ -31,7 +31,7 @@ At each step, the loop keeps one rule: each index that can be the answer stays i
 
 The loop has two branches:
 
-- If `items[mid] < key`, then `mid` cannot be the answer. The array is sorted, thus each value before `mid` is also too small. The loop sets `lo = mid + 1`. This removes `mid` and all of the values before `mid`.
+- If `items[mid] < key`, then `mid` cannot be the answer. The values are in ascending order, thus each value before `mid` is also too small. The loop sets `lo = mid + 1`. This removes `mid` and all of the values before `mid`.
 - If not, `items[mid]` is greater than or equal to the key. Then `mid` can be the answer. The loop keeps `mid` inside the search window with `hi = mid`.
 
 Thus one branch moves past `mid`, and the other branch keeps `mid` in the window.

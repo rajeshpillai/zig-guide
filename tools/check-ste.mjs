@@ -30,6 +30,7 @@ const TECHNICAL = new Set(
    drawings meaning meanings beginning greeting backing formatting testing
    addressing probing chaining clustering splicing bookkeeping coupling
    ascending descending operating
+   sorting falling rising running
    blocking networking interleaving publishing outstanding dangling aliasing
    programming framing self-describing reordering sliding
    working coloring spanning folding saving substring combining allocating
