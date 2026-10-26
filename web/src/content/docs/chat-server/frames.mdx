@@ -1,0 +1,103 @@
+---
+title: Read the Frames Yourself
+description: A frame reader for the server. It joins fragments, returns the close code, checks UTF-8 and the size, and maps each failure to a close code.
+seoDescription: A WebSocket frame reader for a Zig server. Join fragments, read the close code, refuse an oversized frame before its payload, and send the right close code.
+section: A Chat Server
+order: 50
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+[WebSocket Frames](/learn/networking/websocket-frames/) listed what
+`readSmallMessage` in std refuses or leaves out. Two of those gaps matter
+for this server:
+
+- **Fragments.** A browser can split a message into frames. std returns
+  `error.MessageOversize` for the first fragment.
+- **The close frame.** std stops after the first two bytes. The server does
+  not get the close code, and the rest of the frame stays unread in the
+  stream.
+
+The second gap has a cost that is easy to miss. If the server closes its
+socket with unread bytes, the kernel sends a reset in place of a normal
+close. Thus the server in
+[A WebSocket Server on a Socket](/learn/networking/websocket-server/) had to
+wait for the client to close first. RFC 6455 asks for the opposite order.
+
+The client in [A WebSocket Client](/learn/networking/websocket-client/)
+already reads frames itself. This reader is the server half of that code,
+with three differences:
+
+1. Each frame from a client **must** have the mask, and the reader removes
+   it.
+2. The reserved bits must be 0, because the server agreed to no extension.
+3. The reader reads a close frame to its end, and returns the code and the
+   reason.
+
+<Playground name="11-networking.chat-frames" />
+
+## The reader
+
+<SnippetSource name="11-networking.chat-frames" decl="FrameReader" />
+
+The structure is the same as the client: control frames first, then data
+frames, with the state of a message in fragments in two fields.
+
+**The size check comes before the payload.** The length field of a frame
+can say 2<sup>63</sup> bytes. The reader compares the length with the space
+left in `buffer` and refuses the frame before it reads one byte of payload.
+The reader allocates nothing, thus a large length cannot make the server
+use memory.
+
+**Control frames use the buffer of the reader, not `buffer`.** A ping can
+arrive between two fragments. If the ping used `buffer`, it would
+overwrite the part of the message that is already there. `take` returns the
+ping payload as a slice of the buffer in the `std.Io.Reader`, and `buffer`
+stays as it is.
+
+```
+a message in three fragments, a ping between:
+  ping "beat"
+  text "Hello, room"
+  binary, 3 bytes
+  close 1001 "going home"
+  unread bytes after the close frame: 0
+```
+
+The last line is the reason for this chapter. After the close frame,
+nothing is unread. The server can send its close frame and then close the
+TCP connection first, with a normal FIN and no reset.
+
+## A close code for each failure
+
+RFC 6455 gives a close code for each type of failure. One function maps
+the errors of the reader to the codes:
+
+<SnippetSource name="11-networking.chat-frames" decl="closeCodeFor" />
+
+```
+frames that the server must refuse, limit 64 bytes:
+  unmasked text            -> error.UnmaskedFrame, close 1002
+  a reserved bit set       -> error.ReservedBits, close 1002
+  opcode 3                 -> error.ProtocolError, close 1002
+  ping in fragments        -> error.ProtocolError, close 1002
+  continuation first       -> error.ProtocolError, close 1002
+  200 bytes                -> error.MessageTooBig, close 1009
+  text that is not UTF-8   -> error.InvalidUtf8, close 1007
+  close with 1 byte        -> error.ProtocolError, close 1002
+```
+
+The switch in `closeCodeFor` has no `else`. If a new error joins `FrameReader.Error`, the compiler requires a case for
+it. Thus no failure can reach a client with a code that nobody selected.
+
+Code 1006 is special. It means "the connection closed with no close frame",
+and RFC 6455 forbids a close frame with that code. `closeCodeFor` returns
+it for `ReadFailed` and `EndOfStream` so that the server can log one code
+for each end of a connection. The writer in the last chapter checks for
+1006 and sends no close frame.
+
+After a protocol error, the stream is not trustworthy. The reader can stop
+in the middle of a frame, for example after the header of a frame that is
+too big. Thus after an error, the server sends its close frame and closes
+the connection. It does not try to read more frames.

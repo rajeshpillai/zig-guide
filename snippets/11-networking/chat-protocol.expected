@@ -1,0 +1,20 @@
+commands from a client:
+  nick tejas               -> nick "tejas"
+  say hello, room          -> say "hello, room"
+  say  two spaces          -> say " two spaces"
+  nick Tejas               -> error.BadNick
+  nick aaaaaaaaaaaaaaaaa   -> error.BadNick
+  say                      -> error.MissingArgument
+  (long input)             -> error.TextTooLong
+  shout hello              -> error.UnknownCommand
+                           -> error.UnknownCommand
+
+events from the server:
+  welcome tejas (3 online)
+  joined vishaka
+  msg vishaka: hello, room
+  left shivam (quit)
+  left shivam (too_slow)
+  error NickTaken
+
+the longest event: 142 of 160 bytes

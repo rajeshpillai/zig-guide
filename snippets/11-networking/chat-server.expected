@@ -1,0 +1,36 @@
+tejas:
+  -> nick tejas
+  <- welcome tejas (1 online)
+  <- joined vishaka
+  <- joined shivam
+  -> say hello, room
+  <- msg tejas: hello, room
+  <- left shivam (quit)
+  -> say bye
+  <- msg tejas: bye
+  <- left vishaka (quit)
+  -> close 1000
+  <- close 1000
+vishaka:
+  -> say hi
+  <- error NoNickYet
+  -> nick vishaka
+  <- welcome vishaka (2 online)
+  <- joined shivam
+  <- msg tejas: hello, room
+  -> ping beat
+  <- pong beat
+  <- left shivam (quit)
+  <- msg tejas: bye
+  -> close 1000
+  <- close 1000
+shivam:
+  -> nick tejas
+  <- error NickTaken
+  -> nick shivam
+  <- welcome shivam (3 online)
+  <- msg tejas: hello, room
+  -> shout hi
+  <- error UnknownCommand
+  -> close 1000
+  <- close 1000

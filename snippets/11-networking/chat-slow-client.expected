@@ -1,0 +1,31 @@
+outbox capacity: 4 lines of 162 bytes
+after the joins, shivam has 1 line waiting: its welcome
+
+tejas says "hi"
+  tejas    <- msg tejas: hi
+  vishaka  <- msg tejas: hi
+  shivam is a member: true
+vishaka says "hello"
+  tejas    <- msg vishaka: hello
+  vishaka  <- msg vishaka: hello
+  shivam is a member: true
+tejas says "shivam?"
+  tejas    <- msg tejas: shivam?
+  vishaka  <- msg tejas: shivam?
+  shivam is a member: true
+vishaka says "still there?"
+  tejas    <- msg vishaka: still there?
+  tejas    <- left shivam (too_slow)
+  vishaka  <- msg vishaka: still there?
+  vishaka  <- left shivam (too_slow)
+  shivam is a member: false
+
+urvashi joins, in the free slot
+  the old connection of shivam says "i am back": error.NoNickYet
+
+the writer of shivam reads its outbox:
+  welcome shivam (3 online)
+  msg tejas: hi
+  msg vishaka: hello
+  msg tejas: shivam?
+  error.Closed: send close 1008

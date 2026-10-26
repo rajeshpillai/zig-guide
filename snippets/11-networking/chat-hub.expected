@@ -1,0 +1,20 @@
+tejas joins
+  tejas    <- welcome tejas (1 online)
+vishaka joins
+  tejas    <- joined vishaka
+  vishaka  <- welcome vishaka (2 online)
+shivam joins
+  tejas    <- joined shivam
+  vishaka  <- joined shivam
+  shivam   <- welcome shivam (3 online)
+a second tejas joins
+  refused: error.NickTaken
+vishaka says "hello, room"
+  tejas    <- msg vishaka: hello, room
+  vishaka  <- msg vishaka: hello, room
+  shivam   <- msg vishaka: hello, room
+tejas leaves
+  vishaka  <- left tejas (quit)
+  shivam   <- left tejas (quit)
+
+the outbox of tejas after leave: Closed

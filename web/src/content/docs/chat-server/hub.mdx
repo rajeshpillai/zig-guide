@@ -1,0 +1,128 @@
+---
+title: The Hub
+description: One writer for each socket. The hub keeps the members, copies each line into a bounded outbox, and never touches a socket.
+seoDescription: A chat hub in Zig with std.Io.Queue and std.Io.Mutex. One writer task per socket, a bounded outbox per member, and members found by pointer, not by slot.
+section: A Chat Server
+order: 30
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
+
+Each connection in the server has its own task, which reads from its
+socket. When tejas says something, the task of tejas must send a line to
+vishaka and to shivam. The simple design is to write to their sockets
+directly. That design has a race.
+
+A WebSocket frame is a header and a payload, and a large frame can need
+more than one write. Two tasks can write to the socket of shivam at the same
+time, for example the tasks of tejas and vishaka. Then the bytes of the two
+frames can mix.
+Then shivam gets a frame that is not valid, and closes the connection.
+
+A lock for each socket would prevent the mix. But a task that holds that
+lock waits for the network of shivam, and a slow network then stops each
+member who talks.
+
+## One writer for each socket
+
+The hub uses a different design:
+
+1. Each connection has an **outbox**, a bounded queue of lines.
+2. Each connection has one **writer task**. Only the writer task writes to
+   the socket. It takes a line from the outbox and sends it.
+3. The hub puts lines into outboxes. It never touches a socket.
+
+Thus no two tasks write to one socket. A task that talks only puts lines into
+queues, and a queue operation is short.
+
+<SnippetSource name="11-networking.chat-hub" decl="Peer" />
+
+The outbox is `std.Io.Queue`, the bounded channel from
+[Queues](/learn/concurrency/queues/). Its capacity comes from the buffer
+that you give to `init`. A `Peer` belongs to the connection, and the hub
+keeps a pointer to it.
+
+The program below plays three members in memory. After each action, it
+takes the lines out of each outbox, as a writer task would, and prints
+them.
+
+<Playground name="11-networking.chat-hub" />
+
+<TraceFigure name="chat-fanout" />
+
+## Join
+
+<SnippetSource name="11-networking.chat-hub" decl="join" />
+
+`join` holds the `std.Io.Mutex` of the hub from the check to the last
+delivery. Two clients can ask for the same nickname at the same
+time. Only one gets it: the second client waits for the lock, and then the
+hub finds the first.
+
+The order inside `join` is important. The new member gets the welcome
+first, then the others get `joined`. Each member sees the room in one
+order, and the order is the same for each member.
+
+```
+shivam joins
+  tejas    <- joined shivam
+  vishaka  <- joined shivam
+  shivam   <- welcome shivam (3 online)
+a second tejas joins
+  refused: error.NickTaken
+```
+
+The refusal returns an error to the caller. The hub does not send it. The
+connection that asked puts the `error` event into its own outbox, as the
+last chapter shows.
+
+## Say: the sender gets the line too
+
+<SnippetSource name="11-networking.chat-hub" decl="say" />
+
+The broadcast has no `except`, thus the sender gets its own line back:
+
+```
+vishaka says "hello, room"
+  tejas    <- msg vishaka: hello, room
+  vishaka  <- msg vishaka: hello, room
+  shivam   <- msg vishaka: hello, room
+```
+
+The echo has a purpose. The hub holds its lock for the whole broadcast,
+thus messages enter all outboxes in one order. When the line returns to vishaka, vishaka knows its position among the other messages. A client
+that shows its own message at once, before the echo, can show the messages
+in a different order from everybody else.
+
+## A slot number is not a name
+
+`say` and `leave` take the `*Peer` of the connection, not the number of a
+slot in `members`:
+
+<SnippetSource name="11-networking.chat-hub" decl="find" />
+
+The first version of the hub returned the slot number from `join`, and the
+connection kept it. That fails in a case that the next chapter adds. The
+hub can drop a member, and the next member to join gets the free slot. The
+task of the dropped member still runs and still has the old number. Its next
+`say` then speaks as the new member.
+
+The `Peer` lives as long as the connection, and no other connection has the
+same pointer. Thus the hub searches the members for the pointer. With eight
+slots, the search is eight comparisons.
+
+## Leave
+
+<SnippetSource name="11-networking.chat-hub" decl="leave" />
+
+`leave` closes the outbox. A closed `std.Io.Queue` still gives the lines
+that it holds. After the last line, `get` returns `error.Closed`. Thus the
+writer task sends each line that is still in the outbox, then sees
+`error.Closed`, sends the close frame and ends. The close of the queue tells
+the writer to stop, and no flag or extra message is necessary.
+
+```
+the outbox of tejas after leave: Closed
+```

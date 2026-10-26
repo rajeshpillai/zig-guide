@@ -612,6 +612,25 @@ export const SECTIONS: Record<string, SectionMeta> = {
       "program for instruction: one brush engine, two layers, and 8-bit colour " +
       "that blends in the same way as a browser canvas.",
   },
+  "chat-server": {
+    seoTitle: "Build a WebSocket Chat Server in Zig, with No Dependencies",
+    description:
+      "A WebSocket chat server in Zig with only the standard library: a text " +
+      "protocol, a hub with one outbox for each member, slow clients, and frames.",
+    lede:
+      "This project builds a chat room on the four WebSocket chapters of " +
+      "Networking. Each chapter makes one decision: what a message means, who " +
+      "may write to a socket, what to do with a client that stops reading, and " +
+      "how to read frames that std refuses. The protocol, the hub and the frame " +
+      "reader take bytes and return bytes, so those chapters run in your " +
+      "browser. The last chapter puts them on real sockets, with three clients.",
+    takeaways: [
+      "Give each connection one writer. Other tasks put lines into its outbox. Then two tasks never write to one socket at the same time.",
+      "A broadcast must never wait for one member. Put with a minimum of 0, and if the outbox is full, drop that member.",
+      "A slot number is not an identity. When the hub can drop a member and reuse its slot, find members by a pointer that the connection owns.",
+      "Read each close frame to its end. Then no byte is left unread, and the server can close the TCP connection first, as RFC 6455 asks.",
+    ],
+  },
   "competitive-programming": {
     seoTitle: "Zig for Competitive Programming: Algorithms That Print Their Working",
     description:

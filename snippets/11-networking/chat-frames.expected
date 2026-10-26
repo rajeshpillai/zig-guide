@@ -1,0 +1,16 @@
+a message in three fragments, a ping between:
+  ping "beat"
+  text "Hello, room"
+  binary, 3 bytes
+  close 1001 "going home"
+  unread bytes after the close frame: 0
+
+frames that the server must refuse, limit 64 bytes:
+  unmasked text            -> error.UnmaskedFrame, close 1002
+  a reserved bit set       -> error.ReservedBits, close 1002
+  opcode 3                 -> error.ProtocolError, close 1002
+  ping in fragments        -> error.ProtocolError, close 1002
+  continuation first       -> error.ProtocolError, close 1002
+  200 bytes                -> error.MessageTooBig, close 1009
+  text that is not UTF-8   -> error.InvalidUtf8, close 1007
+  close with 1 byte        -> error.ProtocolError, close 1002

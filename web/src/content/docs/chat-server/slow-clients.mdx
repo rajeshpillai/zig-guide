@@ -1,0 +1,130 @@
+---
+title: Slow Clients
+description: A member that does not read fills its outbox. The hub puts with a minimum of 0, drops the member when nothing fits, and the room does not wait.
+seoDescription: Handle slow WebSocket clients in Zig. A non-blocking std.Io.Queue put, a drop with close 1008, and why a blocking broadcast stops the whole room.
+section: A Chat Server
+order: 40
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
+
+A client can stop. It reads nothing more. Its network can be slow, its laptop can sleep,
+or its process can stop in a debugger. The server still has lines for that
+client, and the lines wait in its outbox. The outbox has a fixed capacity,
+thus it fills.
+
+When the outbox is full, the hub has three choices:
+
+1. **Wait** until the writer takes a line out.
+2. **Discard the line**, and keep the member.
+3. **Drop the member.**
+
+The first choice is the dangerous one. The hub holds its lock during a
+broadcast. If the broadcast waits for one member, each other member that
+talks waits for the lock. One laptop in sleep mode then stops the room.
+
+The second choice keeps the room alive, but a member who misses lines has a
+wrong view of the conversation, and nothing tells that member. This hub
+uses the third choice.
+
+## Put, and never wait
+
+<SnippetSource name="11-networking.chat-hub" decl="deliver" />
+
+The last argument of `put` is `min`, the number of elements that `put` must
+add before it returns. With `min` set to 1, `put` waits for space. With
+`min` set to 0, `put` adds what fits now and returns at once. A return of 0
+means that the outbox is full.
+
+`deliver` does not remove the member. It only marks the peer with close
+code 1008. `deliver` runs inside the loop of `broadcast`, and that loop
+reads `members`. A change to `members` inside the loop would skip a member
+or visit one twice.
+
+<SnippetSource name="11-networking.chat-hub" decl="dropSlow" />
+
+`dropSlow` runs after the broadcast. It removes each member that `deliver` marked, closes
+its outbox, and tells the others. The notice is a broadcast too, and it can
+fill another outbox. Thus `dropSlow` repeats until no member has the mark.
+Each pass removes one member, so the loop ends.
+
+## A member that reads nothing
+
+The program uses outboxes of 4 lines. tejas and vishaka read each line at
+once. shivam reads nothing.
+
+<Playground name="11-networking.chat-slow-client" />
+
+<TraceFigure name="chat-slow-client" />
+
+The welcome of shivam and three messages fill its outbox. The fourth
+message does not fit:
+
+```
+vishaka says "still there?"
+  tejas    <- msg vishaka: still there?
+  tejas    <- left shivam (too_slow)
+  vishaka  <- msg vishaka: still there?
+  vishaka  <- left shivam (too_slow)
+  shivam is a member: false
+```
+
+tejas and vishaka get the message without delay, and then the notice. The
+writer of shivam still has the four lines from before the drop. It sends
+them, then gets `error.Closed`, and then it sends close code 1008:
+
+```
+the writer of shivam reads its outbox:
+  welcome shivam (3 online)
+  msg tejas: hi
+  msg vishaka: hello
+  msg tejas: shivam?
+  error.Closed: send close 1008
+```
+
+Code 1008 is "policy violation" in RFC 6455. No code means "too slow"
+exactly. 1008 is the general code for "the server ended the connection
+because of a rule", and the rule here is the size of the outbox.
+
+## The free slot
+
+After the drop, the slot of shivam is free. urvashi joins and gets it. The
+task of shivam on the old connection can still run, so the program makes it
+talk:
+
+```
+urvashi joins, in the free slot
+  the old connection of shivam says "i am back": error.NoNickYet
+```
+
+The hub finds members by their `*Peer`, as the
+[last chapter](/learn/chat-server/hub/) explains. The old peer is not in
+the room, thus the hub refuses. With slot numbers, the hub would send the line to the room as a message
+from urvashi.
+
+## How large is the outbox?
+
+The capacity is the number of lines that a member can be behind before the
+hub drops the member. Four lines makes the problem visible in a short trace. The
+server in the last chapter uses 16. The program prints the size of one item:
+
+```
+outbox capacity: 4 lines of 162 bytes
+```
+
+Thus 16 items cost about 2.6 KB for each member: the 160-byte line, its
+length and the opcode.
+
+The outbox is not the only buffer. The kernel has a send buffer for each
+TCP socket, and the writer task fills it before it waits. On Linux, the
+kernel grows that buffer up to the maximum in `net.ipv4.tcp_wmem`, which
+is 4 MB by default. A slow member first fills the
+kernel buffer, then the outbox. The outbox decides what happens after the
+kernel buffer is full.
+
+A real server also needs a time limit on each write. A writer that waits
+for a client that never reads would wait for ever, and the drop only closes
+the outbox. The writer must still finish its write before it sees
+`error.Closed`.

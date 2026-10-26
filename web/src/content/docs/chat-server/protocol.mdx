@@ -1,0 +1,115 @@
+---
+title: The Protocol
+description: Commands in, events out. A text protocol inside WebSocket messages, a tagged union for each direction, and a line size that the compiler checks.
+seoDescription: Design a chat protocol in Zig on top of WebSocket. Parse commands into a tagged union, format events into a fixed buffer, and let comptime prove the size.
+section: A Chat Server
+order: 20
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+WebSocket delivers messages with clear edges. One message is one frame, or
+one set of fragments, and the receiver gets the whole message. Thus this
+protocol needs no delimiter and no length prefix, unlike the protocols in
+[Three Ways to Frame](/learn/networking/framing/). The protocol only says
+what the bytes in one message mean.
+
+The protocol has two directions:
+
+- A client sends **commands**: `nick tejas` to pick a name, and
+  `say hello` to talk.
+- The server sends **events**: `welcome`, `joined`, `left`, `msg` and
+  `error`.
+
+Text is easy to read in a trace and easy to type into a test client. A
+binary protocol would be smaller, and a chat line is small already.
+
+<Playground name="11-networking.chat-protocol" />
+
+## Commands: parse into a tagged union
+
+<SnippetSource name="11-networking.chat-protocol" decl="parseCommand" />
+
+The result is a `Command`, a tagged union with one field for each verb. The
+code after the parser uses a `switch`, and the compiler requires a case for
+each verb. If you add a verb, each `switch` that forgets it fails to
+compile.
+
+```
+commands from a client:
+  nick tejas               -> nick "tejas"
+  say hello, room          -> say "hello, room"
+  say  two spaces          -> say " two spaces"
+  nick Tejas               -> error.BadNick
+  nick aaaaaaaaaaaaaaaaa   -> error.BadNick
+  say                      -> error.MissingArgument
+  (long input)             -> error.TextTooLong
+  shout hello              -> error.UnknownCommand
+                           -> error.UnknownCommand
+```
+
+Three rules in the parser are deliberate:
+
+- **The text of `say` is exact.** The parser splits at the first space only.
+  `say  two spaces` keeps the second space as the first byte of the text.
+- **A nickname is lowercase letters, digits and `_`, 16 bytes or fewer.**
+  Each event prints the nickname, thus a nickname with a space or a colon
+  could make a `msg` event look like a different event.
+- **Text has a limit of 120 bytes.** The next section shows why the limit is
+  necessary.
+
+The slices in a `Command` point into the message. The parser copies
+nothing. The message must stay valid while you use the command. In the server,
+the frame reader keeps the message in its buffer until the next call.
+
+## Events: format into a fixed line
+
+<SnippetSource name="11-networking.chat-protocol" decl="Line" />
+
+The hub copies each event into the outbox of each member. A slice would
+point into memory that one task owns, and the other tasks read it later. A
+`Line` is a fixed array with a length, thus each copy owns its bytes, and
+the hub needs no allocator.
+
+A fixed buffer needs a maximum. The longest event is a `msg` with the
+longest nickname and the longest text. A `comptime` block in the file adds
+the four lengths: `"msg ".len`, `max_nick`, `": ".len` and `max_text`. If
+the sum is larger than `Line.capacity`, the block calls `@compileError`.
+
+The check runs in the compiler. If you raise `max_text` to 150, the program
+does not compile. Because of that check, `format` uses `catch unreachable`:
+the buffer can hold each event.
+
+<SnippetSource name="11-networking.chat-protocol" decl="format" />
+
+```
+events from the server:
+  welcome tejas (3 online)
+  joined vishaka
+  msg vishaka: hello, room
+  left shivam (quit)
+  left shivam (too_slow)
+  error NickTaken
+```
+
+The `{t}` format prints the name of an enum tag or of an error. Thus the
+reason of a `left` event and the name of a refusal need no table of
+strings. The program also formats the longest possible event, and CI
+compares the result:
+
+```
+the longest event: 142 of 160 bytes
+```
+
+## The refusals
+
+`Refusal` is the set of errors that the server can send back as an `error`
+event:
+
+<SnippetSource name="11-networking.chat-protocol" decl="Refusal" />
+
+It joins the errors of the parser with the errors of the hub (the next
+chapter) with `||`. Thus one `error` event covers both, and the `err` field
+of `Event` cannot hold an error that a client must never see, for example
+`error.ReadFailed`.

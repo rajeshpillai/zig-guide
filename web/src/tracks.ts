@@ -126,7 +126,7 @@ export const TRACKS: Track[] = [
     // frame budget, and the only one whose output you judge by playing rather
     // than by reading. It earns its place because the discipline it needs is
     // the same one the other two teach, applied where it is least expected.
-    sections: ["orm", "url-shortener", "lane-dodger", "paint"],
+    sections: ["orm", "url-shortener", "lane-dodger", "paint", "chat-server"],
   },
   {
     title: "Practice",

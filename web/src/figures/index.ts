@@ -13,6 +13,7 @@ import { differenceArray, mergeIntervals, windowMaximum } from "./ranges";
 import { shortestRun } from "./sliding-window";
 import { containerWater } from "./two-pointers";
 import { unionFindForest } from "./union-find";
+import { chatFanout, chatSlowClient } from "./chat";
 import { websocketFragments, websocketHeaderBits, websocketMask } from "./websocket";
 
 export interface Figure {
@@ -52,6 +53,8 @@ const FIGURES: Record<string, () => Promise<Figure>> = {
   "websocket-header-bits": websocketHeaderBits,
   "websocket-mask": websocketMask,
   "websocket-fragments": websocketFragments,
+  "chat-fanout": chatFanout,
+  "chat-slow-client": chatSlowClient,
 };
 
 const built = new Map<string, Promise<Figure>>();
