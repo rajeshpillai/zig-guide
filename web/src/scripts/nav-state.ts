@@ -33,6 +33,30 @@ function save(state: State): void {
 const state = load();
 const groups = document.querySelectorAll<HTMLDetailsElement>("details[data-nav-key]");
 
+/**
+ * Arriving from search folds every branch that does not hold the current
+ * page, and saves that, so the sidebar shows one open section rather than
+ * every section the reader ever expanded. `search.ts` sets the flag; it is
+ * read once and removed, so a reload or the pager keeps the reader's choice.
+ */
+function cameFromSearch(): boolean {
+  try {
+    const flag = sessionStorage.getItem("nav-from-search");
+    sessionStorage.removeItem("nav-from-search");
+    return flag === "1";
+  } catch {
+    return false;
+  }
+}
+
+if (cameFromSearch()) {
+  for (const details of groups) {
+    const key = details.dataset.navKey;
+    if (key && !details.querySelector('[aria-current="page"]')) state[key] = false;
+  }
+  save(state);
+}
+
 // Applying saved state fires `toggle`; ignore those synthetic events so only a
 // real click persists (otherwise revealing the active branch would creep every
 // visited section permanently open).

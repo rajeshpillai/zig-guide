@@ -945,9 +945,13 @@ pre {
   color: var(--text);
 }
 
+/* The bar and the tint carry the accent, and the text stays --text: accent
+   text on an accent tint would fall under AA in some palettes. The bar is a
+   shadow, not a border, so the link keeps the same box as its neighbours. */
 .sidebar a[aria-current="page"] {
-  background: var(--surface);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--text);
   font-weight: 600;
 }
 

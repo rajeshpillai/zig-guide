@@ -1400,6 +1400,65 @@ let paintChecks = 0;
   await bare.close();
 }
 
+/*
+ * Search lands on a sidebar that shows where you are (src/scripts/search.ts,
+ * src/scripts/nav-state.ts). A reader who expanded other sections earlier
+ * searches, opens a result in a different section, and must find exactly one
+ * open branch: the one that holds the chapter, with the chapter marked and in
+ * view. Then the pager must not fold anything again, because the flag is read
+ * once.
+ */
+let searchChecks = 0;
+{
+  const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+  await stubThirdParty(context);
+  const page = await context.newPage();
+  await page.goto(BASE + `${PREFIX}/learn/getting-started/hello-world/`, { waitUntil: "load" });
+  await page.evaluate(() =>
+    localStorage.setItem("nav-open", JSON.stringify({ "language-basics": true, "standard-library": true, networking: true })),
+  );
+  await page.locator(".search-input").first().fill("union find");
+  await page.waitForSelector(".search-hit");
+  const href = await page.locator(".search-hit").first().getAttribute("href");
+  await Promise.all([page.waitForNavigation(), page.locator(".search-hit").first().click()]);
+  await page.waitForTimeout(200);
+  const state = await page.evaluate(() => {
+    const sidebar = document.querySelector(".sidebar");
+    const link = sidebar?.querySelector('a[aria-current="page"]');
+    const open = [...document.querySelectorAll("details[data-nav-key]")].filter((d) => d.open);
+    const top = link ? link.getBoundingClientRect().top - sidebar.getBoundingClientRect().top : -1;
+    return {
+      open: open.map((d) => d.dataset.navKey),
+      strayOpen: open.filter((d) => !d.querySelector('[aria-current="page"]')).map((d) => d.dataset.navKey),
+      marked: !!link,
+      inView: !!link && top >= 0 && top + link.offsetHeight <= sidebar.clientHeight,
+      bar: link ? getComputedStyle(link).boxShadow : "",
+    };
+  });
+  searchChecks++;
+  if (!href?.endsWith("/union-find/")) failures.push(`search: "union find" opened ${href}, not the Union-Find chapter`);
+  searchChecks++;
+  if (state.strayOpen.length) failures.push(`search: sections still open after a search: ${state.strayOpen.join(", ")}`);
+  searchChecks++;
+  if (!state.marked || !state.inView) failures.push(`search: the chapter is ${state.marked ? "marked but out of view" : "not marked"} in the sidebar`);
+  searchChecks++;
+  if (!/inset/.test(state.bar)) failures.push(`search: the current chapter has no accent bar (box-shadow "${state.bar}")`);
+  // The flag is read once: a reader who opens a section again keeps it.
+  await page.evaluate(() => {
+    const d = document.querySelector('details[data-nav-key="networking"]');
+    if (d) d.open = true;
+  });
+  await page.waitForTimeout(100);
+  const next = await page.locator(".pager-next").first().getAttribute("href");
+  if (next) {
+    await page.goto(BASE + next, { waitUntil: "load" });
+    const kept = await page.evaluate(() => document.querySelector('details[data-nav-key="networking"]')?.open ?? false);
+    searchChecks++;
+    if (!kept) failures.push("search: the fold happened again on the next page; the flag must be read once");
+  }
+  await context.close();
+}
+
 /* Every script-revealed control, with scripting off. */
 let jsOffChecks = 0;
 {
@@ -2016,7 +2075,7 @@ console.log(
     `output matched .expected: ${outputChecked}  pictures: ${pictures}  ` +
     `edit path: ${editPath}  ` +
     `pager chain: ${walked}  contrast: ${contrastChecks}  ` +
-    `picker: ${pickerChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  riddle: ${riddleChecks}  paint: ${paintChecks}  ` +
+    `picker: ${pickerChecks}  search: ${searchChecks}  js-off: ${jsOffChecks}  festive: ${festiveChecks}  riddle: ${riddleChecks}  paint: ${paintChecks}  ` +
     `editor: ${editorLooks}  code tokens: ${codeTokens}  ` +
     `header widths: ${headerWidths}  blog posts: ${blogPosts}  ` +
     `source quotes: ${sourceQuotes}  trace figures: ${traceFigures}  ` +

@@ -169,13 +169,17 @@ export async function chatSlowClient(): Promise<Figure> {
     `<text data-tinyfly="cs-drop" x="${x0 + 2 * (colW + 14)}" y="${top + slots * (slotH + 6) + 18}" font-size="13" fill="var(--text)" style="opacity:0">dropped: close 1008</text>`;
 
   const l = lesson({ id: name });
+  // The welcome of shivam is in its outbox before the first step. It is a
+  // start state, not a step: anything that moves before the first marker
+  // pushes that marker off time 0, and the first step loses its caption.
   members.forEach((_, c) => {
-    for (let s = 0; s < slots; s++) l.initial(`cs-${c}-${s}`, { opacity: 0, text: "" });
+    for (let s = 0; s < slots; s++) {
+      const first = c === 2 && s === 0;
+      l.initial(`cs-${c}-${s}`, { opacity: first ? 1 : 0, text: first ? fill[0] : "" });
+    }
     l.initial(`cs-col-${c}`, { opacity: 0 });
   });
   l.initial("cs-drop", { opacity: 0 });
-  l.set("cs-2-0", { text: fill[0] });
-  l.to("cs-2-0", { opacity: 1 }, { duration: 1 });
   l.marker("start", { label: `Each outbox holds ${capacity} lines. tejas and vishaka read each line at once. shivam reads nothing, and its welcome waits.` });
   let held = 1;
   says.forEach((s, k) => {

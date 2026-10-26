@@ -180,10 +180,30 @@ if (container && input && results) {
     syncActive();
   }
 
+  /**
+   * Tell the next page that the reader came from search. `nav-state.ts`
+   * then folds every other section of the sidebar, so the chapter the
+   * reader asked for is the one open branch. sessionStorage, not a query
+   * string: the URL stays the canonical one, and the flag dies with the tab.
+   */
+  function markFromSearch(): void {
+    try {
+      sessionStorage.setItem("nav-from-search", "1");
+    } catch {
+      // Storage blocked: the page opens with the sidebar as the reader left it.
+    }
+  }
+
   function go(): void {
     const hit = hits[active] ?? hits[0];
-    if (hit) window.location.href = hit.record.url;
+    if (!hit) return;
+    markFromSearch();
+    window.location.href = hit.record.url;
   }
+
+  results.addEventListener("click", (e) => {
+    if ((e.target as Element).closest(".search-hit")) markFromSearch();
+  });
 
   function close(): void {
     if (!results) return;
