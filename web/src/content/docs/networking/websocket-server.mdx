@@ -1,0 +1,144 @@
+---
+title: A WebSocket Server on a Socket
+seoTitle: "Zig WebSocket Server: std.http.Server Echo over TCP, Ping and Close"
+description: std.http.Server upgrades a real TCP connection and echoes messages. The server answers pings, closes correctly, and refuses a message that is too big.
+seoDescription: A WebSocket echo server in Zig with std.http.Server and no dependencies. Upgrade a TCP connection, echo frames, answer ping, send close 1009, and drain the socket.
+section: Networking
+order: 140
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+The last three chapters used buffers in memory. This chapter uses a real
+TCP connection on loopback. The server is `std.http.Server` with its
+WebSocket support. The client is the client from
+[A WebSocket Client](/learn/networking/websocket-client/). The program
+imports that file with `@import("websocket-client.zig")`.
+
+The client runs here without a change. It reads from the reader of a TCP
+stream in place of a fixed buffer. That is the purpose of the rule of this
+section: parse from a `Reader`, never from a socket.
+
+<Playground
+  name="11-networking.websocket-server"
+  note="CI builds and runs this snippet natively: the server and the client talk over a real loopback socket. Browser wasm has no sockets."
+  tryLocally="zig run websocket-server.zig (with websocket-client.zig in the same directory)"
+/>
+
+The program makes two connections. The first sends a text, a ping and a
+long text, and then closes normally. The second sends a message that is too
+big for the server.
+
+```
+connection 1:
+  got text "hello"
+  got pong "beat"
+  got text, 400 bytes
+  got close 1000
+connection 2:
+  got close 1009
+```
+
+## One connection
+
+<SnippetSource name="11-networking.websocket-server" decl="handle" />
+
+The function has three parts:
+
+1. `receiveHead` reads the HTTP request, as in
+   [An HTTP Round Trip](/learn/networking/http-roundtrip/).
+2. `upgradeRequested` and `respondWebSocket` do the handshake. A request
+   with no key gets a 400. An ordinary request gets an ordinary answer.
+3. The loop reads messages with `readSmallMessage` and answers each one.
+
+The [handshake chapter](/learn/networking/websocket-handshake/) also
+checks the version header. This server does not, to keep the function
+short.
+
+## The size of the buffer is the limit
+
+`readSmallMessage` returns the payload as a slice of the buffer of the
+reader. Thus the whole frame must fit in that buffer, and `max_message` is
+the largest message that the server accepts. Here it is 512 bytes. The
+400-byte text fits. The 1000-byte binary message does not, and std returns
+`error.MessageOversize`.
+
+The server answers with close code 1009, "message too big". A message in
+fragments gives the same error, because std reads single frames only. For
+this server, a message in two fragments is too big. If your clients send
+fragments, read the frames yourself, as the client does.
+
+The limit has a second purpose. Without a limit, a client can announce a
+length of 2<sup>63</sup> bytes, and a server that allocates for the length
+fails. A fixed buffer refuses that frame before it reads the payload.
+
+## Ping and close are your work
+
+std returns a ping to your code, and the server answers with
+`writeMessage(msg.data, .pong)`. A client can send pings to check
+that the connection is alive. If no pong arrives, the client can close the
+connection.
+
+std returns a close frame as `error.ConnectionClose`. The server sends its
+own close frame. The close handshake has one more problem: std stops after
+the first two bytes of the close frame. Thus the mask and the status code of
+the client are still unread in the stream.
+
+If a TCP socket closes with unread bytes in its receive buffer, the kernel
+sends a reset (RST) in place of a normal close. The client can then get
+an error for a reset connection before it reads the close frame from the
+server. Thus the server calls `discardRemaining` on its reader. The call
+reads and discards bytes until the client closes the connection.
+
+RFC 6455 says that the server should close the TCP connection first. This
+server lets the client close first, because std does not give the length of
+the rest of the frame. To close first, read the frame yourself and discard
+exactly the rest of it.
+
+## The log comes from the server thread
+
+```
+server log:
+  upgraded /echo
+  echo text, 5 bytes
+  ping: sent pong
+  echo text, 400 bytes
+  ConnectionClose: sent close 1000
+  upgraded /echo
+  MessageOversize: sent close 1009
+```
+
+The server thread writes into a buffer, and `main` prints the buffer after
+`thread.join()`. If both threads printed, the order of the lines could
+change from run to run, and CI could not compare the output.
+
+## One client at a time
+
+This server serves one connection and then the next. A WebSocket
+connection stays open for a long time, thus a real server needs a task for
+each connection. [Serve Many Clients](/learn/networking/many-clients/) shows
+the pattern with `std.Io`. Use it with the `handle` function above.
+
+## When std is not enough
+
+The WebSocket support in std is small. It exists for the web interface of
+the Zig build system (`zig build --webui`). This list shows what a server
+for the open internet needs in addition:
+
+| Need | std.http.Server | What to do |
+|---|---|---|
+| Messages in fragments | refused | read the frames yourself |
+| Large messages | refused | a larger buffer, or stream the frames |
+| Answer to a ping | your code | `writeMessage(data, .pong)` |
+| Close handshake | your code | send close, then drain |
+| Compression | no | `permessage-deflate` |
+| A client | no | [write one](/learn/networking/websocket-client/) |
+
+[websocket.zig](https://github.com/karlseguin/websocket.zig) by Karl Seguin
+is a complete library for Zig, under the MIT licence. It has a server and a
+client. It answers ping and close frames, supports compression, and runs
+connections on a thread pool. On 2026-10-26, its readme said that it is for
+Zig 0.17.0, with branches for older versions. This guide tracks Zig master,
+thus no snippet here depends on the library. Check the readme for the
+version that it supports today.

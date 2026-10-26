@@ -1,0 +1,33 @@
+server frames, header bytes:
+      5 bytes: 81 05
+    125 bytes: 81 7d
+    126 bytes: 81 7e 00 7e
+    200 bytes: 81 7e 00 c8
+  70000 bytes: 81 7f 00 00 00 00 00 01 11 70
+
+the header structs in std, field=bits, bit 0 first:
+  Header0: opcode=0-3 rsv3=4 rsv2=5 rsv1=6 fin=7
+  Header1: payload_len=0-6 mask=7
+
+the first two bytes, 81 85:
+  byte 0 = 10000001: fin=true rsv=0 opcode=text
+  byte 1 = 10000101: mask=true length=5
+
+mask a client frame, mask 37 fa 21 3d:
+  0  'H' 48 ^ 37 = 7f
+  1  'e' 65 ^ fa = 9f
+  2  'l' 6c ^ 21 = 4d
+  3  'l' 6c ^ 3d = 51
+  4  'o' 6f ^ 37 = 58
+frame: 81 85 37 fa 21 3d 7f 9f 4d 51 58
+the same as RFC 6455: true
+
+std reads each frame:
+  masked text                -> text "Hello"
+  masked ping                -> ping "are you there"
+  pong, then text            -> text "after"
+  unmasked text              -> error.MissingMaskBit
+  "Hel" + "lo" in 2 frames   -> error.MessageOversize
+  continuation alone         -> error.UnexpectedOpCode
+  300 bytes, 10-byte buffer  -> error.MessageOversize
+  close, code 1000           -> error.ConnectionClose

@@ -1,0 +1,15 @@
+connection 1:
+  got text "hello"
+  got pong "beat"
+  got text, 400 bytes
+  got close 1000
+connection 2:
+  got close 1009
+server log:
+  upgraded /echo
+  echo text, 5 bytes
+  ping: sent pong
+  echo text, 400 bytes
+  ConnectionClose: sent close 1000
+  upgraded /echo
+  MessageOversize: sent close 1009

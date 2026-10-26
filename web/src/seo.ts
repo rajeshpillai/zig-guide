@@ -387,15 +387,18 @@ export const SECTIONS: Record<string, SectionMeta> = {
     seoTitle: "Network Programming in Zig",
     description:
       "Network programming in Zig, from sockets to protocols: framing, short " +
-      "reads, text and binary protocols, byte order, many clients, TCP, UDP and HTTP.",
+      "reads, text and binary protocols, byte order, many clients, TCP, UDP, HTTP " +
+      "and WebSockets.",
     lede:
       "The chapters start with sockets. Then the chapters teach the part that " +
       "decides if a server works. A stream has no message boundaries, so you " +
       "must restore the boundaries yourself. The topics are three types of " +
       "framing, a parser for a message split across two reads, text and binary " +
       "protocols in both directions, and byte order. The last topic is one " +
-      "handler for each connection through the Io interface. The protocol " +
-      "chapters run in your browser, because no protocol chapter uses a socket.",
+      "handler for each connection through the Io interface. After UDP and HTTP, " +
+      "four chapters build WebSockets: the handshake, the frames, a client and " +
+      "a server. The protocol chapters run in your browser, because no " +
+      "protocol chapter uses a socket.",
     takeaways: [
       "TCP is a byte stream, not a message stream. If a read returns 7 bytes, that tells you nothing about where a message ends. Code that assumes a different result works until it runs on a real network.",
       "Parse from a `Reader`, never from a socket. Then the same parser works with a connection, with a test fixture and in a browser, and you write the parser once.",

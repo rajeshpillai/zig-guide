@@ -1,0 +1,27 @@
+key:    dGhlIHNhbXBsZSBub25jZQ==
+accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+
+client sends:
+  GET /chat HTTP/1.1\r\n
+  Host: example.com\r\n
+  Upgrade: websocket\r\n
+  Connection: Upgrade\r\n
+  Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n
+  Sec-WebSocket-Version: 13\r\n
+  \r\n
+
+server answers:
+  HTTP/1.1 101 Switching Protocols\r\n
+  connection: upgrade\r\n
+  upgrade: websocket\r\n
+  sec-websocket-accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n
+  \r\n
+
+client checks: status 101 ok, accept ok
+
+other requests:
+  no key             -> refuse with 400 Bad Request
+  version 8          -> refuse with 426 Upgrade Required
+  upgrade to h2c     -> ordinary HTTP request
+  POST with upgrade  -> ordinary HTTP request
+  no upgrade         -> ordinary HTTP request

@@ -1,0 +1,29 @@
+client key: l5sznGHwT22ntyV4SfQ0nQ==
+server sends 101, then these frames:
+  text             fin=1 "welcome"
+  text             fin=0 "Hel"
+  ping             fin=1 "beat"
+  continuation     fin=1 "lo"
+  connection_close fin=1 code 1000
+
+client: status 101 and accept ok
+client sends "hi": 81 82 cd 0a 77 67 a5 63
+client receives:
+  text "welcome"
+  ping "beat", answered with a pong
+  text "Hello"
+  close 1000, answered with close 1000
+
+std reads the frames of the client:
+  text "hi"
+  error.ConnectionClose
+
+the client refuses:
+  200 OK                   -> error.UpgradeRefused
+  wrong accept             -> error.BadAccept
+  no accept                -> error.BadAccept
+  masked server frame      -> error.MaskedServerFrame
+  continuation first       -> error.ProtocolError
+  ping of 126 bytes        -> error.ProtocolError
+  text that is not UTF-8   -> error.InvalidUtf8
+  70 bytes, 64-byte buffer -> error.MessageTooBig

@@ -1,0 +1,141 @@
+---
+title: The WebSocket Handshake
+seoTitle: "Zig WebSocket Handshake: Upgrade, Sec-WebSocket-Accept and std.http.Server"
+description: An HTTP request asks to upgrade, std.http.Server answers 101, and the checks that std leaves to your code.
+seoDescription: The WebSocket handshake in Zig with std.http.Server. Compute Sec-WebSocket-Accept, answer 101 with respondWebSocket, and refuse a bad upgrade request.
+section: Networking
+order: 110
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+
+HTTP is request and response. The client asks, the server answers, and the
+server cannot speak first. A chat, a live score or a game needs messages in
+both directions at any time. WebSocket gives a TCP connection to the two
+sides for that purpose, and it starts as an ordinary HTTP request.
+
+The client sends a `GET` with an `Upgrade: websocket` header. The server
+answers `101 Switching Protocols`. After the empty line at the end of that
+answer, the connection carries WebSocket frames, not HTTP. This chapter is
+about the handshake. [WebSocket Frames](/learn/networking/websocket-frames/)
+is about the frames.
+
+The program below plays both sides in memory. The server is
+`std.http.Server`, the same type as in
+[An HTTP Round Trip](/learn/networking/http-roundtrip/).
+
+<Playground name="11-networking.websocket-handshake" />
+
+## The request
+
+```
+client sends:
+  GET /chat HTTP/1.1\r\n
+  Host: example.com\r\n
+  Upgrade: websocket\r\n
+  Connection: Upgrade\r\n
+  Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n
+  Sec-WebSocket-Version: 13\r\n
+  \r\n
+```
+
+Four headers make this request an upgrade request:
+
+- `Upgrade: websocket` names the protocol that the client wants.
+- `Connection: Upgrade` tells each proxy on the path that the `Upgrade`
+  header is for this connection.
+- `Sec-WebSocket-Key` is 16 random bytes in base64. The client makes a new
+  key for each connection.
+- `Sec-WebSocket-Version: 13` is the version from RFC 6455. No other version
+  is in use.
+
+The key is not a secret and it is not security. The key lets the client
+check that the server read this request and understood it.
+
+## The answer
+
+The server appends a fixed GUID to the key. RFC 6455 defines the GUID. Then
+the server computes the SHA-1 of the result and encodes the 20 bytes in
+base64.
+
+<SnippetSource name="11-networking.websocket-handshake" decl="acceptFor" />
+
+The key in the program is the example from section 1.3 of RFC 6455. The RFC
+gives the answer, and CI compares the output with it on each run:
+
+```
+key:    dGhlIHNhbXBsZSBub25jZQ==
+accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+```
+
+In std, `respondWebSocket` does this computation and writes the answer:
+
+```
+server answers:
+  HTTP/1.1 101 Switching Protocols\r\n
+  connection: upgrade\r\n
+  upgrade: websocket\r\n
+  sec-websocket-accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n
+  \r\n
+```
+
+`respondWebSocket` writes into the buffer of the writer. It does not send
+the bytes. Call `flush` on the `WebSocket` value that it returns, as the
+program does. Otherwise the client waits for an answer that is still in your
+buffer.
+
+The client must check two things:
+
+1. The status is 101. Any other status means that the server refused, or
+   that the server does not know WebSocket.
+2. The `Sec-WebSocket-Accept` value is the value that the client computes
+   from its own key.
+
+If one check fails, the client closes the connection and sends no frames.
+
+## What std checks, and what it does not
+
+`request.upgradeRequested()` reads the headers and returns one of three
+values:
+
+- `.websocket` with the key, or with `null` if the request has no key.
+- `.other` with the name of a different protocol, for example `h2c`.
+- `.none` for an ordinary request. A `POST` and an HTTP/1.0 request always
+  give `.none`, because RFC 6455 requires a `GET` on HTTP/1.1.
+
+The function does not check the version, and it does not refuse a request
+without a key. Those checks are for your code:
+
+<SnippetSource name="11-networking.websocket-handshake" decl="decide" />
+
+```
+other requests:
+  no key             -> refuse with 400 Bad Request
+  version 8          -> refuse with 426 Upgrade Required
+  upgrade to h2c     -> ordinary HTTP request
+  POST with upgrade  -> ordinary HTTP request
+  no upgrade         -> ordinary HTTP request
+```
+
+The two refusals are different. A request without a key is not a valid
+upgrade request, thus the answer is 400. A request with the wrong version is valid HTTP for a
+version that the server does not speak. RFC 6455 tells the server to answer
+426 with a `Sec-WebSocket-Version: 13` header, so that the client can try
+again. Use the `extra_headers` option of `respond` to add the header.
+
+An upgrade to a protocol that the server does not know is not an error.
+HTTP lets a server ignore the `Upgrade` header and answer the request as
+ordinary HTTP.
+
+## The layers are the same
+
+The server in the program reads from `std.Io.Reader.fixed` and writes to
+`std.Io.Writer.fixed`. Over a socket, the reader and the writer come from
+the stream, as in [A TCP Round Trip](/learn/networking/tcp-echo/). Nothing
+else changes. [A WebSocket Server on a Socket](/learn/networking/websocket-server/)
+runs the same handshake over a real connection.
+
+`std.http.Client` has no WebSocket support. A client must write the request
+and check the answer itself. [A WebSocket Client](/learn/networking/websocket-client/)
+does that.

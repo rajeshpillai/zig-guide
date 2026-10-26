@@ -13,6 +13,7 @@ import { differenceArray, mergeIntervals, windowMaximum } from "./ranges";
 import { shortestRun } from "./sliding-window";
 import { containerWater } from "./two-pointers";
 import { unionFindForest } from "./union-find";
+import { websocketFragments, websocketHeaderBits, websocketMask } from "./websocket";
 
 export interface Figure {
   /** The SVG, with `data-tinyfly` names on each part that moves. */
@@ -48,6 +49,9 @@ const FIGURES: Record<string, () => Promise<Figure>> = {
   "difference-array": differenceArray,
   "merge-intervals": mergeIntervals,
   "window-maximum": windowMaximum,
+  "websocket-header-bits": websocketHeaderBits,
+  "websocket-mask": websocketMask,
+  "websocket-fragments": websocketFragments,
 };
 
 const built = new Map<string, Promise<Figure>>();

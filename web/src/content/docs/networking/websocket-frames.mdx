@@ -1,0 +1,164 @@
+---
+title: WebSocket Frames
+seoTitle: "Zig WebSocket Frames: Header Bits, Length Forms and the Mask"
+description: The two header bytes as packed structs, the three length forms, the client mask, and the frames that std.http.Server refuses.
+seoDescription: WebSocket frames in Zig. Read the header with packed structs and @bitCast, write the 7, 16 and 64-bit lengths, mask a client frame, and see what std rejects.
+section: Networking
+order: 120
+---
+
+import Playground from "../../../components/Playground.astro";
+import SnippetSource from "../../../components/SnippetSource.astro";
+import TraceFigure from "../../../components/TraceFigure.astro";
+
+After the [handshake](/learn/networking/websocket-handshake/), the
+connection carries frames. A frame is a length-prefixed message, as in
+[Three Ways to Frame](/learn/networking/framing/), with a header of two to
+fourteen bytes. The header tells the receiver four things:
+
+- the type of the frame: text, binary, ping, pong or close
+- if the frame is the last part of a message
+- the length of the payload
+- if the sender masked the payload, and with which mask
+
+The program writes frames with std, decodes a header, masks a client frame
+by hand, and gives eight frames to the reader of `std.http.Server`.
+
+<Playground name="11-networking.websocket-frames" />
+
+## Two bytes of header
+
+The first byte holds the `fin` bit, three reserved bits and a 4-bit opcode.
+The second byte holds the `mask` bit and a 7-bit length. std declares each
+byte as a `packed struct(u8)`: `WebSocket.Header0` and `WebSocket.Header1`
+in `std.http.Server`. The program reads the layout of the two structs with
+`@bitOffsetOf` and prints it:
+
+```
+the header structs in std, field=bits, bit 0 first:
+  Header0: opcode=0-3 rsv3=4 rsv2=5 rsv1=6 fin=7
+  Header1: payload_len=0-6 mask=7
+```
+
+Zig puts the first field of a packed struct in the lowest bits. RFC 6455
+draws the frame with the highest bit first. Thus the fields in std are in
+the reverse order of the diagram in the RFC: `opcode` is the first field in
+Zig, and the RFC draws it last in the byte.
+
+A `@bitCast` turns a byte into the struct, and the program prints the
+fields:
+
+```
+the first two bytes, 81 85:
+  byte 0 = 10000001: fin=true rsv=0 opcode=text
+  byte 1 = 10000101: mask=true length=5
+```
+
+<TraceFigure name="websocket-header-bits" />
+
+## Three length forms
+
+The length field has 7 bits, thus it holds 0 to 127. The values 0 to 125
+are the length. The value 126 means that a 16-bit length follows. The value
+127 means that a 64-bit length follows. Both are big-endian, as in
+[Binary Protocols and Byte Order](/learn/networking/binary-protocols/).
+
+```
+server frames, header bytes:
+      5 bytes: 81 05
+    125 bytes: 81 7d
+    126 bytes: 81 7e 00 7e
+    200 bytes: 81 7e 00 c8
+  70000 bytes: 81 7f 00 00 00 00 00 01 11 70
+```
+
+A message of 125 bytes has a header of two bytes. A message of 126 bytes
+has a header of four bytes. The `payload_len` field in std is a
+non-exhaustive enum. Thus a `switch` on the field has three cases: `.len16`,
+`.len64`, and `else` for a length in the field itself.
+
+## The mask
+
+A client must mask each frame that it sends. The client selects four random
+bytes, sends the bytes after the length, and XORs each payload byte with one
+mask byte. Byte `i` uses mask byte `i % 4`. The receiver does the same XOR
+and gets the payload back, because `x ^ m ^ m == x`.
+
+<SnippetSource name="11-networking.websocket-frames" decl="writeClientFrame" />
+
+The mask does not make the data secret. The mask is in the frame. The mask
+protects proxies on the path. Without the mask, a script in a browser could
+send bytes that look like an HTTP request to a proxy. The proxy could then
+store a wrong answer in its cache. With a random mask, the script cannot control the
+bytes on the wire.
+
+The program masks "Hello" with the mask from section 5.7 of RFC 6455:
+
+```
+mask a client frame, mask 37 fa 21 3d:
+  0  'H' 48 ^ 37 = 7f
+  1  'e' 65 ^ fa = 9f
+  2  'l' 6c ^ 21 = 4d
+  3  'l' 6c ^ 3d = 51
+  4  'o' 6f ^ 37 = 58
+frame: 81 85 37 fa 21 3d 7f 9f 4d 51 58
+the same as RFC 6455: true
+```
+
+<TraceFigure name="websocket-mask" />
+
+The server does not mask its frames. The direction decides the rule:
+
+- A frame from a client must have the mask. A server closes the connection
+  if the frame has no mask.
+- A frame from a server must not have the mask. A client closes the
+  connection if the mask is present.
+
+std has no client, thus `writeClientFrame` is in the program. The mask in
+the program is a constant, so that CI can compare the output. A real client
+selects a new random mask for each frame.
+[A WebSocket Client](/learn/networking/websocket-client/) does that.
+
+## What std reads, and what it refuses
+
+`WebSocket.readSmallMessage` reads one frame, checks it, removes the mask,
+and returns the opcode and the payload. The program gives it eight frames:
+
+```
+std reads each frame:
+  masked text                -> text "Hello"
+  masked ping                -> ping "are you there"
+  pong, then text            -> text "after"
+  unmasked text              -> error.MissingMaskBit
+  "Hel" + "lo" in 2 frames   -> error.MessageOversize
+  continuation alone         -> error.UnexpectedOpCode
+  300 bytes, 10-byte buffer  -> error.MessageOversize
+  close, code 1000           -> error.ConnectionClose
+```
+
+Each line shows one property of the reader in std:
+
+- **A ping returns to your code.** std does not answer it. Send the pong
+  with `writeMessage(data, .pong)`.
+- **std skips a pong.** The reader reads the next frame and returns that
+  frame.
+- **std requires the mask**, as the RFC says for a server.
+- **std refuses a message in fragments.** A frame without the `fin` bit gives
+  `error.MessageOversize`, and a continuation frame gives
+  `error.UnexpectedOpCode`. The RFC lets a sender split a message into
+  frames, and a browser can do it. std reads only complete messages.
+- **The whole frame must fit in the buffer of the reader.** std returns
+  the payload as a slice of that buffer. Thus the size of the buffer is the
+  largest message that the server accepts. The name `readSmallMessage` says
+  this.
+- **A close frame is an error value.** std stops after the first two bytes
+  of the frame. Thus your code does not get the status code of the close
+  frame. The rest of the frame stays unread in the stream. std does not send
+  the close answer either.
+
+These limits are the right size for the reason that std has this code. The
+build system of Zig talks to its web interface (`zig build --webui`) over a
+WebSocket, with small messages in both directions. For a server that
+accepts messages from any browser, you must fill the gaps yourself.
+[A WebSocket Server on a Socket](/learn/networking/websocket-server/) shows
+how to answer a ping and a close.
