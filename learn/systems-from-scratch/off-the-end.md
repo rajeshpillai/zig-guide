@@ -1,0 +1,202 @@
+# Off the End
+
+> A length is a value. Languages are different in who must check the length.
+
+An array of four numbers uses a length of memory, and that length has an end.
+What is at the address immediately after the end? Something is always there: a
+different variable, part of a frame, or the internal parts of the program.
+Memory continues after the end of your array. Only your right to use the
+memory stops there.
+
+Thus what must `row[4]` do?
+
+Only three answers are possible, and each language selects one:
+
+- Read the value that is there, and continue.
+- Stop the program.
+- Refuse the request, and make the caller check first.
+
+The third answer needs nothing from the language except an `if`. Thus the
+program starts with the third answer.
+
+## The program
+
+```zig
+const std = @import("std");
+const builtin = @import("builtin");
+
+/// Reads an element, and does not assume that the caller checked first.
+fn at(numbers: []const u32, index: usize) !u32 {
+    if (index >= numbers.len) return error.OutOfBounds;
+    return numbers[index];
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &stdout_writer.interface;
+
+    const row = [_]u32{ 10, 20, 30, 40 };
+
+    // A slice is a pointer and a length together. Thus a function that
+    // receives a slice always knows where the data stops.
+    const slice: []const u32 = &row;
+    try out.print("the slice has {d} elements\n", .{slice.len});
+    try out.print("a slice is {d} bytes: a pointer and a length\n\n", .{@sizeOf([]const u32)});
+
+    // Valid index.
+    if (at(slice, 2)) |value| {
+        try out.print("element 2 is {d}\n", .{value});
+    } else |err| {
+        try out.print("element 2: {t}\n", .{err});
+    }
+
+    // One past the end. The function reads nothing, and tells the caller.
+    if (at(slice, 4)) |value| {
+        try out.print("element 4 is {d}\n", .{value});
+    } else |err| {
+        try out.print("element 4: {t}\n", .{err});
+    }
+
+    // For `slice[i]`, the language adds this comparison. The build decides
+    // if the comparison is present.
+    try out.print("\nsafety checks in this build: {}\n", .{builtin.optimize.runtimeSafety()});
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`15-groundwork.off-the-end`)*
+
+## What just happened
+
+**The slice knew where it ended.** A slice is a pointer and a length that go
+together as one value. Thus a function that receives a slice always knows the
+size. For this reason, `[]const u32` is the usual way to pass a sequence, and
+a bare pointer is not. The pointer alone tells the function where the data
+starts, but not where to stop.
+
+**The slice printed as 8 bytes.** The pointer uses four bytes and the length
+uses four bytes, on this 32-bit WebAssembly build. If you compile the program
+for your own machine, it prints 16. The reason is the same reason that a
+pointer on your machine is 8 bytes and not 4.
+
+**The checked read returned an error instead of a number.** `at` compares the
+index with `.len`. When the index is too large, `at` returns
+`error.OutOfBounds`. The function read nothing.
+
+The return type told the caller that the answer can be absent. Thus the caller
+had to handle both cases before it could use the result. All of this cost one
+comparison.
+
+**Then the last line said `safety checks in this build: false`.**
+
+## About the last line
+
+When you write `slice[i]` directly, Zig adds the same comparison for you. If
+the comparison fails, the program stops with a message that gives the index
+and the length. Debug and ReleaseSafe builds have this check. ReleaseFast and
+ReleaseSmall builds do not have it. In those builds, the compiler removes the
+check for speed and size.
+
+The wasm that you ran is a ReleaseSmall build, because the site sends
+ReleaseSmall builds to the browser of the reader. Thus on this page,
+`slice[4]` would not stop the program. It would read four bytes that are not
+yours, and give them to you as a number.
+
+The program below does that read. This program is the exception on this site.
+Its build is ReleaseSafe and not ReleaseSmall. Thus the check is present, and
+the program must stop. Press **Run**.
+
+```zig
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    _ = init;
+
+    const row = [_]u32{ 10, 20, 30, 40 };
+    const slice: []const u32 = &row;
+
+    // `index` is a `var`, and the compiler cannot fold its value. Thus the
+    // compiler does not reject this line. The compiler cannot know the index.
+    // Thus the check that stops the read runs when the program runs.
+    var index: usize = 4;
+    _ = &index;
+
+    std.debug.print("value: {d}\n", .{slice[index]});
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`15-groundwork.past-the-end`)*
+
+```
+panic: index out of bounds: index 4, len 4
+```
+
+The program read nothing. The program gave the index that it got and the
+length that it had permission to use. Then it stopped on the line that asked.
+Compare this result with the silent wrong answer of the ReleaseSmall build
+above. The mistake is the same. The only difference is if the build contains
+the check.
+
+The run also says that it cannot print a stack trace, because debug info is
+not available for this target. The wasm that your browser gets has no symbols.
+Thus the runtime cannot change a return address into a file and a line. On
+your own machine, the same panic shows the sequence of calls that caused it.
+
+The message above is not from memory. The build for this site runs this
+program on each change, and the program must stop with exactly that text. If a
+future version of Zig changes the words of the panic, this page will not
+publish. Thus the page cannot teach you a message that you will never see.
+
+This snippet is about 1.1 MB, and the program at the top of this page is 46
+KB. The difference is the cost of the safety checks and of the code that
+describes them. For this reason, the other snippets on the site do not have
+the checks. Your browser downloads this snippet only when you press Run.
+
+[When the Checks Are Off](https://www.ziglang.in/learn/systems-from-scratch/when-checks-are-off/)
+gives the general rule: what each build mode turns off, and what you promise
+when you select a build mode.
+
+## Check yourself
+
+The program checks `index >= numbers.len`. Why does it not check
+`index > numbers.len`?
+
+The indexes of four elements are 0, 1, 2 and 3. Index 4 is the first index
+after the end, thus the program must reject index 4. A mistake of one at
+exactly this boundary is frequent, and it has a name: the fencepost error. For
+this reason, use `for (slice) |item|` instead of an index and a counter when
+you do not need the number.
+
+## If you know C
+
+You will see this difference early.
+
+```c
+int row[4] = {10, 20, 30, 40};
+int x = row[4];        /* reads something. no error, no warning, no crash */
+```
+
+A C array does not hold a length. Thus a function that receives `int *row`
+cannot check anything. The code must pass the length as a separate value, and
+the programmer must keep the length correct. A read past the end is undefined
+behaviour. In practice, the read usually works, sometimes returns a value that
+has no meaning, and sometimes corrupts memory. That corruption can cause a
+failure much later, in an unrelated part of the program.
+
+Zig has two answers to this problem:
+
+- The slice holds the length. Thus the length always agrees with the data.
+- The safety check changes "usually works" into a message with a line number.
+
+Because of these two answers, you can learn this material. You see the mistake
+at the time that you make it, not an hour later.
+
+Zig still has the C pointer without a length, for code that calls C. Zig gives
+it a different syntax on purpose: [many-item
+pointers](https://www.ziglang.in/learn/language-basics/many-item-pointers/).
+
+Next: [When the Checks Are
+Off](https://www.ziglang.in/learn/systems-from-scratch/when-checks-are-off/). That chapter tells
+what you promise when you turn a check off.

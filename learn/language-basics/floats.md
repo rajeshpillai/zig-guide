@@ -1,0 +1,112 @@
+# Floats
+
+> IEEE-754 types and explicit conversions.
+
+Zig never converts between integers and floats implicitly. `@floatFromInt` and `@intFromFloat` do the conversion. `@intFromFloat` truncates toward zero.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "float widths" {
+    const a: f16 = 1.5;
+    const b: f32 = 1.5;
+    const c: f64 = 1.5;
+    try expect(a == 1.5 and b == 1.5 and c == 1.5);
+    try expect(@sizeOf(f16) == 2 and @sizeOf(f64) == 8);
+}
+
+test "int and float do not mix implicitly" {
+    const n: i32 = 3;
+    const f: f32 = @floatFromInt(n);
+    try expect(f == 3.0);
+
+    // Truncates toward zero. Safety builds check the conversion.
+    const back: i32 = @intFromFloat(3.9);
+    try expect(back == 3);
+}
+
+test "comptime_float is f128, not magic" {
+    // comptime_int really has arbitrary precision, but comptime_float uses
+    // f128. Arithmetic at compile time gives you more bits, but the result
+    // is still not exact:
+    const x = 0.1 + 0.2;
+    try expect(x != 0.3);
+
+    // The same sum in f64 is not 0.3 either.
+    const y: f64 = 0.1;
+    const z: f64 = 0.2;
+    try expect(y + z != 0.3);
+
+    // Compare with a tolerance instead of ==.
+    try expect(std.math.approxEqAbs(f64, y + z, 0.3, 1e-12));
+}
+
+test "special values" {
+    const inf = std.math.inf(f32);
+    const nan = std.math.nan(f32);
+    try expect(std.math.isInf(inf));
+    try expect(std.math.isNan(nan));
+    try expect(nan != nan); // NaN is not equal to itself
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.floats`)*
+
+Zig has `f16`, `f32`, `f64`, `f80` and `f128`. All of them are IEEE-754, except `f80`, the x87 extended format.
+
+## No implicit mix of ints and floats
+
+Zig does not do a conversion in either direction automatically:
+
+```zig
+const f: f32 = @floatFromInt(n);
+const n: i32 = @intFromFloat(f);   // truncates toward zero
+```
+
+Zig does this on purpose. An implicit conversion from int to float loses precision for large integers, and you get no warning. An implicit conversion from float to int truncates, and you get no warning. The two conversions cause many bugs. Thus the two extra words are a good cost.
+
+`@intFromFloat` truncates. It does not round. The target type must be able to hold the result. A value outside the range of the target, or a NaN, is illegal behaviour, and a safety build finds it.
+
+If you do not know that the input is in range, clamp the input or check it first. If you want the saturating version, use `std.math.lossyCast`.
+
+Between float types, `@floatCast` makes a value narrower. A change to a wider type is implicit, because it cannot lose data.
+
+## `comptime_float` is `f128`
+
+An earlier version of this page had this fact wrong. `comptime_int` really has arbitrary precision, but `comptime_float` does not: it uses `f128`. Arithmetic at compile time gives you more bits, but it does not give you exact decimal values:
+
+```zig
+const x = 0.1 + 0.2;
+// x != 0.3, even at comptime
+```
+
+Comptime floats still have rounding error. Compare them with a tolerance:
+
+```zig
+std.math.approxEqAbs(f64, a, b, 1e-12)
+```
+
+`approxEqAbs` takes an absolute tolerance. It is correct when you know the magnitude of the numbers. `approxEqRel` takes a relative tolerance. It is correct when you do not know the magnitude.
+
+For values near a billion, an absolute tolerance of `1e-12` is so strict that no result can meet it. For values near `1e-15`, the same tolerance is much too loose.
+
+## NaN and infinity
+
+`std.math.nan(f32)` and `std.math.inf(f32)` make these values. `isNan` and `isInf` test for them. Remember that `nan != nan`. This is the reason that `approxEqAbs` exists, and the reason to be careful with `==` on floats.
+
+A NaN makes each comparison false. Thus a NaN can break code without an error. `a < b` and `a >= b` are both false when `a` or `b` is NaN.
+
+Thus a NaN in a sort does more than put that value in a strange position. It breaks the order that the algorithm expects. Remove NaNs before the sort. Do not expect the comparator to handle them.
+
+Division by zero follows IEEE and does not trap. `1.0 / 0.0` is infinity, and `0.0 / 0.0` is NaN. Integer division by zero is different: it is illegal behaviour.
+
+## Which width to use
+
+Use `f64` unless you have a reason to use a different width:
+
+- `f32` uses half the memory, and graphics and audio pipelines expect it. It gives approximately seven decimal digits of precision. When a loop adds many values, this precision is quickly not sufficient.
+- `f16` is for storage and for machine learning weights, not for arithmetic.
+- `f80` and `f128` exist for the cases that need them. Most targets emulate them in software, thus they are slow.
+
+Usually, the important precision question is not the width. Money in floats is wrong at all widths, because binary cannot represent 0.1 exactly. Use an integer count of the smallest unit.

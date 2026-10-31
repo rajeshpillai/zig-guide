@@ -1,0 +1,139 @@
+# The Whole Pipeline
+
+> Bytes, tree, styles, boxes, pixels. Five stages, in one direction.
+
+Each stage has a chapter. This chapter runs the stages one after the other. The pipeline answers the question "how does a browser work?", and here you can see the answer in about 50 lines of code.
+
+```
+bytes ─► tree ─► boxes with widths ─► boxes with positions ─► pixels
+        (HTML)      (CSS + layout)         (layout)            (paint)
+```
+
+There are five stages. Each stage uses only what the previous stage made. This separation is the reason that a person can build a browser at all. The HTML parser knows nothing about pixels. The painter knows nothing about tags.
+
+## The program
+
+```zig
+const std = @import("std");
+const dom = @import("html.zig");
+const style = @import("css.zig");
+const layout = @import("layout.zig");
+const render = @import("render.zig");
+
+/// All the stages that a page needs, in the order that they run. Each stage
+/// uses only what the previous stage made. Thus each stage has a chapter of
+/// its own, and you can replace one stage without a change to the others.
+fn open(html: []const u8, sheet: []const u8, out: *std.Io.Writer) !void {
+    // 1. Bytes to a tree. This stage cannot fail.
+    var nodes: [64]dom.Node = undefined;
+    const tree = try dom.parseInto(html, &nodes);
+
+    // 2. Bytes to rules. This stage does not look at the tree.
+    var rules_buf: [16]style.Rule = undefined;
+    const rules = try style.parse(sheet, &rules_buf);
+
+    // 3. Tree and rules to boxes with widths, from the top down.
+    var boxes: [64]layout.Box = undefined;
+    var engine: layout.Engine = .{ .nodes = &nodes, .rules = rules, .boxes = &boxes };
+    const root = try engine.buildWidths(tree.root, 400);
+
+    // 4. Give the boxes positions and heights, from the bottom up.
+    _ = engine.placeAndSize(root, 0, 0);
+
+    // 5. Boxes to pixels, from back to front.
+    var canvas: render.Canvas = .{};
+    render.paint(engine, rules, root, &canvas);
+    try canvas.show(out);
+
+    try out.print("\n{d} nodes, {d} rules, {d} boxes\n", .{ tree.used, rules.len, engine.used });
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [8192]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &stdout_writer.interface;
+
+    const html =
+        \\<div id=page>
+        \\<h1>Zig</h1>
+        \\<div class=row><p>alpha</p><p>beta</p></div>
+        \\<p class=note>footer</p>
+        \\</div>
+    ;
+
+    const sheet =
+        \\#page { padding: 10; background: . }
+        \\h1 { height: 30; background: # }
+        \\.row { margin: 5; padding: 5; background: o }
+        \\.note { background: - }
+    ;
+
+    try out.writeAll("as written\n\n");
+    try open(html, sheet, out);
+
+    // The same document, with a change to one declaration and to nothing
+    // else. This property makes a stylesheet useful.
+    const restyled =
+        \\#page { padding: 10; background: . }
+        \\h1 { height: 60; background: # }
+        \\.row { margin: 5; padding: 5; background: o }
+        \\.note { background: - }
+    ;
+
+    try out.writeAll("\nwith h1 twice as tall, and nothing else touched\n\n");
+    try open(html, restyled, out);
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`21-browser.browser`)*
+
+## What just happened
+
+**One declaration changed, and the page changed its arrangement.** `h1 { height: 30 }` became `height: 60`, and each box below the `h1` moved down. Nothing else in the stylesheet or the document changed.
+
+This is the reason that stylesheets exist. The height of the box is an input to layout. The program calculates each position below the box. It does not store the positions. When you change the input and run the two passes again, you get a new set of positions. The program writes no value two times, thus no two copies can disagree.
+
+**The program prints the counts for each render.** The counts are 11 nodes, 4 rules and 11 boxes. Here, the box tree and the node tree have the same size. Usually they do not. Some elements make no box. One element can make several boxes, for example one box for each line of text or one for each table cell.
+
+**You can replace each stage.** The renderer writes characters. A renderer that writes RGBA changes nothing in the earlier stages. The layout engine does block flow. To add flexbox, you add a different function that makes the same `Box` values. The stages are separate, thus browsers can rewrite one stage at a time.
+
+## What a real browser adds, largest first
+
+**Each stage is incremental.** The program above caches nothing. A second render does all five stages again. A real engine records which nodes changed, which boxes need a new layout, and which regions need new paint. A page can have fifty thousand nodes.
+
+A cursor that blinks must not cause a new render of all of these nodes. The code that records these changes is larger than the pipeline.
+
+**Each stage is concurrent.** The browser parses the page while bytes still arrive. Images decode on other threads. The paint stage runs on a compositor thread, so that the page scrolls smoothly when JavaScript is busy. The pipeline keeps the same shape. The browser only runs several copies of the pipeline at the same time.
+
+The versions here show the shape of each stage without the details. The details take years to build:
+
+- the 80 tokenizer states of the HTML parser
+- the dozen layout modes of CSS
+- text shaping
+- bidirectional text
+- thirty years of old pages that must continue to work
+
+## Check yourself
+
+The diagram shows the pipeline in one direction, but a script can change the document. What does that do to the diagram?
+
+A script changes the tree. Then the old boxes are out of date, thus layout and paint must run again. The browser tries to do this one time for each frame, not one time for each change.
+
+A script can read a size such as `offsetHeight` in a loop that also writes to the page. Then each iteration causes a full layout. This problem has the name *layout thrashing*, and [the layout chapter](https://www.ziglang.in/learn/browser/layout/) explains it.
+
+## Where this section ends
+
+This section has six chapters:
+
+- a parser that cannot fail
+- a cascade that decides between rules
+- two passes that change a tree into rectangles
+- a painter that fills the rectangles
+- a scripting engine that connects at one point
+- this chapter, which joins the stages
+
+Together, they have the shape of a browser. The section leaves out each part that makes a real browser difficult to build.
+
+If you liked the graphics part, [the graphics section](https://www.ziglang.in/learn/graphics/) does rasterisation fully. It has real pixel buffers, lines and triangles, antialiasing and image files. If you liked the language part, [the Tiny Language section](https://www.ziglang.in/learn/tiny-lang/lexer/) builds the scripting engine that this section only shows in outline.

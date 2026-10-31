@@ -1,0 +1,100 @@
+# Unicode
+
+> A string is bytes until you select UTF-8 support.
+
+In Zig, a string is a slice of bytes. UTF-8 support is something that you select, through `std.unicode`. There, `Utf8View` validates the bytes and iterates over code points. Grapheme clusters, case folding and normalisation are not in the standard library.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+const expectEqualStrings = std.testing.expectEqualStrings;
+
+test "len counts bytes, not characters" {
+    const s = "héllo"; // é is two bytes in UTF-8
+    try expect(s.len == 6);
+    try expect(try std.unicode.utf8CountCodepoints(s) == 5);
+}
+
+test "validate untrusted input first" {
+    try expect(std.unicode.utf8ValidateSlice("héllo"));
+    // 0xff never occurs in well-formed UTF-8.
+    try expect(!std.unicode.utf8ValidateSlice(&.{ 0xff, 0xfe }));
+}
+
+test "iterate codepoints" {
+    // Utf8View.init validates one time. After that, the iterator cannot fail.
+    const view = try std.unicode.Utf8View.init("héllo");
+    var it = view.iterator();
+
+    try expect(it.nextCodepoint().? == 'h');
+    try expect(it.nextCodepoint().? == 'é');
+    try expect(it.nextCodepoint().? == 'l');
+
+    // nextCodepointSlice returns the raw bytes, not a u21.
+    // Use it to slice the original string.
+    var rest = view.iterator();
+    _ = rest.nextCodepointSlice();
+    const e_bytes = rest.nextCodepointSlice().?;
+    try expect(e_bytes.len == 2);
+}
+
+test "encode a codepoint to bytes" {
+    var buf: [4]u8 = undefined;
+    const len = try std.unicode.utf8Encode('→', &buf);
+    try expect(len == 3);
+    try expectEqualStrings("→", buf[0..len]);
+}
+
+test "slicing bytes can split a character" {
+    const s = "héllo";
+    // s[0..2] cuts é in half: 'h', then the first byte of é without the
+    // continuation byte that must follow it.
+    try expect(!std.unicode.utf8ValidateSlice(s[0..2]));
+    // When you need safe cut points, iterate over codepoint slices.
+    try expect(std.unicode.utf8ValidateSlice(s[0..3]));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`03-standard-library.unicode`)*
+
+## `len` is bytes
+
+`"héllo".len` is 6, not 5, because `é` encodes to two bytes. Nothing in the language layer knows about UTF-8. Source files must be valid UTF-8, but a `[]const u8` at runtime is only bytes. When you need a count of characters, `std.unicode.utf8CountCodepoints` walks the encoding.
+
+This is a design decision, not something that the designers forgot. Most code that handles text never needs the character boundaries. Copy, hash, equality comparison, a write to a socket, and a substring search all work on bytes. Thus they are faster and simpler. Only a small number of cases really need characters, and these cases ask for the UTF-8 code explicitly.
+
+## Three different lengths
+
+The word "length" has three answers. Bugs frequently occur when code uses the wrong answer.
+
+- **Bytes.** `.len` gives you this length. You need it for buffers, offsets, and all data that you write to a file.
+- **Code points.** `utf8CountCodepoints` gives you this length. A code point is one Unicode value, encoded in one to four bytes.
+- **Grapheme clusters.** A grapheme cluster is what a person calls a character. A letter and its combining accent are two code points and one character. An emoji with a skin-tone modifier can be several code points.
+
+The standard library gives you the first two lengths. Grapheme clusters need Unicode tables, and `std` does not include them. Thus "how many characters will this text use on screen" is a question for a library. Terminal width is a fourth, separate answer.
+
+## Validate one time, then iterate
+
+`Utf8View.init` checks the full slice first, and returns an error for malformed input. After that, its iterator cannot fail, thus the loop body stays clean. `nextCodepoint` gives `u21` values. `nextCodepointSlice` gives the raw bytes of each character. Use `nextCodepointSlice` when you slice the original string at character boundaries.
+
+For input that you do not control (network data, file contents), run `utf8ValidateSlice` before you treat the bytes as text.
+
+Validate one time, then iterate with no error path. Use this pattern in other code too. The alternative is a check for malformed input at each step. That check puts an error path in the middle of each loop, for a condition that the program already knew when the bytes arrived.
+
+`utf8ByteSequenceLength` reads the first byte and tells you how many bytes the code point uses. All the functions above use it. Sometimes you want it directly, when you scan backward.
+
+## A slice can cut a character in half
+
+`s[0..2]` on `"héllo"` gives one valid byte and then half of `é`. Byte indices from `std.mem.find` (`indexOf` in older code) are always safe cut points when the needle is valid UTF-8. Other arithmetic on indices is not safe. If you truncate strings for display, iterate over code point slices and stop at the last full character.
+
+[Unicode Recipes](https://www.ziglang.in/learn/standard-library/unicode-recipes/) shows that function. It also shows how to find the character that contains a given byte, because std has no helper for that.
+
+## What is not in std
+
+The standard library has no case folding, no comparison for a locale, no normalisation and no collation. `std.ascii.toLower` exists and does exactly what its name says, but for ASCII only. That is correct for protocol keywords and incorrect for text in most languages.
+
+The reason is size. Correct case conversion needs Unicode tables. The rules also depend on the language, in unexpected ways: the Turkish dotless i, the German sharp s, the Greek final sigma.
+
+The position of Zig is this: a program that needs case conversion must depend on a library that keeps the tables current. The alternative is an old copy of the tables inside each binary that links `std`.
+
+Thus, to compare text from a user, first decide what you really need. Byte equality is correct for identifiers and tokens. To find "the same word, typed in a different way", you need normalisation, and normalisation needs a library.

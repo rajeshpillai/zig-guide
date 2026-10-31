@@ -1,0 +1,159 @@
+# Migrations as Data
+
+> The schema history as an append-only list, and a pure plan that applies it.
+
+Database migrations are easiest to test as data. The history is an append-only
+list of `{version, up, down}` entries. A pure function, `plan(current, target)`,
+returns the steps to run. A separate loop runs the plan. Thus you can test each
+case of the planner without a database.
+
+## The problem
+
+Schemas change after they ship. Most mature ORMs handle this in the same way:
+
+- Each change is a versioned migration with an up and a down.
+- The list is append-only.
+- The database records its current version.
+
+The design question is the location of the logic. The code that calculates
+what to run often becomes mixed with the code that runs it. Then you cannot
+test anything without a database.
+
+## The pattern
+
+1. The history is data: an ordered array of `{version, up, down}`. Do not edit
+   an entry after a release, because the database of a user already ran it.
+2. The planner is a pure function. `plan(current, target)` returns the steps
+   to run, in order. An upgrade walks forward. A downgrade walks the affected
+   range, with the newest entry first.
+3. A separate, simple loop runs the plan. That loop belongs to the
+   [repo](https://www.ziglang.in/learn/orm/repo/).
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+const Migration = struct {
+    version: u32,
+    up: []const u8,
+    down: []const u8,
+};
+
+// The full history, in order. The list is append-only. Do not edit a
+// released migration, because the database of a user already ran it.
+const history = [_]Migration{
+    .{
+        .version = 1,
+        .up = "CREATE TABLE users (id INTEGER, name TEXT)",
+        .down = "DROP TABLE users",
+    },
+    .{
+        .version = 2,
+        .up = "CREATE TABLE posts (id INTEGER, title TEXT)",
+        .down = "DROP TABLE posts",
+    },
+    .{
+        .version = 3,
+        .up = "ALTER TABLE users ADD COLUMN active INTEGER",
+        .down = "ALTER TABLE users DROP COLUMN active",
+    },
+};
+
+const Step = struct { version: u32, sql: []const u8 };
+
+// The planner is a pure function from (current, target) to steps. You can
+// test all the difficult cases (no-op, partial upgrade, rollback order)
+// without a database.
+fn plan(current: u32, target: u32, buf: []Step) []Step {
+    var n: usize = 0;
+    if (target > current) {
+        for (history) |m| {
+            if (m.version > current and m.version <= target) {
+                buf[n] = .{ .version = m.version, .sql = m.up };
+                n += 1;
+            }
+        }
+    } else {
+        // A downgrade runs the down steps with the newest step first.
+        var i = history.len;
+        while (i > 0) {
+            i -= 1;
+            const m = history[i];
+            if (m.version <= current and m.version > target) {
+                buf[n] = .{ .version = m.version, .sql = m.down };
+                n += 1;
+            }
+        }
+    }
+    return buf[0..n];
+}
+
+test "a fresh database applies everything in order" {
+    var buf: [8]Step = undefined;
+    const steps = plan(0, 3, &buf);
+    try expect(steps.len == 3);
+    try expect(steps[0].version == 1);
+    try expect(steps[2].version == 3);
+    try expect(std.mem.startsWith(u8, steps[0].sql, "CREATE TABLE users"));
+}
+
+test "partial upgrade takes only the gap" {
+    var buf: [8]Step = undefined;
+    const steps = plan(1, 3, &buf);
+    try expect(steps.len == 2);
+    try expect(steps[0].version == 2);
+    try expect(steps[1].version == 3);
+}
+
+test "rollback runs down steps newest-first" {
+    var buf: [8]Step = undefined;
+    const steps = plan(3, 1, &buf);
+    try expect(steps.len == 2);
+    try expect(steps[0].version == 3);
+    try expect(std.mem.startsWith(u8, steps[0].sql, "ALTER TABLE users DROP"));
+    try expect(steps[1].version == 2);
+}
+
+test "already there is a no-op" {
+    var buf: [8]Step = undefined;
+    try expect(plan(3, 3, &buf).len == 0);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`07-building-libraries.migrations`)*
+
+## Pure functions make the edge cases cheap
+
+The four tests cover the cases that go wrong in real systems:
+
+- The new, empty database.
+- The partial upgrade.
+- The rollback, in reverse order. Forward order corrupts the database.
+- The no-op.
+
+Each test is an assertion about a function from two integers to a slice. The
+tests need no fixtures, containers or cleanup. If the planner and the executor
+are one function, each of those tests needs a live database, and programmers
+never write most of them.
+
+The split also gives you `--dry-run` with no extra work: print the plan, and do
+not run it. If your library can plan an operation and not do it, users can
+examine the plan before they run it.
+
+## Append-only is a social contract, not a technical one
+
+The code does not stop a person who edits migration 2 after the release. The
+guarantee comes from convention and review.
+
+A library can help to enforce the convention. The draft stores a checksum of
+each applied migration. If a person changed the history after the database
+applied it, the draft refuses to continue. That check is also pure logic over
+data, and you can test it in the same way.
+
+## In a full ORM
+
+In the draft, the migrations are Zig files that the build finds. Each file has
+an up and a down. A CLI creates, applies and rolls back migrations.
+
+A `schema_migrations` table holds the applied version. Only two parts touch the
+database: the code that reads that table and the code that runs the plan.

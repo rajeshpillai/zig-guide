@@ -1,0 +1,154 @@
+# The Stack
+
+> Where local variables live, and why a pointer to a local is not safe after the call returns.
+
+The last chapter said that each value has an address. This chapter answers the
+next question: who decides the address, and for how long is the address valid?
+
+For a local variable, the machine decides, and the method costs very little.
+The machine keeps one number: the position where the used part of memory ends
+now. A function call moves that mark forward, to make space for the local
+variables of the call. A return moves the mark back. To make space costs one
+addition, and to give the space back costs one subtraction. Thus you do not
+have to plan for the cost of a function call.
+
+The region that a call gets is its **frame**, and the sequence of frames is
+the **stack**. A stack of plates is similar in one way only: the plate that
+you put down last is the plate that you take first. A call cannot return
+before the calls that it made return. Thus the program always releases the
+frames in the reverse order.
+
+This rule has a result, and a large group of bugs comes from it: **when the
+call returns, that memory is not yours any more.** Nothing erases or marks the
+memory. The mark only moves back, and the next call gets the same bytes.
+
+## The program
+
+```zig
+const std = @import("std");
+
+var main_local: usize = 0;
+var outer_local: usize = 0;
+var inner_local: usize = 0;
+var outer_local_again: usize = 0;
+
+fn inner() void {
+    var value: u32 = 3;
+    _ = &value; // keep the value in memory, not in a register
+    inner_local = @intFromPtr(&value);
+}
+
+fn outer(record: *usize) void {
+    var value: u32 = 2;
+    _ = &value;
+    record.* = @intFromPtr(&value);
+    inner();
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &stdout_writer.interface;
+
+    var value: u32 = 1;
+    _ = &value;
+    main_local = @intFromPtr(&value);
+
+    outer(&outer_local);
+
+    // Each call gets its own region for its local variables. Three calls are
+    // live at the same time here, and no two of them share a place.
+    try out.print("main and outer used different addresses:  {}\n", .{main_local != outer_local});
+    try out.print("outer and inner used different addresses: {}\n", .{inner_local != outer_local});
+
+    // The direction of the regions depends on the target. The language has
+    // no rule for the direction. Most machines count downward. This machine
+    // does not, and nothing in the chapter depends on the answer.
+    try out.print("deeper calls got higher addresses here:   {}\n", .{inner_local > main_local});
+
+    // outer() returned, thus its region is free again.
+    outer(&outer_local_again);
+    try out.print("\nthe second call to outer reused the same address: {}\n", .{outer_local == outer_local_again});
+
+    try out.print("\nso a pointer to outer's local, kept after it returned,\n", .{});
+    try out.print("would now be pointing at the second call's data.\n", .{});
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`15-groundwork.the-stack`)*
+
+## What just happened
+
+**Three calls were live at the same time, and no two of them shared an
+address.** `main` called `outer`, and `outer` called `inner`. Each call had a
+local variable at a different place. Nothing controlled this. Each call only
+moved the mark forward by the size of the space that the call needed.
+
+**The direction that the program prints is not a rule.** On this target, the
+frames go upward. On most machines that you will use, the frames go downward.
+For this reason, many texts say "the stack grows down".
+
+The direction is a detail of the target. The program cannot see the direction
+unless it looks for it, and nothing above depends on the answer. The program
+prints the direction because this target is different from the textbook.
+
+**The second call to `outer` got the same address as the first call.** The
+first call finished, and the mark moved back. The next call that needed that
+much space got exactly the same bytes. The old values stayed there until the
+new call wrote over them.
+
+Thus, if a pointer to the local of `outer` stayed in use after the call, the
+pointer would look correct. It would point at real memory that the program can
+read. But that memory now belongs to a different call. A read through the
+pointer would give a number that had a meaning before. A write through the
+pointer would corrupt the call that now uses that frame.
+
+The name of this pointer is a **dangling pointer**. The pointer did not
+change. The pointer is a number, and the number is still valid. The owner of
+the memory changed, and a number cannot hold the owner.
+
+## Check yourself
+
+Think of a second local variable in `outer`, for example `var other: u32 = 9;`
+next to `value`. Would `other` be at a higher address or a lower address than
+`value`?
+
+Each guess is acceptable, because the correct answer is that **you cannot
+know**. The compiler can arrange a frame in any order. If the compiler can
+keep a value in a register, the value possibly gets no address at all. For
+this reason, the program above has `_ = &value;` next to each local. When the
+program takes the address, the value must be in memory, and the program has an
+address to print. Without that line, an optimised build could make the
+question have no meaning.
+
+## If you know C
+
+C works in the same way, and you can write the same bug:
+
+```c
+int *broken(void) {
+    int x = 42;
+    return &x;      /* returns a pointer into a frame that is about to end */
+}
+```
+
+C compilers usually give a warning for that exact code. Zig rejects the code
+with an error: `error: returning address of expired local variable`.
+
+Neither language finds the same bug in a less obvious form. For example, the
+code can store the address in a struct field and return the struct. Nothing
+checks this case, thus you must be careful. The
+[Pointers](https://www.ziglang.in/learn/language-basics/pointers/) chapter says this directly. A
+slice of a local array must not stay in use after the array ends, and the
+compiler will not tell you.
+
+Instead, Zig gives you [`defer`](https://www.ziglang.in/learn/language-basics/defer/) and the
+ownership rules in the next chapter. With these two tools, you answer the
+question "who owns this, and how long does it live" one time, in a function
+signature. You do not answer it in each caller.
+
+Next: [Who Owns This
+Memory](https://www.ziglang.in/learn/systems-from-scratch/who-owns-this-memory/). That chapter is
+about memory that must stay valid after the call returns.

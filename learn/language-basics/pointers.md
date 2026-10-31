@@ -1,0 +1,97 @@
+# Pointers
+
+> Single-item pointers that are never null.
+
+A `*T` refers to exactly one `T`. Use `&` to get an address. Use `.*` to dereference the pointer. `.*` is a postfix operator, so a chain of operations reads from left to right, as field access does.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+fn increment(num: *u8) void {
+    num.* += 1;
+}
+
+test "take an address and dereference" {
+    var x: u8 = 1;
+    increment(&x);
+    try expect(x == 2);
+}
+
+test "pointers to const are const" {
+    const x: u8 = 1;
+    // Here `&x` is a `*const u8`. A write through it does not compile.
+    const ptr: *const u8 = &x;
+    try expect(ptr.* == 1);
+}
+
+test "pointers are never null" {
+    // There is no null `*T`. Write `?*T` for a pointer that can be absent.
+    // It uses no extra space, because the null address is the tag.
+    var x: u8 = 5;
+    const ptr: *u8 = &x;
+    const maybe: ?*u8 = ptr;
+    try expect(maybe != null);
+    try expect(@sizeOf(?*u8) == @sizeOf(*u8));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.pointers`)*
+
+## Exactly one
+
+A `*T` is not a cursor into a sequence, and it has no pointer arithmetic: `p + 1` does not compile. Code that moves through memory needs a type that tells how much memory there is.
+
+Thus there are three types. In Zig, the main purpose of pointer types is to help you select the correct one:
+
+| Type | Means |
+| --- | --- |
+| `*T` | one `T`, and only one |
+| `[*]T` | many `T`, count unknown, arithmetic allowed |
+| `[]T` | many `T`, count carried alongside |
+
+Usually, use `[]T`. It is a pointer and a length together. Thus an index into it can have a bounds check. You cannot forget the length, because the length is part of the value.
+
+`[*]T` is for the C boundary, where the count is in a different place or in a sentinel. See [slices](https://www.ziglang.in/learn/language-basics/slices/) and [many-item pointers](https://www.ziglang.in/learn/language-basics/many-item-pointers/).
+
+## Never null
+
+A `*T` cannot be null. If a pointer can be absent, its type says so: `?*T`. The compiler enforces this rule. It does not let you dereference the optional before you unwrap it.
+
+The representation has no cost. Zig uses the null address as the `null` tag. Thus `?*T` has the same size as `*T`.
+
+The result is that "did I check this pointer for null" is a question about the type, not about the code:
+
+- A function that takes `*T` cannot receive nothing.
+- A function that takes `?*T` cannot use the pointer before it says what occurs for null.
+
+There is no third case, where the two types have the same syntax and one of them is a bug.
+
+## Constness stays with the pointer
+
+`&some_const` gives you a `*const T`, and you cannot assign through it. This rule is about what the *pointer* permits. It is a different rule from whether you can assign a new value to the pointer variable:
+
+```zig
+var p: *const u8 = &a;   // p can point elsewhere; p.* cannot be written
+const q: *u8 = &b;       // q always points at b; q.* can be written
+```
+
+These are two different questions, and you write `const` in two different places. The `const` on the left of the colon is about the variable. The `const` inside the type is about what you can do through the pointer.
+
+Const works in one direction. A `*T` coerces to a `*const T` without a cast, because it is always safe to remove the right to write. The opposite direction needs `@constCast`. If you use `@constCast` on memory that is really constant, the result is undefined behaviour, not a check that fails.
+
+## Alignment is part of the type
+
+A pointer carries the alignment that the compiler can trust. When this alignment is different from the natural alignment, the type is `*align(n) T`.
+
+Usually you do not see the alignment. `&x` produces a correctly aligned pointer, and you do not have to write anything. You see the alignment when you cast a byte buffer to a wider type. `[]u8` gives no promise about alignment, and `*u32` requires an alignment of four bytes.
+
+Use `@alignCast` to assert the alignment that you know is correct. In a safety build, the program checks the alignment and causes a panic if you are wrong. In ReleaseFast, the program trusts you. If you are wrong, the result is a misaligned load. On some targets a misaligned load causes a crash. On other targets it is slow, but the result is correct and there is no error.
+
+## Get the address as a number
+
+`@intFromPtr` gives you the address as a `usize`, and `@ptrFromInt` converts the number back to a pointer. The two builtins are for the cases that really need an integer: hardware access, pointer tags, or an address that you print when you debug.
+
+They are not a general method to convert between types. When a pointer becomes an integer and then a pointer again, the compiler loses all the information that it had about the data at the address.
+
+The address of a local has a meaning only while that local exists. If a function returns `&x`, and the frame of the function ends, the result is a dangling pointer. Nothing in the type system catches this bug. This is the one usual pointer bug that Zig does not remove. [The stack](https://www.ziglang.in/learn/systems-from-scratch/the-stack/) has more about it.

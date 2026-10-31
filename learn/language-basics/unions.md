@@ -1,0 +1,124 @@
+# Unions
+
+> One of several types, in one allocation.
+
+In Zig, you write a tagged union as `union(enum)`. A tagged union is a sum type. The value carries a tag that names its active field, and a `switch` on the value must handle each field. A bare `union` has no tag. A read of a field that is not the active field is illegal behaviour.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+// A bare union has no tag: you must know which field is active.
+const Payload = union {
+    int: i64,
+    float: f64,
+};
+
+const Tag = enum { int, float, none };
+
+// A tagged union carries its tag, so `switch` can safely discriminate.
+const Tagged = union(Tag) {
+    int: i64,
+    float: f64,
+    none: void,
+};
+
+// `union(enum)` infers the tag enum for you.
+const Inferred = union(enum) {
+    text: []const u8,
+    number: u32,
+};
+
+test "bare union" {
+    var p = Payload{ .int = 42 };
+    try expect(p.int == 42);
+    // A read of `p.float` here is illegal behaviour: it is not the active field.
+    p = Payload{ .float = 1.5 };
+    try expect(p.float == 1.5);
+}
+
+test "switch on a tagged union" {
+    var value = Tagged{ .int = 7 };
+    switch (value) {
+        .int => |*n| n.* += 1,
+        .float => |*f| f.* *= 2,
+        .none => {},
+    }
+    try expect(value.int == 8);
+}
+
+test "the tag is a real enum value" {
+    const value = Tagged{ .float = 2.5 };
+    try expect(@as(Tag, value) == .float);
+}
+
+test "inferred tag enum" {
+    const v = Inferred{ .text = "hi" };
+    switch (v) {
+        .text => |t| try expect(t.len == 2),
+        .number => unreachable,
+    }
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.unions`)*
+
+A union holds one of its fields at a time. The question is always: *which field*?
+
+## A bare union does not know the active field
+
+```zig
+const Payload = union { int: i64, float: f64 };
+```
+
+A read of a field that is not the active field is illegal behaviour. Bare unions are for C interop, and for cases where a different part of the code already records the tag.
+
+"Illegal behaviour" means more than "you get incorrect data":
+
+- In a safety build, the program catches the access to the wrong field and panics.
+- In ReleaseFast, the access is undefined, and the optimiser can assume that it never occurs.
+
+Thus a bare union is a promise from you. Make that promise only when something outside the union already records the answer.
+
+## A tagged union knows the active field
+
+```zig
+const Tagged = union(Tag) { int: i64, float: f64, none: void };
+```
+
+Now the value carries its tag. `switch` can safely select the correct field, and the switch must be exhaustive. A tagged union is the sum type of Zig, and almost always it is the correct choice. Error unions and optionals also use the same construct.
+
+A pointer capture in a prong lets you change the value in place:
+
+```zig
+switch (value) {
+    .int => |*n| n.* += 1,
+    ...
+}
+```
+
+A `void` field says "this case carries nothing". Thus a tagged union can have states without a payload, and you do not have to make a dummy payload.
+
+## `union(enum)`
+
+When you write `union(enum)`, the compiler makes the tag enum from the field names. Thus you do not have to declare and update a separate `enum` with the same names. Use the explicit form only when you need the enum as a named type, or when you must set its values.
+
+To get the tag, use `@as(Tag, value)`, or compare directly against `.float` in a `switch`. `std.meta.activeTag(value)` does the same thing, and its name is easier to read outside a switch. `@tagName` changes the tag into a string for [logging](https://www.ziglang.in/learn/standard-library/logging/).
+
+Sometimes the compiler must select the variant at compile time, and the code does not write the variant literally. For this case, `@unionInit(T, "int", 5)` takes the field name as a comptime string. Generic code uses `@unionInit` when it examines a type and does not name a case.
+
+## The cost of a tagged union
+
+A tagged union is as large as its largest field plus the tag, plus the padding that alignment needs. Thus one very large variant sets the size for each value of the type, also for the values that carry nothing.
+
+When the variants have very different sizes, the usual solution is to put the large variant behind a pointer. Then the union holds a pointer, not the payload.
+
+The tag is a usual enum, and you can give it a type: `union(enum(u8))` makes the tag one byte. `packed union` is for the bit-level cases. As with `packed struct`, use it for real boundaries, not to save a byte.
+
+## Where to use a tagged union
+
+Use a tagged union in each place where a value has one of several shapes. Examples are a token from a lexer, a node in a syntax tree and a message from a protocol. A configuration value that can be a string or a number is also an example.
+
+In code from other people, look for a struct with a "kind" field and some fields that are valid only for some kinds. That struct is a tagged union that a person wrote by hand, without the exhaustiveness check.
+
+The [tiny language](https://www.ziglang.in/learn/tiny-lang/) track builds a lexer, a parser and an interpreter with exactly this construct. Thus you can see a tagged union in a real program.

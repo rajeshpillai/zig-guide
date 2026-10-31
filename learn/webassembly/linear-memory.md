@@ -1,0 +1,164 @@
+# Recipe: Pass Data Across the Boundary
+
+> Move strings and buffers between JavaScript and wasm through shared linear memory.
+
+A string cannot go between JavaScript and a Zig wasm module as a value. Thus
+the string goes through the linear memory of the module:
+
+1. The exported `alloc` function of the module returns an offset.
+2. The host writes the bytes at that offset.
+3. The host calls into the module with the offset and a length.
+
+## The problem
+
+The [last recipe](../export-to-js/) gave numbers to the module, and a number
+fits in a wasm value. A string does not fit. A slice, a struct and a buffer do
+not fit either. Linear memory is the only place where both sides can see them.
+The two sides must agree on the meaning of the bytes there.
+
+## The plan
+
+1. Export an `alloc` function, so that the host can reserve space in linear
+   memory.
+2. Export the memory. The reactor build does this automatically.
+3. The host writes bytes at the returned offset, then calls in with `(offset,
+   len)`. The host reads a result back from memory at an offset that the
+   module reports.
+
+```zig
+const std = @import("std");
+
+// A small arena that gives scratch space to the host. A real module exports
+// a general allocator. This arena keeps each step visible in the code.
+var scratch: [4096]u8 = undefined;
+var used: usize = 0;
+
+export fn alloc(len: usize) [*]u8 {
+    const start = used;
+    used += len;
+    return scratch[start..].ptr;
+}
+
+export fn reset() void {
+    used = 0;
+}
+
+// Sum the bytes that the host put at ptr[0..len].
+export fn sumBytes(ptr: [*]const u8, len: usize) u32 {
+    var total: u32 = 0;
+    for (ptr[0..len]) |b| total += b;
+    return total;
+}
+
+// Change to upper case in place. Thus the host reads the answer from the
+// same offset.
+export fn upperInPlace(ptr: [*]u8, len: usize) void {
+    for (ptr[0..len]) |*b| b.* = std.ascii.toUpper(b.*);
+}
+
+test "the round trip a JS host would drive" {
+    reset();
+
+    // Host: reserve space, and copy bytes into linear memory.
+    const msg = "zig";
+    const dst = alloc(msg.len);
+    @memcpy(dst[0..msg.len], msg);
+
+    // Host: call in with (offset, length).
+    try std.testing.expectEqual(@as(u32, 'z' + 'i' + 'g'), sumBytes(dst, msg.len));
+
+    // Host: change the bytes in place, then read them back.
+    upperInPlace(dst, msg.len);
+    try std.testing.expectEqualStrings("ZIG", dst[0..msg.len]);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`08-webassembly.linear-memory`)*
+
+The test in the snippet is the script of the host, written in Zig. It does
+these steps:
+
+1. Reserve space.
+2. Copy bytes in.
+3. Call `sumBytes`.
+4. Change the bytes in place with `upperInPlace`.
+5. Read the bytes back.
+
+A JavaScript host does the same steps through `instance.exports` and a
+typed-array view. The [browser recipe](../browser-instantiate/) shows how to
+build the module as a reactor and call it. This page covers the memory
+protocol itself.
+
+## Why an offset and not a pointer
+
+Inside a wasm module, a Zig `[*]u8` is an offset into linear memory, counted
+from zero. It is not an address in the process of the host. When `alloc`
+returns `[*]u8`, JavaScript sees a plain integer. The integer tells where in
+the shared array the bytes go.
+
+The host never dereferences a wasm pointer directly. The host uses that number
+as an index into the memory buffer.
+
+## The JavaScript side
+
+`WebAssembly.Memory` gives an `ArrayBuffer`, and you look at it through typed
+arrays. The protocol only writes into the buffer and reads back from it:
+
+```js
+const { instance } = await WebAssembly.instantiate(bytes, {});
+const { alloc, reset, sumBytes, upperInPlace, memory } = instance.exports;
+
+function pass(str) {
+  const utf8 = new TextEncoder().encode(str);
+  const ptr = alloc(utf8.length);
+  // A fresh view each time: growing memory detaches the old ArrayBuffer.
+  new Uint8Array(memory.buffer, ptr, utf8.length).set(utf8);
+  return { ptr, len: utf8.length };
+}
+
+reset();
+const { ptr, len } = pass("zig");
+console.log(sumBytes(ptr, len));        // 330  (z + i + g)
+
+upperInPlace(ptr, len);
+const out = new Uint8Array(memory.buffer, ptr, len);
+console.log(new TextDecoder().decode(out));   // "ZIG"
+```
+
+## The one trap
+
+`memory.buffer` can change. Any allocation can grow the linear memory of the
+module. When the memory grows, the old `ArrayBuffer` becomes *detached*, and
+each typed array over it reads as empty.
+
+Thus make the `Uint8Array` view immediately before you use it. Never keep the
+view across a call that can allocate. For this reason, the `pass` helper above
+makes a new view each time.
+
+## Who owns the memory
+
+In this snippet, the module owns the memory. `alloc` gives out slices of a
+fixed 4 KiB buffer, and `reset` takes back all of the buffer at one time. This
+is a bump allocator.
+
+A bump allocator is sufficient for the work of one request. In that
+work, the host fills a buffer, calls the module, and continues. For data
+that must stay longer, do one of these:
+
+- Export a real allocator, with `free`.
+- Let the host keep a record of the offsets that it got.
+
+In both cases, the rule stays the same. The module manages its linear memory.
+The host only uses offsets that the module gave out.
+
+## Variations
+
+- **Return a string:** the module cannot return a slice. Return an offset, and
+  give the length through a second export. Or write both into a small struct
+  in memory, and return the offset of that struct.
+- **Strings are UTF-8 on both ends:** Zig source is UTF-8, and the
+  `TextEncoder` of JavaScript emits UTF-8. Thus bytes that you copy across
+  need no new encoding.
+- **Grow on demand:** `alloc` here cannot fail in a useful way. A real `alloc`
+  calls `@wasmMemoryGrow` when the buffer is full. The [freestanding
+  recipe](../freestanding/) shows this.

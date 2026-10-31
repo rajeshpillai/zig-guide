@@ -1,0 +1,460 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Zig Guide Live</title>
+    <link>https://www.ziglang.in/learn/</link>
+    <description>A Zig tutorial and cookbook. Each build compiles and runs every snippet against current Zig master, and the snippets run in your browser as WebAssembly.</description>
+    <language>en</language>
+    <atom:link href="https://www.ziglang.in/rss.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Read the Frames Yourself</title>
+      <link>https://www.ziglang.in/learn/chat-server/frames/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/chat-server/frames/</guid>
+      <description>A frame reader for the server. It joins fragments, returns the close code, checks UTF-8 and the size, and maps each failure to a close code.</description>
+      <category>A Chat Server</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:51:36 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Hub</title>
+      <link>https://www.ziglang.in/learn/chat-server/hub/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/chat-server/hub/</guid>
+      <description>One writer for each socket. The hub keeps the members, copies each line into a bounded outbox, and never touches a socket.</description>
+      <category>A Chat Server</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:51:36 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Protocol</title>
+      <link>https://www.ziglang.in/learn/chat-server/protocol/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/chat-server/protocol/</guid>
+      <description>Commands in, events out. A text protocol inside WebSocket messages, a tagged union for each direction, and a line size that the compiler checks.</description>
+      <category>A Chat Server</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:51:36 GMT</pubDate>
+    </item>
+    <item>
+      <title>Slow Clients</title>
+      <link>https://www.ziglang.in/learn/chat-server/slow-clients/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/chat-server/slow-clients/</guid>
+      <description>A member that does not read fills its outbox. The hub puts with a minimum of 0, drops the member when nothing fits, and the room does not wait.</description>
+      <category>A Chat Server</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:51:36 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Server</title>
+      <link>https://www.ziglang.in/learn/chat-server/the-server/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/chat-server/the-server/</guid>
+      <description>The protocol, the hub and the frame reader on real sockets. A reader task and a writer task for each connection, and three clients that chat.</description>
+      <category>A Chat Server</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:51:36 GMT</pubDate>
+    </item>
+    <item>
+      <title>What You Will Build</title>
+      <link>https://www.ziglang.in/learn/chat-server/what-we-are-building/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/chat-server/what-we-are-building/</guid>
+      <description>A chat room over WebSocket with only the standard library, and the four decisions that the next chapters make.</description>
+      <category>A Chat Server</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:51:36 GMT</pubDate>
+    </item>
+    <item>
+      <title>A WebSocket Client</title>
+      <link>https://www.ziglang.in/learn/networking/websocket-client/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/networking/websocket-client/</guid>
+      <description>A client that std does not have. It checks the handshake, masks each frame, puts fragments together, answers a ping, and closes correctly.</description>
+      <category>Networking</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:27:06 GMT</pubDate>
+    </item>
+    <item>
+      <title>WebSocket Frames</title>
+      <link>https://www.ziglang.in/learn/networking/websocket-frames/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/networking/websocket-frames/</guid>
+      <description>The two header bytes as packed structs, the three length forms, the client mask, and the frames that std.http.Server refuses.</description>
+      <category>Networking</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:27:06 GMT</pubDate>
+    </item>
+    <item>
+      <title>The WebSocket Handshake</title>
+      <link>https://www.ziglang.in/learn/networking/websocket-handshake/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/networking/websocket-handshake/</guid>
+      <description>An HTTP request asks to upgrade, std.http.Server answers 101, and the checks that std leaves to your code.</description>
+      <category>Networking</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:27:06 GMT</pubDate>
+    </item>
+    <item>
+      <title>A WebSocket Server on a Socket</title>
+      <link>https://www.ziglang.in/learn/networking/websocket-server/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/networking/websocket-server/</guid>
+      <description>std.http.Server upgrades a real TCP connection and echoes messages. The server answers pings, closes correctly, and refuses a message that is too big.</description>
+      <category>Networking</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 26 Oct 2026 07:27:06 GMT</pubDate>
+    </item>
+    <item>
+      <title>Binary Search</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/binary-search/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/binary-search/</guid>
+      <description>The half-open window, the invariant that keeps the window correct, and the two bounds that std already has.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 06:47:07 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Contest Template</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/contest-template/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/contest-template/</guid>
+      <description>The one program in the section that reads real stdin, and three problems that a judge finds and a browser never shows.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 06:47:07 GMT</pubDate>
+    </item>
+    <item>
+      <title>Merge Intervals</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/merge-intervals/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/merge-intervals/</guid>
+      <description>A sort by start for one pass, the nested interval that shortens a run without @max, and a sweep that counts open intervals.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 06:47:07 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Monotonic Stack</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/monotonic-stack/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/monotonic-stack/</guid>
+      <description>A stack of the indices that still wait for an answer, and the two counters that show the inner loop keeps the total linear.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 06:47:07 GMT</pubDate>
+    </item>
+    <item>
+      <title>Prefix Sums and Difference Arrays</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/prefix-sums/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/prefix-sums/</guid>
+      <description>One subtraction instead of a loop, an extra cell for index 0, and the same method in reverse for range updates.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 06:47:07 GMT</pubDate>
+    </item>
+    <item>
+      <title>Two Pointers</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/two-pointers/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/two-pointers/</guid>
+      <description>Two indices that start at opposite ends, and the argument that tells which index must move.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 06:47:07 GMT</pubDate>
+    </item>
+    <item>
+      <title>Union-Find (Disjoint Set Union)</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/union-find/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/union-find/</guid>
+      <description>Groups that merge when edges arrive. A merge moves one root in a parent array, and a find follows links to the root.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 06:47:07 GMT</pubDate>
+    </item>
+    <item>
+      <title>Read Line by Line</title>
+      <link>https://www.ziglang.in/learn/files/read-lines/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/files/read-lines/</guid>
+      <description>A line loop over a file, three types of line ending, a line longer than the buffer, and a large file through a small buffer.</description>
+      <category>Working with Files</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 05:56:37 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Monotonic Deque</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/monotonic-deque/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/monotonic-deque/</guid>
+      <description>The largest value in each window, from a deque with two ends that remove indices for two different reasons.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 05:22:36 GMT</pubDate>
+    </item>
+    <item>
+      <title>Installation</title>
+      <link>https://www.ziglang.in/learn/getting-started/installation/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/getting-started/installation/</guid>
+      <description>How to get a Zig master build, and why this guide needs one.</description>
+      <category>Getting Started</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 05:22:36 GMT</pubDate>
+    </item>
+    <item>
+      <title>What Changed in Zig 0.17</title>
+      <link>https://www.ziglang.in/learn/getting-started/zig-0-17/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/getting-started/zig-0-17/</guid>
+      <description>The changes between 0.16.0 and 0.17.0, checked on the two compilers.</description>
+      <category>Getting Started</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sun, 25 Oct 2026 05:22:36 GMT</pubDate>
+    </item>
+    <item>
+      <title>Build Lookup Tables</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/lookup-tables/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/lookup-tables/</guid>
+      <description>The compiler calculates a CRC-32 table, and the program checks it against the standard library.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 19:59:33 GMT</pubDate>
+    </item>
+    <item>
+      <title>Everything Is Bytes</title>
+      <link>https://www.ziglang.in/learn/systems-from-scratch/everything-is-bytes/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/systems-from-scratch/everything-is-bytes/</guid>
+      <description>A type is not a property of the bytes. A type is an agreement about how to read the bytes.</description>
+      <category>Systems from Scratch</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 19:43:03 GMT</pubDate>
+    </item>
+    <item>
+      <title>Structs Are Layout</title>
+      <link>https://www.ziglang.in/learn/systems-from-scratch/structs-are-layout/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/systems-from-scratch/structs-are-layout/</guid>
+      <description>Fields are next to each other in memory, and the size is not the sum of the parts.</description>
+      <category>Systems from Scratch</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 19:43:03 GMT</pubDate>
+    </item>
+    <item>
+      <title>Take or Skip: The 0/1 Knapsack</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/knapsack/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/knapsack/</guid>
+      <description>All subsets, the take-or-skip recursion, the table that stops repeats, the walk back to the items, and the one-row version with its loop direction.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 18:55:35 GMT</pubDate>
+    </item>
+    <item>
+      <title>Breadth-First Search on a Grid</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/grid-bfs/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/grid-bfs/</guid>
+      <description>The distance field as the frontier grows, and the one line with a position that decides if a cell can enter the queue two times.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 18:41:03 GMT</pubDate>
+    </item>
+    <item>
+      <title>Sliding Window</title>
+      <link>https://www.ziglang.in/learn/competitive-programming/sliding-window/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/competitive-programming/sliding-window/</guid>
+      <description>One addition and one subtraction instead of a new sum, the window that grows and shrinks, and the count that shows the total stays linear.</description>
+      <category>Competitive Programming</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 18:41:03 GMT</pubDate>
+    </item>
+    <item>
+      <title>Project: Parse Arguments from a Struct</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/args/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/args/</guid>
+      <description>The fields of a struct are the options. The compiler makes the parser and the help text.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:48:57 GMT</pubDate>
+    </item>
+    <item>
+      <title>Reject Bad Input with @compileError</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/compile-error/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/compile-error/</guid>
+      <description>Check the type that a generic function receives, and stop the build with a message that names the problem.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:48:57 GMT</pubDate>
+    </item>
+    <item>
+      <title>Dispatch with Comptime</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/dispatch/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/dispatch/</guid>
+      <description>Connect each tag of an enum to its handler at compile time, with a switch or with a table.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:48:57 GMT</pubDate>
+    </item>
+    <item>
+      <title>Project: A Typed Event Bus</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/event-bus/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/event-bus/</guid>
+      <description>Handlers are plain functions. The bus reads their parameter types and connects each one to its event during compilation.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:48:57 GMT</pubDate>
+    </item>
+    <item>
+      <title>Know the Limits</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/limits/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/limits/</guid>
+      <description>What comptime code cannot do, what to use instead, and what comptime costs.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:48:57 GMT</pubDate>
+    </item>
+    <item>
+      <title>Parse Strings at Compile Time</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/parse-strings/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/parse-strings/</guid>
+      <description>Parse a route pattern during compilation, and make a struct type for its parameters.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:48:57 GMT</pubDate>
+    </item>
+    <item>
+      <title>Project: Units of Measure</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/units/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/units/</guid>
+      <description>A number type that carries its unit. Metres times metres is an area, and metres plus seconds does not compile.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:48:57 GMT</pubDate>
+    </item>
+    <item>
+      <title>Comptime</title>
+      <link>https://www.ziglang.in/learn/language-basics/comptime/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/language-basics/comptime/</guid>
+      <description>Usual Zig code that the compiler runs.</description>
+      <category>Language</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:28:16 GMT</pubDate>
+    </item>
+    <item>
+      <title>Know What the Compiler Knows</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/compiler-knows/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/compiler-knows/</guid>
+      <description>The rule that decides which values the compiler can use, and four ways to use them.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:28:16 GMT</pubDate>
+    </item>
+    <item>
+      <title>Make a Type</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/make-a-type/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/make-a-type/</guid>
+      <description>Make integer, struct, enum and tuple types from comptime values, and write a Partial(T) patch type.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:28:16 GMT</pubDate>
+    </item>
+    <item>
+      <title>Read a Type</title>
+      <link>https://www.ziglang.in/learn/metaprogramming/read-a-type/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/metaprogramming/read-a-type/</guid>
+      <description>Use @typeInfo to list the fields of a struct, an enum and a union, then write a generic diff.</description>
+      <category>Comptime</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Sat, 24 Oct 2026 17:28:16 GMT</pubDate>
+    </item>
+    <item>
+      <title>Paint</title>
+      <link>https://www.ziglang.in/learn/browser/render/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/browser/render/</guid>
+      <description>A rectangle of memory, filled from back to front. The last write wins.</description>
+      <category>The Browser</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>Emit an Executable</title>
+      <link>https://www.ziglang.in/learn/build-system/emitting-an-executable/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/build-system/emitting-an-executable/</guid>
+      <description>How to build without a build.zig.</description>
+      <category>Build System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>Generate Documentation</title>
+      <link>https://www.ziglang.in/learn/build-system/generating-documentation/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/build-system/generating-documentation/</guid>
+      <description>Doc comments, and the site that Zig makes from them.</description>
+      <category>Build System</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>Async, Future and Group</title>
+      <link>https://www.ziglang.in/learn/concurrency/async-future-group/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/async-future-group/</guid>
+      <description>async, Future, and Group, all through the Io interface.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Batch Job Runner</title>
+      <link>https://www.ziglang.in/learn/concurrency/batch-runner/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/batch-runner/</guid>
+      <description>Four workers, one batch, three kinds of shared state, and a measurement that says one thread did all of the work.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>Choose an Io</title>
+      <link>https://www.ziglang.in/learn/concurrency/choosing-an-io/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/choosing-an-io/</guid>
+      <description>Threaded, the evented implementations, and how to build an Io yourself.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>Migrate from `std.Thread`</title>
+      <link>https://www.ziglang.in/learn/concurrency/coming-from-std-thread/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/concurrency/coming-from-std-thread/</guid>
+      <description>Seven names that Zig removed, where each one went, and why lock can now fail.</description>
+      <category>Concurrency</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>Keep It Balanced</title>
+      <link>https://www.ziglang.in/learn/data-structures/avl/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/data-structures/avl/</guid>
+      <description>Store a height, check it after each insert, and repair the shape with a local rotation. Four cases, and each case has five lines or fewer.</description>
+      <category>Data Structures</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>Make It Generic</title>
+      <link>https://www.ziglang.in/learn/data-structures/generic-list/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/data-structures/generic-list/</guid>
+      <description>Zig has no generics syntax. A generic container is a function that takes a type and returns a type at compile time.</description>
+      <category>Data Structures</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Linked List by Hand</title>
+      <link>https://www.ziglang.in/learn/data-structures/linked-list/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/data-structures/linked-list/</guid>
+      <description>The smallest structure that needs an allocator, an optional pointer and a deinit with the correct order.</description>
+      <category>Data Structures</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>Binary Files</title>
+      <link>https://www.ziglang.in/learn/files/binary-files/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/files/binary-files/</guid>
+      <description>A small binary format with a header, written one field at a time, and a reader that checks each byte that it did not write.</description>
+      <category>Working with Files</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+    <item>
+      <title>Read CSV</title>
+      <link>https://www.ziglang.in/learn/files/csv-read/</link>
+      <guid isPermaLink="true">https://www.ziglang.in/learn/files/csv-read/</guid>
+      <description>A CSV reader as a state machine with four states, a trace of each byte, the errors of a comma split, and line numbers.</description>
+      <category>Working with Files</category>
+      <dc:creator>Rajesh Pillai</dc:creator>
+      <pubDate>Mon, 19 Oct 2026 21:56:53 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

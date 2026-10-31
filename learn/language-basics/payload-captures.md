@@ -1,0 +1,142 @@
+# Payload Captures
+
+> The |value| syntax that unwraps all wrapper types.
+
+In Zig, `|value|` after `if`, `while`, `for`, `switch` or `catch` names the unwrapped payload. The payload is the non-null value, the success value, the active variant or the current element. `|*value|` captures a pointer instead. Thus writes change the original.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+const Shape = union(enum) {
+    circle: f32,
+    rect: struct { w: f32, h: f32 },
+};
+
+test "capture an optional" {
+    const maybe: ?u32 = 5;
+    if (maybe) |value| {
+        try expect(value == 5);
+    } else {
+        unreachable;
+    }
+}
+
+test "capture an error union" {
+    const result: anyerror!u32 = 7;
+    if (result) |value| {
+        try expect(value == 7);
+    } else |_| {
+        unreachable;
+    }
+}
+
+test "capture a union payload in switch" {
+    const s = Shape{ .rect = .{ .w = 2, .h = 3 } };
+    const area = switch (s) {
+        .circle => |r| 3.14 * r * r,
+        .rect => |r| r.w * r.h,
+    };
+    try expect(area == 6);
+}
+
+test "capture by pointer to mutate" {
+    var maybe: ?u32 = 5;
+    if (maybe) |*value| {
+        value.* += 1;
+    }
+    try expect(maybe.? == 6);
+}
+
+test "while captures until null" {
+    // A `while` over an expression that returns an optional stops at null.
+    var countdown: u32 = 3;
+    var seen: u32 = 0;
+    while (nextValue(&countdown)) |value| {
+        seen += value;
+    }
+    try expect(seen == 6); // 3 + 2 + 1
+}
+
+fn nextValue(state: *u32) ?u32 {
+    if (state.* == 0) return null;
+    defer state.* -= 1;
+    return state.*;
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.payload-captures`)*
+
+The `|value|` syntax is one idea. Zig uses it in each place where a value is inside a wrapper:
+
+| Construct | Captures |
+| --- | --- |
+| `if (optional) \|v\|` | the non-null payload |
+| `if (error_union) \|v\| else \|e\|` | the value, or the error |
+| `while (iter()) \|v\|` | each value until null |
+| `switch (tagged_union) { .a => \|v\| ... }` | the active variant's payload |
+| `for (slice) \|item\|` | each element |
+| `catch \|err\|` | the error |
+
+When you know the syntax for one wrapper type, you know it for all wrapper types in the language.
+
+## Why the test and the unwrap are one construct
+
+The capture makes these constructs safe. Zig has no `isSome()` with a separate `unwrap()`. An edit can move those two calls apart, and then the unwrap runs without the test.
+
+In Zig, the payload has a name only inside the branch where the payload exists. Outside that branch, there is no name that you can use incorrectly.
+
+The capture also explains why some operations do not exist:
+
+- You cannot ask an optional "are you null" and get a bool that you can store in a variable.
+- You cannot name the payload of a union variant that is not active.
+
+The language gives you the payload exactly where it is valid, and in no other place.
+
+## Capture a pointer to change the value
+
+`|*value|` captures a pointer, not a copy. Thus you can change the original value in place:
+
+```zig
+if (maybe) |*value| value.* += 1;
+
+switch (shape) {
+    .circle => |*r| r.* *= 2,
+    ...
+}
+```
+
+Without the `*`, you get a copy. If you change the copy, the original does not change, and there is no error. This is one of the few places where Zig lets you write code that looks correct but has no effect.
+
+To find this bug, ask what you hold:
+
+- `|v|` is a value that you own. You can change it, and nothing else changes.
+- `|*v|` is a pointer to the original. Thus writes change the original.
+
+When the payload is large, the pointer form also prevents the copy. But use the pointer form for correctness, not for speed.
+
+A pointer capture needs a location for the pointer. It works when the unwrapped value is in a mutable location: a `var`, a field or an element. A temporary value exists only for the duration of the expression. It has no fixed location, thus you cannot take its address. The compiler gives an error. It does not give you a pointer to memory that does not exist now.
+
+## `_` is also a capture
+
+Sometimes a construct requires a capture and you do not want the value. Then `_` discards the value, and you do not get the error for an unused variable:
+
+```zig
+while (it.next()) |_| : (n += 1) {}
+
+if (result) |v| use(v) else |_| return default;
+```
+
+The last line is the usual way to say "the type of the error is not important to me". It is easier to read than a `catch` that ignores the error, because the discard is where the error arrives.
+
+## More than one capture
+
+A `for` can capture from more than one sequence. The captures are in the same order as the operands:
+
+```zig
+for (names, scores, 0..) |name, score, i| { ... }
+```
+
+Each capture can be a pointer capture, independently of the others. Thus `for (&items, extras) |*item, x|` changes the first sequence and reads the second.
+
+The number of captures must be the same as the number of operands, and the compiler checks this. Thus, if you add a sequence and forget its capture, you get a compile error. You do not get a silent shift of each name by one position.

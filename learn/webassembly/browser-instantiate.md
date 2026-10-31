@@ -1,0 +1,133 @@
+# Recipe: Load wasm in the Browser
+
+> Fetch, instantiate, connect the imports and exports, and let a module call back into JavaScript.
+
+To load a Zig wasm module in the browser, give `fetch("module.wasm")` and an
+imports object to `WebAssembly.instantiateStreaming`. Then call the functions
+on `instance.exports`. The module calls back into JavaScript through `extern`
+functions. The imports object supplies these functions by name.
+
+## The problem
+
+You have a reactor module and a web page. The page must load the `.wasm` and
+call its functions. The module must be able to call back into JavaScript when
+necessary. This site does the same for each Run button. This page shows all
+the parts together.
+
+## The plan
+
+1. `fetch` the `.wasm`, and give the stream to `instantiateStreaming`.
+2. Give an **imports** object that supplies each function that the module
+   imports.
+3. Call the **exports** of the module, and let the module call your imports.
+
+```zig
+const std = @import("std");
+
+// The host (JavaScript) supplies this function at instantiation. The imports
+// object of the host must match the module name "env" and the symbol "log".
+extern "env" fn log(ptr: [*]const u8, len: usize) void;
+
+fn hostPrint(msg: []const u8) void {
+    log(msg.ptr, msg.len);
+}
+
+// The host calls this function. It then calls back to the host through
+// the import.
+export fn greet() void {
+    hostPrint("hello from wasm");
+}
+```
+
+*This module imports a host `log` function, and the WASI of Node does not supply it. Thus CI compiles the module but does not run it here. The JavaScript below runs it in a browser. (`08-webassembly.browser-import`)*
+
+This module imports and exports. It exports `greet`, and the page calls
+`greet`. Then `greet` calls out through `log`, which the module *imports*.
+`log` is an `extern` declaration with no body.
+
+The host must supply `log`, or the instantiation fails. For this reason, the
+guide cannot run this snippet through its WASI shim. Also for this reason, the
+page above shows the snippet without a Run button.
+
+## Fetch and instantiate
+
+`WebAssembly.instantiateStreaming` compiles the module during the download.
+This is faster than a download of the full file into a buffer first:
+
+```js
+const decoder = new TextDecoder();
+let memory;   // filled in once the instance exists
+
+const imports = {
+  env: {
+    // The module's `extern "env" fn log(ptr, len)` resolves to this.
+    log(ptr, len) {
+      const bytes = new Uint8Array(memory.buffer, ptr, len);
+      console.log(decoder.decode(bytes));
+    },
+  },
+};
+
+const { instance } = await WebAssembly.instantiateStreaming(
+  fetch("browser-import.wasm"),
+  imports,
+);
+memory = instance.exports.memory;
+
+instance.exports.greet();   // logs "hello from wasm"
+```
+
+## Imports resolve by name
+
+The module declared `extern "env" fn log(...)`. Those two names are the
+contract: the module name `env` and the field `log`. The imports object must
+have exactly `imports.env.log`. If it does not, the instantiation throws a
+`LinkError` that gives the name of the absent import.
+
+If you rename either side, the import does not resolve. The engine checks this
+interface at instantiation.
+
+Note that `log` reads the string from `memory` with the offset and length that
+the module gave. The module put "hello from wasm" in its linear memory, and it
+gave the location of the string. The host decodes the string at that location.
+It is the [boundary protocol](../linear-memory/) again, but now the module is
+the caller.
+
+## Order of operations
+
+There is a small circular dependency here:
+
+- The import `log` needs `memory` to read the string.
+- `memory` exists only after the engine creates the instance.
+- To create the instance, the engine needs the imports object.
+
+This works because instantiation only *defines* `log`, and does not *call*
+`log`. When `greet` runs and calls `log`, `memory` already has its value. The
+usual solution is the one above: a closure that reads `memory` only when it
+runs.
+
+## A note on `instantiateStreaming`
+
+`instantiateStreaming` needs the server to send the file with
+`Content-Type: application/wasm`. If your host sends the wrong type, the call
+rejects. To fix this, change the server configuration, or use the buffered
+fallback:
+
+```js
+const bytes = await fetch(url).then((r) => r.arrayBuffer());
+const { instance } = await WebAssembly.instantiate(bytes, imports);
+```
+
+The [JavaScript recipe](../export-to-js/) used the same path. The runner of
+this site also uses it, because the runner already has the bytes.
+
+## Variations
+
+- **Many imports:** put them in groups by module name. Use `imports.env` for
+  your own hooks. A WASI shim adds its own namespace next to it.
+- **Give complex data back:** here, `log` takes an offset and a length. Each
+  structured value (a JSON string, a packed struct) goes across in the same
+  way. The host decodes it from `memory`.
+- **This site, exactly:** the playground fetches the verified `.wasm`. It
+  builds a WASI import object, not a single `log`, and it calls `_start`. The
+  imports are different, but the mechanism is the same.

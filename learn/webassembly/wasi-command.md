@@ -1,0 +1,117 @@
+# Recipe: A WASI Command
+
+> Compile a Zig program to wasm and run it from a shell under any WASI runtime.
+
+To run a Zig program as WebAssembly outside the browser, do these steps:
+
+1. Build the program with `zig build-exe -target wasm32-wasi`.
+2. Run the `.wasm` under a WASI runtime, for example `wasmtime`, `wasmer` or
+   the `node:wasi` module of Node.
+
+The program itself needs no code that is specific to wasm.
+
+## The problem
+
+You have a Zig program with a `main`. You want a single `.wasm` that runs the
+same on Linux, macOS and Windows, without a new compilation. WASI makes this
+possible.
+
+WASI is the system interface for a wasm command. The command calls WASI for
+the OS operations (here, stdout) that pure wasm cannot do.
+
+## The plan
+
+1. Write an ordinary Zig program. Nothing in it is specific to wasm.
+2. Build the program for `wasm32-wasi`.
+3. Run the `.wasm` under a WASI runtime.
+
+```zig
+const std = @import("std");
+
+const document =
+    \\zig compiles to wasm
+    \\wasm runs in the browser
+    \\the browser runs this page
+;
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [256]u8 = undefined;
+    var fw = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &fw.interface;
+
+    var lines: usize = 0;
+    var words: usize = 0;
+    var it = std.mem.splitScalar(u8, document, '\n');
+    while (it.next()) |line| {
+        lines += 1;
+        var w = std.mem.tokenizeScalar(u8, line, ' ');
+        while (w.next()) |_| words += 1;
+    }
+
+    try out.print("lines: {d}\n", .{lines});
+    try out.print("words: {d}\n", .{words});
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`08-webassembly.wasi-command`)*
+
+The source is a normal program. It splits an embedded document and counts
+lines and words. It writes the totals to stdout through the `Io` instance that
+`main` receives. The code has no setup that is specific to wasm.
+
+## Build the program
+
+```bash
+zig build-exe wasi-command.zig -target wasm32-wasi -O ReleaseSmall
+```
+
+This command emits `wasi-command.wasm`. `-O ReleaseSmall` is more important
+here than on a native build. The module is a file that you ship or fetch, and
+the debug build is approximately thirty times larger. For exactly this reason,
+the `build.zig` of this guide uses that mode by default.
+
+## Run the program
+
+The module does not need a browser. Any WASI runtime runs it:
+
+```bash
+wasmtime wasi-command.wasm
+# lines: 3
+# words: 14
+
+wasmer wasi-command.wasm      # same output
+node --experimental-wasi-unstable-preview1 run.mjs   # via node:wasi
+```
+
+CI and the Run button on this page use the Node path. The runner
+(`tools/run-wasi.mjs` in this repo) is about a hundred lines. It opens the
+module, builds a WASI import object, and calls `_start`.
+
+## What WASI does
+
+The program prints through a buffered writer over stdout. On a native build,
+the flush lowers to a `write` syscall. On `wasm32-wasi`, the flush lowers to a
+call to an imported function, `fd_write`. The module does not contain
+`fd_write`. The runtime supplies it at instantiation.
+
+If you change the runtime, stdout goes to a different place, and the module
+stays the same byte for byte. Under wasmtime, stdout goes to a real terminal.
+Under the shim of this page, stdout goes to a captured buffer.
+
+The runtime decides which capabilities to give. A runtime can refuse to
+preopen directories. Then the same program can print, but it cannot read a
+file. That refusal is a real example of the sandbox from the
+[overview](../what-is-wasm/).
+
+## Variations
+
+- **Arguments and env:** WASI gives `argv` and environment variables when the
+  runtime decides to give them. Read them from the `std.process.Init` that
+  `main` receives, in the same way as on native. On WASI, the argument
+  iterator needs an allocator, so use `Args.Iterator.initAllocator`.
+- **Files:** `std.Io.Dir` works, but only inside directories that the runtime
+  preopened. The design makes all other files on disk unreachable.
+- **Exit status:** when `main` returns an error, the exit code is non-zero,
+  and the runtime reports it. Thus wasm commands work in shell pipelines like
+  all other tools.
