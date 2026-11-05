@@ -1,0 +1,96 @@
+# Recipe: Compress with zlib
+
+> Compress and decompress in one call each through the system zlib, linked from Zig.
+
+Zig can compress a buffer with the system zlib. Link `z`, translate the `zlib.h` header, and call `compressBound`, `compress2` and `uncompress` as usual C functions.
+
+## The problem
+
+You must make a buffer smaller before you write it or send it. zlib is a library that each machine already has. This recipe compresses a buffer, decompresses it again and checks the result.
+
+## The plan
+
+1. Ask `compressBound` for the largest possible size of the output. Make the destination buffer that size.
+2. `compress2(dest, &destLen, src, srcLen, level)` fills the buffer and changes `destLen` to the real size. `Z_OK` means success.
+3. `uncompress` does the opposite, into a buffer with the size of the original.
+4. Compare the result with the input.
+
+```zig
+const std = @import("std");
+const c = @import("c");
+
+fn check(rc: c_int) !void {
+    if (rc != c.Z_OK) return error.Zlib;
+}
+
+pub fn main(init: std.process.Init) !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const gpa = arena.allocator();
+
+    var buf: [256]u8 = undefined;
+    var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &file_writer.interface;
+
+    // Repetitive data, thus the size decreases by a large amount. (Zig removed
+    // the `**` string repeat from the language. Thus build the data in a loop.)
+    var input: std.ArrayList(u8) = .empty;
+    for (0..32) |_| try input.appendSlice(gpa, "the zig programming language. ");
+    const src = input.items;
+
+    // compressBound is the largest possible size of the output. Make the buffer that size.
+    var comp_len: c.uLongf = c.compressBound(@intCast(src.len));
+    const comp = try gpa.alloc(u8, @intCast(comp_len));
+    try check(c.compress2(comp.ptr, &comp_len, src.ptr, @intCast(src.len), 6));
+
+    // Decompress into a buffer with the size of the original.
+    var back_len: c.uLongf = @intCast(src.len);
+    const back = try gpa.alloc(u8, src.len);
+    try check(c.uncompress(back.ptr, &back_len, comp.ptr, comp_len));
+
+    // The program does not print the compressed size, on purpose. The size
+    // changes with the zlib version, and each line here must be reproducible.
+    // The relations do not change.
+    try out.print("original:           {d} bytes\n", .{src.len});
+    try out.print("compressed smaller: {}\n", .{comp_len < src.len});
+    try out.print("roundtrip matches:  {}\n", .{std.mem.eql(u8, src, back[0..@intCast(back_len)])});
+
+    try out.flush();
+}
+```
+
+*The program links the system libz. Thus CI builds and runs it natively. Browser wasm cannot link a C library. (`06-cookbook.zlib-compress`)*
+
+## Give the header and the library separately
+
+zlib shows that a header and a library can have different names. The library is `z` (you link it with `-lz`), but the header is `zlib.h`.
+
+The `build.zig` of this guide reads two markers from the snippet: `//! link: z` for the library and `//! cinclude: zlib.h` for the header. Then the build does these steps:
+
+1. It makes a header that includes `zlib.h`.
+2. It translates that header with a translate-c step.
+3. It links `z`.
+4. It gives the module to the snippet as `c`.
+
+For SQLite, the two names are the same. Thus SQLite needs only `//! link: sqlite3`. zlib needs both markers.
+
+## The size of the output buffer
+
+On input that does not compress, compression can make a few more bytes than it read. Thus you cannot assume that the output fits in the size of the input.
+
+`compressBound(srcLen)` returns the worst case, and the program uses that size for the destination buffer. After `compress2` returns, `destLen` holds the real compressed length. That length is almost always much smaller.
+
+`uncompress` uses the same in-out length pattern. You give the capacity of the buffer, and you get the real length back.
+
+## Why the page does not show the size
+
+The output reports that the compressed form is smaller and that the decompressed data matches the original. It does not report the exact number of compressed bytes. That number depends on the version of zlib.
+
+Each line that this guide prints must be reproducible on all of the machines that run it. The relations (smaller than the original, decompresses to the original) are true on all versions. Thus the snippet asserts those relations. To see the real ratio, print `comp_len` yourself.
+
+## Variations
+
+- **Levels:** the last argument to `compress2` is 0 to 9. A higher level gives a smaller size but takes more time. Level 6 is the usual default.
+- **Streaming:** some data is too large to keep in memory at one time. For that data, the zlib functions `deflate` and `inflate` work on chunks through a `z_stream`. The cost is more bookkeeping.
+- **Gzip framing:** `compress2` writes a zlib stream. For a `.gz` file with its header and CRC, use `deflateInit2` with the gzip window bits.
+- **Pure Zig:** `std.compress.flate` in the standard library does deflate and gzip, with no C linking. Use it when you do not want to depend on the system zlib.

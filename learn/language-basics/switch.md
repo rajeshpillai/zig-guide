@@ -1,0 +1,152 @@
+# Switch
+
+> Exhaustive by construction.
+
+In Zig, `switch` can match single values, lists such as `10, 100`, and inclusive ranges such as `-1...1`. You can also use `switch` as an expression, and put its value directly into a `const`.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "switch as a statement" {
+    var x: i8 = 10;
+    switch (x) {
+        -1...1 => x = -x, // inclusive ranges
+        10, 100 => x = @divExact(x, 10), // multiple values
+        else => {},
+    }
+    try expect(x == 1);
+}
+
+test "switch as an expression" {
+    const x: i8 = 10;
+    const y: i8 = switch (x) {
+        -1...1 => -x,
+        10, 100 => @divExact(x, 10),
+        else => 0,
+    };
+    try expect(y == 1);
+}
+
+const Direction = enum { north, south, east, west };
+
+fn isVertical(d: Direction) bool {
+    // No `else` branch: the compiler proves that the code handles each case.
+    // Thus a new enum tag later causes a compile error, not a bug.
+    return switch (d) {
+        .north, .south => true,
+        .east, .west => false,
+    };
+}
+
+test "exhaustive switch over an enum" {
+    try expect(isVertical(.north));
+    try expect(!isVertical(.east));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.switch`)*
+
+The Zig `switch` has no fallthrough, and it must be **exhaustive**. Each possible value needs a branch, or the program does not compile.
+
+Because there is no fallthrough, an arm does not need a `break` at its end. Thus there is no bug from a `break` that you forgot. An arm for many values lists the values. In C, that was the usual reason to use fallthrough.
+
+## Ranges and lists of values
+
+```zig
+switch (x) {
+    -1...1 => ...,      // inclusive range
+    10, 100 => ...,     // several values, one branch
+    else => ...,
+}
+```
+
+A `...` range includes the two ends. The `..` range in a `for` does not include the upper bound. The difference is intentional, and it is easy to make a mistake with it: `0..3` in a `for` gives three values, and `0...3` in a `switch` matches four.
+
+Cases must not overlap. If two arms can match the same value, the code does not compile. There is no rule that the first match wins. Thus the order of the arms never changes the behaviour.
+
+## A statement or an expression
+
+The snippet has the two forms:
+
+- In a statement, each arm does an action.
+- In an expression, each arm produces a value, and the full `switch` has that value.
+
+```zig
+const y: i8 = switch (x) {
+    -1...1 => -x,
+    10, 100 => @divExact(x, 10),
+    else => 0,
+};
+```
+
+Use the expression form where possible, for the same reason as [loops as expressions](https://www.ziglang.in/learn/language-basics/loops-as-expressions/). The result goes directly into a `const`, and each arm must produce a value.
+
+## The benefit of exhaustiveness
+
+When you switch over an enum and cover each tag, **do not write `else`**:
+
+```zig
+return switch (direction) {
+    .north, .south => true,
+    .east, .west => false,
+};
+```
+
+If you add a `.up` variant later, this code becomes a compile error. The error points directly at the code that you must update. If you add `else => false`, the switch puts the new direction in the horizontal group, and you get no error.
+
+With an `else` branch, the compiler cannot tell you about a new tag. Use `else` only when you want that result.
+
+The error names the tag that you did not handle, and points at its declaration:
+
+```
+error: switch must handle all possibilities
+note: unhandled enumeration value: 'west'
+```
+
+For an integer, "all possibilities" means all the values. A `switch` on a `u8` needs `else` or 256 arms. Thus `else` is usual on an integer, and suspicious on an enum.
+
+## Switch on a tagged union
+
+Each arm can capture the payload of the variant that it matched:
+
+```zig
+switch (value) {
+    .int => |n| useInt(n),
+    .text => |s| useText(s),
+}
+```
+
+When the arm must change the payload, capture by reference with `|*n|`. A switch is the main way to use a tagged union. [Unions](https://www.ziglang.in/learn/language-basics/unions/) and [payload captures](https://www.ziglang.in/learn/language-basics/payload-captures/) have more about this topic.
+
+## `inline else` and non-exhaustive enums
+
+Two more forms are useful when code generates code, and you do not write each case.
+
+`inline else` compiles a separate copy of the arm for each case that no other arm handles. In each copy, the tag is a comptime value:
+
+```zig
+switch (d) {
+    inline else => |tag| doSomething(@tagName(tag)),
+}
+```
+
+A usual `else` cannot do this, because at runtime the tag is only a number. With the inline form, code that uses reflection stays type-safe.
+
+An enum with a `_` at the end is non-exhaustive. Values outside its named tags are legal. Usually the numbers come from a protocol or a C header. A switch on such an enum uses `_`, not `else`:
+
+```zig
+const Op = enum(u8) { get = 1, set = 2, _ };
+
+switch (op) {
+    .get => ...,
+    .set => ...,
+    _ => return error.UnknownOpcode,
+}
+```
+
+`_` means "a value with no name". The exhaustiveness check for named tags still works. If you add `.delete` to the enum, this switch does not compile until you handle `.delete`. An `else` would hide the new tag.
+
+## A switch can have a label
+
+Give a switch a label. Then `continue :label value` runs the switch again with a new operand, and `break :label value` leaves the switch with a result. Thus a switch becomes a state machine with no loop around it. [Labelled switch](https://www.ziglang.in/learn/language-basics/labelled-switch/) is the chapter about this form.

@@ -1,0 +1,145 @@
+# Hash Maps
+
+> Key-value storage, and the getOrPut pattern.
+
+In Zig, a hash map is `std.AutoHashMapUnmanaged(K, V)`. When the keys are strings, use `std.StringHashMapUnmanaged(V)`. `map.getOrPut(gpa, key)` inserts or updates an entry with one lookup.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "string keys" {
+    const gpa = std.testing.allocator;
+    var map: std.StringHashMapUnmanaged(u32) = .empty;
+    defer map.deinit(gpa);
+
+    try map.put(gpa, "one", 1);
+    try map.put(gpa, "two", 2);
+
+    try expect(map.get("one").? == 1);
+    try expect(map.get("three") == null);
+    try expect(map.count() == 2);
+}
+
+test "auto hash for simple keys" {
+    const gpa = std.testing.allocator;
+    // AutoHashMap gets the hash and equality functions from the key type.
+    var map: std.AutoHashMapUnmanaged(u32, []const u8) = .empty;
+    defer map.deinit(gpa);
+
+    try map.put(gpa, 1, "one");
+    try expect(std.mem.eql(u8, map.get(1).?, "one"));
+}
+
+test "getOrPut avoids hashing twice" {
+    const gpa = std.testing.allocator;
+    var counts: std.StringHashMapUnmanaged(u32) = .empty;
+    defer counts.deinit(gpa);
+
+    for ([_][]const u8{ "a", "b", "a" }) |word| {
+        // One lookup, not a get and then a put.
+        const entry = try counts.getOrPut(gpa, word);
+        if (!entry.found_existing) entry.value_ptr.* = 0;
+        entry.value_ptr.* += 1;
+    }
+
+    try expect(counts.get("a").? == 2);
+    try expect(counts.get("b").? == 1);
+}
+
+test "iterate entries" {
+    const gpa = std.testing.allocator;
+    var map: std.AutoHashMapUnmanaged(u32, u32) = .empty;
+    defer map.deinit(gpa);
+
+    try map.put(gpa, 1, 10);
+    try map.put(gpa, 2, 20);
+
+    var total: u32 = 0;
+    var it = map.iterator();
+    while (it.next()) |entry| total += entry.value_ptr.*;
+    try expect(total == 30);
+}
+
+test "remove" {
+    const gpa = std.testing.allocator;
+    var map: std.StringHashMapUnmanaged(u32) = .empty;
+    defer map.deinit(gpa);
+
+    try map.put(gpa, "gone", 1);
+    try expect(map.remove("gone"));
+    try expect(map.count() == 0);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`03-standard-library.hash-maps`)*
+
+## Select a map
+
+| Type | For |
+| --- | --- |
+| `AutoHashMapUnmanaged(K, V)` | keys that Zig can hash automatically (integers, enums, simple structs) |
+| `StringHashMapUnmanaged(V)` | `[]const u8` keys |
+| `std.array_hash_map.Auto(K, V)` | when you need a stable insertion order |
+
+These maps are unmanaged, like `ArrayList`. Create a map with `.empty`, and give the allocator to each method that allocates.
+
+`AutoHashMap` refuses keys that it cannot hash safely, for example slices. The hash of the pointer is almost never what you want. For this reason, string keys have their own type.
+
+The refusal is a compile error, not a surprise at runtime. It is a good example of what comptime reflection can do. The map examines your key type at compile time. If the key type contains a pointer and the map must follow that pointer, the map stops and tells you. It does not hash the address without a report.
+
+Be careful with the third row. The iteration order of a plain hash map comes from the layout of the table, and the order changes when the map grows. An array hash map keeps the entries in a list next to the table. Thus an iteration gives you the insertion order, and the cost is one extra indirection.
+
+Use an array hash map when a person will read the output, or when a test compares the output with a fixture. A test that iterates over a plain hash map will fail one day for no visible reason.
+
+## Use `getOrPut`, not a get and then a put
+
+This idiom counts words:
+
+```zig
+const entry = try counts.getOrPut(gpa, word);
+if (!entry.found_existing) entry.value_ptr.* = 0;
+entry.value_ptr.* += 1;
+```
+
+The idiom does one hash and one lookup, not two. `entry.value_ptr` points into the map. Thus a write through the pointer changes the stored value in place.
+
+The pointer is valid only until the next insertion. This is the same rule as for `ArrayList.items`.
+
+The entry also has `entry.key_ptr`, which is important for the string case below. On a new insert, the map stores *your* slice as the key. Use `key_ptr` to replace that slice with a copy that you own.
+
+A full family of these functions exists:
+
+- `put` overwrites the value.
+- `putNoClobber` asserts that the key is new.
+- `fetchPut` returns the old value.
+- `getOrPutValue` supplies a default value in one call.
+
+Each function makes a common intention into one operation, not a lookup and then a decision.
+
+## The map does not copy the keys
+
+The map stores your key as you give it. For a string key, the map holds a slice that points at memory that the map does not own. If the program frees that memory or uses the memory again, the map is corrupt. Thus do one of these two things:
+
+- Keep the keys alive yourself.
+- Duplicate each key when you insert it, and free the key when you remove it.
+
+The version that duplicates the keys is short. Keep it as a template:
+
+```zig
+const entry = try map.getOrPut(gpa, name);
+if (!entry.found_existing) {
+    entry.key_ptr.* = try gpa.dupe(u8, name);
+    entry.value_ptr.* = 0;
+}
+```
+
+Before `deinit`, the teardown code iterates over the map and frees each `entry.key_ptr.*`. Code that uses maps often forgets this step, and the result is a leak. In a test, an allocator that checks for leaks finds this leak.
+
+You do *not* need to copy the keys when a different value owns them and lives longer than the map. Examples are string literals, names interned in an arena, and slices of a buffer that you hold for the full time. Then the map can borrow the keys correctly, and a copy is a waste.
+
+## The cost
+
+A hash map is not free at small sizes. For a small number of entries, a linear search through a plain array is usually faster, and it is always simpler. The hash and the indirection cost more than a scan of eight elements.
+
+The map is better when the count is so large that O(1) is better than O(n) by more than the constant. For cheap keys, this point is in the dozens. For expensive comparisons, the point is lower.

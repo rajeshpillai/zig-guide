@@ -1,0 +1,107 @@
+# Inline Loops
+
+> Unrolled loops where each iteration can have a different type.
+
+In Zig, `inline for` compiles the loop body one time for each iteration. Thus each iteration can handle a value of a different type. Code uses `inline for` to visit the elements of a tuple or the fields of a struct.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "inline for over a tuple" {
+    // The elements of a tuple have different types. Thus the compiler must
+    // compile the loop body separately for each element. `inline` does this.
+    const tuple = .{ @as(u8, 1), @as(f32, 2.5), true };
+    var count: usize = 0;
+    inline for (tuple) |value| {
+        if (@TypeOf(value) == bool) count += 10 else count += 1;
+    }
+    try expect(count == 12);
+}
+
+test "inline for over types" {
+    const types = [_]type{ u8, u16, u32 };
+    var total: usize = 0;
+    inline for (types) |T| {
+        total += @sizeOf(T);
+    }
+    try expect(total == 7);
+}
+
+test "the loop variable becomes comptime-known" {
+    var sum: usize = 0;
+    inline for (0..4) |i| {
+        // `i` is comptime here. Thus you can use `i` where a comptime value
+        // is necessary, for example the length of an array type.
+        const arr: [i]u8 = undefined;
+        sum += arr.len;
+    }
+    try expect(sum == 6); // 0 + 1 + 2 + 3
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.inline-loops`)*
+
+`inline for` unrolls the loop at compile time. Sometimes this helps performance, but the main reason for `inline for` is **types**.
+
+## Iterate over values of different types
+
+The elements of a tuple have different types. The compiler compiles a normal loop body one time, thus a normal loop cannot handle the different types. The compiler compiles an `inline for` body separately for each iteration. Thus `@TypeOf(value)` can be different each time:
+
+```zig
+inline for (tuple) |value| {
+    if (@TypeOf(value) == bool) { ... }
+}
+```
+
+`std.debug.print` uses `inline for` to visit its arguments. Serialisation code uses it to visit the fields of a struct.
+
+The `if` in that body is not a runtime branch. In each unrolled copy, the compiler knows `@TypeOf(value)` at comptime. Thus the condition becomes true or false during compilation, and the compiler generates only the branch that remains.
+
+A chain of twelve `if` conditions on types has no runtime cost, because eleven of the arms do not exist in the output.
+
+## The compiler knows the loop variable
+
+Inside `inline for (0..4) |i|`, `i` is a comptime value. Thus you can use `i` where the compiler must have a comptime value, for example in array lengths, type construction or field names:
+
+```zig
+const arr: [i]u8 = undefined;   // only valid because i is comptime
+```
+
+A comptime loop variable is the thing that makes reflection work. `@typeInfo(T).@"struct".field_names` is a comptime array of strings. When you visit it with `inline for`, you get each name as a comptime string. `@field(value, name)` can then use that string to read the field.
+
+A normal `for` gives you a runtime string. Zig has no runtime field lookup that can use a runtime string.
+
+```zig
+inline for (@typeInfo(@TypeOf(value)).@"struct".field_names) |name| {
+    try writer.print("{s}={any}\n", .{ name, @field(value, name) });
+}
+```
+
+Much of the generic code in the standard library has this shape.
+
+## If you used an older version of Zig
+
+Older Zig code uses `info.fields[i].name`. The current shape replaced it. Now `Type.Struct` has parallel arrays (`field_names`, `field_types`, `field_attrs`), not one array of field structs. A loop that needs only the names does not touch the other arrays.
+
+## `inline while` and `inline else`
+
+The same idea occurs on `while` and on `switch`:
+
+- On `while`, the compiler must know the condition at comptime. Then the compiler can decide how many copies to make.
+- On `switch`, `inline else` generates one arm for each case that is left. The tag is available as a comptime value.
+
+Use them in the same conditions as `inline for`. Use them when the body must know a value at compile time, and the runtime version would know the value only at runtime.
+
+## Use `inline` on purpose
+
+An unrolled loop multiplies the generated code by the number of iterations. For a tuple with 3 elements, the cost is very small. For `inline for (0..10000)`, the compile time and the binary size increase badly. Use `inline` when you need comptime values. Do not use it as a habit to make code faster.
+
+To use `inline` for speed is wrong for a second reason. The optimiser already unrolls the loops that it thinks are worth the cost. It uses cost information about the target that you do not have.
+
+If you write `inline` to make a loop fast, you override a decision that was probably better than yours. The cost then shows as longer compile times, not in a benchmark.
+
+A simple test is to ask if the body compiles without `inline`:
+
+- If the body compiles without `inline`, you probably do not need `inline`.
+- If the body does not compile, because it uses the loop variable where a comptime value is necessary, then `inline` is necessary. It is not an optimisation at all.

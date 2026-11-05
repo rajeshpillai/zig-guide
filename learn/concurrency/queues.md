@@ -1,0 +1,168 @@
+# Queues
+
+> Io.Queue as a bounded channel between tasks, with close and back pressure.
+
+Tasks that only start and stop need a `Future`. Tasks that give work to other
+tasks while they run need a queue. `std.Io.Queue` is the bounded channel:
+
+- It has a fixed capacity.
+- The two ends can block.
+- The sender can close the queue.
+
+```zig
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+
+    var buf: [256]u8 = undefined;
+    var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
+    const out = &file_writer.interface;
+
+    // The queue owns no memory. The capacity is the buffer that you give it.
+    var storage: [4]u32 = undefined;
+    var queue: std.Io.Queue(u32) = .init(&storage);
+
+    // `put` blocks when the queue is full, unless you ask for a minimum of
+    // zero. Then it takes the elements that fit and returns their count.
+    const accepted = try queue.put(io, &.{ 1, 2, 3, 4, 5, 6 }, 0);
+    try out.print("accepted {d} of 6\n", .{accepted});
+
+    // A close tells the receiver that no more elements will come. The queue
+    // still delivers the elements in the buffer before it tells the receiver.
+    queue.close(io);
+
+    var total: u32 = 0;
+    while (queue.getOne(io)) |value| {
+        total += value;
+    } else |err| {
+        try out.print("drained {d}, then {s}\n", .{ total, @errorName(err) });
+    }
+
+    // A closed queue refuses new elements, also when the buffer is empty.
+    queue.putOne(io, 7) catch |err| {
+        try out.print("put after close: {s}\n", .{@errorName(err)});
+    };
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`03-standard-library.queues`)*
+
+## Capacity is a buffer that you supply
+
+```zig
+var storage: [4]u32 = undefined;
+var queue: std.Io.Queue(u32) = .init(&storage);
+```
+
+The queue allocates nothing. It is a ring over the array that you give it.
+Thus you decide its capacity, its lifetime and its location, the same as with
+`Io.Writer`. Usually, the queue is on the stack of the function that spawns
+the two tasks.
+
+## `put` and `get` take a minimum
+
+```zig
+const accepted = try queue.put(io, &.{ 1, 2, 3, 4, 5, 6 }, 0);
+```
+
+The last argument is the number of elements that the call must move before it
+can return. `putAll` and `putOne` move all the elements or block. A minimum
+of zero never blocks. The call moves the elements that fit and returns the
+count. Above, the count is 4, because the capacity is 4. `get` works in
+exactly the same way.
+
+That parameter makes batches cheap. A consumer can ask for a minimum of one
+and give a buffer of 64. Then one call gets all the elements that are in the
+queue now. The call blocks only when the queue is empty.
+
+## Close the queue to tell the receiver to stop
+
+```zig
+queue.close(io);
+```
+
+A closed queue rejects new elements immediately. But it delivers all the
+elements that are already in the buffer before it reports `error.Closed`.
+Thus the loop reads until the error, and it knows that it lost no elements:
+
+```zig
+while (queue.getOne(io)) |value| {
+    total += value;
+} else |err| { ... }
+```
+
+The consumer does not need to know how many elements will come. Thus a
+producer can decide the number of elements while it sends them.
+
+## Back pressure between two tasks
+
+```zig
+const std = @import("std");
+
+/// Fills the queue and closes it. The capacity is two. Thus the function blocks
+/// before it is done, and it continues when the consumer removes elements.
+/// This is back pressure, and it needs no more code.
+fn produce(io: std.Io, queue: *std.Io.Queue(u32)) void {
+    for (1..6) |i| {
+        queue.putOne(io, @intCast(i)) catch return;
+    }
+    queue.close(io);
+}
+
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+
+    var buf: [256]u8 = undefined;
+    var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
+    const out = &file_writer.interface;
+
+    var storage: [2]u32 = undefined;
+    var queue: std.Io.Queue(u32) = .init(&storage);
+
+    var producer = try io.concurrent(produce, .{ io, &queue });
+    defer producer.await(io);
+
+    // The consumer never asks how many elements will come. It reads until the
+    // sender closes the queue. That is the reason for `error.Closed`.
+    while (queue.getOne(io)) |value| {
+        try out.print("got {d}\n", .{value});
+    } else |err| {
+        try out.print("sender is done: {s}\n", .{@errorName(err)});
+    }
+
+    try out.flush();
+}
+```
+
+*CI builds and runs this program natively. The producer must make progress while the consumer waits. That needs io.concurrent, and single-threaded wasm cannot give it. (`03-standard-library.queue-worker`)*
+
+The capacity is two, and the producer has five elements to send. Thus the
+producer blocks before it is done. It continues when the consumer removes
+elements from the queue.
+
+No other code controls this behaviour. A full queue blocks the sender, and
+that block *is* the back pressure. The pair runs at the speed of the slower
+side.
+
+This case needs
+[`io.concurrent`](https://www.ziglang.in/learn/concurrency/async-future-group/), not `io.async`. A
+producer that starts with `async` can run inline until it fills the queue and
+blocks. The consumer that must empty the queue still waits for `async` to
+return.
+
+The two functions exist because of this deadlock. This deadlock is also the
+reason that this snippet is native, and the snippet at the top of the page is
+not.
+
+## Cancellation
+
+Each blocking call here is a cancellation point. `put`, `get`, and their
+`One` and `All` forms return `Cancelable` errors. The `Uncancelable` variants
+are for cleanup paths, and they do not report cancellation.
+
+See [Cancellation](https://www.ziglang.in/learn/concurrency/cancellation/). The rule that you
+return `error.Canceled` to the caller applies to a blocked producer, the same
+as in all other code.

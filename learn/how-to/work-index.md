@@ -1,0 +1,86 @@
+# Recipe: An Atomic Work Index
+
+> Dynamic load balancing with fetchAdd, without locks or chunks.
+
+An atomic work index in Zig is a shared `std.atomic.Value(usize)`. Each thread increments it with `fetchAdd(1, .monotonic)` to claim its next job. A thread that completes its work early claims the next job, and no lock is necessary.
+
+## The problem
+
+Static chunks (one part of the slice for each thread) balance the load only when all items have the same cost. Item 7 can take a hundred times longer than item 8. Then the thread with the chunk of item 7 completes last, and the other threads have no work.
+
+You want each thread to get the next job when it is free, as workers take tickets from a dispenser.
+
+A mutex around a `next_job` counter works, but the counter is the full critical section. Atomics do the same work without a lock.
+
+## The plan
+
+1. Share two atomics. `next` is the index of the next job that no thread claimed. `total` is the result so far.
+2. Each worker runs a loop. It claims an index, and stops when the index is past the end. If the index is not past the end, the worker processes the job and adds the result to `total` with another `fetchAdd`.
+3. Spawn the workers, `join` them, and read the total.
+
+```zig
+const std = @import("std");
+
+const jobs = blk: {
+    var j: [100]u64 = undefined;
+    for (&j, 1..) |*x, i| x.* = i;
+    break :blk j;
+};
+
+fn worker(next: *std.atomic.Value(usize), total: *std.atomic.Value(u64)) void {
+    while (true) {
+        // fetchAdd gives each index exactly one time, with no lock. Two threads
+        // can race here, but they never get the same job.
+        const i = next.fetchAdd(1, .monotonic);
+        if (i >= jobs.len) return;
+
+        const result = jobs[i] * jobs[i]; // the "work"
+        _ = total.fetchAdd(result, .monotonic);
+    }
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [256]u8 = undefined;
+    var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &file_writer.interface;
+
+    var next = std.atomic.Value(usize).init(0);
+    var total = std.atomic.Value(u64).init(0);
+
+    var threads: [4]std.Thread = undefined;
+    for (&threads) |*t| {
+        t.* = try std.Thread.spawn(.{}, worker, .{ &next, &total });
+    }
+    for (threads) |t| t.join();
+
+    // The threads completed in a random order. But each job ran exactly one
+    // time. Thus the sum is the same on each run.
+    try out.print("sum of squares 1..100: {d}\n", .{total.load(.monotonic)});
+
+    try out.flush();
+}
+```
+
+*CI builds and runs this program natively. wasm32-wasi has a single thread. Thus std.Thread.spawn does not compile for that target. (`06-cookbook.work-index`)*
+
+## Why fetchAdd cannot give one job to two threads
+
+`fetchAdd` is one indivisible read-modify-write. It returns the old value and stores the incremented value. No other thread can run between the read and the write. Two threads in a race on the same counter always get two different indices.
+
+That guarantee is the main reason to use an atomic here, more than speed. The absence of a lock is an extra benefit.
+
+Both atomics use `.monotonic` ordering, because each atomic is independent. No thread reads `total` before `join`, and `join` already gives the visibility guarantee.
+
+When one atomic must publish writes to *other* memory, the ordering becomes more difficult. Keep counters independent, and the simplest ordering stays correct.
+
+## When threads claim more indices than there are jobs
+
+Each worker stops when it claims an index past the end. With 4 threads, exactly 4 claims are past the end, and the counter ends after `jobs.len`. This is normal and causes no problem.
+
+Do not use the final value of the counter as the number of completed jobs. If you need that number, count the completions separately.
+
+## Variations
+
+- **Claim a batch:** `fetchAdd(16, ...)` gives sixteen jobs for each claim. When jobs are very small, this decreases the contention on the counter.
+- **Results for each job:** when each job makes data and not a number to add, write to `results[i]`. Only the thread that claimed `i` writes that slot. Thus the write needs no lock.
+- **Compare with chunks:** the [parallel sum](https://www.ziglang.in/learn/how-to/parallel-sum/) recipe is the static version. Use it when the cost of each item is the same, because it never uses a shared counter.

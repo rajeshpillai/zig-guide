@@ -1,0 +1,173 @@
+# Runtime Safety
+
+> Checked illegal behaviour, and where the checks go.
+
+Zig inserts runtime checks for a group of mistakes that C leaves undefined. Examples are an out-of-bounds index, integer overflow, an invalid cast, and the unwrap of a null optional. When a check fails, the program panics with a clear message. It does not silently read the next data in memory.
+
+Press **Run**. The program reads index 5 of an array that has three elements:
+
+```zig
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    _ = init;
+
+    // Zig inserts checks for out-of-bounds access, integer overflow, invalid
+    // casts, and more. In a build with safety checks, this code panics with
+    // "index out of bounds". It does not read the memory after the array.
+    const array = [_]u8{ 1, 2, 3 };
+    var index: usize = 5;
+    _ = &index; // stop comptime evaluation
+    const value = array[index];
+    std.debug.print("never printed: {d}\n", .{value});
+}
+
+// This program panics intentionally. CI runs it and requires it to stop with
+// exactly the message that this chapter quotes.
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.runtime-safety`)*
+
+```
+panic: index out of bounds: index 5, len 3
+```
+
+The message gives the index that the program used and the length that was the limit. The `std.debug.print` on the next line never runs, and the program reads no memory outside the array. In C, the same three lines produce a number. The number depends on the data that is in memory after the array.
+
+## Integer overflow
+
+Arithmetic gets the same treatment. This program adds 1 to a `u8` that holds 255:
+
+```zig
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    _ = init;
+
+    var x: u8 = 255;
+    _ = &x; // stop comptime evaluation
+
+    // 256 does not fit in a u8. `+=` is the checked add. In this build, the
+    // check runs and the program stops here. In ReleaseFast or ReleaseSmall,
+    // there is no check, and the value is undefined. Zig does not guarantee
+    // that the value wraps.
+    x += 1;
+
+    std.debug.print("never printed: {d}\n", .{x});
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.safety-overflow`)*
+
+```
+panic: integer overflow
+```
+
+C gives you 0 here, without a message, and the bug then causes a problem in a different part of the program. Zig stops at the line that is wrong.
+
+Plain `+` does not guess if you want the value to wrap. A wrap is correct in a hash function or a checksum. Thus Zig gives the wrap a different operator, and the choice is visible where you write the operation:
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "+% wraps, and says so at the call site" {
+    var x: u8 = 255;
+    _ = &x;
+    // `x + 1` is the checked add, and it stops the program. `+%` is a different
+    // operator. It has a defined answer in each build mode.
+    try expect(x +% 1 == 0);
+}
+
+test "+| saturates at the limit instead" {
+    var x: u8 = 250;
+    _ = &x;
+    try expect(x +| 10 == 255);
+}
+
+test "@addWithOverflow reports rather than stops" {
+    var x: u8 = 255;
+    _ = &x;
+    // A tuple: the wrapped value, and a u1 that is 1 when an overflow occurred.
+    const result = @addWithOverflow(x, 1);
+    try expect(result[0] == 0);
+    try expect(result[1] == 1);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.safety-wrapping`)*
+
+- `+%` wraps.
+- `+|` saturates at the limit of the type.
+- `@addWithOverflow` returns the wrapped value and a flag that tells if an overflow occurred.
+
+All three have a defined result in each build mode, because you asked for that behaviour. Plain `+` means "this operation must not overflow, and tell me if it does".
+
+## A null optional
+
+`.?` on an optional is an assertion, not a conversion. It says that the value is not null. When the value is null, the check fails:
+
+```zig
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    _ = init;
+
+    var maybe: ?u32 = null;
+    _ = &maybe; // stop comptime evaluation
+
+    // `.?` is a claim: "this is not null, give me the payload". Here the claim
+    // is false. Thus the check stops the program. The program does not return
+    // the unknown bits that are in the payload.
+    const value = maybe.?;
+
+    std.debug.print("never printed: {d}\n", .{value});
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.safety-null-unwrap`)*
+
+```
+panic: attempt to use null value
+```
+
+You will see this check more frequently than the others. `.?` is an easy choice when the alternative is to handle a case that you are sure cannot occur.
+
+This check also has the best alternatives. `orelse` gives a default. `if (maybe) |value|` gives you the payload only on the branch where the payload exists. [Optionals](https://www.ziglang.in/learn/language-basics/optionals/) has more about the two alternatives.
+
+## Safety depends on the build mode
+
+| Mode | Safety checks | Optimised |
+| --- | --- | --- |
+| `Debug` | yes | no |
+| `ReleaseSafe` | yes | yes |
+| `ReleaseFast` | **no** | yes |
+| `ReleaseSmall` | **no** | yes |
+
+C never gives you this choice explicitly. `ReleaseSafe` keeps the checks, and it is a reasonable default for production. `ReleaseFast` removes the checks to make the program faster.
+
+Where the build removes a check, the error that the check caught becomes **illegal behaviour**. Illegal behaviour is the same category as undefined behaviour in C, with the same results.
+
+<aside>
+
+**Runtime safety does not make incorrect code correct.** It makes some types of incorrect code fail with a message. Without the checks, the program continues with corrupted state.
+
+Each panic on this page comes from a program that was wrong before the check failed. A read of index 5 of an array with three elements is a bug in `Debug` and a bug in `ReleaseFast`. The only difference is if you find the bug.
+
+The checks do not define correct code. They report code that breaks the rules. If a program panics under `ReleaseSafe`, a build with `ReleaseFast` does not repair the bug. The bug stays in the program, and the program does not report it now.
+
+</aside>
+
+To change the setting for one scope, use `@setRuntimeSafety(true)`. For example, use it to keep bounds checks in one difficult function where speed is important, in a build that is otherwise `ReleaseFast`.
+
+<aside>
+
+The snippets on this site build as `ReleaseSmall`, where the checks are off. Three snippets on this page are the exception: the out-of-bounds read, the overflow and the null unwrap. The site builds these three as `ReleaseSafe` intentionally, because a chapter about a check must be able to show the check fail.
+
+The site build runs all three on each change. It requires each one to stop with exactly the message above it. Thus a nightly check confirms those messages, and nobody has to remember them.
+
+Each of the three costs about 1.1 MB. A usual snippet here is 79 KB. The extra size is the checks and the code that prints their messages. The browser downloads it only when you press Run on that snippet.
+
+The snippet with `+%` and `+|` is a usual `ReleaseSmall` build. `+%`, `+|` and `@addWithOverflow` have a defined result in each mode, so they need no check to show their behaviour.
+
+</aside>

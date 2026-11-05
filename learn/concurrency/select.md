@@ -1,0 +1,139 @@
+# Select
+
+> Wait for the task that completes first, and cancel the other tasks.
+
+`Future.await` waits for one task. `Group.await` waits for all of the tasks.
+`std.Io.Select` is the third shape. It waits for the task that completes
+first. Then you decide what to do with the other tasks. The most frequent case
+that you will write is a request against a timeout.
+
+```zig
+const std = @import("std");
+
+/// The result of the winner arrives as this union. The tag is the arm that
+/// made the result.
+const Outcome = union(enum) {
+    reply: u32,
+    timeout: void,
+};
+
+fn request(io: std.Io, delay: std.Io.Duration) u32 {
+    io.sleep(delay, .awake) catch return 0;
+    return 42;
+}
+
+fn deadline(io: std.Io, after: std.Io.Duration) void {
+    io.sleep(after, .awake) catch {};
+}
+
+/// Runs the two arms, reports the arm that completed first, and cancels the
+/// other arm. The two durations are different by an hour. Thus the code
+/// decides the winner, not the load on the computer.
+fn race(
+    io: std.Io,
+    out: *std.Io.Writer,
+    reply_after: std.Io.Duration,
+    timeout_after: std.Io.Duration,
+) !void {
+    var slots: [2]Outcome = undefined;
+    var select: std.Io.Select(Outcome) = .init(io, &slots);
+
+    try select.concurrent(.reply, request, .{ io, reply_after });
+    try select.concurrent(.timeout, deadline, .{ io, timeout_after });
+
+    switch (try select.await()) {
+        .reply => |value| try out.print("reply: {d}\n", .{value}),
+        .timeout => try out.print("timed out\n", .{}),
+    }
+
+    // The arm that lost still runs. A select owns its tasks. Thus a cancel of
+    // the select stops the arm, and no task remains when this function returns.
+    select.cancelDiscard();
+}
+
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+
+    var buf: [256]u8 = undefined;
+    var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
+    const out = &file_writer.interface;
+
+    try race(io, out, .fromMilliseconds(1), .fromSeconds(3600));
+    try race(io, out, .fromSeconds(3600), .fromMilliseconds(1));
+
+    try out.flush();
+}
+```
+
+*CI builds and runs this program natively. A race needs the arms to run at the same time. That needs io.concurrent, and single-threaded wasm cannot give it. (`03-standard-library.select`)*
+
+## The union is the result
+
+```zig
+const Outcome = union(enum) {
+    reply: u32,
+    timeout: void,
+};
+
+var slots: [2]Outcome = undefined;
+var select: std.Io.Select(Outcome) = .init(io, &slots);
+```
+
+Each arm is a field. `Select(U)` is a `Group` and a `Queue(U)` together. Thus
+the buffer that you pass is the buffer of the queue. The buffer must have
+space for each task that you spawn.
+
+If you cancel with less space than that, the result is a deadlock. The
+cancelled tasks still need a place to put their results.
+
+```zig
+try select.concurrent(.reply, request, .{ io, reply_after });
+try select.concurrent(.timeout, deadline, .{ io, timeout_after });
+
+switch (try select.await()) {
+    .reply => |value| ...,
+    .timeout => ...,
+}
+```
+
+The field name is comptime, and the return type of the function must agree
+with that field. Thus, if an arm returns the wrong type, the result is a
+compile error, not a union with the wrong tag at run time.
+
+`await` returns when one arm completes. Call `await` again for the next arm,
+or stop.
+
+## The other arms still run
+
+```zig
+select.cancelDiscard();
+```
+
+A select owns its tasks, the same as a `Group`. When `await` returns, the arm
+that lost still runs. `cancelDiscard` sends a cancellation request to all of
+the tasks. It waits until they are done, and it discards their results.
+
+Use `cancel` instead when an arm can return a value that you must free.
+`cancel` returns one outstanding result on each call. Call it in a loop until it
+returns `null`.
+
+If you do not cancel, the result is not a leak in the usual meaning. But you
+cannot destroy the select while a task still points into its buffer. Thus you
+get no advantage when you omit the cancel.
+
+## Use `concurrent` for the arms
+
+`select.async` exists, and it agrees with `Group.async`. But arms that can run
+inline do not really race. On an `Io` that runs tasks inline, the first arm
+that you spawn runs first until it completes. Thus it wins each time.
+
+For a timeout arm, this means that the program sleeps for the full timeout
+before the request starts. For that reason, the arms here use `concurrent`.
+The snippet is native, because wasm cannot give `concurrent`.
+
+The durations in the snippet are different by an hour in each direction. This
+difference is intentional. The code decides the winner, not the load on the
+computer. Thus the expected output is correct on CI.
+
+If the difference is only some milliseconds, the winner can change from one
+run to the next. Then the test can fail sometimes.

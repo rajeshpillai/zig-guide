@@ -1,0 +1,138 @@
+# Enums
+
+> Named values, fixed tags, and methods.
+
+A Zig enum is a type. Its value is exactly one tag from a fixed set of named tags. An enum can do three more things:
+
+- It can set its integer tag type with `enum(u8)`.
+- It can declare methods.
+- It can accept values that are not named tags. A `_` at the end of the tag list makes the enum non-exhaustive.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+const Direction = enum { north, south, east, west };
+
+// You can set the tag type. The tag type fixes the numeric values.
+const Value = enum(u8) { zero = 0, one = 1, hundred = 100 };
+
+const Suit = enum {
+    clubs,
+    spades,
+    diamonds,
+    hearts,
+
+    // Enums can have methods. They are functions in a namespace, not vtables.
+    pub fn isRed(self: Suit) bool {
+        return switch (self) {
+            .diamonds, .hearts => true,
+            .clubs, .spades => false,
+        };
+    }
+};
+
+test "enum values" {
+    try expect(@intFromEnum(Value.zero) == 0);
+    try expect(@intFromEnum(Value.hundred) == 100);
+}
+
+test "inferred enum literals" {
+    // When the compiler knows the type, `.north` is sufficient.
+    const d: Direction = .north;
+    try expect(d == Direction.north);
+}
+
+test "enum methods" {
+    try expect(Suit.hearts.isRed());
+    try expect(!Suit.spades.isRed());
+}
+
+test "enums expose their tags at comptime" {
+    const info = @typeInfo(Direction).@"enum";
+
+    // Names and values are parallel arrays, not one array of field structs.
+    try expect(info.field_names.len == 4);
+    try expect(info.field_values.len == info.field_names.len);
+    try expect(std.mem.eql(u8, info.field_names[2], "east"));
+
+    try expect(info.tag_type == u2);
+    try expect(info.mode == .exhaustive);
+
+    try expect(std.mem.eql(u8, @tagName(Direction.east), "east"));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.enums`)*
+
+## Inferred literals
+
+When the compiler knows the expected type, the dot at the start is sufficient:
+
+```zig
+const d: Direction = .north;
+takeDirection(.south);
+```
+
+Thus `switch` prongs and struct literals stay easy to read, and you do not write the type name again in each place.
+
+`.north` alone has its own type, the enum literal type. This type coerces to each enum that has a tag with the same name. Thus the same `.north` works for two unrelated enums in two different calls.
+
+## Set the representation
+
+```zig
+const Value = enum(u8) { zero = 0, one = 1, hundred = 100 };
+```
+
+When you specify the tag type, you fix the size and the numeric values. This is important for wire formats and for C interop.
+
+To convert, use `@intFromEnum` and `@enumFromInt`. In safety builds, Zig checks `@enumFromInt`, because not all integers are valid tags.
+
+Without a tag type, the compiler selects the smallest integer that fits. It gives the tags numbers from zero. Thus `@intFromEnum` still works on a plain enum, and the values still have the order of the declaration. But do not write these numbers into a file format. When the numbers go out of your program, set the tag type.
+
+## Non-exhaustive enums
+
+A `_` at the end of the list says that values outside the named tags are legal:
+
+```zig
+const Opcode = enum(u8) { get = 1, set = 2, _ };
+```
+
+Use this type for a byte that comes from a network or a C library, where you do not control the set of values. `@enumFromInt` on such an enum cannot fail, because each value is legal.
+
+A `switch` uses `_` for the unnamed values, not `else`. Thus the compiler still checks that the `switch` has a prong for each named tag. See [switch](https://www.ziglang.in/learn/language-basics/switch/).
+
+## Methods
+
+Enums can declare functions. `Suit.hearts.isRed()` is exactly `Suit.isRed(Suit.hearts)`. The method syntax is a shorter way to give the receiver as the first argument. The call goes directly to that function, with no dynamic dispatch.
+
+Enums can also contain constants and nested types. Thus an enum is a good place for the parsing and the formatting that belong to it.
+
+For example, put a `fromString` that returns `?Suit` next to a `toString` that returns `[]const u8`. Then the full mapping is in one place. `std.meta.stringToEnum(Suit, text)` can also write the parsing half for you from the tag names.
+
+## Reflection
+
+`@typeInfo(T).@"enum"` gives the tags at comptime:
+
+```zig
+const info = @typeInfo(Direction).@"enum";
+info.field_names[2];   // "east"
+info.field_values[2];  // 2
+info.tag_type;         // u2
+info.mode;             // .exhaustive
+```
+
+These are **parallel arrays**, not one array of field structs. Older tutorials show `info.fields[i].name`. That shape does not exist now.
+
+The change occurred between `0.17.0-dev.644` and `dev.1441`. When the compiler got that update, this change was the only break in this guide.
+
+`@tagName` gives the name as a string. With `@tagName` and these arrays, generic code can print or parse enums without a table that you write by hand.
+
+Use `inline for` on `field_names`, and you have a parser, a formatter or a table of all cases. The compiler makes them from the declaration, thus they always agree with the declaration. See [inline loops](https://www.ziglang.in/learn/language-basics/inline-loops/).
+
+## Enums and the alternatives
+
+Use an enum when a value is exactly one item of a fixed, known set, and the value contains no other data. The other conditions need different types:
+
+- If each case needs its own payload, use a [tagged union](https://www.ziglang.in/learn/language-basics/unions/). A tagged union is an enum with data.
+- If the cases are independent flags that you can combine, an enum is the wrong shape. Use a `packed struct` of `bool` fields. It gives you named bits in a single integer.

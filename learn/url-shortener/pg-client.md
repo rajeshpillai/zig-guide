@@ -1,0 +1,399 @@
+# A Postgres Client
+
+> Startup, password auth, a row iterator and error recovery, with tests against scripted bytes.
+
+A PostgreSQL client in Zig uses the wire protocol directly. `PgClient` does
+these tasks:
+
+- It sends the startup message.
+- It answers the password request from the server.
+- It returns rows through an iterator.
+- It changes an `ErrorResponse` into a Zig error, and keeps the connection.
+
+The client reads from a `Reader`. Thus its tests use scripted bytes, not a
+database.
+
+## The problem
+
+The [cookbook recipe](https://www.ziglang.in/learn/how-to/databases/postgres-wire/) showed that the
+wire protocol is only messages with a tag and a length prefix. But a recipe is
+not a client. The service in this project needs a client that it can call
+without attention to bytes.
+
+The client must keep the connection after an error. A shortener gets
+constraint violations in normal operation. If a client stopped the connection
+on each error, the client would connect again all the time.
+
+## The plan
+
+1. `PgClient` holds a reader, a writer, and the last known state of the
+   server. The client never opens a socket. The owner of the connection gives
+   the streams to the client.
+2. `connect` sends the startup message and does the handshake. If the server
+   asks for a password, `connect` sends the password.
+3. `query` returns `Rows`, an iterator. The column names come in the
+   `RowDescription` message. The values come in `DataRow` messages, one
+   message for each row.
+4. An `ErrorResponse` becomes a Zig error. The client keeps the SQL state code
+   and the message. First, the iterator reads all messages until
+   `ReadyForQuery`. Thus the connection is immediately usable again.
+
+The demo talks to a scripted backend. The backend is the server half of two
+conversations, written into a buffer before the demo starts. The client cannot
+see a difference, because it parses a `Reader` and does not know the source of
+the bytes. This guide uses the same seam in other chapters. With this seam, a
+driver can have regression tests without a database in CI.
+
+```zig
+const std = @import("std");
+
+// ------------------------------------------- framing, the same as the recipe
+// Postgres frames all data big-endian: a tag byte, an Int32 length that
+// counts itself but not the tag, then the payload.
+
+fn putInt(comptime T: type, w: *std.Io.Writer, v: T) !void {
+    var b: [@divExact(@typeInfo(T).int.bits, 8)]u8 = undefined;
+    std.mem.writeInt(T, &b, v, .big);
+    try w.writeAll(&b);
+}
+
+fn sendMsg(w: *std.Io.Writer, tag: u8, payload: []const u8) !void {
+    try w.writeAll(&.{tag});
+    try putInt(i32, w, @intCast(payload.len + 4));
+    try w.writeAll(payload);
+}
+
+const Cursor = struct {
+    b: []const u8,
+    i: usize = 0,
+    fn int(self: *Cursor, comptime T: type) T {
+        const n = @divExact(@typeInfo(T).int.bits, 8);
+        const v = std.mem.readInt(T, self.b[self.i..][0..n], .big);
+        self.i += n;
+        return v;
+    }
+    fn cstr(self: *Cursor) []const u8 {
+        const start = self.i;
+        while (self.b[self.i] != 0) self.i += 1;
+        defer self.i += 1;
+        return self.b[start..self.i];
+    }
+};
+
+// ------------------------------------------------------------- the client
+
+const max_columns = 8;
+
+/// A Postgres connection: a reader, a writer, and the state of the last
+/// server message. It never uses a socket. The owner of the connection
+/// gives the two streams to it. Thus the demo below can give a script.
+const PgClient = struct {
+    r: *std.Io.Reader,
+    w: *std.Io.Writer,
+    msg_buf: [512]u8 = undefined,
+    asked_for_password: bool = false,
+    /// From the last ReadyForQuery: 'I' idle, 'T' in transaction, 'E' failed.
+    ready_status: u8 = 0,
+    err_code: [5]u8 = undefined,
+    err_msg: [256]u8 = undefined,
+    err_msg_len: usize = 0,
+
+    const Msg = struct { tag: u8, payload: []const u8 };
+
+    fn readMsg(self: *PgClient) !Msg {
+        var tag: [1]u8 = undefined;
+        try self.r.readSliceAll(&tag);
+        var len_bytes: [4]u8 = undefined;
+        try self.r.readSliceAll(&len_bytes);
+        const len = std.mem.readInt(i32, &len_bytes, .big);
+        const payload = self.msg_buf[0..@intCast(len - 4)];
+        try self.r.readSliceAll(payload);
+        return .{ .tag = tag[0], .payload = payload };
+    }
+
+    /// Startup and authentication, until the first ReadyForQuery. The
+    /// server selects the auth method. This client supports "none" and
+    /// "cleartext password", and loopback setups use these methods. SCRAM,
+    /// the production method, is one more case here.
+    fn connect(r: *std.Io.Reader, w: *std.Io.Writer, user: []const u8, database: []const u8, password: []const u8) !PgClient {
+        var body_buf: [128]u8 = undefined;
+        var body: std.Io.Writer = .fixed(&body_buf);
+        try putInt(i32, &body, 196608); // protocol 3.0
+        for ([_][]const u8{ "user", user, "database", database }) |s| {
+            try body.writeAll(s);
+            try body.writeAll("\x00");
+        }
+        try body.writeAll("\x00");
+        // The startup message alone has no tag byte.
+        try putInt(i32, w, @intCast(4 + body.buffered().len));
+        try w.writeAll(body.buffered());
+        try w.flush();
+
+        var client = PgClient{ .r = r, .w = w };
+        while (true) {
+            const m = try client.readMsg();
+            var c = Cursor{ .b = m.payload };
+            switch (m.tag) {
+                'R' => switch (c.int(i32)) {
+                    0 => {}, // AuthenticationOk
+                    3 => { // AuthenticationCleartextPassword
+                        client.asked_for_password = true;
+                        var pw_buf: [64]u8 = undefined;
+                        var pw: std.Io.Writer = .fixed(&pw_buf);
+                        try pw.writeAll(password);
+                        try pw.writeAll("\x00");
+                        try sendMsg(w, 'p', pw.buffered());
+                        try w.flush();
+                    },
+                    else => return error.UnsupportedAuth,
+                },
+                'S', 'K' => {}, // parameters and cancel key: the client ignores them
+                'E' => {
+                    client.storeError(m.payload);
+                    return error.ConnectFailed;
+                },
+                'Z' => {
+                    client.ready_status = m.payload[0];
+                    return client;
+                },
+                else => {},
+            }
+        }
+    }
+
+    fn storeError(self: *PgClient, payload: []const u8) void {
+        // ErrorResponse is a list of fields: a type byte and a C string.
+        // The list ends at a zero byte. The useful fields are code and message.
+        var c = Cursor{ .b = payload };
+        while (c.b[c.i] != 0) {
+            const kind = c.b[c.i];
+            c.i += 1;
+            const text = c.cstr();
+            switch (kind) {
+                'C' => @memcpy(&self.err_code, text[0..5]),
+                'M' => {
+                    const n = @min(text.len, self.err_msg.len);
+                    @memcpy(self.err_msg[0..n], text[0..n]);
+                    self.err_msg_len = n;
+                },
+                else => {},
+            }
+        }
+    }
+
+    fn errorMessage(self: *const PgClient) []const u8 {
+        return self.err_msg[0..self.err_msg_len];
+    }
+
+    fn query(self: *PgClient, sql: []const u8) !Rows {
+        var sql_buf: [256]u8 = undefined;
+        var q: std.Io.Writer = .fixed(&sql_buf);
+        try q.writeAll(sql);
+        try q.writeAll("\x00");
+        try sendMsg(self.w, 'Q', q.buffered());
+        try self.w.flush();
+        return .{ .client = self };
+    }
+};
+
+/// Row iteration. Column values are slices into the message buffer of the
+/// client. They are valid until the next call, exactly like the zero-copy
+/// row of a real driver. Copy the values that you keep.
+const Rows = struct {
+    client: *PgClient,
+    column_count: usize = 0,
+    names: [max_columns][24]u8 = undefined,
+    name_lens: [max_columns]usize = @splat(0),
+
+    const Row = struct { values: [max_columns][]const u8, count: usize };
+
+    fn name(self: *const Rows, i: usize) []const u8 {
+        return self.names[i][0..self.name_lens[i]];
+    }
+
+    fn next(self: *Rows) !?Row {
+        while (true) {
+            const m = try self.client.readMsg();
+            var c = Cursor{ .b = m.payload };
+            switch (m.tag) {
+                'T' => { // RowDescription: the names come now, the values come in 'D' messages
+                    self.column_count = @intCast(c.int(i16));
+                    for (0..self.column_count) |i| {
+                        const n = c.cstr();
+                        const len = @min(n.len, self.names[i].len);
+                        @memcpy(self.names[i][0..len], n[0..len]);
+                        self.name_lens[i] = len;
+                        // table oid, attnum, type oid, typlen, typmod,
+                        // format: 18 bytes that this client does not use.
+                        c.i += 18;
+                    }
+                },
+                'D' => {
+                    var row = Row{ .values = undefined, .count = @intCast(c.int(i16)) };
+                    for (0..row.count) |i| {
+                        const len = c.int(i32);
+                        if (len < 0) {
+                            row.values[i] = "<null>";
+                            continue;
+                        }
+                        row.values[i] = c.b[c.i..][0..@intCast(len)];
+                        c.i += @intCast(len);
+                    }
+                    return row;
+                },
+                'C' => {}, // CommandComplete. The tag repeats the command that the client sent.
+                'E' => {
+                    self.client.storeError(m.payload);
+                    // Read until ReadyForQuery, to keep the connection usable.
+                    while ((try self.client.readMsg()).tag != 'Z') {}
+                    self.client.ready_status = 'I';
+                    return error.QueryFailed;
+                },
+                'Z' => {
+                    self.client.ready_status = m.payload[0];
+                    return null;
+                },
+                else => {},
+            }
+        }
+    }
+};
+
+// ---------------------------------------------------- a scripted backend
+
+/// The server half of two conversations, written into a buffer before the
+/// demo starts. The client cannot see a difference. It parses a `Reader`, and
+/// bytes from a script look the same as bytes from a socket. This site uses
+/// the same method frequently. With this method, a driver can have
+/// regression tests without a database in CI.
+fn scriptBackend(w: *std.Io.Writer) !void {
+    var pbuf: [256]u8 = undefined;
+    var p: std.Io.Writer = .fixed(&pbuf);
+
+    // Connection: ask for a password, accept it, then send ready.
+    try putInt(i32, &p, 3); // AuthenticationCleartextPassword
+    try sendMsg(w, 'R', p.buffered());
+    p = .fixed(&pbuf);
+    try putInt(i32, &p, 0); // AuthenticationOk
+    try sendMsg(w, 'R', p.buffered());
+    try sendMsg(w, 'S', "server_version\x0016.4\x00");
+    try sendMsg(w, 'Z', "I");
+
+    // The SELECT: three columns, one row, then complete.
+    p = .fixed(&pbuf);
+    try putInt(i16, &p, 3);
+    for ([_][]const u8{ "id", "target", "hits" }) |col| {
+        try p.writeAll(col);
+        try p.writeAll("\x00");
+        try putInt(i32, &p, 0); // table oid
+        try putInt(i16, &p, 0); // column number
+        try putInt(i32, &p, 25); // type oid: text
+        try putInt(i16, &p, -1); // variable length
+        try putInt(i32, &p, -1); // no modifier
+        try putInt(i16, &p, 0); // text format
+    }
+    try sendMsg(w, 'T', p.buffered());
+    p = .fixed(&pbuf);
+    try putInt(i16, &p, 3);
+    for ([_][]const u8{ "7", "https://ziglang.org", "41" }) |val| {
+        try putInt(i32, &p, @intCast(val.len));
+        try p.writeAll(val);
+    }
+    try sendMsg(w, 'D', p.buffered());
+    try sendMsg(w, 'C', "SELECT 1\x00");
+    try sendMsg(w, 'Z', "I");
+
+    // The INSERT: the server rejects it, but then sends ready again.
+    try sendMsg(w, 'E', "SERROR\x00C23505\x00" ++
+        "Mduplicate key value violates unique constraint \"links_slug_key\"\x00\x00");
+    try sendMsg(w, 'Z', "I");
+}
+
+pub fn main(init: std.process.Init) !void {
+    var buf: [2048]u8 = undefined;
+    var file_writer = std.Io.File.stdout().writerStreaming(init.io, &buf);
+    const out = &file_writer.interface;
+
+    var backend_bytes: [1024]u8 = undefined;
+    var backend: std.Io.Writer = .fixed(&backend_bytes);
+    try scriptBackend(&backend);
+
+    var sent: [512]u8 = undefined; // what the client sends. The demo does not check it.
+    var to_server: std.Io.Writer = .fixed(&sent);
+    var from_server: std.Io.Reader = .fixed(backend.buffered());
+
+    var client = try PgClient.connect(&from_server, &to_server, "shortener", "links", "hunter2");
+    try out.print("connect: password asked: {}, ready: {c}\n", .{
+        client.asked_for_password, client.ready_status,
+    });
+
+    try out.writeAll("\nquery: SELECT id, target, hits FROM links WHERE slug = 'zig1'\n");
+    var rows = try client.query("SELECT id, target, hits FROM links WHERE slug = 'zig1'");
+    while (try rows.next()) |row| {
+        try out.writeAll("  row:");
+        for (0..row.count) |i| {
+            try out.print(" {s}={s}", .{ rows.name(i), row.values[i] });
+        }
+        try out.writeAll("\n");
+    }
+
+    try out.writeAll("\nquery: INSERT INTO links (slug, target) VALUES ('zig1', ...)\n");
+    var failing = try client.query("INSERT INTO links (slug, target) VALUES ('zig1', 'https://example.com')");
+    _ = failing.next() catch {
+        try out.print("  error {s}: {s}\n", .{ client.err_code, client.errorMessage() });
+    };
+    try out.print("  connection after the failure: ready: {c}\n", .{client.ready_status});
+
+    try out.flush();
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`22-url-shortener.pg-client`)*
+
+## The server selects the auth method
+
+The client does not decide how to authenticate. It answers the request in the
+`R` message:
+
+- Code 0 means that the server accepted the client.
+- Code 3 means: send the password in clear text. Loopback setups use this
+  method, and this client supports it.
+
+A standard Postgres asks for SCRAM. SCRAM is a challenge-response exchange
+that never sends the password on the wire. SCRAM fits into the same `switch`
+as one more case. The [final chapter](https://www.ziglang.in/learn/url-shortener/the-server/) tells
+you how to configure a local server to use the method that this client knows.
+
+## The client lends rows, and does not give them
+
+The column values from `next` are slices into the message buffer of the
+client. They are valid until the client reads the next message. Real drivers
+work the same way, for the same reason: the alternative is one allocation for
+each row.
+
+This design has a cost. The caller must follow a rule: copy the
+values that you keep. The store in the server chapter copies each value that
+it returns. The comment on `drain` in that file states this rule in one line.
+
+## An error is a message, not a disconnection
+
+Look at the failed INSERT at the end of the trace. The server sends an
+`ErrorResponse` with a five-character SQL state (`23505` is a unique
+violation), then a `ReadyForQuery`. For the server, only the transaction
+failed, and the connection is still correct.
+
+The client stores the code and the message, reads until the server is ready,
+and returns `error.QueryFailed`. The routes can then change "duplicate slug"
+into a response, and they do not need to connect again.
+
+## Variations
+
+- **More of the handshake:** the scripted backend sends one
+  `ParameterStatus`, and a real server sends a dozen. The client ignores them.
+  Most drivers ignore most of them.
+- **Null:** a column can be null on the wire (length -1). Null is not the empty
+  string. This client uses a marker for null. A real driver shows the
+  difference in the type.
+- **The script is a test:** write a script for a bug that you found before.
+  For example, use a truncated row or an error in the middle of the results.
+  Then you have a regression test that is faster than any integration suite.

@@ -1,0 +1,126 @@
+# Recipe: Call Zig from JavaScript
+
+> Build a reactor module with exported functions and call them by name from a host.
+
+To call Zig from JavaScript, do these steps:
+
+1. Mark the function `export fn`.
+2. Build for `wasm32-freestanding` with `-fno-entry` and `--export=<name>`.
+3. After `WebAssembly.instantiate` returns, call the function as
+   `instance.exports.<name>`.
+
+## The problem
+
+Usual uses are a hot loop, a parser, or math that is slow in the JavaScript
+engine. The module has no `main`. JavaScript instantiates the module one time,
+and then calls its functions when necessary. That is the reactor shape from the
+[overview](../what-is-wasm/).
+
+## The plan
+
+1. Mark each function that the host must call with `export fn`.
+2. Build for `wasm32-freestanding` with `-fno-entry`, and give the names of the
+   exports.
+3. Instantiate in JavaScript and call `instance.exports.<name>`.
+
+```zig
+const std = @import("std");
+
+export fn add(a: i32, b: i32) i32 {
+    return a + b;
+}
+
+export fn fib(n: u32) u64 {
+    var a: u64 = 0;
+    var b: u64 = 1;
+    var i: u32 = 0;
+    while (i < n) : (i += 1) {
+        const next = a + b;
+        a = b;
+        b = next;
+    }
+    return a;
+}
+
+test add {
+    try std.testing.expectEqual(@as(i32, 5), add(2, 3));
+}
+
+test fib {
+    try std.testing.expectEqual(@as(u64, 55), fib(10));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`08-webassembly.export-to-js`)*
+
+Here, the Run button runs the `test` blocks of the file, because this guide
+verifies each snippet in that way. In real use, nothing calls these functions
+as Zig tests. The functions exist for calls from outside. The tests only prove
+that the functions return the values that the text below gives.
+
+## Export the functions
+
+`export fn` does two things:
+
+- It makes sure that dead-code elimination does not remove the function.
+- It puts the function in the export table of the module, under its exact Zig
+  name.
+
+There is no name mangling and no wrapper. `add` in Zig is `add` in the export
+table.
+
+The signatures use only `i32` and `u32`/`u64`, and this is intentional. Those
+types map directly to the numeric types of wasm. Thus you do not have to think
+about marshalling at the boundary. `fib` returns a `u64`, and a JavaScript host
+receives a `u64` as a `BigInt`.
+
+## Build the reactor
+
+```bash
+zig build-exe export-to-js.zig \
+  -target wasm32-freestanding \
+  -O ReleaseSmall -fno-entry \
+  --export=add --export=fib
+```
+
+`-fno-entry` tells the linker that there is no `_start`. This module is a
+reactor, not a command. `--export=` gives the name of each function to expose.
+
+`export fn` marks the functions in the source. But on a freestanding link, the
+linker still removes the symbols, unless something roots them. `--export` is
+that root.
+
+You can give `-rdynamic` instead. Then the module exports each public symbol,
+also compiler internals like the stack pointer. When you give the names, the
+module contains only what you intended to ship.
+
+The result is very small. These two functions and the memory are about 135
+bytes.
+
+## Call the functions
+
+```js
+const bytes = await fetch("export-to-js.wasm").then((r) => r.arrayBuffer());
+const { instance } = await WebAssembly.instantiate(bytes, {});
+
+console.log(instance.exports.add(2, 3));    // 5
+console.log(instance.exports.fib(10));      // 55n  (the u64 return is a BigInt)
+```
+
+The second argument to `instantiate` is the imports object. Here, the object is
+empty, because this module imports nothing. The module only calculates. When a
+module needs something from the host, you supply it in that object. The
+[browser recipe](../browser-instantiate/) shows this.
+
+## Variations
+
+- **Give data that is larger than a number:** strings, slices and structs do
+  not fit in a wasm value. They go through linear memory as an offset and a
+  length. The [next recipe](../linear-memory/) shows that handshake.
+- **Use a different export name:** the Zig name and the name for the host can be
+  different. In that case, use `@export(&foo, .{ .name = "bar" })`, and give
+  `foo` a `callconv(.c)`. `@export` does not add a calling convention, but
+  `export fn` does. `bar` is the name in the export table.
+- **Many instances:** each `WebAssembly.instantiate` gives a new instance with
+  its own memory. Thus if two workers call the same module, their states stay
+  separate.

@@ -1,0 +1,270 @@
+# Migrate from an Older Zig
+
+> The changes between the last stable releases and the master that this guide uses.
+
+This guide uses **Zig master**. The version in the footer is the compiler that compiled and ran each snippet on this site. If you use a tagged release, some of this code does not build for you.
+
+This site has no separate guide for each release. This page gives you the **delta**. For each change, the page shows what changed, the current shape, and the chapter that explains it. Usually, that is the information that you need.
+
+If your code already builds on 0.16.0, read [What Changed in Zig 0.17](https://www.ziglang.in/learn/getting-started/zig-0-17/). That page explains only the last step. It also tells you which old code still compiles and which old code does not compile.
+
+<aside>
+
+**Why you cannot run the old code below.** Each other snippet on this site has a Run button, because CI compiled and ran it. The "before" examples on this page show old code that *cannot* compile on current Zig. Thus this page shows them as plain code. CI checks the "after" side in the chapter that each example links to.
+
+</aside>
+
+## At a glance
+
+| What | Before | Now |
+| --- | --- | --- |
+| `main` signature | `pub fn main() !void` | `pub fn main(init: std.process.Init) !void` |
+| Writers | unbuffered, no flush | buffered, **must** `flush` |
+| File API | `std.fs.File` | `std.Io.File`, and takes an `Io` |
+| Array repeat | `"-" ** 5` | `@splat` (`**` is **gone**) |
+| `ArrayList` | `init(allocator)` | `.empty`, allocator per call |
+| Mutex | `std.Thread.Mutex` | `std.Io.Mutex`, `lock(io)` |
+| Custom `format` | four parameters, used by `{}` | one writer parameter, used by `{f}` |
+| Enum reflection | `info.fields[i].name` | `info.field_names[i]` |
+| `addExecutable` | source file directly | `root_module` |
+| Search in `std.mem` | `indexOf`, `indexOfScalar` | `find`, `findScalar` |
+| Format into memory | `std.fmt.bufPrint`, `allocPrint` | `std.mem.print`, `Allocator.print` |
+| Allocator that finds leaks | `GeneralPurposeAllocator`, then `DebugAllocator` | `std.heap.SafeAllocator` |
+
+---
+
+## `main` takes an argument
+
+This change breaks the first program that you write.
+
+```zig
+// before
+pub fn main() !void {
+    std.debug.print("Hello\n", .{});
+}
+```
+
+```zig
+// now
+pub fn main(init: std.process.Init) !void {
+    try std.Io.File.stdout().writeStreamingAll(init.io, "Hello\n");
+}
+```
+
+`init.io` is an **`Io` instance**. It uses the same idea as `Allocator`, and applies the idea to all operations that can block. There is no global stdout. Your code writes only through an `Io` that a caller gives to it.
+
+→ [Hello World](https://www.ziglang.in/learn/getting-started/hello-world/)
+
+## Writers have a buffer ("writergate", 0.15)
+
+```zig
+// before: appeared immediately
+const stdout = std.io.getStdOut().writer();
+try stdout.print("{d}\n", .{42});
+```
+
+```zig
+// now: nothing is written until you flush
+var buf: [1024]u8 = undefined;
+var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
+const out = &file_writer.interface;
+try out.print("{d}\n", .{42});
+try out.flush();          // ← forget this and you get no output at all
+```
+
+The buffer is part of the *interface*. Thus you supply the buffer, and Zig does no hidden allocation. If you use an older tutorial, a common problem is that the code does not call `flush`.
+
+→ [Readers and Writers](https://www.ziglang.in/learn/standard-library/readers-and-writers/)
+
+## Filesystem moved onto `Io` (0.16)
+
+```zig
+// before
+var file = try std.fs.cwd().openFile("data.txt", .{});
+defer file.close();
+```
+
+```zig
+// now
+var dir = std.Io.Dir.cwd();
+const file = try dir.openFile(io, "data.txt", .{});
+defer file.close(io);
+```
+
+The rule is the same in all of the standard library: each operation on the disk takes the `io` instance.
+
+→ [Filesystem](https://www.ziglang.in/learn/standard-library/filesystem/)
+
+## `**` no longer exists
+
+```zig
+// before
+const dashes = "-" ** 5;
+```
+
+```zig
+// now
+const dashes: [5]u8 = @splat('-');
+```
+
+The error message for this change is not clear. `**` is not a token now. The compiler reports **"binary operator `*` has whitespace on one side, but not the other"**. The message does not tell you that `**` is gone. The change has no effect on `++` concatenation.
+
+→ [Arrays](https://www.ziglang.in/learn/language-basics/arrays/)
+
+## `ArrayList` and hash maps are unmanaged
+
+```zig
+// before: the list stored your allocator
+var list = std.ArrayList(u8).init(allocator);
+defer list.deinit();
+try list.append('a');
+```
+
+```zig
+// now: you pass it to anything that can allocate
+var list: std.ArrayList(u8) = .empty;
+defer list.deinit(gpa);
+try list.append(gpa, 'a');
+```
+
+You type more code, but you can see the allocator at each call that can fail. The same change applies to `StringHashMapUnmanaged` and `AutoHashMapUnmanaged`.
+
+→ [ArrayList](https://www.ziglang.in/learn/standard-library/arraylist/) · [Hash
+Maps](https://www.ziglang.in/learn/standard-library/hash-maps/)
+
+## Synchronisation moved to `Io`
+
+```zig
+// before
+var mutex: std.Thread.Mutex = .{};
+mutex.lock();
+defer mutex.unlock();
+```
+
+```zig
+// now
+var mutex: std.Io.Mutex = .init;
+try mutex.lock(io);
+defer mutex.unlock(io);
+```
+
+The only cause of a failure in `lock` is a *cancel* operation.
+
+Seven declarations had the same change, and none of them has a deprecated alias. `Mutex`, `RwLock`, `Semaphore`, `Condition`, `ResetEvent`, `WaitGroup` and `Pool` are not on `std.Thread` now. Each declaration that waits now takes an `Io` and is in `std.Io`. `std.Thread.spawn` did not move, and the four other calls for an OS thread also did not move. Structured concurrency with `io.async` and `Io.Group` is the better default. It also works on targets that have no threads.
+
+→ [Migrate from `std.Thread`](https://www.ziglang.in/learn/concurrency/coming-from-std-thread/) ·
+[Threads](https://www.ziglang.in/learn/concurrency/threads/) ·
+[Concurrency](https://www.ziglang.in/learn/concurrency/async-future-group/)
+
+## Custom `format` methods
+
+```zig
+// before
+pub fn format(
+    self: Point,
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) !void { ... }
+```
+
+```zig
+// now
+pub fn format(self: Point, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+    try writer.print("({d}, {d})", .{ self.x, self.y });
+}
+```
+
+Also, **`{}` does not call the `format` method now**. To call it, use `{f}`. `{t}` prints the name of an enum tag or of an error.
+
+→ [Advanced Formatting](https://www.ziglang.in/learn/standard-library/advanced-formatting/)
+
+## Enum reflection
+
+```zig
+// before
+const fields = @typeInfo(Direction).@"enum".fields;
+fields[2].name;
+```
+
+```zig
+// now: parallel arrays
+const info = @typeInfo(Direction).@"enum";
+info.field_names[2];
+info.field_values[2];
+```
+
+This change is recent. It came into master between `0.17.0-dev.644` and `dev.1441`. At that time, this guide had 53 snippets. Across approximately 800 commits of compiler updates, this change was the only one that broke a snippet.
+
+→ [Enums](https://www.ziglang.in/learn/language-basics/enums/)
+
+## `build.zig`
+
+```zig
+// before
+const exe = b.addExecutable(.{
+    .name = "app",
+    .root_source_file = b.path("src/main.zig"),
+    .target = target,
+    .optimize = optimize,
+});
+```
+
+```zig
+// now: build the module first
+const exe = b.addExecutable(.{
+    .name = "app",
+    .root_module = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    }),
+});
+```
+
+→ [Zig Build](https://www.ziglang.in/learn/build-system/zig-build/)
+
+---
+
+## Renames that still compile
+
+Each change above causes a compile error. The changes in this group do not cause an error. The old names are still in the standard library source, as aliases with the `Deprecated` mark. Code that uses the old names builds and runs exactly as before. Thus a tutorial can use an old name, and no tool reports it. This rule also applies to this tutorial.
+
+```zig
+// before
+const at = std.mem.indexOf(u8, line, ": ");
+const text = try std.fmt.bufPrint(&buf, "{d}", .{n});
+const owned = try std.fmt.allocPrint(gpa, "{d}", .{n});
+var debug: std.heap.DebugAllocator(.{}) = .init;
+var seen: std.StaticBitSet(64) = .empty;
+```
+
+```zig
+// now
+const at = std.mem.find(u8, line, ": ");
+const text = try std.mem.print(&buf, "{d}", .{n});
+const owned = try gpa.print("{d}", .{n});
+var safe: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
+var seen: std.bit_set.Static(64) = .empty;
+```
+
+All of the `indexOf` functions moved to `find`. `Allocator.print` is the formatter that allocates. `SafeAllocator` also has a different shape. It takes its backing allocator as an argument, and `deinit()` returns a leak count, not `.ok` or `.leak`.
+
+The run that compiles each snippet on this site also compares the snippet with the deprecated names in the standard library. Without that check, this guide would not find these new names.
+
+→ [Strings](https://www.ziglang.in/learn/standard-library/strings/) ·
+[Formatting](https://www.ziglang.in/learn/standard-library/formatting/) ·
+[Allocators](https://www.ziglang.in/learn/standard-library/allocators/)
+
+---
+
+## If you stay on a release
+
+You do not need to upgrade quickly. For most work, a tagged release is the correct choice. This guide uses master, thus its code agrees with the current language.
+
+Use this page to translate the code:
+
+1. Read the chapter for the concept.
+2. Change the syntax to the syntax of your release.
+
+The *ideas* did not change: explicit allocators, errors as values, exhaustive switches, `defer` and comptime. Put your attention on these ideas.

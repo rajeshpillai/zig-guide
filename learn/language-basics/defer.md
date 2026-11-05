@@ -1,0 +1,159 @@
+# Defer
+
+> Cleanup code that runs on each path out of a scope.
+
+In Zig, you write cleanup code with `defer`. Put the release on the line below the acquisition. When the scope exits, the deferred statements run in reverse order. `errdefer` does the same, but only when the function returns an error.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "defer runs at scope exit" {
+    var x: i16 = 5;
+    {
+        defer x += 2;
+        try expect(x == 5); // not yet
+    }
+    try expect(x == 7); // now
+}
+
+test "defers run in reverse order" {
+    // The last defer that you register runs first. Thus the cleanup occurs
+    // in the reverse order of the acquisitions.
+    var order: [3]u8 = undefined;
+    var index: usize = 0;
+    {
+        defer {
+            order[index] = 1;
+            index += 1;
+        }
+        defer {
+            order[index] = 2;
+            index += 1;
+        }
+        defer {
+            order[index] = 3;
+            index += 1;
+        }
+    }
+    try expect(order[0] == 3);
+    try expect(order[2] == 1);
+}
+
+fn mightFail(fail: bool) !u8 {
+    var cleaned = false;
+    // `errdefer` runs only when the function returns an error.
+    errdefer cleaned = true;
+    if (fail) return error.Nope;
+    return @intFromBool(cleaned);
+}
+
+test "errdefer only fires on the error path" {
+    try expect(try mightFail(false) == 0);
+    try std.testing.expectError(error.Nope, mightFail(true));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.defer`)*
+
+The scope is the block around the `defer`, not the full function. Each path out of the block counts:
+
+- The end of the block.
+- An early `return`.
+- An error that `try` returns to the caller.
+
+## The reverse order is necessary
+
+Deferred statements run in reverse order. The last statement that you register runs first. If you acquire A and then B, the cleanup releases B and then A. This is almost always the correct order.
+
+Write the release directly below the acquisition. Then you can see the two lines together:
+
+```zig
+const buf = try allocator.alloc(u8, n);
+defer allocator.free(buf);
+```
+
+The release is on the next line. Thus, to check an allocation for a leak, you read one line. You do not have to search for the `free` that matches it lower in the function.
+
+## The scope is the block
+
+A `defer` inside a loop body runs at the end of **each iteration**. It does not wait until the function returns:
+
+```zig
+var n: u32 = 0;
+for (0..3) |_| {
+    defer n += 1;
+}
+// n == 3
+```
+
+Go is different here. In Go, `defer` has function scope. Thus the deferred calls in a loop collect until the function ends, and Go gives no warning. In Zig, if you open a file inside a loop and defer its close, the file closes on each pass. Thus the loop cannot use all of the descriptors.
+
+Because of this rule, a bare block is also a way to put a tight limit on a cleanup:
+
+```zig
+{
+    const lock = mutex.acquire();
+    defer lock.release();
+    // held only inside these braces
+}
+```
+
+## The order of `defer` and the return value
+
+First the function calculates the return value. Then the deferred statements run. Then the function returns. Thus this function returns 0, not 1:
+
+```zig
+fn f() u8 {
+    var x: u8 = 0;
+    defer x += 1;
+    return x;      // the 0 is already captured
+}
+```
+
+Use `defer` to release resources. Do not use `defer` to change a result.
+
+Also, you cannot `return` from inside a `defer`:
+
+```
+error: cannot return from defer expression
+```
+
+A deferred statement runs when the scope already exits. If the statement could return, it could select a different exit. Then the exit path of each function with cleanup would be hard to follow.
+
+## `errdefer` for the failure path only
+
+`errdefer` runs **only** when the function returns an error. Thus you can write a constructor that removes partial work on failure. On success, the constructor does not undo its own work:
+
+```zig
+const thing = try create();
+errdefer destroy(thing);   // only if a later step fails
+try initialise(thing);
+return thing;
+```
+
+With a plain `defer`, this code would destroy the object that the function returned with success.
+
+The selection between the two is a question about ownership:
+
+- If this scope owns the resource for all of its life, use `defer`.
+- If the resource goes to the caller, and this scope keeps it only when an error occurs, use `errdefer`.
+
+An initialiser with many steps gets one `errdefer` for each step. Each `errdefer` undoes only its own step. Thus Zig undoes a partly built object one step at a time, in reverse order:
+
+```zig
+const a = try makeA();
+errdefer freeA(a);
+const b = try makeB();     // if this fails, only a is freed
+errdefer freeB(b);
+const c = try makeC();     // if this fails, b then a are freed
+return .{ .a = a, .b = b, .c = c };
+```
+
+To see what runs on failure, read the `errdefer` lines from the bottom to the top. Each `errdefer` is next to the step that it undoes.
+
+## If you know C++ or Rust
+
+`defer` does the work of a destructor. But you write the pair at the place of use, and not as part of a type. Zig made this selection on purpose. No hidden code runs at the `}` that ends a block. Each action on the way out is a statement in the function that you read.
+
+The cost is that you can forget a `defer`. For this reason, the [allocator chapter](https://www.ziglang.in/learn/standard-library/allocators/) uses an allocator that finds leaks. That allocator finds the mistakes that a code review does not find.
