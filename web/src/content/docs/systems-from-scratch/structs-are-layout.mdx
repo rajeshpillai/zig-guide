@@ -78,7 +78,7 @@ two differences.
 
 First, C guarantees the order of the declarations. Thus you can find the
 layout of a struct from its source, and you can trust that layout. Zig gives
-that guarantee only for `extern struct` and `packed struct`. For a plain
+that guarantee only for `extern struct` and `bitpack struct`. For a plain
 struct, the compiler decides.
 
 This default is better, because most structs never go outside your program.
@@ -91,7 +91,7 @@ builtin, and it needs no include. The program above used `@offsetOf` to show
 the gaps. Thus you do not have to trust a statement about them.
 
 The [memory layout](/learn/how-to/memory-layout/) recipe tells about the other
-layout controls: `align`, `packed struct` for bit fields, and the C ABI in
+layout controls: `align`, `bitpack struct` for bit fields, and the C ABI in
 detail.
 
 Next: [Errors Are Values](/learn/systems-from-scratch/errors-are-values/).

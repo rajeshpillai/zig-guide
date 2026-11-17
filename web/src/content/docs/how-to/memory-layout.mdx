@@ -7,7 +7,7 @@ order: 107
 
 import Playground from "../../../components/Playground.astro";
 
-In Zig, `@sizeOf`, `@alignOf` and `@offsetOf` report the real size, alignment and field offsets of a struct. A plain struct can change the order of its fields. Use `extern struct` to match C, and use `packed struct` for exact bits.
+In Zig, `@sizeOf`, `@alignOf` and `@offsetOf` report the real size, alignment and field offsets of a struct. A plain struct can change the order of its fields. Use `extern struct` to match C, and use `bitpack struct` for exact bits.
 
 ## The problem
 
@@ -23,7 +23,7 @@ Do not guess from the field types. The default layout can change the order of th
 
 1. Examine a type with `@sizeOf`, `@alignOf` and `@offsetOf`.
 2. Put a field on a specified boundary with `align(N)`.
-3. Use `packed struct` for fields at the bit level with no padding. Then use `@bitCast` to change the struct to an integer.
+3. Use `bitpack struct` for fields at the bit level with no padding. Then use `@bitCast` to change the struct to an integer.
 4. Use `extern struct` when the layout must match the C ABI.
 
 <Playground name="06-cookbook.memory-layout" />
@@ -42,9 +42,9 @@ These numbers are specific to this compiler and this target. Do not depend on th
 
 Use this when a buffer must align with a cache line, or when a device expects a specific boundary.
 
-## Packed structs give you bits
+## Bitpack structs give you bits
 
-A `packed struct` has no padding and keeps the fields in the order of the declaration. It also allows integers smaller than a byte. `Register` puts a `bool`, a `u3`, a `u4` and a `u8` into exactly two bytes. `@bitCast` gives the same bits as an integer, with no copy.
+A `bitpack struct` has no padding and keeps the fields in the order of the declaration. It also allows integers smaller than a byte. `Register` puts a `bool`, a `u3`, a `u4` and a `u8` into exactly two bytes. `@bitCast` gives the same bits as an integer, with no copy.
 
 The fields fill the integer from the least significant bit. Thus the first field is bit 0, and the last field is in the high byte. The result is `0x2A0B`. Use this method to build the value of a hardware register, or to decode the value.
 
@@ -57,5 +57,5 @@ Use this layout across an FFI boundary. The [ABI chapter](/learn/working-with-c/
 ## Variations
 
 - **`std.debug.print("{}", .{@typeInfo(T)})`** shows the fields of a type and their declared types. Use it when you want all of the information at comptime.
-- **`@sizeOf` and `@bitSizeOf`:** the second function reports the width in bits. Packed fields use that number of bits.
-- **Write the bytes and read them back:** first, set the layout with `packed` or `extern`. Then [the binary round-trip recipe](/learn/how-to/binary-roundtrip/) writes the struct as raw bytes and reads it back, with a known endianness.
+- **`@sizeOf` and `@bitSizeOf`:** the second function reports the width in bits. The fields of a `bitpack struct` use that number of bits.
+- **Write the bytes and read them back:** first, set the layout with `bitpack` or `extern`. Then [the binary round-trip recipe](/learn/how-to/binary-roundtrip/) writes the struct as raw bytes and reads it back, with a known endianness.

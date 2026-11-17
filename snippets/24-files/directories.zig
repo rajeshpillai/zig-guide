@@ -104,7 +104,7 @@ fn walkSorted(io: Io, gpa: Allocator, parent: Io.Dir, name: []const u8, out: *Io
     defer dir.close(io);
 
     var walker = try dir.walk(gpa);
-    defer walker.deinit();
+    defer walker.deinit(io);
 
     var items: std.ArrayList(Item) = .empty;
     var total: u64 = 0;

@@ -59,8 +59,8 @@ fn Partial(comptime T: type) type {
 
 `@Struct` takes five arguments:
 
-1. The layout: `.auto`, `.@"extern"` or `.@"packed"`.
-2. The backing integer of a packed struct, or `null`.
+1. The layout: `.auto`, `.@"extern"` or `.@"bitpack"`.
+2. The backing integer of a bitpack struct, or `null`.
 3. The field names. `Partial` uses the names of `T` without a change.
 4. The field types.
 5. The field attributes. `Partial` gives each field a default.

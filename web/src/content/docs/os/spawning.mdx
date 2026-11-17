@@ -85,7 +85,11 @@ ask the same question and get the same one-bit answer:
 
 - `&&` in a shell.
 - A step that fails in CI.
-- `Term.success()`.
+- `term.eql(.success)`.
+
+`success` is a constant of type `Term`, and `eql` compares two values of
+`Term`. Before Zig 0.18, `success` was a method, and the call was
+`term.success()`. That call is now a compile error.
 
 Put all other information for the caller on standard error, because a code has
 no space for it.

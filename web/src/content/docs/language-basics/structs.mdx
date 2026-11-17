@@ -7,7 +7,7 @@ order: 25
 
 import Playground from "../../../components/Playground.astro";
 
-A Zig struct can give default values to its fields. It can also hold methods, and the first parameter of a method is the receiver. The layout of a struct is unspecified, unless the declaration is `extern` or `packed`.
+A Zig struct can give default values to its fields. It can also hold methods, and the first parameter of a method is the receiver. The layout of a struct is unspecified, unless the declaration is `extern` or `bitpack`.
 
 <Playground name="02-language.structs" />
 
@@ -76,9 +76,11 @@ In a plain `struct`, the compiler can change the order of the fields and add pad
 | --- | --- |
 | `struct` | unspecified; optimiser's choice |
 | `extern struct` | C ABI compatible |
-| `packed struct` | bit-level, well-defined, backed by an integer |
+| `bitpack struct` | bit-level, well-defined, backed by an integer |
 
-Do not use `extern` or `packed` only as a precaution. They stop the packing that the optimiser can do. Use them only at real boundaries.
+Before Zig 0.18, `bitpack struct` had the name `packed struct`. The current compiler does not accept the old keyword. It reports `expected 'bitpack', found 'packed'`. Run `zig fmt` on the file, and it changes each `packed` to `bitpack`. The meaning of the layout did not change.
+
+Do not use `extern` or `bitpack` only as a precaution. They stop the packing that the optimiser can do. Use them only at real boundaries.
 
 "Unspecified" has results:
 
@@ -86,6 +88,6 @@ Do not use `extern` or `packed` only as a precaution. They stop the packing that
 - If you copy a plain struct into a file, a different compiler version possibly cannot read it back.
 - The fields are not necessarily in the order that you wrote them.
 
-If you need one of these properties, use `extern` or `packed`. See [struct layout](/learn/systems-from-scratch/structs-are-layout/) for what the padding really does.
+If you need one of these properties, use `extern` or `bitpack`. See [struct layout](/learn/systems-from-scratch/structs-are-layout/) for what the padding really does.
 
 A struct with no fields has size zero, and an array of such structs also has size zero. This is useful. It lets a type carry only behaviour. It also lets a hash map with no values use no memory for each entry, other than the memory for the keys.

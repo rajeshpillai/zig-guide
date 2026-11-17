@@ -18,13 +18,13 @@ For plain `+`, overflow is illegal behaviour, and safety builds panic on it. Whe
 
 ## Any width that you want
 
-`u3`, `i7`, `u64` and `u1000` are all real types. `u8` is not special. It is only the width of a byte. Packed structs use these widths to describe bitfields exactly.
+`u3`, `i7`, `u64` and `u1000` are all real types. `u8` is not special. It is only the width of a byte. Bitpack structs use these widths to describe bitfields exactly.
 
 The width is part of the type, and the width never depends on the platform. Zig has no `int` whose size changes with the compiler, and no integer promotion rules to remember. Your computer and the CI computer calculate the same results.
 
 The only integer type that depends on the target is `usize`. It depends on the target on purpose, because it is the width of a pointer. See [pointer-sized integers](/learn/language-basics/pointer-sized-integers/).
 
-`@sizeOf(u3)` is 1, because memory addresses are in bytes. Inside a `packed
+`@sizeOf(u3)` is 1, because memory addresses are in bytes. Inside a `bitpack
 struct`, the same `u3` uses exactly three bits. Unusual widths are for the description of a layout and for a limit on a value. Alone, they do not save memory.
 
 ## A wider type has no cost, a narrower type has a cost

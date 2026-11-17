@@ -61,7 +61,7 @@ A tagged union is as large as its largest field plus the tag, plus the padding t
 
 When the variants have very different sizes, the usual solution is to put the large variant behind a pointer. Then the union holds a pointer, not the payload.
 
-The tag is a usual enum, and you can give it a type: `union(enum(u8))` makes the tag one byte. `packed union` is for the bit-level cases. As with `packed struct`, use it for real boundaries, not to save a byte.
+The tag is a usual enum, and you can give it a type: `union(enum(u8))` makes the tag one byte. `bitpack union` is for the bit-level cases. As with `bitpack struct`, use it for real boundaries, not to save a byte.
 
 ## Where to use a tagged union
 

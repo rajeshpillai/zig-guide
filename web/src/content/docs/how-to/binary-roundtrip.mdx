@@ -40,5 +40,5 @@ The last step of the snippet changes one byte, and the output shows that this pa
 ## Variations
 
 - **Floats:** `writeInt(u32, buf, @bitCast(f), .little)` writes an `f32` and gets back exactly the same value. The decoder returns the same bit pattern that the encoder wrote. Do not write floats as text in a binary protocol.
-- **`packed struct`** gives you a guaranteed bit layout *inside* an integer, for example flags or the nibbles of a header. Use `@bitCast` to change the packed struct to its backing integer. Then write that integer with `writeInt` and an explicit endianness, as usual.
+- **`bitpack struct`** gives you a guaranteed bit layout *inside* an integer, for example flags or the nibbles of a header. Use `@bitCast` to change the bitpack struct to its backing integer. Then write that integer with `writeInt` and an explicit endianness, as usual.
 - **Streams:** the same encode and decode functions work on a reader and a writer. Parse the header of fixed size first. Then the header tells you how many payload bytes to expect.

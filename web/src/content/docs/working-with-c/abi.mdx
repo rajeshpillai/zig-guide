@@ -1,6 +1,6 @@
 ---
 title: ABI
-description: extern and packed, for layouts with a guarantee.
+description: extern and bitpack, for layouts with a guarantee.
 section: Working with C
 order: 80
 ---
@@ -9,7 +9,7 @@ import Playground from "../../../components/Playground.astro";
 
 To pass a struct from Zig to C, declare it as `extern struct`. An
 `extern struct` uses the field order and padding of the C ABI. A
-`packed struct` gives exact bits with no padding, for registers and wire
+`bitpack struct` gives exact bits with no padding, for registers and wire
 formats.
 
 <Playground name="05-working-with-c.abi" />
@@ -25,16 +25,22 @@ cannot give a plain `struct` to C.
 | --- | --- | --- |
 | `struct` | unspecified | ordinary Zig code |
 | `extern struct` | C ABI: declaration order, C padding | C interop |
-| `packed struct` | exact bits, no padding, integer-backed | wire formats, registers |
+| `bitpack struct` | exact bits, no padding, integer-backed | wire formats, registers |
 
 ```zig
 const CPoint = extern struct { x: i32, y: i32 };   // offsets 0 and 4
-const Flags = packed struct { a: bool, b: bool, rest: u6 };  // exactly 8 bits
+const Flags = bitpack struct { a: bool, b: bool, rest: u6 };  // exactly 8 bits
 ```
 
-A `packed struct` converts to and from its backing integer with `@bitCast`.
-Thus a `packed struct` is the natural way to describe hardware registers and
+A `bitpack struct` converts to and from its backing integer with `@bitCast`.
+Thus a `bitpack struct` is the natural way to describe hardware registers and
 protocol headers.
+
+Older code and older tutorials write `packed struct` and `packed union`. Zig
+0.18 changed the keyword to `bitpack`. The layout rules are the same. The
+current compiler stops at the old keyword with
+`expected 'bitpack', found 'packed'`, and `zig fmt` changes the keyword for
+you. In reflection, the layout value `.@"packed"` is now `.@"bitpack"`.
 
 ## What "ABI" means
 
@@ -76,8 +82,8 @@ are exactly the cases that need the assertions.
 
 ## Bit order is not portable
 
-`packed struct` gives you exact bit positions. A hardware register or a
-protocol header needs exact bit positions. But a `packed struct` does not
+`bitpack struct` gives you exact bit positions. A hardware register or a
+protocol header needs exact bit positions. But a `bitpack struct` does not
 always agree with the bitfields of a C compiler. In C, the order of bits in a
 unit is implementation-defined. Thus two compilers can put the bits of the
 same header in different positions.
@@ -87,7 +93,7 @@ you define the layout. You do not copy the layout of a different program. If
 you must match a C bitfield exactly, do not assume. Compare the layout with
 the C compiler that you use.
 
-Byte order is a different question, and `packed struct` says nothing about
+Byte order is a different question, and `bitpack struct` says nothing about
 it. A protocol header that you read from a socket needs `std.mem.bigToNative`
 or an explicit decode, one byte at a time. `@bitCast` gives you the byte order
 of the host.

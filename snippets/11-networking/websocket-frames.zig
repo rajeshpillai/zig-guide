@@ -40,7 +40,7 @@ fn writeClientFrame(
     for (payload, 0..) |b, i| try w.writeByte(b ^ mask[i % 4]);
 }
 
-/// Print the fields of a packed struct with the bits that each one uses.
+/// Print the fields of a bitpack struct with the bits that each one uses.
 fn printLayout(out: *std.Io.Writer, comptime T: type) !void {
     try out.print("  {s}:", .{@typeName(T)[std.mem.findScalarLast(u8, @typeName(T), '.').? + 1 ..]});
     const info = @typeInfo(T).@"struct";
@@ -99,7 +99,7 @@ pub fn main(init: std.process.Init) !void {
 
     // ----------------------------------------------------- the header bits
 
-    // The first two bytes are two packed structs in std. Zig packs the
+    // The first two bytes are two bitpack structs in std. Zig packs the
     // first field into the lowest bits.
     try out.print("\nthe header structs in std, field=bits, bit 0 first:\n", .{});
     try printLayout(out, WebSocket.Header0);

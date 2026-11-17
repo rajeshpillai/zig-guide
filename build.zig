@@ -428,7 +428,7 @@ fn collect(b: *std.Build, root: []const u8, out: *std.ArrayList(Snippet)) !void 
     defer dir.close(io);
 
     var walker = try dir.walk(b.allocator);
-    defer walker.deinit();
+    defer walker.deinit(io);
 
     while (try walker.next(io)) |entry| {
         if (entry.kind != .file) continue;
@@ -540,7 +540,7 @@ fn collectFiles(b: *std.Build, root: []const u8, extension: []const u8, out: *st
     defer dir.close(io);
 
     var walker = try dir.walk(b.allocator);
-    defer walker.deinit();
+    defer walker.deinit(io);
 
     while (try walker.next(io)) |entry| {
         if (entry.kind != .file) continue;

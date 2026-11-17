@@ -117,7 +117,7 @@ this site also uses it, because the runner already has the bytes.
 - **Many imports:** put them in groups by module name. Use `imports.env` for
   your own hooks. A WASI shim adds its own namespace next to it.
 - **Give complex data back:** here, `log` takes an offset and a length. Each
-  structured value (a JSON string, a packed struct) goes across in the same
+  structured value (a JSON string, a bitpack struct) goes across in the same
   way. The host decodes it from `memory`.
 - **This site, exactly:** the playground fetches the verified `.wasm`. It
   builds a WASI import object, not a single `log`, and it calls `_start`. The

@@ -1,8 +1,8 @@
 ---
 title: WebSocket Frames
 seoTitle: "Zig WebSocket Frames: Header Bits, Length Forms and the Mask"
-description: The two header bytes as packed structs, the three length forms, the client mask, and the frames that std.http.Server refuses.
-seoDescription: WebSocket frames in Zig. Read the header with packed structs and @bitCast, write the 7, 16 and 64-bit lengths, mask a client frame, and see what std rejects.
+description: The two header bytes as bitpack structs, the three length forms, the client mask, and the frames that std.http.Server refuses.
+seoDescription: WebSocket frames in Zig. Read the header with bitpack structs and @bitCast, write the 7, 16 and 64-bit lengths, mask a client frame, and see what std rejects.
 section: Networking
 order: 120
 ---
@@ -30,7 +30,7 @@ by hand, and gives eight frames to the reader of `std.http.Server`.
 
 The first byte holds the `fin` bit, three reserved bits and a 4-bit opcode.
 The second byte holds the `mask` bit and a 7-bit length. std declares each
-byte as a `packed struct(u8)`: `WebSocket.Header0` and `WebSocket.Header1`
+byte as a `bitpack struct(u8)`: `WebSocket.Header0` and `WebSocket.Header1`
 in `std.http.Server`. The program reads the layout of the two structs with
 `@bitOffsetOf` and prints it:
 
@@ -40,7 +40,7 @@ the header structs in std, field=bits, bit 0 first:
   Header1: payload_len=0-6 mask=7
 ```
 
-Zig puts the first field of a packed struct in the lowest bits. RFC 6455
+Zig puts the first field of a bitpack struct in the lowest bits. RFC 6455
 draws the frame with the highest bit first. Thus the fields in std are in
 the reverse order of the diagram in the RFC: `opcode` is the first field in
 Zig, and the RFC draws it last in the byte.

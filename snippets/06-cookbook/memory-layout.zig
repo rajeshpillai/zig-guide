@@ -1,5 +1,5 @@
 //! title: Struct Memory Layout
-//! Padding, explicit alignment, packed bit-fields, and the C-ABI layout.
+//! Padding, explicit alignment, bitpack bit-fields, and the C-ABI layout.
 
 const std = @import("std");
 
@@ -18,10 +18,10 @@ const Aligned = struct {
     b: u8,
 };
 
-// Packed: no padding, fields in declaration order, and integers smaller than
+// Bitpack: no padding, fields in declaration order, and integers smaller than
 // a byte. For hardware registers, use @bitCast to change the struct to an
 // unsigned integer of the same width.
-const Register = packed struct {
+const Register = bitpack struct {
     enable: bool, // bit 0
     mode: u3, // bits 1..3
     reserved: u4, // bits 4..7

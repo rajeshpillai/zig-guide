@@ -1,5 +1,5 @@
 //! title: ABI
-//! `extern` and `packed` give you layouts you can rely on.
+//! `extern` and `bitpack` give you layouts you can rely on.
 
 const std = @import("std");
 const expect = std.testing.expect;
@@ -11,8 +11,8 @@ const CPoint = extern struct {
     y: i32,
 };
 
-// `packed struct` has exact bits and no padding. An integer holds the bits.
-const Flags = packed struct {
+// `bitpack struct` has exact bits and no padding. An integer holds the bits.
+const Flags = bitpack struct {
     a: bool,
     b: bool,
     rest: u6,
@@ -31,12 +31,12 @@ test "extern struct follows C layout" {
     try expect(@offsetOf(CPoint, "y") == 4);
 }
 
-test "packed struct is exactly its bits" {
+test "bitpack struct is exactly its bits" {
     try expect(@bitSizeOf(Flags) == 8);
     try expect(@sizeOf(Flags) == 1);
 
     const f = Flags{ .a = true, .b = false, .rest = 0 };
-    // Packed structs convert to their backing integer.
+    // Bitpack structs convert to their backing integer.
     try expect(@as(u8, @bitCast(f)) == 1);
 }
 

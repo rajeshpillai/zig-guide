@@ -46,6 +46,6 @@ test "mutating methods need a mutable receiver" {
 
 test "field order is not guaranteed" {
     // Zig can change the order of fields to pack them, unless you select a
-    // different layout: `extern struct` (C ABI) or `packed struct` (bit-level).
+    // different layout: `extern struct` (C ABI) or `bitpack struct` (bit-level).
     try expect(@sizeOf(Vec3) == 12);
 }

@@ -85,4 +85,4 @@ Use `inline for` on `field_names`, and you have a parser, a formatter or a table
 Use an enum when a value is exactly one item of a fixed, known set, and the value contains no other data. The other conditions need different types:
 
 - If each case needs its own payload, use a [tagged union](/learn/language-basics/unions/). A tagged union is an enum with data.
-- If the cases are independent flags that you can combine, an enum is the wrong shape. Use a `packed struct` of `bool` fields. It gives you named bits in a single integer.
+- If the cases are independent flags that you can combine, an enum is the wrong shape. Use a `bitpack struct` of `bool` fields. It gives you named bits in a single integer.

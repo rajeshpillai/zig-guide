@@ -47,7 +47,7 @@ pub fn main(init: std.process.Init) !void {
     defer gpa.free(failed.stdout);
     defer gpa.free(failed.stderr);
     try out.print("failing child: {f}\n", .{failed.term});
-    try out.print("succeeded:     {}\n", .{failed.term.success()});
+    try out.print("succeeded:     {}\n", .{failed.term.eql(.success)});
 
     // A status is a `u8`. Thus there are only 256 values, and only 0 means
     // success. The program decides the meaning of the other values.
