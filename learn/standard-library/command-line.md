@@ -1,0 +1,129 @@
+# Command-Line Arguments
+
+> How to read argv and the environment through std.process.
+
+`main` receives a `std.process.Init`. A Zig program reads its command-line arguments from `init.minimal.args`, which is the `std.process.Args` inside that value. The program reads its environment from `init.environ_map`. The standard library has no argument parser, thus you write the loop for the flags.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+const expectEqualStrings = std.testing.expectEqualStrings;
+
+test "iterate arguments" {
+    const gpa = std.testing.allocator;
+    // A real program iterates over `init.minimal.args` (see the page). This
+    // test parses a fixed command line with the same iterator. Thus the test
+    // gives the same result in the browser sandbox, which has no argv.
+    var it = try std.process.Args.IteratorGeneral(.{}).init(gpa, "app --name zig -v");
+    defer it.deinit();
+
+    try expectEqualStrings("app", it.next().?); // argv[0] is the program name
+    try expectEqualStrings("--name", it.next().?);
+    try expectEqualStrings("zig", it.next().?);
+    try expectEqualStrings("-v", it.next().?);
+    try expect(it.next() == null); // no more arguments
+}
+
+test "a minimal flag parser" {
+    const gpa = std.testing.allocator;
+    var it = try std.process.Args.IteratorGeneral(.{}).init(gpa, "app --verbose --out result.txt");
+    defer it.deinit();
+
+    _ = it.next(); // skip argv[0]
+    var verbose = false;
+    var out: []const u8 = "a.out";
+    while (it.next()) |arg| {
+        if (std.mem.eql(u8, arg, "--verbose")) {
+            verbose = true;
+        } else if (std.mem.eql(u8, arg, "--out")) {
+            // A flag that takes a value gets the next token itself.
+            out = it.next() orelse return error.MissingValue;
+        }
+    }
+    try expect(verbose);
+    try expectEqualStrings("result.txt", out);
+}
+
+test "environment variables" {
+    const gpa = std.testing.allocator;
+    // `init.environ_map` has exactly this type, and the real environment
+    // fills it. This test makes the map by hand. Thus the test needs nothing
+    // from outside.
+    var env = std.process.Environ.Map.init(gpa);
+    defer env.deinit();
+    try env.put("EDITOR", "vim");
+
+    try expectEqualStrings("vim", env.get("EDITOR").?);
+    try expect(env.get("MISSING") == null);
+    try expect(env.contains("EDITOR"));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`03-standard-library.command-line`)*
+
+## The source of the real arguments
+
+Your `main` receives a `std.process.Init`. This is the same value that holds `io`, `gpa`, and the arena. Its `minimal.args` field is a `std.process.Args`. `iterate` changes the field into an iterator. The `next` method of the iterator gives each argument as a `[:0]const u8`:
+
+```zig
+pub fn main(init: std.process.Init) !void {
+    var it = init.minimal.args.iterate();
+    defer it.deinit();
+
+    _ = it.next(); // argv[0]: the program's own path
+    while (it.next()) |arg| {
+        // ... handle arg ...
+    }
+}
+```
+
+The snippet above uses `Args.IteratorGeneral`. This iterator parses a fixed string, and its `next` has the identical shape. For this reason, the snippet can run in your browser. The WASI sandbox has no argv of its own, thus a real iterator returns nothing. The parse logic that you write is the same for the two iterators.
+
+## You write the parser
+
+The standard library has no `argparse`. For a small tool, the loop in the snippet is usually sufficient. Compare each argument to a flag. If the flag takes a value, get the next token.
+
+The first argument is always the program path. Thus skip the first argument before you parse. Use a package (see the Build System section) only when you need subcommands, help text, and typed conversion.
+
+## Environment variables
+
+`init.environ_map` is a `std.process.Environ.Map`. The program makes this map from the real environment. It works like the other maps in this section: `get` returns an optional, and `contains` returns a bool.
+
+An environment variable is often absent, and that is normal. Thus a `null` from `get` is a usual case that you handle, not an error.
+
+## Start other programs
+
+To run a subprocess, use `std.process.Child`. Like all code that uses the outside world, `std.process.Child` takes an `Io`. You can connect the stdin, stdout, and stderr of the child, or you can capture its output. A child needs a real OS process. Thus the browser sandbox cannot show an example.
+
+## Conventions to follow
+
+Users expect these conventions, thus your loop must follow them:
+
+- `-v` is a short flag, and `--verbose` is its long form. Both forms must work.
+- `--output=file` and `--output file` are both common. If you accept only one form, you annoy some users.
+- Users expect combined short flags in a tool similar to a Unix tool. For example, `-abc` means `-a -b -c`.
+- `--` ends the options. Each argument after it is a positional argument, also if it starts with a dash. This is the only way to give the name of a file called `-r`.
+- By convention, `-` alone means standard input, not a file.
+
+None of these conventions is difficult, and it is easy to forget each of them. Decide at the start which conventions you support. Then a bug report does not tell you about the gap.
+
+## Fail correctly
+
+The error reports of a command-line program are its user interface. Three rules cover most of it.
+
+First, write errors to stderr, not to stdout. Another program can read the output through a pipe. Thus the output stream must contain only the data. A diagnostic in the data becomes a bug in a shell pipeline, and that bug is difficult to find.
+
+Second, exit with a non-zero status on failure. When `main` returns an error, Zig does this for you. In a debug build, Zig also prints the error name and a return trace. To set a specific status, use `std.process.exit(2)`. By convention, 0 is success, 1 is a normal failure, and 2 is a usage error.
+
+Third, tell the user what was wrong and what to do. "invalid argument" is a worse message than "unknown option --outpt (did you mean --output?)". The loop already knows which token failed. Thus the better message costs only a few lines.
+
+## Arguments are untrusted input
+
+All data on the command line came from outside the program:
+
+- A number is a `parseInt` that can fail.
+- A path can be absent.
+- A count can be very large.
+
+Check the value where it enters the program. Then convert it into a type that holds the constraint. The rest of the program then uses a `u16` port and not a string that somebody typed. See [parsing and
+encoding](https://www.ziglang.in/learn/standard-library/parsing-and-encoding/).

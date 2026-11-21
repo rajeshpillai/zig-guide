@@ -1,0 +1,86 @@
+# Pointer Sized Integers
+
+> usize, isize, and why they are not the same as u64.
+
+In Zig, use `usize` for lengths, indices and byte offsets into memory. Use a fixed width such as `u64` for values that get their range from the problem, for example a file offset or a timestamp.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "usize matches pointer width" {
+    try expect(@sizeOf(usize) == @sizeOf(*u8));
+    try expect(@sizeOf(isize) == @sizeOf(*u8));
+}
+
+test "usize is the index and length type" {
+    // `.len` is a usize. A value that you use as a slice index is also a usize.
+    const array = [_]u8{ 1, 2, 3 };
+    const length: usize = array.len;
+    try expect(length == 3);
+    try expect(@TypeOf(array.len) == usize);
+}
+
+test "wasm32 is a 32-bit target" {
+    // The build compiles these snippets to wasm32-wasi, so a pointer is 4 bytes.
+    // On x86_64, the same source gets 8.
+    try expect(@sizeOf(usize) == 4);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.pointer-sized-integers`)*
+
+`usize` and `isize` are exactly as wide as a pointer on the target. `.len` is a `usize`, and a value that you use as a slice index is a `usize`.
+
+## The width depends on the target, and this is intentional
+
+The snippets on this site compile to `wasm32-wasi`. Thus `@sizeOf(usize)` is **4**. If you build the same source for `x86_64`, the size is 8. For this reason, the last test above asserts 4. The value 4 is a fact about the target, not about Zig.
+
+This page is the one place on the site where an assertion shows the wasm target. When you run the snippet, you get the 32-bit answer. For this program, the browser is a 32-bit machine.
+
+Be careful when you select between the two types:
+
+- If you write `u64` where you mean `usize`, the code works on your machine. It fails on a 32-bit machine.
+- If you write `usize` where you mean "a 64-bit counter", the value becomes narrower on wasm, and you get no error.
+
+## Which type to use
+
+Select the type from what the number *is*, not from how large you expect the number to become.
+
+- **`usize`**: use it for a count of memory that exists, or an index into that memory. Examples are `.len`, an index, a byte offset into a buffer, and a capacity. The quantity of memory that the machine can address limits these values, and that limit is the definition of pointer width.
+- **A fixed width** (`u32`, `u64`): use it for a value that gets its range from the problem, not from the machine. Examples are a file offset, a timestamp in milliseconds, a field in a wire protocol, and a hash. A file can be larger than the address space of a 32-bit machine. Thus a file offset is always `u64` and never `usize`.
+- **`isize`**: almost never use it. It is for pointer differences, and for C interfaces that use `ssize_t`. Usually `ssize_t` is a length that can also be an error code.
+
+When you select the wrong type, the code is correct on the machine that you tested on. It is wrong on the machine where you shipped it. Embedded targets are 16-bit, wasm is 32-bit, and your laptop is 64-bit. The same source must build for all three.
+
+## Convert between the types
+
+A conversion that can lose information on the target is never implicit. Thus code that builds for a 64-bit target must convert a `usize` to a `u32` explicitly:
+
+```zig
+const n: u32 = @intCast(slice.len);   // checked in safety builds
+```
+
+`@intCast` asserts that the value fits in the type:
+
+- In Debug and ReleaseSafe, the assertion is a real check. A value that does not fit causes a panic.
+- In ReleaseFast, the assertion is a promise from you. If the promise is false, the result is undefined behaviour.
+
+Thus use `@intCast` when you know the limit, for example a length that you checked, or an index that you validated. Do not use it only to stop a type error.
+
+When the value possibly does not fit, do the check yourself and return an error:
+
+```zig
+if (slice.len > std.math.maxInt(u32)) return error.TooLong;
+const n: u32 = @intCast(slice.len);
+```
+
+A conversion in the other direction, from a narrower type such as `u32` to `usize`, cannot lose information. Thus Zig does this conversion implicitly, and you do not write `@intCast`. A `u64` is not narrower than `usize` on all targets, so a conversion from `u64` to `usize` still needs a cast.
+
+## Where these types cause bugs
+
+The first cause is subtraction. `usize` is unsigned. Thus, when `b > a`, `a - b` overflows. In a safety build, this causes a panic for integer overflow, not a large number.
+
+A usual example is a loop that counts down from `items.len`. For this reason, a loop that counts down decrements the index inside the body, not in a continue expression. [For loops](https://www.ziglang.in/learn/language-basics/for-loops/) shows that shape.
+
+The second cause is arithmetic on `.len` in format strings and in buffer sizes. If you mix a `usize` length and a `u32` field, each expression needs an `@intCast`. To prevent this, select one type and convert at the boundary. Convert one time, where the value enters your code. The code then stays easy to read.

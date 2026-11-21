@@ -1,0 +1,148 @@
+# Threads
+
+> Real OS threads, and why this page cannot run in your browser.
+
+In Zig, `std.Thread.spawn` starts a real OS thread, and `join` waits until the
+thread stops. Use `std.Io.Mutex` to protect shared data. `std.Thread.Mutex`
+does not exist now.
+
+```zig
+const std = @import("std");
+
+fn addTo(total: *u32, amount: u32) void {
+    total.* += amount;
+}
+
+fn addLocked(total: *u32, mutex: *std.Io.Mutex, io: std.Io, amount: u32) void {
+    mutex.lock(io) catch return;
+    defer mutex.unlock(io);
+    total.* += amount;
+}
+
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+
+    var buf: [256]u8 = undefined;
+    var file_writer = std.Io.File.stdout().writerStreaming(io, &buf);
+    const out = &file_writer.interface;
+
+    // One thread. The program joins it explicitly.
+    var value: u32 = 0;
+    const thread = try std.Thread.spawn(.{}, addTo, .{ &value, 42 });
+    thread.join();
+    try out.print("single: {d}\n", .{value});
+
+    // Many threads that change one variable need synchronisation. Without the
+    // mutex, this code is a data race, and the total is not reliable.
+    var total: u32 = 0;
+    var mutex: std.Io.Mutex = .init;
+    var threads: [8]std.Thread = undefined;
+    for (&threads) |*t| {
+        t.* = try std.Thread.spawn(.{}, addLocked, .{ &total, &mutex, io, 1 });
+    }
+    for (threads) |t| t.join();
+    try out.print("locked total: {d}\n", .{total});
+
+    // For a simple counter, use an atomic. It needs no lock.
+    var counter = std.atomic.Value(u32).init(0);
+    _ = counter.fetchAdd(1, .monotonic);
+    _ = counter.fetchAdd(1, .monotonic);
+    try out.print("atomic: {d}\n", .{counter.load(.monotonic)});
+
+    try out.flush();
+}
+```
+
+*CI builds and runs this program natively. wasm32-wasi is single-threaded. Thus std.Thread.spawn does not compile for wasm32-wasi. (`03-standard-library.threads`)*
+
+## Spawn and join
+
+```zig
+const thread = try std.Thread.spawn(.{}, function, .{ args... });
+thread.join();
+```
+
+The arguments are a tuple, and the tuple must agree with the parameters of the
+function. `join` blocks until the thread stops. `detach` releases the handle
+and does not wait.
+
+You must join or detach each thread that you spawn. If you discard a handle
+and do not join or detach it, the resources of the thread leak. No destructor
+finds this error. Thus put `defer thread.join()` on the line after the spawn.
+The reason is the same as the reason for a `defer free` after an allocation.
+
+If two threads write to the same memory without synchronisation, the result
+is a data race. A data race is undefined behaviour, not only a wrong answer.
+The optimiser can assume that a data race does not occur.
+
+## Synchronisation moved to `std.Io`
+
+This change breaks older code. On `std.Io.Mutex`, `lock` takes the io
+instance:
+
+```zig
+var mutex: std.Io.Mutex = .init;
+try mutex.lock(io);
+defer mutex.unlock(io);
+```
+
+`lock` can fail for one reason only: a task can *cancel* the call. Because of
+this, the mutex works together with the other parts of `Io`.
+See [Cancellation](https://www.ziglang.in/learn/concurrency/cancellation/) for the meaning of
+cancellation.
+
+The move changes more than the name. A mutex that knows the `Io` instance can
+have a different implementation for each way that the program runs:
+
+- Under a pool of OS threads, the mutex is a real futex.
+- When all the code is on one thread, the mutex is a simple flag.
+- Under green threads, the mutex yields to the scheduler.
+
+Code that uses `std.Io.Mutex` works under all three without a change.
+
+The rule for a mutex did not change, and the rule is still the difficult
+part. Each access to the shared data, a read or a write, must hold the lock.
+Also, the code must release the lock on each path out of the function. `defer`
+does the second task. No tool checks the first task for you. Thus, design the
+program so that it has the smallest possible quantity of shared state.
+
+## Atomics for the simple cases
+
+A counter does not need a mutex:
+
+```zig
+var counter = std.atomic.Value(u32).init(0);
+_ = counter.fetchAdd(1, .monotonic);
+```
+
+Look at the `_ =`. `fetchAdd` returns the previous value, and Zig does not let
+you discard the value silently.
+
+The second argument is a memory ordering. The ordering controls the memory
+around the operation, not the counter. `.monotonic` is correct for a total
+that no thread reads until the end. `.monotonic` is wrong for a flag that
+publishes data that the thread wrote before the flag.
+[Atomics](https://www.ziglang.in/learn/concurrency/atomics/) explains these subjects:
+
+- the six orderings
+- the compare-and-swap loop, which builds each operation that has no `fetch`
+  function of its own
+- the complete mutex that `std.atomic` makes from one compare-and-swap and one
+  ordered store
+
+## Prefer structured concurrency
+
+For most work, [`Io.async` and
+`Io.Group`](https://www.ziglang.in/learn/concurrency/async-future-group/) are a better choice than
+raw threads that you spawn. They have these advantages:
+
+- You can cancel them.
+- A task that runs cannot continue after the end of their scope.
+- They work on targets that have no threads, and this site runs on one of
+  those targets.
+
+A thread is a low-level resource, the same as a raw allocation. Most code
+needs only this: "run these tasks at the same time and wait for them". That
+need is a scope with a lifetime, not a handle that you must manage. Use
+`std.Thread.spawn` when you need a long-lived worker with its own loop. For
+all other work, use the structured forms.
