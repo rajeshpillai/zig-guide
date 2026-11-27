@@ -1,0 +1,118 @@
+# Time
+
+> The clocks are behind the Io interface. The constants and calendars are in std.time.
+
+In Zig, you read the current time through the `Io` interface with `std.Io.Clock.Timestamp.now(io, clock)`. Use `.real` for wall-clock time, and `.awake` to measure the duration of an operation. `std.time` keeps the constants and the calendar code.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+test "wall-clock time" {
+    const io = std.testing.io;
+
+    // .real is Unix time: nanoseconds since 1970-01-01T00:00:00Z.
+    const now = std.Io.Clock.Timestamp.now(io, .real);
+    const secs = now.raw.toSeconds();
+
+    // If this fails, the system clock has a date before November 2023.
+    try expect(secs > 1_700_000_000);
+}
+
+fn busyWork() u64 {
+    var acc: u64 = 0;
+    for (0..100_000) |i| acc +%= i *% i;
+    return acc;
+}
+
+test "measure elapsed time with the monotonic clock" {
+    const io = std.testing.io;
+
+    // .awake cannot move backward. Thus use it to measure time.
+    // .real can jump when NTP or the administrator adjusts it.
+    const start = std.Io.Clock.Timestamp.now(io, .awake);
+    std.mem.doNotOptimizeAway(busyWork());
+    const end = std.Io.Clock.Timestamp.now(io, .awake);
+
+    const elapsed = start.durationTo(end);
+    try expect(elapsed.raw.toNanoseconds() >= 0);
+}
+
+test "durations are values with unit conversions" {
+    const d = std.Io.Duration.fromMilliseconds(1500);
+    try expect(d.toMicroseconds() == 1_500_000);
+    try expect(d.toSeconds() == 1); // truncates toward zero
+
+    // With {f}, durations print in units that people can read.
+    try std.testing.expectFmt("1.5s", "{f}", .{d});
+    try std.testing.expectFmt("2m5s", "{f}", .{std.Io.Duration.fromSeconds(125)});
+}
+
+test "std.time still holds the constants and epoch math" {
+    try expect(std.time.ns_per_s == 1_000_000_000);
+    try expect(std.time.s_per_day == 86_400);
+
+    // Divide a Unix timestamp into calendar parts, with no allocation and no locale.
+    const es = std.time.epoch.EpochSeconds{ .secs = 86_400 + 3_600 };
+    const year_day = es.getEpochDay().calculateYearDay();
+    try expect(year_day.year == 1970);
+
+    const month_day = year_day.calculateMonthDay();
+    try expect(month_day.month == .jan);
+    try expect(month_day.day_index == 1); // starts at zero: Jan 2nd
+
+    try expect(es.getDaySeconds().getHoursIntoDay() == 1);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`03-standard-library.time`)*
+
+## To read a clock, you need an Io
+
+A clock read is now an I/O operation. Thus it uses the same `Io` interface as files and sockets: `std.Io.Clock.Timestamp.now(io, clock)`. In a test, the instance is `std.testing.io`. In a program, the instance is `init.io`. Zig removed the older free functions `std.time.timestamp` and `std.time.milliTimestamp`.
+
+## Select the correct clock
+
+- `.real` is wall-clock Unix time: nanoseconds since 1970. Use it for timestamps that you store or show. It can jump backward when NTP or an administrator corrects it.
+- `.awake` is monotonic: it never moves backward. Use it to measure the duration of an operation. If the clock changes during a slow operation, the difference between two `.real` readings can be negative or absurd.
+
+`durationTo` between two timestamps gives an `Io.Duration`.
+
+## Durations are values
+
+An `Io.Duration` holds a count of nanoseconds. It has conversion helpers (`fromMilliseconds`, `toSeconds`, and others) that truncate toward zero. When you format it with `{f}`, it prints units that people can read: `1.5s`, `2m5s`.
+
+## std.time keeps the arithmetic
+
+The constants (`ns_per_s`, `s_per_day`, and the others) and the calendar code are still in `std.time`. They need no `Io`, because they are pure math.
+
+`std.time.epoch` divides a Unix timestamp into year, month, day, and time of day. It does not allocate, and it does not use a locale. Note that the day index starts at zero: day 1 is the second day of the month.
+
+Use the named constants, and do not write `1_000_000_000`. The name `ns_per_s` tells the reader what the value means. In an expression such as `5 * std.time.ns_per_min`, a mistake by a factor of a thousand cannot hide from a reviewer.
+
+## Measure elapsed time
+
+```zig
+const start = try std.Io.Clock.Timestamp.now(io, .awake);
+doWork();
+const elapsed = start.durationTo(try std.Io.Clock.Timestamp.now(io, .awake));
+```
+
+Always use `.awake` for this measurement. The two clocks are separate because NTP or an administrator can move `.real` between your two clock reads. With `.real`, a benchmark can sometimes report a negative duration.
+
+For a measurement that you do one time, one pair of reads is fine. If you want to make a conclusion from the measurement, one measurement is noise. Run the work enough times to make the total much larger than the resolution of the clock. Then report the total divided by the count.
+
+## Timezones and formatting
+
+`std.time.epoch` gives you UTC. The standard library has no timezone database, and no date formatting for a locale. The reason is the same as for Unicode case folding, which the standard library also does not have. The tables change several times each year, and each binary must not contain a frozen copy of them.
+
+Thus the practical advice is simple:
+
+- Store and send `.real` timestamps as integers, in UTC.
+- Change them to local time and to a readable string only at the edge of the program. Do this with a library, and only where a person reads the result.
+
+A program that uses UTC internally has no daylight-saving bugs.
+
+## Wait
+
+A sleep also goes through the `Io` instance. Thus you can cancel a sleep, and the same code works with threads and with an evented runtime. The interface exists to prevent a raw sleep that blocks the thread. [Cancellation](https://www.ziglang.in/learn/concurrency/cancellation/) shows a timeout that you can interrupt.

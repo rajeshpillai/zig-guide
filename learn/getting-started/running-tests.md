@@ -1,0 +1,120 @@
+# Run Tests
+
+> Tests are part of the language.
+
+A `test` block is part of the Zig language. You do not import a test framework, register the test or add annotations to the test.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+fn add(a: i32, b: i32) i32 {
+    return a + b;
+}
+
+test "a test is just a named block" {
+    try expect(add(2, 2) == 4);
+}
+
+test "expectEqual reports both values on failure" {
+    try std.testing.expectEqual(@as(i32, 4), add(2, 2));
+}
+
+test "comparing slices" {
+    try std.testing.expectEqualStrings("abc", "ab" ++ "c");
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 1, 2 }, &[_]u8{ 1, 2 });
+}
+
+test "asserting an error is returned" {
+    const failing = struct {
+        fn f() error{Nope}!void {
+            return error.Nope;
+        }
+    }.f;
+    try std.testing.expectError(error.Nope, failing());
+}
+
+test "the testing allocator fails the test on a leak" {
+    const gpa = std.testing.allocator;
+    const buf = try gpa.alloc(u8, 10);
+    defer gpa.free(buf); // remove this line and the test fails
+    try expect(buf.len == 10);
+}
+
+test "skipping" {
+    if (@import("builtin").cpu.arch != .wasm32) return error.SkipZigTest;
+    try expect(true);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`01-getting-started.running-tests`)*
+
+## Run the tests
+
+```bash
+zig test file.zig        # just this file
+zig build test           # the test step of a build.zig
+zig test file.zig --test-filter "name"
+```
+
+The tests in a file run only in these conditions:
+
+- The file is the test root.
+- The test root can get to the file through `@import`.
+
+If no module imports a file, the tests in that file never run. Thus, if a test does not fail when you expect it to fail, make sure that some module imports its file.
+
+## The assertion helpers
+
+| Helper | Use |
+| --- | --- |
+| `expect(bool)` | general condition |
+| `expectEqual(a, b)` | prints both values on failure |
+| `expectEqualStrings` | string comparison with a readable diff |
+| `expectEqualSlices(T, a, b)` | slice comparison |
+| `expectError(err, expr)` | asserts a specific error |
+
+Use `expectEqual` instead of `expect(a == b)`. When `expectEqual` fails, it tells you the actual values.
+
+## Leak detection is on by default
+
+`std.testing.allocator` makes the test fail if the test does not free all the memory that it allocated. You do not have to turn on this check or run a separate tool. Each test that allocates memory is also a leak test:
+
+```zig
+const buf = try std.testing.allocator.alloc(u8, 10);
+defer std.testing.allocator.free(buf);   // omit this and the test fails
+```
+
+## Skip a test
+
+`return error.SkipZigTest` marks a test as skipped, not as failed. Use it for a test that applies only to some targets.
+
+## Where to put the tests
+
+Put the tests in the same file as the code that they test. The standard library does this. Do the same in your code, for two reasons.
+
+The first reason is access. Privacy in Zig applies to each file, thus a test in the same file can use private declarations. A test in a different file cannot use a helper that is not `pub`. A separate test file can make you change private declarations to public declarations without a good reason.
+
+The second reason is that the test is also an example. A person opens the file to see how to call a function. Some lines below the definition, the person finds a call with real arguments and a checked result. People do not use documentation in a separate directory in that way.
+
+The compiler does not put tests into your program. A `test` block exists only in a build from `zig test` or from a test step. Thus the tests cost nothing in your program, and you do not need to move them before a release.
+
+## Give each test a name
+
+The name is a plain string. Thus, write a sentence:
+
+```zig
+test "parseInt rejects a trailing space" { ... }
+```
+
+When a test fails, the runner prints its name. `--test-filter` also uses the name. Thus a description of the behaviour is more useful than a label. When a test fails, its name tells you what broke. You do not have to open the file.
+
+## Read a failure
+
+A failed assertion prints the values. Then it prints a stack trace that shows the line. The stack trace is available because the default build mode for tests is Debug, with the safety checks on. The safety checks also let a test find an out-of-bounds index. A release build does not find that error.
+
+## These pages are the tests
+
+CI compiles and runs each snippet in this guide. The snippets with `test` blocks report through this same runner. When you press Run, you see the real output of `zig test`. The test runs in your browser as WebAssembly.
+
+The [testing](https://www.ziglang.in/learn/standard-library/testing/) chapter has more information. It shows the assertions that report the differences. It also shows how to make sure that the error paths release their resources.

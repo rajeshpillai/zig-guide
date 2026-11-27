@@ -1,0 +1,113 @@
+# Loops as Expressions
+
+> The else branch gives the value when no break runs.
+
+In Zig, `for` and `while` loops are expressions. Thus a search can return its result directly. You do not need a mutable `result` variable before the loop.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+fn firstIndexOf(haystack: []const u8, needle: u8) ?usize {
+    // The `else` branch runs only if the loop ends without a `break`. Thus
+    // you cannot forget the "not found" case.
+    return for (haystack, 0..) |c, i| {
+        if (c == needle) break i;
+    } else null;
+}
+
+test "for as an expression" {
+    try expect(firstIndexOf("hello", 'l').? == 2);
+    try expect(firstIndexOf("hello", 'z') == null);
+}
+
+test "while as an expression" {
+    var i: u32 = 0;
+    const result = while (i < 10) : (i += 1) {
+        if (i == 4) break i * 10;
+    } else 0;
+    try expect(result == 40);
+}
+
+test "the else branch runs when nothing breaks" {
+    var i: u32 = 0;
+    const result = while (i < 3) : (i += 1) {
+        if (i == 99) break @as(u32, 1);
+    } else @as(u32, 2);
+    try expect(result == 2);
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.loops-as-expressions`)*
+
+A loop can produce a value. `break x` gives `x`. If the loop ends and no `break` runs, the `else` branch gives the value.
+
+```zig
+return for (haystack, 0..) |c, i| {
+    if (c == needle) break i;
+} else null;
+```
+
+These lines are a complete linear search. The structure makes it impossible to forget the "not found" case: if you remove the `else`, the code does not compile.
+
+Compare the usual alternative:
+
+```zig
+var result: ?usize = null;
+for (haystack, 0..) |c, i| {
+    if (c == needle) { result = i; break; }
+}
+return result;
+```
+
+The behaviour is the same. But now `result` is mutable, and it lives longer than necessary. Also, nothing makes you initialise it correctly.
+
+## What `else` means on a loop
+
+The `else` of a loop is not the `else` of an `if`. It runs when the loop ends *normally*: the `for` has no more elements, or the `while` condition becomes false. A `break` skips the `else`.
+
+This rule makes the construct safe for searches. There are exactly two exits from the loop, and each exit produces a value.
+
+The third test in the snippet shows this rule. It has a `break` that can never run:
+
+```zig
+const result = while (i < 3) : (i += 1) {
+    if (i == 99) break @as(u32, 1);
+} else @as(u32, 2);
+```
+
+`i` never gets to 99, the condition becomes false, and `result` is 2.
+
+## The error when there is no `else`
+
+The error can confuse you, because it does not mention `else`. A loop without an `else` has no value when it ends normally. Thus its type is `void`:
+
+```
+error: expected type '?usize', found 'void'
+```
+
+The error points at the full `for` expression. Read it as "this loop does not always produce a value". To correct the error, add the `else`.
+
+Only a loop that cannot end normally does not need an `else`. `while (true)` has no condition that can become false. Thus `break` is the only exit, and the compiler knows this:
+
+```zig
+const v = while (true) : (i += 1) {
+    if (i == 3) break i;
+};
+```
+
+This code compiles, and `v` is `usize`. If you add an `else` to this loop, the `else` is dead code.
+
+## The two arms must have one type
+
+The `break` value and the `else` value are two arms of one expression. Thus they must resolve to one type. In the search above, the arms are `usize` and `null`. Together they become `?usize`, and that type is the return type of the function.
+
+When the arms are integer literals without a type, they are comptime-known. They coerce to the type that the code around them needs. When no type is available, you must give one. Thus the test writes `@as(u32, 1)` and `@as(u32, 2)`, not `1` and `2`. `const result = ...` gives the literals no target type for their size and signedness.
+
+If the arms really have different types, the error names the two types and points at the `break`. Because of this check, a search cannot return an index on one path and a boolean on a different path by accident.
+
+## When to use a loop as an expression
+
+Use the pattern when the loop answers exactly one question. For example: find a value, count until a condition, or decide if any element is acceptable. The value comes out at the place where the loop decides it. The compiler makes you handle the two results.
+
+The pattern does not help when a loop has five `break` statements with five different meanings. Nothing prevents that code, but the result is more difficult to understand than an explicit variable. The reader must find each `break` to know the possible values of the expression. Use the pattern for one or two exits.

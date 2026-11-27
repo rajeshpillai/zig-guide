@@ -1,0 +1,118 @@
+# Imports
+
+> Files are structs, and pub controls the boundary.
+
+In Zig, each file is a struct. `pub` marks the declarations that other files can see. A declaration without `pub` is private to its file.
+
+```zig
+const std = @import("std");
+const expect = std.testing.expect;
+
+// A relative path imports another source file. The result is a struct type.
+// The declarations of that type are the `pub` declarations of the file.
+const shapes = @import("_shapes.zig");
+
+test "use an imported declaration" {
+    try expect(shapes.double(21) == 42);
+}
+
+test "imported types work like any other" {
+    const c = shapes.Circle{ .radius = 2 };
+    try expect(c.area() > 12.5 and c.area() < 12.6);
+}
+
+test "a file is a struct" {
+    // `@This()` inside a file refers to the implicit struct type of the file.
+    // Thus `@import` returns a value that you can use with `.`.
+    try expect(@TypeOf(shapes) == type);
+    try expect(shapes.pi > 3.14);
+}
+
+test "std is just another import" {
+    // `@import("std")` uses the same mechanism. The compiler resolves the
+    // name itself, and does not use a path.
+    try expect(std.mem.eql(u8, "a", "a"));
+}
+```
+
+*Runnable: compiled to WebAssembly and executed by CI against Zig master. (`02-language.imports`)*
+
+`@import` takes a path and returns that file **as a struct type**:
+
+```zig
+const shapes = @import("_shapes.zig");
+shapes.Circle{ .radius = 2 };
+```
+
+Zig has no separate module system to learn. `@import` evaluates the file. Then you get its declarations with `.`, the same as for any other struct.
+
+The result is a value, thus you select the name for it. `const s = @import("std")` works exactly as well as `const std = @import("std")`.
+
+If you import the same file two times, you get the same type two times. Thus you get no problem with duplicate definitions, and you need no include guard.
+
+## `pub` is the boundary
+
+Only `pub` declarations are visible to the files that import a file:
+
+```zig
+pub const pi = 3.14159;   // visible
+const secret = 42;        // not
+```
+
+Zig needs nothing more for visibility. Zig has no `private` keyword, no header files and no export lists.
+
+To give a type a private implementation, put the type in its own file. To let two files see the internals of each other, merge the two files.
+
+## A file can be the type
+
+A file is a struct. Thus, if a file declares fields at the top level, the file *is* that struct. When you import the file, you get the type directly:
+
+```zig
+// Point.zig
+x: f32,
+y: f32,
+
+pub fn magnitude(self: @This()) f32 { ... }
+```
+
+```zig
+const Point = @import("Point.zig");
+const p: Point = .{ .x = 3, .y = 4 };
+```
+
+This convention is the reason for the capitalised filenames in the standard library. `std.Io.Writer` is in `Writer.zig`, and the file has no wrapper declaration around it.
+
+A lowercase filename means a namespace with many declarations. A capitalised filename means that the file is a single type. When you know this convention, the layout of the standard library is much easier to read.
+
+## `@import("std")` is not special
+
+The standard library uses the same mechanism. The compiler resolves the name `std` itself, and does not use it as a path. Package dependencies that `build.zig.zon` declares work the same way. You import them by their package name.
+
+If the build declares a module with a name, the name resolves as that module. If not, the name resolves as a file path. Thus `@import("foo")` and `@import("foo.zig")` are different questions:
+
+- `@import("foo")` asks the build system.
+- `@import("foo.zig")` asks the filesystem, relative to the file that contains the import.
+
+To add a dependency, change `build.zig` and `build.zig.zon`. Never change an include path.
+
+Two more names are always available:
+
+- `@import("root")` is the file at the root of the compilation. Library code uses it to get a configuration constant that the application declared.
+- `@import("builtin")` is a file that the compiler generates. It describes the build: the target, the optimisation mode and the Zig version.
+
+You did not write either of these two files.
+
+## Import cycles
+
+Two files can import each other. Zig resolves declarations lazily, thus this works. Zig does not accept a real cycle in *values*. For example, the initialiser of a `const` in A needs a `const` in B. The initialiser of that `const` in B needs the `const` in A.
+
+Most cycles are types that refer to each other, and those cycles are correct. A `Node` in one file can hold a `?*Tree` from another file, and the `Tree` can hold `[]Node`. Zig resolves these types without an error, because the size of a pointer does not depend on the type that it points to.
+
+A cycle is a problem only when the compiler cannot calculate a value without that same value. Then the error gives the loop.
+
+## Import data, not code
+
+`@embedFile("table.bin")` reads a file at compile time. It gives you a `*const
+[N:0]u8`: a pointer to the contents, with a zero byte after the last byte.
+
+Use it for a lookup table, a small template or a test fixture. Then the program can never fail because the data file is not next to the binary. Do not use it for large data, because the bytes go into the binary.

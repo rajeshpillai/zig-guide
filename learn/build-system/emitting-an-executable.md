@@ -1,0 +1,100 @@
+# Emit an Executable
+
+> How to build without a build.zig.
+
+For a single file, you do not need a build script:
+
+```bash
+zig build-exe main.zig          # an executable
+zig build-lib  main.zig         # a static library
+zig build-obj  main.zig         # an object file
+zig run        main.zig         # build and run in one step
+zig test       main.zig         # build and run its tests
+```
+
+## Useful flags
+
+| Flag | Effect |
+| --- | --- |
+| `-O<Mode>` | optimisation mode |
+| `-target <triple>` | cross-compile |
+| `--name <n>` | output name |
+| `-femit-bin=<path>` | where to write the binary |
+| `-fstrip` | drop debug info |
+| `-fsingle-threaded` | assume no threads |
+
+## You will use `zig run` most
+
+The only difference between `run` and `build-exe` is the location of the binary:
+
+```
+zig run foo.zig
+      │
+      ├── compile
+      ├── binary into the cache
+      └── execute it
+
+zig build-exe foo.zig
+      │
+      └── compile
+             │
+             ▼
+           ./foo
+```
+
+`build-exe` puts an artifact in your working directory. You can then run the artifact, ship it or link it.
+
+`run` puts the same artifact in the cache and runs it immediately. Thus there is nothing to delete after the run, and nothing to add to `.gitignore`.
+
+For a program of a few hundred lines or fewer, `zig run main.zig` is sufficient, and there is no build step to remember. Put the arguments for the program after `--`:
+
+```bash
+zig run main.zig -- --verbose input.txt
+```
+
+The cache is content-addressed. If nothing changed, a second `zig run` does not compile again. Thus `zig run` is fast enough to use as a script interpreter. You can work on a tool in a single file this way for a long time.
+
+`zig test` works in the same way, and it does not need a `main`. For Zig, a file that contains only `test` blocks is a complete program that can run.
+
+## The output of each command
+
+- `build-exe` makes a file that the OS can run. Thus it needs an entry point, and it links.
+- `build-lib` makes a `.a` file (or a `.lib` file) that other code links. With `-dynamic`, it makes a shared library.
+- `build-obj` stops before the link and gives you a single object file. Use it when Zig is one part of a build that a different tool controls.
+
+`build-obj` is an easy way to add Zig to a codebase that you already have. Compile one module with `build-obj`. Then link the object file into a C or C++ project, the same as all other object files. Nothing else in the project must change.
+
+## Build for WebAssembly
+
+Most snippets on this site build with this target and this mode:
+
+```bash
+zig build-exe main.zig -target wasm32-wasi -OReleaseSmall
+```
+
+For a freestanding wasm module without WASI, use `-target wasm32-freestanding`. The browser-canvas example is this type of module. Add `-fno-entry` and give each export explicitly:
+
+```bash
+zig build-exe main.zig -target wasm32-freestanding \
+  -OReleaseSmall -fno-entry --export=add
+```
+
+The two targets are different in what the module expects from the host:
+
+- `wasm32-wasi` expects an interface like a filesystem, and a `main`.
+- `wasm32-freestanding` expects nothing. Thus there is no entry point to call. Instead, you give the names of the functions that the host can call.
+
+`-OReleaseSmall` is very important here, because the browser downloads the artifact before it runs.
+
+## When to change to `build.zig`
+
+Move to a build script when you have one of these:
+
+- more than one artifact
+- dependencies
+- generated files
+- a named test step
+
+Then `zig build --help` shows the steps and options that the script defines.
+
+Usually, the change is necessary at the second target or at the first dependency. While one command line builds the program, the command line is simpler than a script. When you start to keep a note of the flags, that note must become `build.zig`.
